@@ -57,4 +57,4 @@ class AproposDBLogger(object):
                                   language, referrer, query_time)
 
     def get_connection(self):
-        return sqlite3.connect(config.apropos_wsgi_db_path)
+        return sqlite3.connect(config.APROPOS_WEB_DB_PATH)
