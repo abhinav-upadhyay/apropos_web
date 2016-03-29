@@ -7,7 +7,7 @@ from flask import request
 from flask import Response
 from flask import stream_with_context
 import requests
-from lrupy import LRUCache
+from lrupy.lrupy import LRUCache
 from . import apropos_db_logger
 from . import logger
 
