@@ -1,4 +1,4 @@
 #!/usr/bin/env python
 
-MAN_DB_PATH = '/var/db/man.db'
-APROPOS_WEB_DB_PATH = '/var/db/apropos_web.db'
+MAN_DB_PATH = '/var/man.db'
+APROPOS_WEB_DB_PATH = '/var/apropos_web.db'
