@@ -1,0 +1,152 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+PCI_CONFIGURE_BUS(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PCI_CONFIGURE_BUS(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+PCI_CONFIGURE_BUS(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">pci_configure_bus</b>, <b class="name">pci_conf_hook</b>, <b class="name">pci_conf_interrupt</b> &#8212; <span class="desc">perform PCI bus configuration</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">dev/pci/pciconf.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">pci_configure_bus</b>(<i class="farg">pci_chipset_tag_t pc</i>, <i class="farg">struct extent *ioext</i>, <i class="farg">struct extent *memext</i>, <i class="farg">struct extent *pmemext</i>, <i class="farg">int firstbus</i>, <i class="farg">int cacheline_size</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="fname">pci_configure_bus</b>() function configures a PCI bus for use. This involves:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 1.00em;">
+Defining bus numbers for all busses on the system,</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+Setting the Base Address Registers for all devices,</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+Setting up the interrupt line register for all devices,</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+Configuring bus latency timers for all devices, and</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+Configuring cacheline sizes for all devices.</li>
+</ul>
+<p>
+In traditional PCs and Alpha systems, the BIOS or firmware takes care of this task, but that is not the case for all systems. <b class="fname">pci_configure_bus</b>() should be called prior to the autoconfiguration of the bus.<p>
+The <i class="farg">pc</i> argument is a machine-dependent tag used to specify the PCI chipset to the system. This should be the same value used with <b class="fname">pci_make_tag</b>(). The extent arguments define memory extents from which the address space for the cards will be taken. These addresses should be in the PCI address space. The <i class="farg">ioext</i> extent is for PCI I/O accesses. The <i class="farg">memext</i> extent is for PCI memory accesses that might have side effects. I.e., that can not be cached. The <i class="farg">pmemext</i> extent is for PCI memory accesses that can be cached. The <i class="farg">pmemext</i> extent will be used for any ROMs and any memory regions that are marked as &#8220;prefetchable&#8221; in their BAR. If an implementation does not distinguish between prefetchable and non-prefetchable memory, it may pass NULL for <i class="farg">pmemext</i>. In this case, prefetchable memory allocations will be made from the non-prefetchable region. The <i class="farg">firstbus</i> argument indicates the number of the first bus to be configured. The <i class="farg">cacheline_size</i> argument is used to configure the PCI Cache Line Size Register; it should be the size, in bytes, of the largest D-cache line on the system.<p>
+An implementation may choose to not have full configuration performed by <b class="fname">pci_configure_bus</b>() on certain PCI devices, such as PCI host bridges or PCI bus analyzers which are instantiated as devices on the bus. In order for this to take place, the header <b class="includes">&lt;<a class="link-includes">machine/pci_machdep.h</a>&gt;</b> must define the <span class="define">__HAVE_PCI_CONF_HOOK</span> symbol (without a value), and a machine-dependent function <b class="fname">pci_conf_hook</b>() (declared in the same header) must be defined. The prototype for this function is<p>
+<i class="ftype">int</i> <b class="fname">pci_conf_hook</b>(<i class="farg">pci_chipset_tag_t pc</i>, <i class="farg">int bus</i>, <i class="farg">int device</i>, <i class="farg">int function</i>, <i class="farg">pcireg_t id</i>)<p>
+In this function, <i class="farg">bus</i>, <i class="farg">device</i>, and <i class="farg">function</i> uniquely identify the item being configured; in addition to this, the value of the device's PCI identification register is passed in <i class="farg">id</i>. For each device <b class="fname">pci_conf_hook</b>() can then decide upon the amount of configuration to be performed by returning a bitwise inclusive-or of the following flags:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PCI_CONF_MAP_IO</span></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Configure Base Address Registers that map I/O space</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PCI_CONF_MAP_MEM</span></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Configure Base Address Registers that map memory space</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PCI_CONF_MAP_ROM</span></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Configure Expansion ROM Base Address register</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PCI_CONF_ENABLE_IO</span></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Enable I/O space accesses</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PCI_CONF_ENABLE_MEM</span></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Enable memory space accesses</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PCI_CONF_ENABLE_BM</span></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Enable bus mastering</dd>
+</dl>
+<p>
+In addition, <span class="define">PCI_CONF_ALL</span> specifies all of the above.<p>
+One of the functions of <b class="fname">pci_configure_bus</b>() is to configure interrupt &#8220;line&#8221; information. This must be done on a machine-dependent basis, so a machine-dependent function <b class="fname">pci_conf_interrupt</b>() must be defined. The prototype for this function is<p>
+<i class="ftype">void</i> <b class="fname">pci_conf_interrupt</b>(<i class="farg">pci_chipset_tag_t pc</i>, <i class="farg">int bus</i>, <i class="farg">int device</i>, <i class="farg">int pin</i>, <i class="farg">int swiz</i>, <i class="farg">int *iline</i>)<p>
+In this function, <i class="farg">bus</i>, <i class="farg">device</i>, and <i class="farg">pin</i>, uniquely identify the item being configured. The <i class="farg">swiz</i> argument is a &#8220;swizzle&#8221;, a sum of the device numbers of the primary interface of the bridges between the host bridge and the current device. The function is responsible for setting the value of <i class="farg">iline</i>. See chapter 9 of the &#8220;PCI-to-PCI Bridge Architecture Specification&#8221; for more information on swizzling (also known as interrupt routing).</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> If successful <b class="fname">pci_configure_bus</b>() returns 0. A non-zero return value means that the bus was not completely configured for some reason. A description of the failure will be displayed on the console.</div>
+<div class="section">
+<h1 id="x454e5649524f4e4d454e54">ENVIRONMENT</h1> The <b class="fname">pci_configure_bus</b>() function is only included in the kernel if the kernel is compiled with the <span class="define">PCI_NETBSD_CONFIGURE</span> option enabled.</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> The <b class="fname">pci_conf_hook</b>() function in evbppc's walnut implementation looks like:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+int 
+pci_conf_hook(pci_chipset_tag_t pc, int bus, int dev, int func, 
+    pcireg_t id) 
+{ 
+ 
+	if ((PCI_VENDOR(id) == PCI_VENDOR_IBM &amp;&amp; 
+	     PCI_PRODUCT(id) == PCI_PRODUCT_IBM_405GP) || 
+	    (PCI_VENDOR(id) == PCI_VENDOR_INTEL &amp;&amp; 
+	     PCI_PRODUCT(id) == PCI_PRODUCT_INTEL_80960_RP)) { 
+		/* Don't configure the bridge and PCI probe. */ 
+		return 0; 
+	} 
+	return (PCI_CONF_ALL &amp; ~PCI_CONF_MAP_ROM); 
+}</pre>
+<p>
+The <b class="fname">pci_conf_interrupt</b>() function in the sandpoint implementation looks like:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+void 
+pci_conf_interrupt(pci_chipset_tag_t pc, int bus, int dev, int pin, 
+    int swiz, int *iline) 
+{ 
+	if (bus == 0) { 
+		*iline = dev; 
+	} else { 
+		*iline = 13 + ((swiz + dev + 3) &amp; 3); 
+	} 
+}</pre>
+<p>
+The BeBox has nearly 1GB of PCI I/O memory starting at processor address 0x81000000 (PCI I/O address 0x01000000), and nearly 1GB of PCI memory starting at 0xC0000000 (PCI memory address 0x00000000). The <b class="fname">pci_configure_bus</b>() function might be called as follows:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+	struct extent *ioext, *memext; 
+	... 
+	ioext  = extent_create("pciio",  0x01000000, 0x0fffffff, 
+	    NULL, 0, EX_NOWAIT); 
+	memext = extent_create("pcimem", 0x00000000, 0x0fffffff, 
+	    NULL, 0, EX_NOWAIT); 
+	... 
+	pci_configure_bus(0, ioext, memext, NULL); 
+	... 
+	extent_destroy(ioext); 
+	extent_destroy(memext); 
+	...</pre>
+<p>
+Note that this must be called before the PCI bus is attached during autoconfiguration.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../4/pci">pci(4)</a>, <a class="link-man" href="../9/extent">extent(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> <b class="fname">pci_configure_bus</b>() was added in <span class="unix">NetBSD&#160;1.6</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+February 21, 2006</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+SCRIPT(7)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SCRIPT(7)</td>
+<td class="head-vol" align="center">
+Miscellaneous Information Manual</td>
+<td class="head-rtitle" align="right">
+SCRIPT(7)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">script</b> &#8212; <span class="desc">interpreter script execution</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The system is capable of treating a text file containing commands intended for an interpreter, such as <a class="link-man" href="../1/sh">sh(1)</a> or <a class="link-man" href="../1/awk">awk(1)</a>, as an executable program.<p>
+An &#8220;interpreter script&#8221; is a file which has been set executable (see <a class="link-man" href="../2/chmod">chmod(2)</a>) and which has a first line of the form:<p>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">#!</code> <i class="arg">pathname</i> &#91;<span class="opt"><i class="arg">argument</i></span>&#93;</div>
+</blockquote>
+<p>
+The &#8220;#!&#8221; must appear as the first two characters of the file. A space between the &#8220;#!&#8221; and <i class="arg">pathname</i> is optional. At most one <i class="arg">argument</i> may follow <i class="arg">pathname</i>, and the length of the entire line is limited (see below).<p>
+If such a file is executed (such as via the <a class="link-man" href="../2/execve">execve(2)</a> system call), the interpreter specified by the <i class="arg">pathname</i> is executed by the system. (The <i class="arg">pathname</i> is executed without regard to the <span class="env">PATH</span> variable, so in general <i class="arg">pathname</i> should be an absolute path.)<p>
+The arguments passed to the interpreter will be as follows. <b class="var">argv[0]</b> will be the path to the interpreter itself, as specified on the first line of the script. If there is an <i class="arg">argument</i> following <i class="arg">pathname</i> on the first line of the script, it will be passed as <b class="var">argv[1]</b>. The subsequent elements of <b class="var">argv</b> will be the path to the interpreter script file itself (i.e. the original <b class="var">argv[0]</b>) followed by any further arguments passed when <a class="link-man" href="../2/execve">execve(2)</a> was invoked to execute the script file.<p>
+By convention, it is expected that an interpreter will open the script file passed as an argument and process the commands within it. Typical interpreters treat &#8216;#&#8217; as a comment character, and thus will ignore the initial line of the script because it begins &#8220;#!&#8221;, but there is no requirement for this per se.<p>
+On <span class="unix">NetBSD</span>, the length of the &#8220;#!&#8221; line, excluding the &#8220;#!&#8221; itself, is limited to <span class="define">PATH_MAX</span> (as defined in <b class="includes">&lt;<a class="link-includes">limits.h</a>&gt;</b>). Other operating systems impose much smaller limits on the length of the &#8220;#!&#8221; line (see below).<p>
+Note that the interpreter may not itself be an interpreter script. If <i class="arg">pathname</i> does not point to an executable binary, execution of the interpreter script will fail.<div class="subsection">
+<h2 id="x5472616d706f6c696e657320616e6420506f727461626c652053637269707473">Trampolines and Portable Scripts</h2> Different operating systems often have interpreters located in different locations, and the kernel executes the passed interpreter without regard to the setting of environment variables such as <span class="env">PATH</span>. This makes it somewhat challenging to set the &#8220;#!&#8221; line of a script so that it will run identically on different systems.<p>
+Since the <a class="link-man" href="../1/env">env(1)</a> utility executes a command passed to it on its command line, it is often used as a &#8220;trampoline&#8221; to render scripts portable. If the leading line of a script reads<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">#! /usr/bin/env interp</code></div>
+</blockquote>
+then the <a class="link-man" href="../1/env">env(1)</a> command will execute the &#8220;interp&#8221; command it finds in its <span class="env">PATH</span>, passing on to it all subsequent arguments with which it itself was called. Since <i class="file">/usr/bin/env</i> is found on almost all POSIX style systems, this trick is frequently exploited by authors who need a script to execute without change on multiple systems.</div>
+<div class="subsection">
+<h2>Historical Note: Scripts without &#8220;#!&#8221;</h2> Shell scripts predate the invention of the &#8220;#!&#8221; convention, which is implemented in the kernel. In the days of Version&#160;7 AT&amp;T UNIX, there was only one interpreter used on the system, <i class="file">/bin/sh</i>, and the shell treated any file that failed to execute with an <span class="errno">ENOEXEC</span> error (see <a class="link-man" href="../2/intro">intro(2)</a>) as a shell script.<p>
+Most shells (such as <a class="link-man" href="../1/sh">sh(1)</a>) and certain other facilities (including <a class="link-man" href="../3/execlp">execlp(3)</a> and <a class="link-man" href="../3/execvp">execvp(3)</a> but not other types of <a class="link-man" href="../3/exec">exec(3)</a> calls) still pass interpreter scripts that do not include the &#8220;#!&#8221; (and thus fail to execute with <span class="errno">ENOEXEC</span>) to <i class="file">/bin/sh</i>.<p>
+As this behavior is implemented outside the kernel, there is no mechanism that forces it to be respected by all programs that execute other programs. It is thus not completely reliable. It is therefore important to always include<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">#!/bin/sh</code></div>
+</blockquote>
+in front of Bourne shell scripts, and to treat the traditional behavior as obsolete.</div>
+</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> Suppose that an executable binary exists in <i class="file">/bin/interp</i> and that the file <i class="file">/tmp/script</i> contains:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+#!/bin/interp -arg 
+ 
+[...]</pre>
+<p>
+and that <i class="file">/tmp/script</i> is set mode 755.<p>
+Executing<p>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">$ /tmp/script one two three</code></div>
+</blockquote>
+<p>
+at the shell will result in <i class="file">/bin/interp</i> being executed, receiving the following arguments in <b class="var">argv</b> (numbered from 0):<p>
+<div style="margin-left: 5.00ex;" class="display">
+&#8220;/bin/interp&#8221;, &#8220;-arg&#8221;, &#8220;/tmp/script&#8221;, &#8220;one&#8221;, &#8220;two&#8221;, &#8220;three&#8221;</div>
+<div class="subsection">
+<h2 id="x506f72746162696c697479204e6f74653a204d756c7469706c6520617267756d656e7473">Portability Note: Multiple arguments</h2> The behavior of multiple arguments on the &#8220;#!&#8221; line is highly non-portable between different systems. In general, only one argument can be assumed to work consistently.<p>
+Consider the following variation on the previous example. Suppose that an executable binary exists in <i class="file">/bin/interp</i> and that the file <i class="file">/tmp/script</i> contains:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+#!/bin/interp -x -y 
+ 
+[...]</pre>
+<p>
+and that <i class="file">/tmp/script</i> is set mode 755.<p>
+Executing<p>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">$ /tmp/script one two three</code></div>
+</blockquote>
+<p>
+at the shell will result in <i class="file">/bin/interp</i> being executed, receiving the following arguments in <b class="var">argv</b> (numbered from 0):<p>
+<div style="margin-left: 5.00ex;" class="display">
+&#8220;/bin/interp&#8221;, &#8220;-x -y&#8221;, &#8220;/tmp/script&#8221;, &#8220;one&#8221;, &#8220;two&#8221;, &#8220;three&#8221;</div>
+<p>
+Note that &#8220;-x -y&#8221; will be passed on <span class="unix">NetBSD</span> as a single argument.<p>
+Although most POSIX style operating systems will pass only one <i class="arg">argument</i>, the behavior when multiple arguments are included is not consistent between platforms. Some, such as current releases of <span class="unix">NetBSD</span>, will concatenate multiple arguments into a single argument (as above), some will truncate them, and at least one will pass them as multiple arguments.<p>
+The <span class="unix">NetBSD</span> behavior is common but not universal. Sun's Solaris would present the above argument as &#8220;-x&#8221;, dropping the &#8220; -y&#8221; entirely. Perhaps uniquely, recent versions of Apple's OS X will actually pass multiple arguments properly, i.e.:<p>
+<div style="margin-left: 5.00ex;" class="display">
+&#8220;/bin/interp&#8221;, &#8220;-x&#8221;, &#8220;-y&#8221;, &#8220;/tmp/script&#8221;, &#8220;one&#8221;, &#8220;two&#8221;, &#8220;three&#8221;</div>
+<p>
+The behavior of the system in the face of multiple arguments is thus not currently standardized, should not be relied on, and may be changed in future releases. In general, pass at most one argument, and do not rely on multiple arguments being concatenated.</div>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/awk">awk(1)</a>, <a class="link-man" href="../1/csh">csh(1)</a>, <a class="link-man" href="../1/ksh">ksh(1)</a>, <a class="link-man" href="../1/sh">sh(1)</a>, <a class="link-man" href="../2/chmod">chmod(2)</a>, <a class="link-man" href="../2/execve">execve(2)</a>, <a class="link-man" href="../2/intro">intro(2)</a>, <a class="link-man" href="../3/execlp">execlp(3)</a>, <a class="link-man" href="../3/execvp">execvp(3)</a>, <a class="link-man" href="../4/fd">fd(4)</a>, <a class="link-man" href="../4/options">options(4)</a>, <a class="link-man" href="../7/setuid">setuid(7)</a></div>
+<div class="section">
+<h1 id="x5354414e4441524453">STANDARDS</h1> The behavior of interpreter scripts is obliquely referred to, but never actually described in, IEEE Std 1003.1-2004 (&#8220;POSIX.1&#8221;).<p>
+The behavior is partially (but not completely) described in the System&#160;V Interface Definition, Fourth Edition (&#8220;SVID4&#8221;).<p>
+Although it has never been formally standardized, the behavior described is largely portable across POSIX style systems, with two significant exceptions: the maximum length of the &#8220;#!&#8221; line, and the behavior if multiple arguments are passed. Please be aware that some operating systems limit the line to 32 or 64 characters, and that (as described above) the behavior in the face of multiple arguments is not consistent across systems.</div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The behavior of the kernel when encountering scripts that start in &#8220;#!&#8221; was not present in Version&#160;7 AT&amp;T UNIX. A Usenet posting to net.unix by Guy Harris on October 16, 1984 claims that the idea for the &#8220;#!&#8221; behavior was first proposed by Dennis Ritchie but that the first implementation was on <span class="unix">BSD</span>.<p>
+Historical manuals (specifically the exec man page) indicate that the behavior was present in <span class="unix">4BSD</span> at least as early as April, 1981. Information on precisely when it was first implemented, and in which version of <span class="unix">UNIX</span>, is solicited.</div>
+<div class="section">
+<h1 id="x534543555249545920434f4e53494445524154494f4e53">SECURITY CONSIDERATIONS</h1> Numerous security problems are associated with setuid interpreter scripts.<p>
+In addition to the fact that many interpreters (and scripts) are simply not designed to be robust in a setuid context, a race condition exists between the moment that the kernel examines the interpreter script file and the moment that the newly invoked interpreter opens the file itself.<p>
+Because of these security issues, <span class="unix">NetBSD</span> does not allow setuid interpreter scripts by default. In order to turn on setuid interpreter scripts,<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<b class="config">options SETUIDSCRIPTS</b></div>
+</blockquote>
+must be set in the configuration of the running kernel. Setting this option implies the <b class="config">FDSCRIPTS</b> option, which causes the kernel to open the script file on behalf of the interpreter and pass it in <b class="var">argv</b> as <i class="file">/dev/fd/[fdnum]</i>. (See <a class="link-man" href="../4/fd">fd(4)</a> for an explanation of the <i class="file">/dev/fd/[fdnum]</i> devices.) This design avoids the race condition, at the cost of denying the interpreter the actual name of the script file. See <a class="link-man" href="../4/options">options(4)</a> for more information.<p>
+However, the <b class="config">FDSCRIPTS</b> mechanism is not a cure-all for security issues in setuid interpreters and scripts. Subtle techniques can be used to subvert even seemingly well written scripts. Scripts executed by Bourne type shells can be subverted in numerous ways, such as by setting the <span class="env">IFS</span> variable before executing the script. Other interpreters possess their own vulnerabilities. Turning on <b class="config">SETUIDSCRIPTS</b> is therefore very dangerous, and should not be done lightly if at all.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+May 6, 2005</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

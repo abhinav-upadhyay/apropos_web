@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+NAMECACHE(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+NAMECACHE(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+NAMECACHE(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">namecache</b>, <b class="name">cache_lookup</b>, <b class="name">cache_revlookup</b>, <b class="name">cache_enter</b>, <b class="name">cache_purge</b>, <b class="name">cache_purgevfs</b>, <b class="name">namecache_print</b> &#8212; <span class="desc">name lookup cache</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/namei.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/proc.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/uio.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/vnode.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">cache_lookup</b>(<i class="farg" style="white-space:nowrap;">struct vnode *dvp</i>, <i class="farg" style="white-space:nowrap;">const char *name</i>, <i class="farg" style="white-space:nowrap;">size_t namelen</i>, <i class="farg" style="white-space:nowrap;">uint32_t nameiop</i>, <i class="farg" style="white-space:nowrap;">uint32_t nameiflags</i>, <i class="farg" style="white-space:nowrap;">int *iswhiteout</i>, <i class="farg" style="white-space:nowrap;">struct vnode **vpp</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">cache_revlookup</b>(<i class="farg" style="white-space:nowrap;">struct vnode *vp</i>, <i class="farg" style="white-space:nowrap;">struct vnode *dvp</i>, <i class="farg" style="white-space:nowrap;">char **bpp</i>, <i class="farg" style="white-space:nowrap;">char *bufp</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">cache_enter</b>(<i class="farg" style="white-space:nowrap;">struct vnode *dvp</i>, <i class="farg" style="white-space:nowrap;">struct vnode *vp</i>, <i class="farg" style="white-space:nowrap;">const char *name</i>, <i class="farg" style="white-space:nowrap;">size_t namelen</i>, <i class="farg" style="white-space:nowrap;">uint32_t nameiflags</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">cache_purge</b>(<i class="farg" style="white-space:nowrap;">struct vnode *vp</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">cache_purgevfs</b>(<i class="farg" style="white-space:nowrap;">struct mount *mp</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">namecache_print</b>(<i class="farg" style="white-space:nowrap;">struct vnode *vp</i>, <i class="farg" style="white-space:nowrap;">void (*func)(const char *, ...)</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The name lookup cache is the mechanism to allow the file system type dependent algorithms to quickly resolve a file's vnode from its pathname. The name lookup cache is generally accessed through the higher-level <a class="link-man" href="../9/namei">namei(9)</a> interface.<p>
+The name of the file is used to look up an entry associated with the file in the name lookup cache. If no entry is found, one is created for it. If an entry is found, the information obtained from the cache lookup contains information about the file which is useful to the file system type dependent functions.<p>
+The name lookup cache is managed by a least recently used (LRU) algorithm so frequently used names will hang around. The cache itself is a hash table called <b class="var">nchashtbl</b>, containing <span class="emph">namecache</span> entries that are allocated dynamically from a kernel memory pool. Each entry has the following structure:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define NCHNAMLEN	31	/* maximum name segment length */ 
+struct  namecache { 
+        LIST_ENTRY(namecache) nc_hash;  /* hash chain */ 
+        TAILQ_ENTRY(namecache) nc_lru;  /* LRU chain */ 
+        LIST_ENTRY(namecache) nc_vhash; /* directory hash chain */ 
+        LIST_ENTRY(namecache) nc_dvlist; 
+        struct  vnode *nc_dvp;          /* vnode of parent of name */ 
+        LIST_ENTRY(namecache) nc_vlist; 
+        struct  vnode *nc_vp;           /* vnode the name refers to */ 
+        int     nc_flags;               /* copy of componentname's ISWHITEOUT */ 
+        char    nc_nlen;                /* length of name */ 
+        char    nc_name[NCHNAMLEN];     /* segment name */ 
+};</pre>
+<p>
+For simplicity (and economy of storage), names longer than a maximum length of NCHNAMLEN are not cached; they occur infrequently in any case, and are almost never of interest.<p>
+Each <span class="emph">namecache</span> entry can appear on two hash chains in addition to <b class="var">nshashtbl</b>: <span class="emph">ncvhashtbl</span> (the name cache directory hash chain), and <span class="emph">nclruhead</span> (the name cache LRU chain). The hash chains are indexed by a hash value obtained from the file's name and the address of its parent directory vnode.<p>
+Functions which access to the name cache pass arguments in the partially initialised <span class="emph">componentname</span> structure. See <a class="link-man" href="../9/vnodeops">vnodeops(9)</a> for details on this structure.</div>
+<div class="section">
+<h1 id="x46554e4354494f4e53">FUNCTIONS</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">cache_lookup</b>(<i class="farg">dvp</i>, <i class="farg">name</i>, <i class="farg">namelen</i>, <i class="farg">nameiop</i>, <i class="farg">nameiflags</i>, <i class="farg">iswhiteout</i>, <i class="farg">vpp</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Look for a name in the cache. <b class="fname">cache_lookup</b>() is called with <i class="farg">dvp</i> pointing to the vnode of the directory to search. The <i class="farg">name</i> and <i class="farg">namelen</i> arguments specify the name to look for. The <i class="farg">nameiop</i> and <i class="farg">nameiflags</i> should be taken from the <i class="farg">cn_nameiop</i> and <i class="farg">cn_flags</i> fields of struct componentname.<p>
+The lookup can produce either a cache miss or a cache hit, and a cache hit can either be a positive hit, where the name looked up refers to some existing object, or a negative hit, where the name looked up is known to refer to <span class="emph">no</span> existing object. (The lookup cannot fail, in the sense of generating an error condition that requires aborting the operation in progress.)<p>
+On a cache miss, <b class="fname">cache_lookup</b>() returns zero (false). On a positive hit, the unlocked vnode for the object found is stored in <i class="farg">vpp</i>, and a nonzero (true) value is returned. On a negative hit, <i class="farg">vpp</i> is set to contain a null pointer and a nonzero value is returned. Usually a negative hit will prompt the caller to fail with <span class="errno">ENOENT</span>.<p>
+The <i class="farg">iswhiteout</i> argument is a pointer to an integer result that will be set to nonzero if the entry represents a whiteout, and zero if it does not. This pointer may be <span class="define">NULL</span> if the caller does not support whiteouts. According to the current scheme for handling whiteouts, if <b class="fname">cache_lookup</b>() sets <i class="farg">iswhiteout</i> the caller should add <span class="define">ISWHITEOUT</span> to the <i class="farg">cn_flags</i> field of its struct componentname.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">cache_revlookup</b>(<i class="farg">vp</i>, <i class="farg">dvp</i>, <i class="farg">bpp</i>, <i class="farg">bufp</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Scan cache looking for name of directory entry pointing at <i class="farg">vp</i> and fill in <i class="farg">dvpp</i>. If <i class="farg">bufp</i> is non-<span class="define">NULL</span>, also place the name in the buffer which starts at <i class="farg">bufp</i>, immediately before <i class="farg">bpp</i>, and move bpp backwards to point at the start of it. If the lookup succeeds, the vnode is referenced. Returns 0 on success, -1 on cache miss, positive errno on failure.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">cache_enter</b>(<i class="farg">dvp</i>, <i class="farg">vp</i>, <i class="farg">name</i>, <i class="farg">namelen</i>, <i class="farg">nameiflags</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Add an entry to the cache. The <i class="farg">name</i> and <i class="farg">namelen</i> arguments specify the name to add to the cache. The <i class="farg">dvp</i> argument specifies the directory the name appears in. The <i class="farg">vp</i> argument specifies the object to enter in the cache. The <i class="farg">nameiflags</i> argument should come from the <i class="farg">cn_flags</i> member of struct componentname.<p>
+If <i class="farg">vp</i> is <span class="define">NULL</span>, a negative cache entry is created, specifying that the entry does not exist in the file system.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">cache_purge</b>(<i class="farg">vp</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Flush the cache of a particular vnode <i class="farg">vp</i>. <b class="fname">cache_purge</b>() is called when a vnode is renamed to hide entries that would now be invalid.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">cache_purgevfs</b>(<i class="farg">mp</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Flush cache of a whole file system <i class="farg">mp</i>. <b class="fname">cache_purgevfs</b>() is called when file system is unmounted to remove entries that would now be invalid.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">namecache_print</b>(<i class="farg">vp</i>, <i class="farg">func</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Print all entries of the name cache. <i class="farg">func</i> is the <a class="link-man" href="../9/printf">printf(9)</a> format. <b class="fname">namecache_print</b>() is only defined if the kernel option DDB is compiled into the kernel.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x434f4445205245464552454e434553">CODE REFERENCES</h1> The name lookup cache is implemented within the file <i class="file">sys/kern/vfs_cache.c</i>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../9/intro">intro(9)</a>, <a class="link-man" href="../9/namei">namei(9)</a>, <a class="link-man" href="../9/vfs">vfs(9)</a>, <a class="link-man" href="../9/vnode">vnode(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The name lookup cache first appeared in <span class="unix">4.2BSD</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> The original name lookup cache was written by <span class="author">Robert Elz</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+February 7, 2014</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

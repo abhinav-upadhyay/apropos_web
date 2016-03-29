@@ -1,0 +1,217 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../../style.css" type="text/css" media="all">
+<title>
+BOOT(8) (Cobalt)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+BOOT(8)</td>
+<td class="head-vol" align="center">
+System Manager's Manual (Cobalt)</td>
+<td class="head-rtitle" align="right">
+BOOT(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">boot</b> &#8212; <span class="desc">system bootstrapping procedures</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> Cobalt Networks' MIPS-based Microservers (now known as Sun Server Appliances) that can run <span class="unix">NetBSD</span>/cobalt can use any of the following boot procedures:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 1.00em;">
+bootstrap <span class="unix">NetBSD</span> from disk using the standard Cobalt Firmware boot sequence</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+bootstrap <span class="unix">NetBSD</span> from disk using the <span class="unix">NetBSD</span> boot loader</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+network bootstrap <span class="unix">NetBSD</span> using the standard Cobalt Firmware means from a TCP/IP LAN with DHCP and NFS.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+network bootstrap <span class="unix">NetBSD</span> using the <span class="unix">NetBSD</span> boot loader which can be loaded by the standard Cobalt Firmware with DHCP and NFS.</li>
+</ul>
+<div class="subsection">
+<h2 id="x506f776572206661696c20616e64206372617368207265636f76657279">Power fail and crash recovery</h2> Normally, the system will reboot itself at power-up or after crashes. An automatic consistency check of the file systems will be performed, and unless this fails, the system will resume multi-user operations.</div>
+<div class="subsection">
+<h2 id="x436f62616c7420426f6f742053657175656e6365">Cobalt Boot Sequence</h2> The first program to take a control after reboot or at power-on is the Cobalt Firmware. The Firmware can load a compressed kernel from disk, subject to a few limitations. The Firmware expects the disk to contain DOS-style partition information with the first partition being a boot one which is special in that it should reside close to the beginning of the disk and must contain an ext2 file system with a <i class="file">boot</i> directory which is treated specially by the Firmware. The default sequence is pretty straightforward, the Firmware finds the boot partition, mounts the Ext2 file system from it and tries to load a compressed kernel image from the <i class="file">boot</i> directory. The name of the kernel image differs from machine to machine and this is the reason for having multiple copies of <span class="unix">NetBSD</span> kernel installed under different names. The following kernel image names are known to be in use by certain Cobalt flavors:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+<i class="file">/boot/vmlinuz.gz</i> 
+<i class="file">/boot/vmlinux.gz</i> 
+<i class="file">/boot/vmlinux-nfsroot.gz</i> 
+<i class="file">/boot/vmlinux_RAQ.gz</i> 
+<i class="file">/boot/vmlinux_raq-2800.gz</i></pre>
+<p>
+where <i class="file">/boot</i> is the directory on the boot partition.<p>
+The Firmware console provides the means to alter the default boot sequence and/or to specify boot parameters. Pressing &#8216;&#60;space&#62;&#8217; right after the Firmware printed its greeting brings the Firmware console prompt and pressing &#8216;?&#8217; at the prompt prints a help screen with all commands supported by the Firmware. For example, the &#8216;bfd&#8217; command can be used to boot a kernel image:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+Cobalt: bfd /boot/&lt;kernel image&gt; [options]</pre>
+<p>
+where &#8220;options&#8221; are the kernel options.</div>
+<div class="subsection">
+<h2 id="x426f6f7473747261702066726f6d206469736b207573696e6720746865207374616e64617264204669726d776172652073657175656e6365">Bootstrap from disk using the standard Firmware sequence</h2> The Firmware enters the standard boot sequence after reboot or at power-on when no front-panel buttons are pressed and the Firmware console is not used to change the boot procedure. At boot time, the Firmware checks the hardware, prints the banner and performs the standard Cobalt boot sequence. There are a few culprits tightly connected to this boot method. First of all, the kernel must be compressed. Second, the Firmware enforces a hard restriction on the kernel size (it cannot exceed approximately 900,000/2,500,000 bytes compressed/uncompressed) resulting in a lock-up should this requirement not be fulfilled. For <span class="unix">NetBSD</span>, another pitfall is that the uncompressed kernel should be copied to the root directory to make certain system binaries (such as e.g. netstat) work, and the kernel images in the <i class="file">boot</i> directory should always be in sync with the ones installed in the root directory.</div>
+<div class="subsection">
+<h2 id="x426f6f7473747261702066726f6d206469736b207573696e6720746865204e657442534420626f6f74206c6f61646572">Bootstrap from disk using the NetBSD boot loader</h2> The <span class="unix">NetBSD</span> boot loader is an attempt to break through the limitations enforced by the Firmware loader. The main idea is to make the Firmware load the <span class="unix">NetBSD</span> boot loader and let the latter take care of loading the kernel. To achieve this goal, multiple copies of the boot loader are installed in the <i class="file">boot</i> directory on the boot partition, one copy per each kernel image name the Cobalt Firmware might look for. The <span class="unix">NetBSD</span> kernel is located in the root directory (usually <i class="file">/dev/wd0a</i>) like it is on other platforms. Once running, the boot loader prints a banner to the serial console similar to the following:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+&gt;&gt; NetBSD/cobalt 5.0 Bootloader, Revision 0.9 [@0x80f00000] 
+&gt;&gt; (user@buildhost, builddate) 
+&gt;&gt; Model:               Cobalt Qube 2 
+&gt;&gt; Memory:              32768 k 
+&gt;&gt; PROM boot string:    root=/dev/hda1 ro 
+Boot [wd0a:netbsd]: 
+Loading: wd0a:netbsd 
+3763776+312244 [216944+209676]=0x44b97c 
+Starting at 0x80001000</pre>
+<p>
+The boot loader also prints a banner to the LCD panels as the following:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+<span class="unix">NetBSD</span>/cobalt 
+Bootloader 
+<p>
+Loading: 
+wd0a:netbsd</pre>
+</div>
+<div class="subsection">
+<h2 id="x426f6f74206c6f61646572204f7074696f6e73">Boot loader Options</h2> It is possible to specify some options and boot devices on the boot loader prompt:<p>
+boot [wd0a:netbsd]: &#91;<span class="opt"><b class="var">device</b>:</span>&#93;&#91;<span class="opt"><b class="var">filename</b></span>&#93; &#91;<span class="opt"><b class="flag">&#45;acdmqsvxz</b></span>&#93;<p>
+The default <b class="var">device</b> will be set to the disk that the boot loader was loaded from. To boot from an alternate disk or partition, the full name of the device should be given at the prompt. <b class="var">device</b> is of the form <b class="var">xdNx</b> where <b class="var">xd</b> is the device from which to boot, <b class="var">N</b> is the unit number, and <b class="var">x</b> is the partition letter of the NetBSD <a class="link-man" href="../../5/disklabel">disklabel(5)</a> in the NetBSD partition of the MBR partitions. The <span class="unix">NetBSD</span> boot loader recognizes FFS (both UFS1 and UFS2) and Linux Ext2fs.<p>
+The following list of supported devices may vary from installation to installation:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-hang">
+<dt class="list-hang" style="margin-top: 0.00em;">
+wd</dt>
+<dd class="list-hang">
+IDE hard disks recognized by the Firmware.</dd>
+</dl>
+<p>
+The default <b class="var">filename</b> is <i class="file">netbsd</i>; if the boot loader fails to successfully open that image, it then tries <i class="file">netbsd.gz</i> (expected to be a kernel image compressed by <a class="link-man" href="../../1/gzip">gzip(1)</a>), followed by <i class="file">netbsd</i>, <i class="file">netbsd.gz</i>, <i class="file">onetbsd</i>, <i class="file">onetbsd.gz</i>, <i class="file">netbsd.bak</i>, <i class="file">netbsd.bak.gz</i>, <i class="file">netbsd.old</i>, <i class="file">netbsd.old.gz</i>, <i class="file">netbsd.cobalt</i>, <i class="file">netbsd.cobalt.gz</i>, <i class="file">netbsd.elf</i>, and finally <i class="file">netbsd.elf.gz</i>. Alternate system images can be loaded by just specifying the name of the image, so it is always a good idea to have a copy of working kernel in the <span class="unix">NetBSD</span> root partition before trying a new kernel.<p>
+Options are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;a</b></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Prompt for the root file system device, the system crash dump device, and the path to <a class="link-man" href="../../8/init">init(8)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;c</b></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Bring the system up into the device configuration manager. From here the device locators can be tuned to the hardware; see <a class="link-man" href="../../4/userconf">userconf(4)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;d</b></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Bring the system up in debug mode. Here it waits for a kernel debugger connect; see <a class="link-man" href="../../4/ddb">ddb(4)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;q</b></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Boot the system in quiet mode.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;s</b></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Bring the system up in single-user mode.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;v</b></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Boot the system in verbose mode.</dd>
+</dl>
+<p>
+As the older version of the boot loader, it is also possible to specify options to the boot loader by breaking into the Firmware and using the &#8220;bfd&#8221; command:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+Cobalt: bfd /boot/boot.gz [options]</pre>
+<p>
+The boot loader allows the following options:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 4.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">nbsd=</b> &#91;<span class="opt"><b class="var">device</b>:</span>&#93;&#91;<span class="opt"><b class="var">filename</b></span>&#93; &#91;<span class="opt"><b class="flag">&#45;acdqsv</b></span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+The device, filename and options on the bfd prompt are same with the boot loader.</dd>
+</dl>
+<p>
+It is also a good idea to have a small rescue kernel in the <i class="file">boot</i> directory in the Ext2 partition for the Firmware boot. In an emergency case, this will allow you to use the Firmware &#8216;bfd&#8217; command to boot the rescue image:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+Cobalt: bfd /boot/netbsd.gz</pre>
+</div>
+<div class="subsection">
+<h2 id="x4e6574776f726b20626f6f747374726170207573696e6720746865207374616e64617264204669726d776172652073657175656e6365">Network bootstrap using the standard Firmware sequence</h2> The Cobalt Firmware allows to boot a kernel over the network, with all the limitations of the Firmware loader described above. The simplest method is to break into the Firmware prompt and use &#8220;bfd&#8221; command to specify where to boot from:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+Cobalt: bfd /netbsd.gz nfsroot=/home/raq/root</pre>
+<p>
+The Firmware is picky about syntax and in general, so if things fail mysteriously, try to conform to the conventions described above. For netbooting, you need to NFS-export the directory given to &#8220;nfsroot=&#8221;, and the named kernel (<i class="file">netbsd.gz</i>) needs to be executable and in that directory. You will also need to setup <a class="link-man" href="../../8/dhcpd">dhcpd(8)</a>. Once the kernel is loaded with the command line values, the data given via DHCP is used to mount the root file system. Here is a known working DHCP entry:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+host raq { 
+        hardware ethernet 0:10:e0:0:52:62;      # raq MAC 
+        fixed-address 10.0.0.15;                # raq address 
+        filename "/netbsd.gz";                  # kernel name in root-path 
+        option root-path "/home/raq/root";      # absolute dir on NFS server 
+        server-name="10.0.0.3";                 # IP of NFS server 
+}</pre>
+<p>
+Another option is to hold down the left and right cursor buttons during power-on which executes the command<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+bfd /boot/vmlinux.gz root=/dev/nfs nfsroot=/nfsroot,</pre>
+<p>
+resulting in a netboot. On RaQ 1's, the default kernel name is <i class="file">vmlinux_RAQ.gz</i> and on RaQ 2's, it is <i class="file">vmlinux_raq-2800.gz</i>.</div>
+<div class="subsection">
+<h2 id="x4e6574776f726b20626f6f747374726170207573696e6720746865204e657442534420626f6f74206c6f61646572">Network bootstrap using the NetBSD boot loader</h2> The idea here is the same with the bootstrap from disk using the NetBSD boot loader. Make the firmware load the NetBSD boot loader via network and let the latter take care of loading the kernel even via network. A simple method to load the NetBSD boot loader is to use  the &#8220;bfd&#8221; command as well as booting the NetBSD kernel via network as described above:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+Cobalt: bfd /boot/boot.gz nfsroot=/home/raq/root</pre>
+<p>
+Note the boot loader binary needs to be <a class="link-man" href="../../1/gzip">gzip(1)</a>-compressed. Once the boot loader is successfully loaded it prints a banner as well as booting from disk:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+&gt;&gt; NetBSD/cobalt 5.0 Bootloader, Revision 0.9 [@0x80f00000] 
+&gt;&gt; (user@buildhost, builddate) 
+&gt;&gt; Model:               Cobalt Qube 2 
+&gt;&gt; Memory:              32768 k 
+&gt;&gt; PROM boot string:    root=/dev/nfs nfsroot=/nfsroot nfsaddrs=bootp 
+Boot [nfs:netbsd]: 
+Loading: nfs:netbsd 
+3763776+312244 [216944+209676]=0x44b97c 
+Starting at 0x80001000</pre>
+<p>
+The boot loader load the NetBSD kernel via NFS which should be specified by the DHCP configuration on the server. Note the nfsroot option specified on the &#8220;bfd&#8221; prompt will be ignored by the <span class="unix">NetBSD</span> boot loader so it's recommended to use the same directory on the &#8220;bfd&#8221; prompt and in the DHCP configuration.</div>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/boot/boot.gz</i></dt>
+<dd class="list-tag" style="margin-left: 23.00ex;">
+boot program code loaded by the Firmware loader</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/boot/netbsd.gz</i></dt>
+<dd class="list-tag" style="margin-left: 23.00ex;">
+<a class="link-man" href="../../1/gzip">gzip(1)</a>-compressed rescue system code</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/netbsd</i></dt>
+<dd class="list-tag" style="margin-left: 23.00ex;">
+system code</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/netbsd.gz</i></dt>
+<dd class="list-tag" style="margin-left: 23.00ex;">
+<a class="link-man" href="../../1/gzip">gzip(1)</a>-compressed system code</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/usr/mdec/boot</i></dt>
+<dd class="list-tag" style="margin-left: 23.00ex;">
+master copy of the boot program (to be compressed and copied to /boot/boot.gz)</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../../4/ddb">ddb(4)</a>, <a class="link-man" href="../../4/userconf">userconf(4)</a>, <a class="link-man" href="../../5/dhcpd.conf">dhcpd.conf(5)</a>, <a class="link-man" href="../../8/dhcpd">dhcpd(8)</a>, <a class="link-man" href="../../8/fdisk">fdisk(8)</a>, <a class="link-man" href="../../8/halt">halt(8)</a>, <a class="link-man" href="../../8/reboot">reboot(8)</a>, <a class="link-man" href="../../8/shutdown">shutdown(8)</a>, <a class="link-man" href="../../9/printf">printf(9)</a><p>
+<a class="link-ext" href="http://www.NetBSD.org/docs/network/netboot/">http://www.NetBSD.org/docs/network/netboot/</a></div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+August 16, 2014</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

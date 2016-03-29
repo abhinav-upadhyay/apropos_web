@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+SOFTINT(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SOFTINT(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+SOFTINT(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">softint</b>, <b class="name">softint_establish</b>, <b class="name">softint_disestablish</b>, <b class="name">softint_schedule</b> &#8212; <span class="desc">machine-independent software interrupt framework</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/intr.h</a>&gt;</b><p>
+<i class="ftype">void *</i><br>
+<b class="fname">softint_establish</b>(<i class="farg" style="white-space:nowrap;">u_int flags</i>, <i class="farg" style="white-space:nowrap;">void (*func)(void *)</i>, <i class="farg" style="white-space:nowrap;">void *arg</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">softint_disestablish</b>(<i class="farg" style="white-space:nowrap;">void *cookie</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">softint_schedule</b>(<i class="farg" style="white-space:nowrap;">void *cookie</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The software interrupt framework is designed to provide a generic software interrupt mechanism which can be used any time a low-priority callback is needed.<p>
+It allows dynamic registration of software interrupts for loadable drivers and protocol stacks, prioritization and fair queueing of software interrupts, and allows machine-dependent optimizations to reduce cost.<p>
+Four priority levels are provided. In order of priority (lowest to highest) the levels are: clock, bio, net, serial. The names are symbolic and in isolation do not have any direct connection with a particular kind of device activity: they are only meant as a guide.<p>
+The four priority levels map directly to scheduler priority levels, and where the architecture implements &#8220;fast&#8221; software interrupts, they also map onto interrupt priorities. The interrupt priorities are intended to be hidden from machine independent code, which should in general use thread-safe mechanisms to synchronize with software interrupts (for example: mutexes).<p>
+Software interrupts run with limited machine context. In particular, they do not possess any address space context. They should not try to operate on user space addresses, or to use virtual memory facilities other than those noted as interrupt safe. Unlike hardware interrupts, software interrupts do have thread context. They may block on synchronization objects, sleep, and resume execution at a later time.<p>
+Since software interrupts are a limited resource and run with higher priority than most other LWPs in the system, all block-and-resume activity by a software interrupt must be kept short to allow further processing at that level to continue. By extension, code running with process context must take care to ensure that any lock that may be taken from a software interrupt can not be held for more than a short period of time.<p>
+The kernel does not allow software interrupts to use facilities or perform actions that are likely to block for a significant amount of time. This means that it's not valid for a software interrupt to sleep on condition variables or to wait for resources to become available (for example, memory).<p>
+The following is a brief description of each function in the framework:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">softint_establish</b>(<i class="farg">flags</i>, <i class="farg">func</i>, <i class="farg">arg</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+<p>
+Register a software interrupt. The <i class="farg">flags</i> value must contain one of the following constants, specifing the priority level for the soft interrupt:<p>
+<span class="define">SOFTINT_CLOCK</span>, <span class="define">SOFTINT_BIO</span>, <span class="define">SOFTINT_NET</span>, <span class="define">SOFTINT_SERIAL</span><p>
+If the constant <span class="define">SOFTINT_MPSAFE</span> is not logically ORed into <i class="farg">flags</i>, the global <span class="define">kernel_lock</span> will automatically be acquired before the soft interrupt handler is called.<p>
+The constant <i class="farg">func</i> specifies the function to call when the soft interrupt is executed. The argument <i class="farg">arg</i> will be passed to this function.<p>
+<b class="fname">softint_establish</b>() may block in order to allocate memory. If successful, it returns a non-<span class="define">NULL</span> opaque value to be used as an argument to <b class="fname">softint_schedule</b>() and/or <b class="fname">softint_disestablish</b>(). If for some reason it does not succeed, it returns <span class="define">NULL</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">softint_disestablish</b>(<i class="farg">cookie</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+<p>
+Deallocate a software interrupt previously allocated by a call to <b class="fname">softint_establish</b>().</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">softint_schedule</b>(<i class="farg">cookie</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+<p>
+Schedule a software interrupt previously allocated by a call to <b class="fname">softint_establish</b>() to be executed as soon as that software interrupt is unblocked. <b class="fname">softint_schedule</b>() can safely be called multiple times before the callback routine is invoked.<p>
+Soft interrupt scheduling is CPU-local. A request to dispatch a soft interrupt will only be serviced on the same CPU where the request was made. The LWPs (light weight processes) dedicated to soft interrupt processing are bound to their home CPUs, so if a soft interrupt handler sleeps and later resumes, it will always resume on the same CPU.<p>
+On a system with multiple processors, multiple instances of the same soft interrupt handler can be in flight simultaneously (at most one per-CPU).</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../9/callout">callout(9)</a>, <a class="link-man" href="../9/condvar">condvar(9)</a>, <a class="link-man" href="../9/kthread">kthread(9)</a>, <a class="link-man" href="../9/mutex">mutex(9)</a>, <a class="link-man" href="../9/rwlock">rwlock(9)</a>, <a class="link-man" href="../9/spl">spl(9)</a>, <a class="link-man" href="../9/workqueue">workqueue(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <span class="unix">NetBSD</span> machine-independent software interrupt framework was designed in 1997 and was implemented by one port in <span class="unix">NetBSD&#160;1.3</span>. However, it did not gain wider implementation until <span class="unix">NetBSD&#160;1.5</span>. Between <span class="unix">NetBSD&#160;4.0</span> and <span class="unix">NetBSD&#160;5.0</span> the framework was re-implemented in a machine-independent way to provide software interrupts with thread context.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+August 3, 2009</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

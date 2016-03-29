@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+IN_GETIFA(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+IN_GETIFA(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+IN_GETIFA(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">in_getifa</b> &#8212; <span class="desc">Look up the IPv4 source address best matching an IPv4 destination</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">options IPSELSRC</b><br>
+<b class="includes">#include &lt;<a class="link-includes">netinet/in_selsrc.h</a>&gt;</b><p>
+<i class="ftype">struct ifaddr *</i><br>
+<b class="fname">in_getifa</b>(<i class="farg" style="white-space:nowrap;">struct ifaddr *ifa</i>, <i class="farg" style="white-space:nowrap;">const struct sockaddr *dst0</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="name">in_getifa</b> enforces the IPv4 source-address selection policy. Add the source-address selection policy mechanism to your kernel with <b class="config">options IPSELSRC</b>. <b class="config">options IPSELSRC</b> lets the operator set the policy for choosing the source address of any socket bound to the &#8220;wildcard&#8221; address, <span class="define">INADDR_ANY</span>. Note that the policy is applied <span class="emph">after</span> the kernel makes its forwarding decision, thereby choosing the output interface; in other words, this mechanism does not affect whether or not <span class="unix">NetBSD</span> is a &#8220;strong ES&#8221;.<p>
+An operator affects the source-address selection using <a class="link-man" href="../8/sysctl">sysctl(8)</a> and <a class="link-man" href="../8/ifconfig">ifconfig(8)</a>. Operators set policies with <a class="link-man" href="../8/sysctl">sysctl(8)</a>. Some policies consider the &#8220;preference number&#8221; of an address. An operator may set preference numbers for each address with <a class="link-man" href="../8/ifconfig">ifconfig(8)</a>.<p>
+A source-address policy is a priority-ordered list of source-address ranking functions. A ranking function maps its arguments, (<span class="emph">source address</span>, <span class="emph">source index</span>, <span class="emph">source preference</span>, <span class="emph">destination address</span>), to integers. The <span class="emph">source index</span> is the position of <span class="emph">source address</span> in the interface address list; the index of the first address is 0. The <span class="emph">source preference</span> is the preference number the operator assigned to <span class="emph">source address</span>. The <span class="emph">destination address</span> is the socket peer / packet destination.<p>
+Presently, there are four ranking functions to choose from:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+index</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+ranks by <span class="emph">source index</span>; lower indices are ranked more highly.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+preference</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+ranks by <span class="emph">source preference</span>; higher preference numbers are ranked more highly.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+common-prefix-len</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+ranks each <span class="emph">source address</span> by the length of the longest prefix it has in common with <span class="emph">destination address</span>; longer common prefixes rank more highly.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+same-category</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+determines the "categories" of <span class="emph">source</span> and <span class="emph">destination address</span>. A category is one of <span class="emph">private</span>, <span class="emph">link-local</span>, or <span class="emph">other</span>. If the categories exactly match, same-category assigns a rank of 2. Some sources are ranked 1 by category: a <span class="emph">link-local</span> source with a <span class="emph">private</span> destination, a <span class="emph">private</span> source with a <span class="emph">link-local</span> destination, and a <span class="emph">private</span> source with an <span class="emph">other</span> destination rank 1. All other sources rank 0.<p>
+Categories are defined as follows.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+private</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+RFC1918 networks, 192.168/16, 172.16/12, and 10/8</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+link-local</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+169.254/16, 224/24</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+other</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+all other networks---i.e., not private, not link-local</dd>
+</dl>
+</dd>
+</dl>
+<p>
+To apply a policy, the kernel applies all ranking functions in the policy to every source address, producing a vector of ranks for each source. The kernel sorts the sources in descending, lexicographical order by their rank-vector, and chooses the highest-ranking (first) source. The kernel breaks ties by choosing the source with the least <span class="emph">source index</span>.<p>
+The operator may set a policy on individual interfaces. The operator may also set a global policy that applies to all interfaces whose policy he does not set individually.<p>
+Here is the sysctl tree for the policy at system startup:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+net.inet.ip.selectsrc.default = index 
+net.inet.ip.interfaces.ath0.selectsrc = 
+net.inet.ip.interfaces.sip0.selectsrc = 
+net.inet.ip.interfaces.sip1.selectsrc = 
+net.inet.ip.interfaces.lo0.selectsrc = 
+net.inet.ip.interfaces.pflog0.selectsrc =</pre>
+<p>
+The policy on every interface is the &#8220;empty&#8221; policy, so the default policy applies. The default policy, <span class="emph">index</span>, is the &#8220;historical&#8221; policy in <span class="unix">NetBSD</span>.<p>
+The operator may override the default policy on ath0,<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+	# sysctl -w net.inet.ip.interfaces.ath0.selectsrc=same-category,common-prefix-len,preference</pre>
+<p>
+yielding this policy:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+net.inet.ip.selectsrc.default = index 
+net.inet.ip.interfaces.ath0.selectsrc = same-category,common-prefix-len,preference</pre>
+<p>
+The operator may set a new default,<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# sysctl -w net.inet.ip.selectsrc.debug=&gt; same-category,common-prefix-len,preference 
+# sysctl -w net.inet.ip.interfaces.ath0.selectsrc=</pre>
+<p>
+yielding this policy:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+net.inet.ip.selectsrc.default = same-category,common-prefix-len,preference 
+net.inet.ip.interfaces.ath0.selectsrc =</pre>
+<p>
+In a number of applications, the policy above will usually pick suitable source addresses if ath0 is configured in this way:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# ifconfig ath0 inet 64.198.255.1/24 
+# ifconfig ath0 inet 10.0.0.1/24 
+# ifconfig ath0 inet 169.254.1.1/24 
+# ifconfig ath0 inet 192.168.49.1/24 preference 5 
+# ifconfig ath0 inet 192.168.37.1/24 preference 9</pre>
+A sysctl, net.inet.ip.selectsrc.debug, turns on and off debug messages concerned with source selection. You may set it to 0 (no messages) or 1.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../8/ifconfig">ifconfig(8)</a>, <a class="link-man" href="../8/sysctl">sysctl(8)</a></div>
+<div class="section">
+<h1 id="x5354414e4441524453">STANDARDS</h1> The family of IPv6 source-address selection policies defined by <code class="lit">RFC3484</code> resembles the family of IPv4 policies that <b class="name">in_getifa</b> enforces.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <span class="author">David Young</span> &#60;<a class="link-mail" href="mailto:dyoung@NetBSD.org">dyoung@NetBSD.org</a>&#62;</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> With <b class="config">options IPSELSRC</b>, a new interface <a class="link-man" href="../2/ioctl">ioctl(2)</a>, <span class="define">SIOCSIFADDRPREF</span>, was introduced. It ought to be documented in <a class="link-man" href="../4/inet">inet(4)</a>. Also, <a class="link-man" href="../4/options">options(4)</a> ought to cross-reference this manual page.<p>
+This work should be used to set IPv6 source-address selection policies, especially the family of policies defined by <code class="lit">RFC3484</code>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+February 22, 2007</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

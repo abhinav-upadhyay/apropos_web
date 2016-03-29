@@ -1,0 +1,164 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+TCP(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+TCP(4)</td>
+<td class="head-vol" align="center">
+Kernel Interfaces Manual</td>
+<td class="head-rtitle" align="right">
+TCP(4)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">tcp</b> &#8212; <span class="desc">Internet Transmission Control Protocol</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/socket.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">netinet/in.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">socket</b>(<i class="farg" style="white-space:nowrap;">AF_INET</i>, <i class="farg" style="white-space:nowrap;">SOCK_STREAM</i>, <i class="farg" style="white-space:nowrap;">0</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">socket</b>(<i class="farg" style="white-space:nowrap;">AF_INET6</i>, <i class="farg" style="white-space:nowrap;">SOCK_STREAM</i>, <i class="farg" style="white-space:nowrap;">0</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The TCP provides reliable, flow-controlled, two-way transmission of data. It is a byte-stream protocol used to support the <span class="define">SOCK_STREAM</span> abstraction. TCP uses the standard Internet address format and, in addition, provides a per-host collection of &#8220;port addresses&#8221;. Thus, each address is composed of an Internet address specifying the host and network, with a specific TCP port on the host identifying the peer entity.<p>
+Sockets using TCP are either &#8220;active&#8221; or &#8220;passive&#8221;. Active sockets initiate connections to passive sockets. By default TCP sockets are created active; to create a passive socket the <a class="link-man" href="../2/listen">listen(2)</a> system call must be used after binding the socket with the <a class="link-man" href="../2/bind">bind(2)</a> system call. Only passive sockets may use the <a class="link-man" href="../2/accept">accept(2)</a> call to accept incoming connections. Only active sockets may use the <a class="link-man" href="../2/connect">connect(2)</a> call to initiate connections.<p>
+Passive sockets may &#8220;underspecify&#8221; their location to match incoming connection requests from multiple networks. This technique, termed &#8220;wildcard addressing&#8221;, allows a single server to provide service to clients on multiple networks. To create a socket which listens on all networks, the Internet address <span class="define">INADDR_ANY</span> must be bound. The TCP port may still be specified at this time; if the port is not specified the system will assign one. Once a connection has been established the socket's address is fixed by the peer entity's location. The address assigned the socket is the address associated with the network interface through which packets are being transmitted and received. Normally this address corresponds to the peer entity's network.<p>
+TCP supports a number of socket options which can be set with <a class="link-man" href="../2/setsockopt">setsockopt(2)</a> and tested with <a class="link-man" href="../2/getsockopt">getsockopt(2)</a>:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TCP_NODELAY</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Under most circumstances, TCP sends data when it is presented; when outstanding data has not yet been acknowledged, it gathers small amounts of output to be sent in a single packet once an acknowledgment is received. For a small number of clients, such as window systems that send a stream of mouse events which receive no replies, this packetization may cause significant delays. Therefore, TCP provides a boolean option, <span class="define">TCP_NODELAY</span> (from <b class="includes">&lt;<a class="link-includes">netinet/tcp.h</a>&gt;</b>, to defeat this algorithm.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TCP_MAXSEG</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+By default, a sender- and receiver-TCP will negotiate among themselves to determine the maximum segment size to be used for each connection. The <span class="define">TCP_MAXSEG</span> option allows the user to determine the result of this negotiation, and to reduce it if desired.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TCP_MD5SIG</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+This option enables the use of MD5 digests (also known as TCP-MD5) on writes to the specified socket. In the current release, only outgoing traffic is digested; digests on incoming traffic are not verified. The current default behavior for the system is to respond to a system advertising this option with TCP-MD5; this may change.<p>
+One common use for this in a <span class="unix">NetBSD</span> router deployment is to enable based routers to interwork with Cisco equipment at peering points. Support for this feature conforms to RFC 2385. Only IPv4 (AF_INET) sessions are supported.<p>
+In order for this option to function correctly, it is necessary for the administrator to add a tcp-md5 key entry to the system's security associations database (SADB) using the <a class="link-man" href="../8/setkey">setkey(8)</a> utility. This entry must have an SPI of 0x1000 and can therefore only be specified on a per-host basis at this time.<p>
+If an SADB entry cannot be found for the destination, the outgoing traffic will have an invalid digest option prepended, and the following error message will be visible on the system console: <span class="emph">tcp_signature_compute: SADB lookup failed for %d.%d.%d.%d</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TCP_KEEPIDLE</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+TCP probes a connection that has been idle for some amount of time. The default value for this idle period is 4 hours. The <span class="define">TCP_KEEPIDLE</span> option can be used to affect this value for a given socket, and specifies the number of seconds of idle time between keepalive probes. This option takes an <span class="type">unsigned int</span> value, with a value greater than 0.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TCP_KEEPINTVL</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+When the <span class="define">SO_KEEPALIVE</span> option is enabled, TCP probes a connection that has been idle for some amount of time. If the remote system does not respond to a keepalive probe, TCP retransmits the probe after some amount of time. The default value for this retransmit interval is 150 seconds. The <span class="define">TCP_KEEPINTVL</span> option can be used to affect this value for a given socket, and specifies the number of seconds to wait before retransmitting a keepalive probe. This option takes an <span class="type">unsigned int</span> value, with a value greater than 0.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TCP_KEEPCNT</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+When the <span class="define">SO_KEEPALIVE</span> option is enabled, TCP probes a connection that has been idle for some amount of time. If the remote system does not respond to a keepalive probe, TCP retransmits the probe a certain number of times before a connection is considered to be broken. The default value for this keepalive probe retransmit limit is 8. The <span class="define">TCP_KEEPCNT</span> option can be used to affect this value for a given socket, and specifies the maximum number of keepalive probes to be sent. This option takes an <span class="type">unsigned int</span> value, with a value greater than 0.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TCP_KEEPINIT</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+If a TCP connection cannot be established within some amount of time, TCP will time out the connect attempt. The default value for this initial connection establishment timeout is 150 seconds. The <span class="define">TCP_KEEPINIT</span> option can be used to affect this initial timeout period for a given socket, and specifies the number of seconds to wait before the connect attempt is timed out. For passive connections, the <span class="define">TCP_KEEPINIT</span> option value is inherited from the listening socket. This option takes an <span class="type">unsigned int</span> value, with a value greater than 0.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TCP_INFO</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Information about a socket's underlying TCP session may be retrieved by passing the read-only option <span class="define">TPC_INFO</span> to <a class="link-man" href="../2/getsockopt">getsockopt(2)</a>. It accepts a single argument: a pointer to an instance of <span class="type">struct tcp_info</span>.<p>
+This API is subject to change; consult the source to determine which fields are currently filled out by this option. <span class="unix">NetBSD</span> specific additions include send window size, receive window size, and bandwidth-controlled window space.</dd>
+</dl>
+<p>
+The option level for the <a class="link-man" href="../2/setsockopt">setsockopt(2)</a> call is the protocol number for TCP, available from <a class="link-man" href="../3/getprotobyname">getprotobyname(3)</a>.<p>
+In the historical <span class="unix">BSD</span> TCP implementation, if the <span class="define">TCP_NODELAY</span> option was set on a passive socket, the sockets returned by <a class="link-man" href="../2/accept">accept(2)</a> erroneously did not have the <span class="define">TCP_NODELAY</span> option set; the behavior was corrected to inherit <span class="define">TCP_NODELAY</span> in <span class="unix">NetBSD&#160;1.6</span>.<p>
+Options at the IP network level may be used with TCP; see <a class="link-man" href="../4/ip">ip(4)</a> or <a class="link-man" href="../4/ip6">ip6(4)</a>. Incoming connection requests that are source-routed are noted, and the reverse source route is used in responding.<p>
+There are many adjustable parameters that control various aspects of the <span class="unix">NetBSD</span> TCP behavior; these parameters are documented in <a class="link-man" href="../7/sysctl">sysctl(7)</a>, and they include:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 0.00em;">
+RFC 1323 extensions for high performance</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+Send/receive buffer sizes</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+Default maximum segment size (MSS)</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+SYN cache parameters</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+Hughes/Touch/Heidemann Congestion Window Monitoring algorithm</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+Keepalive parameters</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+newReno algorithm for congestion control</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+Logging of connection refusals</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+RST packet rate limits</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+SACK (Selective Acknowledgment)</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+ECN (Explicit Congestion Notification)</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+Congestion window increase methods; the traditional packet counting or RFC 3465 Appropriate Byte Counting</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+RFC 3390: Increased initial window size</li>
+</ul>
+</div>
+<div class="section">
+<h1 id="x444941474e4f5354494353">DIAGNOSTICS</h1> A socket operation may fail with one of the following errors returned:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EISCONN</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+when trying to establish a connection on a socket which already has one;</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">ENOBUFS</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+when the system runs out of memory for an internal data structure;</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">ETIMEDOUT</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+when a connection was dropped due to excessive retransmissions;</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">ECONNRESET</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+when the remote peer forces the connection to be closed;</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">ECONNREFUSED</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+when the remote peer actively refuses connection establishment (usually because no process is listening to the port);</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EADDRINUSE</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+when an attempt is made to create a socket with a port which has already been allocated;</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EADDRNOTAVAIL</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+when an attempt is made to create a socket with a network address for which no network interface exists.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../2/getsockopt">getsockopt(2)</a>, <a class="link-man" href="../2/socket">socket(2)</a>, <a class="link-man" href="../4/inet">inet(4)</a>, <a class="link-man" href="../4/inet6">inet6(4)</a>, <a class="link-man" href="../4/intro">intro(4)</a>, <a class="link-man" href="../4/ip">ip(4)</a>, <a class="link-man" href="../4/ip6">ip6(4)</a>, <a class="link-man" href="../7/sysctl">sysctl(7)</a><p>
+<span class="ref"><span class="ref-title">Transmission Control Protocol</span>, <span class="ref-rep">RFC</span>, <span class="ref-num">793</span>, <span class="ref-date">September 1981</span>.</span><p>
+<span class="ref"><span class="ref-title">Requirements for Internet Hosts -- Communication Layers</span>, <span class="ref-rep">RFC</span>, <span class="ref-num">1122</span>, <span class="ref-date">October 1989</span>.</span></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">tcp</b> protocol stack appeared in <span class="unix">4.2BSD</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+February 14, 2015</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+IPSEC_SET_POLICY(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+IPSEC_SET_POLICY(3)</td>
+<td class="head-vol" align="center">
+Library Functions Manual</td>
+<td class="head-rtitle" align="right">
+IPSEC_SET_POLICY(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">ipsec_set_policy</b>, <b class="name">ipsec_get_policylen</b>, <b class="name">ipsec_dump_policy</b> &#8212; <span class="desc">manipulate IPsec policy specification structure from human-readable policy string</span></div>
+<div class="section">
+<h1 id="x4c494252415259">LIBRARY</h1> <span class="lib">IPsec Policy Control Library (libipsec, &#45;lipsec)</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">netipsec/ipsec.h</a>&gt;</b><p>
+<i class="ftype">char *</i><br>
+<b class="fname">ipsec_set_policy</b>(<i class="farg" style="white-space:nowrap;">const char *policy</i>, <i class="farg" style="white-space:nowrap;">int len</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">ipsec_get_policylen</b>(<i class="farg" style="white-space:nowrap;">char *buf</i>);<p>
+<i class="ftype">char *</i><br>
+<b class="fname">ipsec_dump_policy</b>(<i class="farg" style="white-space:nowrap;">char *buf</i>, <i class="farg" style="white-space:nowrap;">const char *delim</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="fname">ipsec_set_policy</b>() generates an IPsec policy specification structure, namely <code class="lit">struct sadb_x_policy</code> and/or <code class="lit">struct sadb_x_ipsecrequest</code> from a human-readable policy specification. The policy specification must be given as a C string <i class="farg">policy</i> and its length <i class="farg">len</i>. <b class="fname">ipsec_set_policy</b>() will return a buffer with the corresponding IPsec policy specification structure. The buffer is dynamically allocated, and must be <a class="link-man" href="../3/free">free(3)</a>&#39;d by the caller.<p>
+You can get the length of the generated buffer with <b class="fname">ipsec_get_policylen</b>() (i.e. for calling <a class="link-man" href="../2/setsockopt">setsockopt(2)</a>).<p>
+<b class="fname">ipsec_dump_policy</b>() converts an IPsec policy structure into human-readable form. Therefore, <b class="fname">ipsec_dump_policy</b>() can be regarded as the inverse function to <b class="fname">ipsec_set_policy</b>(). <i class="farg">buf</i> points to an IPsec policy structure, <code class="lit">struct sadb_x_policy</code>. <i class="farg">delim</i> is a delimiter string, which is usually a blank character. If you set <i class="farg">delim</i> to <span class="define">NULL</span>, a single whitespace is assumed. <b class="fname">ipsec_dump_policy</b>() returns a pointer to a dynamically allocated string. It is the caller's responsibility to <a class="link-man" href="../3/free">free(3)</a> it.<p>
+<i class="farg">policy</i> is formatted as either of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">direction [priority specification]</i> <code class="lit">discard</code></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+<i class="arg">direction</i> must be <code class="lit">in</code>, <code class="lit">out</code>, or <code class="lit">fwd</code>. <i class="arg">direction</i> specifies in which direction the policy needs to be applied. The non-standard direction <code class="lit">fwd</code> is substituted with <code class="lit">in</code> on platforms which do not support forward policies.<p>
+<i class="arg">priority specification</i> is used to control the placement of the policy within the SPD. The policy position is determined by a signed integer where higher priorities indicate the policy is placed closer to the beginning of the list and lower priorities indicate the policy is placed closer to the end of the list. Policies with equal priorities are added at the end of the group of such policies.<p>
+Priority can only be specified when libipsec has been compiled against kernel headers that support policy priorities (Linux &gt;= 2.6.6). It takes one of the following formats:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">{priority,prio} offset</i></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+<i class="arg">offset</i> is an integer in the range &#45;2147483647..214783648.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">{priority,prio} base {+,-} offset</i></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+<i class="arg">base</i> is either <code class="lit">low (-1073741824)</code>, <code class="lit">def (0)</code>, or <code class="lit">high (1073741824)</code>.<p>
+<i class="arg">offset</i> is an unsigned integer. It can be up to 1073741824 for positive offsets, and up to 1073741823 for negative offsets.</dd>
+</dl>
+<p>
+The interpretation of policy priority in these functions and the kernel DOES differ. The relationship between the two can be described as p(kernel) = 0x80000000 - p(func)<p>
+With <code class="lit">discard</code> policy, packets will be dropped if they match the policy.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">direction [priority specification]</i> <code class="lit">entrust</code></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+<code class="lit">entrust</code> means to consult the SPD defined by <a class="link-man" href="../8/setkey">setkey(8)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">direction [priority specification]</i> <code class="lit">bypass</code></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+<code class="lit">bypass</code> means to bypass the IPsec processing. (the packet will be transmitted in clear). This is for privileged sockets.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">direction</i> &#91;<i class="arg">priority specification</i>&#93; <code class="lit">ipsec</code> <i class="arg">request ...</i></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+<code class="lit">ipsec</code> means that the matching packets are subject to IPsec processing. <code class="lit">ipsec</code> can be followed by one or more <i class="arg">request</i> strings, which are formatted as below:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">protocol</i> <code class="lit">/</code> <i class="arg">mode</i> <code class="lit">/</code> <i class="arg">src</i> <code class="lit">-</code> <i class="arg">dst</i> &#91;<span class="opt"><i class="arg">/level</i></span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+<i class="arg">protocol</i> is either <code class="lit">ah</code>, <code class="lit">esp</code>, or <code class="lit">ipcomp</code>.<p>
+<i class="arg">mode</i> is either <code class="lit">transport</code> or <code class="lit">tunnel</code>.<p>
+<i class="arg">src</i> and <i class="arg">dst</i> specifies the IPsec endpoint. <i class="arg">src</i> always means the &#8220;sending node&#8221; and <i class="arg">dst</i> always means the &#8220;receiving node&#8221;. Therefore, when <i class="arg">direction</i> is <code class="lit">in</code>, <i class="arg">dst</i> is this node and <i class="arg">src</i> is the other node (peer). If <i class="arg">mode</i> is <code class="lit">transport</code>, Both <i class="arg">src</i> and <i class="arg">dst</i> can be omitted.<p>
+<i class="arg">level</i> must be set to one of the following: <code class="lit">default</code>, <code class="lit">use</code>, <code class="lit">require</code>, or <code class="lit">unique</code>. <code class="lit">default</code> means that the kernel should consult the system default policy defined by <a class="link-man" href="../8/sysctl">sysctl(8)</a>, such as <code class="lit">net.inet.ipsec.esp_trans_deflev</code>. See <a class="link-man" href="../4/ipsec">ipsec(4)</a> regarding the system default. <code class="lit">use</code> means that a relevant SA can be used when available, since the kernel may perform IPsec operation against packets when possible. In this case, packets can be transmitted in clear (when SA is not available), or encrypted (when SA is available). <code class="lit">require</code> means that a relevant SA is required, since the kernel must perform IPsec operation against packets. <code class="lit">unique</code> is the same as <code class="lit">require</code>, but adds the restriction that the SA for outbound traffic is used only for this policy. You may need the identifier in order to relate the policy and the SA when you define the SA by manual keying. You can put the decimal number as the identifier after <code class="lit">unique</code> like <code class="lit">unique</code>: <code class="lit">number</code>. <code class="lit">number</code> must be between 1 and 32767 . If the <i class="arg">request</i> string is kept unambiguous, <i class="arg">level</i> and slash prior to <i class="arg">level</i> can be omitted. However, it is encouraged to specify them explicitly to avoid unintended behavior. If <i class="arg">level</i> is omitted, it will be interpreted as <code class="lit">default</code>.</dd>
+</dl>
+<p>
+Note that there are slight differences to the specification of <a class="link-man" href="../8/setkey">setkey(8)</a>. In the specification of <a class="link-man" href="../8/setkey">setkey(8)</a>, both <code class="lit">entrust</code> and <code class="lit">bypass</code> are not used. Refer to <a class="link-man" href="../8/setkey">setkey(8)</a> for details.<p>
+Here are several examples (long lines are wrapped for readability):<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+in discard 
+out ipsec esp/transport//require 
+in ipsec ah/transport//require 
+out ipsec esp/tunnel/10.1.1.2-10.1.1.1/use 
+in ipsec ipcomp/transport//use 
+        esp/transport//use</pre>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> <b class="fname">ipsec_set_policy</b>() returns a pointer to the allocated buffer with the policy specification if successful; otherwise a <span class="define">NULL</span> pointer is returned. <b class="fname">ipsec_get_policylen</b>() returns a positive value (meaning the buffer size) on success, and a negative value on errors. <b class="fname">ipsec_dump_policy</b>() returns a pointer to a dynamically allocated region on success, and <span class="define">NULL</span> on errors.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../3/ipsec_strerror">ipsec_strerror(3)</a>, <a class="link-man" href="../4/ipsec">ipsec(4)</a>, <a class="link-man" href="../8/setkey">setkey(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The functions first appeared in the WIDE/KAME IPv6 protocol stack kit.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+January 4, 2012</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

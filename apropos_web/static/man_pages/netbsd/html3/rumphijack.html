@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+RUMPHIJACK(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+RUMPHIJACK(3)</td>
+<td class="head-vol" align="center">
+Library Functions Manual</td>
+<td class="head-rtitle" align="right">
+RUMPHIJACK(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">rumphijack</b> &#8212; <span class="desc">System call hijack library</span></div>
+<div class="section">
+<h1 id="x4c494252415259">LIBRARY</h1> used by <a class="link-man" href="../1/ld.so">ld.so(1)</a></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <a class="link-man" href="../1/ld.so">ld.so(1)</a> runtime linker can be instructed to load <b class="name">rumphijack</b> between the main object and other libraries. This enables <b class="name">rumphijack</b> to capture and redirect system call requests to a rump kernel instead of the host kernel.<p>
+The behaviour of hijacked applications is affected by the following environment variables:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="env">RUMPHIJACK</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+If present, this variable specifies which system calls should be hijacked. The string is parsed as a comma-separated list of &#8220;name=value&#8221; tuples. The possible lefthandside names are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#8220;path&#8221;</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Pathname-based system calls are hijacked if the path the system call is directed to resides under <i class="arg">value</i>. In case of an absolute pathname argument, a literal prefix comparison is made. In case of a relative pathname, the current working direct is examined. This also implies that neither &#8220;..&#8221; nor symbolic links will cause the namespace to be switched.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#8220;blanket&#8221;</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+A colon-separated list of rump path prefixes. This acts almost like &#8220;path&#8221; with the difference that the prefix does not get removed when passing the path to the rump kernel. For example, if &#8220;path&#8221; is <i class="file">/rump</i>, accessing <i class="file">/rump/dev/bpf</i> will cause <i class="file">/dev/bpf</i> to be accessed in the rump kernel. In contrast, if &#8220;blanket&#8221; contains <i class="file">/dev/bpf</i>, accessing <i class="file">/dev/bpf</i> will cause an access to <i class="file">/dev/bpf</i> in the rump kernel.<p>
+In case the current working directory is changed to a blanketed directory, the current working directory will still be reported with the rump prefix, if available. Note, though, that some shells cache the directory and may report something else. In case no rump path prefix has been configured, the raw rump directory is reported.<p>
+It is recommended to supply blanketed pathnames as specific as possible, i.e. use <i class="file">/dev/bpf</i> instead of <i class="file">/dev</i> unless necessary to do otherwise. Also, note that the blanket prefix does not follow directory borders. In other words, setting the blanket for <i class="file">/dev/bpf</i> means it is set for <span class="emph">all</span> pathnames with the given prefix, not just ones in <i class="file">/dev</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#8220;socket&#8221;</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The specifier <i class="arg">value</i> contains a colon-separated list of which protocol families should be hijacked. The special value &#8220;all&#8221; can be specified as the first element. It indicates that all protocol families should be hijacked. Some can then be disabled by prepending &#8220;no&#8221; to the name of the protocol family.<p>
+For example, &#8220;inet:inet6&#8221; specifies that only <span class="define">PF_INET</span> and <span class="define">PF_INET6</span> sockets should be hijacked, while &#8220;all:noinet&#8221; specifies that all protocol families except <span class="define">PF_INET</span> should be hijacked.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#8220;vfs&#8221;</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The specifier <i class="arg">value</i> contains a colon-separated list of which vfs-related system calls should be hijacked. These differ from the pathname-based file system syscalls in that there is no pathname to make the selection based on. Current possible values are &#8220;nfssvc&#8221;, &#8220;getvfsstat&#8221;, and &#8220;fhcalls&#8221;. They indicate hijacking <b class="fname">nfssvc</b>(), <b class="fname">getvfsstat</b>(), and all file handle calls, respectively. The file handle calls include <b class="fname">fhopen</b>(), <b class="fname">fhstat</b>(), and <b class="fname">fhstatvfs1</b>().<p>
+It is also possible to use &#8220;all&#8221; and &#8220;no&#8221; in the same fashion as with the socket hijack specifier.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#8220;sysctl&#8221;</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Direct the <b class="fname">__sysctl</b>() backend of the <a class="link-man" href="../3/sysctl">sysctl(3)</a> facility to the rump kernel. Acceptable values are &#8220;yes&#8221; and &#8220;no&#8221;, meaning to call the rump or the host kernel, respectively.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#8220;fdoff&#8221;</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Adjust the library's fd offset to the specified value. All rump kernel descriptors have the offset added to them before they are returned to the application. This should be changed only if the application defines a low non-default <span class="define">FD_SETSIZE</span> for <b class="fname">select</b>() or if it opens a very large number of file descriptors. The default value is 128.</dd>
+</dl>
+<p>
+If the environment variable is unset, the default value &#8220;path=/rump,socket=all:nolocal&#8221; is used. The rationale for this is to have networked X clients work out-of-the-box: X clients use local sockets to communicate with the server, so local sockets must be used as a host service.<p>
+An empty string as a value means no calls are hijacked.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="env">RUMPHIJACK_RETRYCONNECT</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Change how <a class="link-man" href="../3/rumpclient">rumpclient(3)</a> attempts to reconnect to the server in case the connection is lost. Acceptable values are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#8220;inftime&#8221;</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+retry indefinitely</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#8220;once&#8221;</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+retry once, when that connection fails, give up</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#8220;die&#8221;</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+call <a class="link-man" href="../3/exit">exit(3)</a> if connection failure is detected</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+n</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Attempt reconnect for n seconds. The value 0 means reconnection is not attempted. The value n must be a positive integer.</dd>
+</dl>
+<p>
+See <a class="link-man" href="../3/rumpclient">rumpclient(3)</a> for more discussion.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> Use an alternate TCP/IP stack for firefox with a persistent server connection:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+$ setenv RUMP_SERVER unix:///tmp/tcpip 
+$ setenv LD_PRELOAD /usr/lib/librumphijack.so 
+$ setenv RUMPHIJACK_RETRYCONNECT inftime 
+$ firefox</pre>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/ld.so">ld.so(1)</a>, <a class="link-man" href="../1/rump_server">rump_server(1)</a>, <a class="link-man" href="../3/rump">rump(3)</a>, <a class="link-man" href="../3/rumpclient">rumpclient(3)</a>, <a class="link-man" href="../7/rump_sp">rump_sp(7)</a></div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+March 14, 2011</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

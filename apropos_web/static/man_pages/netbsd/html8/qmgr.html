@@ -1,0 +1,595 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+QMGR(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+QMGR(8)</td>
+<td class="head-vol" align="center">
+System Manager's Manual</td>
+<td class="head-rtitle" align="right">
+QMGR(8)</td>
+</tr>
+</tbody>
+</table>
+<br>
+<div class="section">
+<h1>NAME</h1> qmgr &#45; Postfix queue manager</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br>
+<b>qmgr</b> [generic Postfix daemon options]</div>
+<div class="section">
+<h1>DESCRIPTION</h1><br>
+The <b>qmgr</b>(8) daemon awaits the arrival of incoming mail and arranges for its delivery via Postfix delivery processes. The actual mail routing strategy is delegated to the  <b>trivial-rewrite</b>(8) daemon. This program expects to be run from the  <b>master</b>(8) process manager.<div style="height: 1.00em;">
+&#160;</div>
+Mail addressed to the local <b>double-bounce</b> address is logged and discarded.  This stops potential loops caused by undeliverable bounce notifications.</div>
+<div class="section">
+<h1>MAIL QUEUES</h1><br>
+The <b>qmgr</b>(8) daemon maintains the following queues:<dl>
+<dt>
+<b>incoming</b></dt>
+<dd>
+Inbound mail from the network, or mail picked up by the local  <b>pickup</b>(8) daemon from the <b>maildrop</b> directory.</dd>
+</dl>
+<dl>
+<dt>
+<b>active</b></dt>
+<dd>
+Messages that the queue manager has opened for delivery. Only a limited number of messages is allowed to enter the  <b>active</b> queue (leaky bucket strategy, for a fixed delivery rate).</dd>
+</dl>
+<dl>
+<dt>
+<b>deferred</b></dt>
+<dd>
+Mail that could not be delivered upon the first attempt. The queue manager implements exponential backoff by doubling the time between delivery attempts.</dd>
+</dl>
+<dl>
+<dt>
+<b>corrupt</b></dt>
+<dd>
+Unreadable or damaged queue files are moved here for inspection.</dd>
+</dl>
+<dl>
+<dt>
+<b>hold</b></dt>
+<dd>
+Messages that are kept "on hold" are kept here until someone sets them free.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>DELIVERY STATUS REPORTS</h1><br>
+The <b>qmgr</b>(8) daemon keeps an eye on per-message delivery status reports in the following directories. Each status report file has the same name as the corresponding message file:<dl>
+<dt>
+<b>bounce</b></dt>
+<dd>
+Per-recipient status information about why mail is bounced. These files are maintained by the  <b>bounce</b>(8) daemon.</dd>
+</dl>
+<dl>
+<dt>
+<b>defer</b></dt>
+<dd>
+Per-recipient status information about why mail is delayed. These files are maintained by the  <b>defer</b>(8) daemon.</dd>
+</dl>
+<dl>
+<dt>
+<b>trace</b></dt>
+<dd>
+Per-recipient status information as requested with the Postfix " <b>sendmail -v</b>" or "<b>sendmail -bv</b>" command. These files are maintained by the  <b>trace</b>(8) daemon.</dd>
+</dl>
+<p>
+The <b>qmgr</b>(8) daemon is responsible for asking the  <b>bounce</b>(8), <b>defer</b>(8) or <b>trace</b>(8) daemons to send delivery reports.</div>
+<div class="section">
+<h1>STRATEGIES</h1><br>
+The queue manager implements a variety of strategies for either opening queue files (input) or for message delivery (output).<dl>
+<dt>
+<b>leaky bucket</b></dt>
+<dd>
+This strategy limits the number of messages in the <b>active</b> queue and prevents the queue manager from running out of memory under heavy load.</dd>
+</dl>
+<dl>
+<dt>
+<b>fairness</b></dt>
+<dd>
+When the <b>active</b> queue has room, the queue manager takes one message from the  <b>incoming</b> queue and one from the <b>deferred</b> queue. This prevents a large mail backlog from blocking the delivery of new mail.</dd>
+</dl>
+<dl>
+<dt>
+<b>slow start</b></dt>
+<dd>
+This strategy eliminates "thundering herd" problems by slowly adjusting the number of parallel deliveries to the same destination.</dd>
+</dl>
+<dl>
+<dt>
+<b>round robin</b></dt>
+<dd>
+The queue manager sorts delivery requests by destination. Round-robin selection prevents one destination from dominating deliveries to other destinations.</dd>
+</dl>
+<dl>
+<dt>
+<b>exponential backoff</b></dt>
+<dd>
+Mail that cannot be delivered upon the first attempt is deferred. The time interval between delivery attempts is doubled after each attempt.</dd>
+</dl>
+<dl>
+<dt>
+<b>destination status cache</b></dt>
+<dd>
+The queue manager avoids unnecessary delivery attempts by maintaining a short-term, in-memory list of unreachable destinations.</dd>
+</dl>
+<dl>
+<dt>
+<b>preemptive message scheduling</b></dt>
+<dd>
+The queue manager attempts to minimize the average per-recipient delay while still preserving the correct per-message delays, using a sophisticated preemptive message scheduling.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>TRIGGERS</h1><br>
+On an idle system, the queue manager waits for the arrival of trigger events, or it waits for a timer to go off. A trigger is a one-byte message. Depending on the message received, the queue manager performs one of the following actions (the message is followed by the symbolic constant used internally by the software):<dl>
+<dt>
+<b>D (QMGR_REQ_SCAN_DEFERRED)</b></dt>
+<dd>
+Start a deferred queue scan.  If a deferred queue scan is already in progress, that scan will be restarted as soon as it finishes.</dd>
+</dl>
+<dl>
+<dt>
+<b>I (QMGR_REQ_SCAN_INCOMING)</b></dt>
+<dd>
+Start an incoming queue scan. If an incoming queue scan is already in progress, that scan will be restarted as soon as it finishes.</dd>
+</dl>
+<dl>
+<dt>
+<b>A (QMGR_REQ_SCAN_ALL)</b></dt>
+<dd>
+Ignore deferred queue file time stamps. The request affects the next deferred queue scan.</dd>
+</dl>
+<dl>
+<dt>
+<b>F (QMGR_REQ_FLUSH_DEAD)</b></dt>
+<dd>
+Purge all information about dead transports and destinations.</dd>
+</dl>
+<dl>
+<dt>
+<b>W (TRIGGER_REQ_WAKEUP)</b></dt>
+<dd>
+Wakeup call, This is used by the master server to instantiate servers that should not go away forever. The action is to start an incoming queue scan.</dd>
+</dl>
+<p>
+The <b>qmgr</b>(8) daemon reads an entire buffer worth of triggers. Multiple identical trigger requests are collapsed into one, and trigger requests are sorted so that  <b>A</b> and <b>F</b> precede  <b>D</b> and <b>I</b>. Thus, in order to force a deferred queue run, one would request  <b>A F D</b>; in order to notify the queue manager of the arrival of new mail one would request  <b>I</b>.</div>
+<div class="section">
+<h1>STANDARDS</h1><br>
+RFC 3463 (Enhanced status codes)<br>
+RFC 3464 (Delivery status notifications)</div>
+<div class="section">
+<h1>SECURITY</h1><br>
+The <b>qmgr</b>(8) daemon is not security sensitive. It reads single-character messages from untrusted local users, and thus may be susceptible to denial of service attacks. The  <b>qmgr</b>(8) daemon does not talk to the outside world, and it can be run at fixed low privilege in a chrooted environment.</div>
+<div class="section">
+<h1>DIAGNOSTICS</h1><br>
+Problems and transactions are logged to the syslog daemon. Corrupted message files are saved to the  <b>corrupt</b> queue for further inspection.<div style="height: 1.00em;">
+&#160;</div>
+Depending on the setting of the <b>notify_classes</b> parameter, the postmaster is notified of bounces and of other trouble.</div>
+<div class="section">
+<h1>BUGS</h1><br>
+A single queue manager process has to compete for disk access with multiple front-end processes such as  <b>cleanup</b>(8). A sudden burst of inbound mail can negatively impact outbound delivery rates.</div>
+<div class="section">
+<h1>CONFIGURATION PARAMETERS</h1><br>
+Changes to <b>main.cf</b> are not picked up automatically as  <b>qmgr</b>(8) is a persistent process. Use the " <b>postfix reload</b>" command after a configuration change.<div style="height: 1.00em;">
+&#160;</div>
+The text below provides only a parameter summary. See  <b>postconf</b>(5) for more details including examples.<div style="height: 1.00em;">
+&#160;</div>
+In the text below, <i>transport</i> is the first field in a  <b>master.cf</b> entry.</div>
+<div class="section">
+<h1>COMPATIBILITY CONTROLS</h1><br>
+Available before Postfix version 2.5:<dl>
+<dt>
+<b>allow_min_user (no)</b></dt>
+<dd>
+Allow a sender or recipient address to have `-' as the first character.</dd>
+</dl>
+<p>
+Available with Postfix version 2.7 and later:<dl>
+<dt>
+<b>default_filter_nexthop (empty)</b></dt>
+<dd>
+When a content_filter or FILTER request specifies no explicit next-hop destination, use $default_filter_nexthop instead; when that value is empty, use the domain in the recipient address.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>ACTIVE QUEUE CONTROLS</h1><br>
+<dl>
+<dt>
+<b>qmgr_clog_warn_time (300s)</b></dt>
+<dd>
+The minimal delay between warnings that a specific destination is clogging up the Postfix active queue.</dd>
+</dl>
+<dl>
+<dt>
+<b>qmgr_message_active_limit (20000)</b></dt>
+<dd>
+The maximal number of messages in the active queue.</dd>
+</dl>
+<dl>
+<dt>
+<b>qmgr_message_recipient_limit (20000)</b></dt>
+<dd>
+The maximal number of recipients held in memory by the Postfix queue manager, and the maximal size of the short-term, in-memory "dead" destination status cache.</dd>
+</dl>
+<dl>
+<dt>
+<b>qmgr_message_recipient_minimum (10)</b></dt>
+<dd>
+The minimal number of in-memory recipients for any message.</dd>
+</dl>
+<dl>
+<dt>
+<b>default_recipient_limit (20000)</b></dt>
+<dd>
+The default per-transport upper limit on the number of in-memory recipients.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_recipient_limit ($default_recipient_limit)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>default_extra_recipient_limit (1000)</b></dt>
+<dd>
+The default value for the extra per-transport limit imposed on the number of in-memory recipients.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_extra_recipient_limit ($default_extra_recipient_limit)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+<p>
+Available in Postfix version 2.4 and later:<dl>
+<dt>
+<b>default_recipient_refill_limit (100)</b></dt>
+<dd>
+The default per-transport limit on the number of recipients refilled at once.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_recipient_refill_limit ($default_recipient_refill_limit)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>default_recipient_refill_delay (5s)</b></dt>
+<dd>
+The default per-transport maximum delay between recipients refills.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_recipient_refill_delay ($default_recipient_refill_delay)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>DELIVERY CONCURRENCY CONTROLS</h1><br>
+<dl>
+<dt>
+<b>initial_destination_concurrency (5)</b></dt>
+<dd>
+The initial per-destination concurrency level for parallel delivery to the same destination.</dd>
+</dl>
+<dl>
+<dt>
+<b>default_destination_concurrency_limit (20)</b></dt>
+<dd>
+The default maximal number of parallel deliveries to the same destination.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_destination_concurrency_limit ($default_destination_concurrency_limit)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+<p>
+Available in Postfix version 2.5 and later:<dl>
+<dt>
+<i>transport</i><b>_initial_destination_concurrency ($initial_destination_concurrency)</b></dt>
+<dd>
+Initial concurrency for delivery via the named message  <i>transport</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>default_destination_concurrency_failed_cohort_limit (1)</b></dt>
+<dd>
+How many pseudo-cohorts must suffer connection or handshake failure before a specific destination is considered unavailable (and further delivery is suspended).</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_destination_concurrency_failed_cohort_limit ($default_destination_concurrency_failed_cohort_limit)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>default_destination_concurrency_negative_feedback (1)</b></dt>
+<dd>
+The per-destination amount of delivery concurrency negative feedback, after a delivery completes with a connection or handshake failure.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_destination_concurrency_negative_feedback ($default_destination_concurrency_negative_feedback)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>default_destination_concurrency_positive_feedback (1)</b></dt>
+<dd>
+The per-destination amount of delivery concurrency positive feedback, after a delivery completes without connection or handshake failure.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_destination_concurrency_positive_feedback ($default_destination_concurrency_positive_feedback)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>destination_concurrency_feedback_debug (no)</b></dt>
+<dd>
+Make the queue manager's feedback algorithm verbose for performance analysis purposes.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>RECIPIENT SCHEDULING CONTROLS</h1><br>
+<dl>
+<dt>
+<b>default_destination_recipient_limit (50)</b></dt>
+<dd>
+The default maximal number of recipients per message delivery.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_destination_recipient_limit ($default_destination_recipient_limit)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>MESSAGE SCHEDULING CONTROLS</h1><br>
+<dl>
+<dt>
+<b>default_delivery_slot_cost (5)</b></dt>
+<dd>
+How often the Postfix queue manager's scheduler is allowed to preempt delivery of one message with another.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_delivery_slot_cost ($default_delivery_slot_cost)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>default_minimum_delivery_slots (3)</b></dt>
+<dd>
+How many recipients a message must have in order to invoke the Postfix queue manager's scheduling algorithm at all.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_minimum_delivery_slots ($default_minimum_delivery_slots)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>default_delivery_slot_discount (50)</b></dt>
+<dd>
+The default value for transport-specific _delivery_slot_discount settings.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_delivery_slot_discount ($default_delivery_slot_discount)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>default_delivery_slot_loan (3)</b></dt>
+<dd>
+The default value for transport-specific _delivery_slot_loan settings.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_delivery_slot_loan ($default_delivery_slot_loan)</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>OTHER RESOURCE AND RATE CONTROLS</h1><br>
+<dl>
+<dt>
+<b>minimal_backoff_time (300s)</b></dt>
+<dd>
+The minimal time between attempts to deliver a deferred message; prior to Postfix 2.4 the default value was 1000s.</dd>
+</dl>
+<dl>
+<dt>
+<b>maximal_backoff_time (4000s)</b></dt>
+<dd>
+The maximal time between attempts to deliver a deferred message.</dd>
+</dl>
+<dl>
+<dt>
+<b>maximal_queue_lifetime (5d)</b></dt>
+<dd>
+Consider a message as undeliverable, when delivery fails with a temporary error, and the time in the queue has reached the maximal_queue_lifetime limit.</dd>
+</dl>
+<dl>
+<dt>
+<b>queue_run_delay (300s)</b></dt>
+<dd>
+The time between deferred queue scans by the queue manager; prior to Postfix 2.4 the default value was 1000s.</dd>
+</dl>
+<dl>
+<dt>
+<b>transport_retry_time (60s)</b></dt>
+<dd>
+The time between attempts by the Postfix queue manager to contact a malfunctioning message delivery transport.</dd>
+</dl>
+<p>
+Available in Postfix version 2.1 and later:<dl>
+<dt>
+<b>bounce_queue_lifetime (5d)</b></dt>
+<dd>
+Consider a bounce message as undeliverable, when delivery fails with a temporary error, and the time in the queue has reached the bounce_queue_lifetime limit.</dd>
+</dl>
+<p>
+Available in Postfix version 2.5 and later:<dl>
+<dt>
+<b>default_destination_rate_delay (0s)</b></dt>
+<dd>
+The default amount of delay that is inserted between individual deliveries to the same destination; the resulting behavior depends on the value of the corresponding per-destination recipient limit.</dd>
+</dl>
+<dl>
+<dt>
+<i>transport</i><b>_destination_rate_delay $default_destination_rate_delay</b></dt>
+<dd>
+Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SAFETY CONTROLS</h1><br>
+<dl>
+<dt>
+<b>qmgr_daemon_timeout (1000s)</b></dt>
+<dd>
+How much time a Postfix queue manager process may take to handle a request before it is terminated by a built-in watchdog timer.</dd>
+</dl>
+<dl>
+<dt>
+<b>qmgr_ipc_timeout (60s)</b></dt>
+<dd>
+The time limit for the queue manager to send or receive information over an internal communication channel.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>MISCELLANEOUS CONTROLS</h1><br>
+<dl>
+<dt>
+<b>config_directory (see 'postconf -d' output)</b></dt>
+<dd>
+The default location of the Postfix main.cf and master.cf configuration files.</dd>
+</dl>
+<dl>
+<dt>
+<b>defer_transports (empty)</b></dt>
+<dd>
+The names of message delivery transports that should not deliver mail unless someone issues " <b>sendmail -q</b>" or equivalent.</dd>
+</dl>
+<dl>
+<dt>
+<b>delay_logging_resolution_limit (2)</b></dt>
+<dd>
+The maximal number of digits after the decimal point when logging sub-second delay values.</dd>
+</dl>
+<dl>
+<dt>
+<b>helpful_warnings (yes)</b></dt>
+<dd>
+Log warnings about problematic configuration settings, and provide helpful suggestions.</dd>
+</dl>
+<dl>
+<dt>
+<b>process_id (read-only)</b></dt>
+<dd>
+The process ID of a Postfix command or daemon process.</dd>
+</dl>
+<dl>
+<dt>
+<b>process_name (read-only)</b></dt>
+<dd>
+The process name of a Postfix command or daemon process.</dd>
+</dl>
+<dl>
+<dt>
+<b>queue_directory (see 'postconf -d' output)</b></dt>
+<dd>
+The location of the Postfix top-level queue directory.</dd>
+</dl>
+<dl>
+<dt>
+<b>syslog_facility (mail)</b></dt>
+<dd>
+The syslog facility of Postfix logging.</dd>
+</dl>
+<dl>
+<dt>
+<b>syslog_name (see 'postconf -d' output)</b></dt>
+<dd>
+The mail system name that is prepended to the process name in syslog records, so that "smtpd" becomes, for example, "postfix/smtpd".</dd>
+</dl>
+</div>
+<div class="section">
+<h1>FILES</h1><br>
+/var/spool/postfix/incoming, incoming queue<br>
+/var/spool/postfix/active, active queue<br>
+/var/spool/postfix/deferred, deferred queue<br>
+/var/spool/postfix/bounce, non-delivery status<br>
+/var/spool/postfix/defer, non-delivery status<br>
+/var/spool/postfix/trace, delivery status</div>
+<div class="section">
+<h1>SEE ALSO</h1><br>
+trivial-rewrite(8), address routing<br>
+bounce(8), delivery status reports<br>
+postconf(5), configuration parameters<br>
+master(5), generic daemon options<br>
+master(8), process manager<br>
+syslogd(8), system logging</div>
+<div class="section">
+<h1>README FILES</h1><br>
+Use "<b>postconf readme_directory</b>" or " <b>postconf_directory</b>" to locate this information.<br>
+SCHEDULER_README, scheduling algorithm<br>
+QSHAPE_README, Postfix queue analysis</div>
+<div class="section">
+<h1>LICENSE</h1><br>
+The Secure Mailer license must be distributed with this software.</div>
+<div class="section">
+<h1>AUTHOR(S)</h1><br>
+Wietse Venema<br>
+IBM T.J. Watson Research<br>
+P.O. Box 704<br>
+Yorktown Heights, NY 10598, USA<p>
+<br>
+Preemptive scheduler enhancements:<br>
+Patrik Rak<br>
+Modra 6<br>
+155 00, Prague, Czech Republic</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tr>
+<td class="foot-date">
+</td>
+<td class="foot-os" align="right">
+</td>
+</tr>
+</table>
+</div>
+</body>
+<>
+

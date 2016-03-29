@@ -1,0 +1,401 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+DISK(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+DISK(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+DISK(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">disk</b>, <b class="name">disk_init</b>, <b class="name">disk_attach</b>, <b class="name">disk_begindetach</b>, <b class="name">disk_detach</b>, <b class="name">disk_destroy</b>, <b class="name">disk_busy</b>, <b class="name">disk_unbusy</b>, <b class="name">disk_isbusy</b>, <b class="name">disk_find</b>, <b class="name">disk_set_info</b> &#8212; <span class="desc">generic disk framework</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/types.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/disklabel.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/disk.h</a>&gt;</b><p>
+<i class="ftype">void</i><br>
+<b class="fname">disk_init</b>(<i class="farg" style="white-space:nowrap;">struct disk *</i>, <i class="farg" style="white-space:nowrap;">const char *name</i>, <i class="farg" style="white-space:nowrap;">const struct dkdriver *driver</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">disk_attach</b>(<i class="farg" style="white-space:nowrap;">struct disk *</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">disk_begindetach</b>(<i class="farg" style="white-space:nowrap;">struct disk *</i>, <i class="farg" style="white-space:nowrap;">int (*lastclose)(device_t)</i>, <i class="farg" style="white-space:nowrap;">device_t self</i>, <i class="farg" style="white-space:nowrap;">int flags</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">disk_detach</b>(<i class="farg" style="white-space:nowrap;">struct disk *</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">disk_destroy</b>(<i class="farg" style="white-space:nowrap;">struct disk *</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">disk_busy</b>(<i class="farg" style="white-space:nowrap;">struct disk *</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">disk_unbusy</b>(<i class="farg" style="white-space:nowrap;">struct disk *</i>, <i class="farg" style="white-space:nowrap;">long bcount</i>, <i class="farg" style="white-space:nowrap;">int read</i>);<p>
+<i class="ftype">bool</i><br>
+<b class="fname">disk_isbusy</b>(<i class="farg" style="white-space:nowrap;">struct disk *</i>);<p>
+<i class="ftype">struct disk *</i><br>
+<b class="fname">disk_find</b>(<i class="farg" style="white-space:nowrap;">const char *</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">disk_set_info</b>(<i class="farg" style="white-space:nowrap;">device_t</i>, <i class="farg" style="white-space:nowrap;">struct disk *</i>, <i class="farg" style="white-space:nowrap;">const char *type</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <span class="unix">NetBSD</span> generic disk framework is designed to provide flexible, scalable, and consistent handling of disk state and metrics information. The fundamental component of this framework is the <b class="name">disk</b> structure, which is defined as follows:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct disk { 
+	TAILQ_ENTRY(disk) dk_link;	/* link in global disklist */ 
+	const char	*dk_name;	/* disk name */ 
+	prop_dictionary_t dk_info;	/* reference to disk-info dictionary */ 
+	int		dk_bopenmask;	/* block devices open */ 
+	int		dk_copenmask;	/* character devices open */ 
+	int		dk_openmask;	/* composite (bopen|copen) */ 
+	int		dk_state;	/* label state   ### */ 
+	int		dk_blkshift;	/* shift to convert DEV_BSIZE to blks */ 
+	int		dk_byteshift;	/* shift to convert bytes to blks */ 
+ 
+	/* 
+	 * Metrics data; note that some metrics may have no meaning 
+	 * on certain types of disks. 
+	 */ 
+	struct io_stats	*dk_stats; 
+ 
+	const struct dkdriver *dk_driver;	/* pointer to driver */ 
+ 
+	/* 
+	 * Information required to be the parent of a disk wedge. 
+	 */ 
+	kmutex_t	dk_rawlock;	/* lock on these fields */ 
+	u_int		dk_rawopens;	/* # of openes of rawvp */ 
+	struct vnode	*dk_rawvp;	/* vnode for the RAW_PART bdev */ 
+ 
+	kmutex_t	dk_openlock;	/* lock on these and openmask */ 
+	u_int		dk_nwedges;	/* # of configured wedges */ 
+					/* all wedges on this disk */ 
+	LIST_HEAD(, dkwedge_softc) dk_wedges; 
+ 
+	/* 
+	 * Disk label information.  Storage for the in-core disk label 
+	 * must be dynamically allocated, otherwise the size of this 
+	 * structure becomes machine-dependent. 
+	 */ 
+	daddr_t		dk_labelsector;		/* sector containing label */ 
+	struct disklabel *dk_label;	/* label */ 
+	struct cpu_disklabel *dk_cpulabel; 
+};</pre>
+<p>
+The system maintains a global linked-list of all disks attached to the system. This list, called <b class="name">disklist</b>, may grow or shrink over time as disks are dynamically added and removed from the system. Drivers which currently make use of the detachment capability of the framework are the <b class="name">ccd</b>, <b class="name">dm</b>, and <b class="name">vnd</b> pseudo-device drivers.<p>
+The following is a brief description of each function in the framework:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_init</b>()</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Initialize the disk structure.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_attach</b>()</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Attach a disk; allocate storage for the disklabel, set the &#8220;attached time&#8221; timestamp, insert the disk into the disklist, and increment the system disk count.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_begindetach</b>()</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Check whether the disk is open, and if not, return 0. If the disk is open, and <span class="define">DETACH_FORCE</span> is not set in <i class="farg">flags</i>, return <span class="define">EBUSY</span>. Otherwise, call the provided <i class="farg">lastclose</i> routine (if not <span class="define">NULL</span>) and return its exit code.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_detach</b>()</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Detach a disk; free storage for the disklabel, remove the disk from the disklist, and decrement the system disk count. If the count drops below zero, panic.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_destroy</b>()</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Release resources used by the disk structure when it is no longer required.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_busy</b>()</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Increment the disk's &#8220;busy counter&#8221;. If this counter goes from 0 to 1, set the timestamp corresponding to this transfer.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_unbusy</b>()</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Decrement a disk's busy counter. If the count drops below zero, panic. Get the current time, subtract it from the disk's timestamp, and add the difference to the disk's running total. Set the disk's timestamp to the current time. If the provided byte count is greater than 0, add it to the disk's running total and increment the number of transfers performed by the disk. The third argument <i class="arg">read</i> specifies the direction of I/O; if non-zero it means reading from the disk, otherwise it means writing to the disk.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_isbusy</b>()</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Returns <i class="arg">true</i> if disk is marked as busy and false if it is not.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_find</b>()</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Return a pointer to the disk structure corresponding to the name provided, or <span class="define">NULL</span> if the disk does not exist.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_set_info</b>()</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Setup disk-info dictionary and other dependent values of the disk structure, the driver must have initialized the dk_geom member of <i class="farg">struct disk</i> with suitable values. If <i class="farg">type</i> is not <span class="define">NULL</span>, it will be added to the dictionary.</dd>
+</dl>
+<p>
+The functions typically called by device drivers are <b class="fname">disk_init</b>() <b class="fname">disk_attach</b>(), <b class="fname">disk_begindetach</b>(), <b class="fname">disk_detach</b>(), <b class="fname">disk_destroy</b>(), <b class="fname">disk_busy</b>(), <b class="fname">disk_unbusy</b>(), and <b class="fname">disk_set_info</b>(). The function <b class="fname">disk_find</b>() is provided as a utility function.</div>
+<div class="section">
+<h1 id="x4449534b20494f43544c53">DISK IOCTLS</h1> The following ioctls should be implemented by disk drivers:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCGDINFO struct disklabel</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get disklabel.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCSDINFO struct disklabel</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set in-memory disklabel.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCWDINFO struct disklabel</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set in-memory disklabel and write on-disk disklabel.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCGPART struct partinfo</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get partition information. This is used internally.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCRFORMAT struct format_op</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Read format.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCWFORMAT struct format_op</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Write format.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCSSTEP int</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set step rate.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCSRETRIES int</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set number of retries.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCKLABEL int</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify whether to keep or drop the in-memory disklabel when the device is closed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCWLABEL int</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Enable or disable writing to the part of the disk that contains the label.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCSBAD struct dkbad</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set kernel dkbad.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCEJECT int</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Eject removable disk.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCLOCK int</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Lock or unlock disk pack. For devices with removable media, locking is intended to prevent the operator from removing the media.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCGDEFLABEL struct disklabel</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get default label.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCCLRLABEL</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Clear disk label.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCGCACHE int</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get status of disk read and write caches. The result is a bitmask containing the following values:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DKCACHE_READ</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+Read cache enabled.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DKCACHE_WRITE</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+Write(back) cache enabled.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DKCACHE_RCHANGE</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+Read cache enable is changeable.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DKCACHE_WCHANGE</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+Write cache enable is changeable.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DKCACHE_SAVE</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+Cache parameters may be saved, so that they persist across reboots or device detach/attach cycles.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCSCACHE int</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set status of disk read and write caches. The input is a bitmask in the same format as used for <span class="define">DIOCGCACHE</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCCACHESYNC int</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Synchronise the disk cache. This causes information in the disk's write cache (if any) to be flushed to stable storage. The argument specifies whether or not to force a flush even if the kernel believes that there is no outstanding data.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCBSLIST struct disk_badsecinfo</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get bad sector list.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCBSFLUSH</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Flush bad sector list.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCAWEDGE struct dkwedge_info</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Add wedge.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCGWEDGEINFO struct dkwedge_info</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get wedge information.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCDWEDGE struct dkwedge_info</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Delete wedge.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCLWEDGES struct dkwedge_list</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+List wedges.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCGSTRATEGY struct disk_strategy</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get disk buffer queue strategy.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCSSTRATEGY struct disk_strategy</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set disk buffer queue strategy.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCGDISKINFO struct plistref</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get disk-info dictionary.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCGMEDIASIZE off_t</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get disk size in bytes.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">DIOCGSECTORSIZE u_int</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get sector size in bytes.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x5553494e4720544845204652414d45574f524b">USING THE FRAMEWORK</h1> This section includes a description on basic use of the framework and example usage of its functions. Actual implementation of a device driver which uses the framework may vary.<p>
+Each device in the system uses a &#8220;softc&#8221; structure which contains autoconfiguration and state information for that device. In the case of disks, the softc should also contain one instance of the disk structure, e.g.:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct foo_softc { 
+	device_t	sc_dev;		/* generic device information */ 
+	struct	disk	sc_dk;		/* generic disk information */ 
+	[ . . . more . . . ] 
+};</pre>
+<p>
+In order for the system to gather metrics data about a disk, the disk must be registered with the system. The <b class="fname">disk_attach</b>() routine performs all of the functions currently required to register a disk with the system including allocation of disklabel storage space, recording of the time since boot that the disk was attached, and insertion into the disklist. Note that since this function allocates storage space for the disklabel, it must be called before the disklabel is read from the media or used in any other way. Before <b class="fname">disk_attach</b>() is called, a portions of the disk structure must be initialized with data specific to that disk. For example, in the &#8220;foo&#8221; disk driver, the following would be performed in the autoconfiguration &#8220;attach&#8221; routine:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+void 
+fooattach(device_t parent, device_t self, void *aux) 
+{ 
+	struct foo_softc *sc = device_private(self); 
+	[ . . . ] 
+ 
+	/* Initialize and attach the disk structure. */ 
+	disk_init(&amp;sc-&gt;sc_dk, device_xname(self), &amp;foodkdriver); 
+	disk_attach(&amp;sc-&gt;sc_dk); 
+ 
+	/* Read geometry and fill in pertinent parts of disklabel. */ 
+	/* Initialize geometry values of the disk structure */ 
+	[ . . . ] 
+	disk_set_info(&amp;self&gt;, &amp;sc-&gt;sc_dk, type); 
+}</pre>
+<p>
+The <b class="name">foodkdriver</b> above is the disk's &#8220;driver&#8221; switch. This switch currently includes a pointer to the disk's &#8220;strategy&#8221; routine. This switch needs to have global scope and should be initialized as follows:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+void foostrategy(struct buf *); 
+ 
+const struct dkdriver foodkdriver = { 
+	.d_strategy = foostrategy, 
+};</pre>
+<p>
+Once the disk is attached, metrics may be gathered on that disk. In order to gather metrics data, the driver must tell the framework when the disk starts and stops operations. This functionality is provided by the <b class="fname">disk_busy</b>() and <b class="fname">disk_unbusy</b>() routines. Because <b class="name">struct disk</b> is part of device driver private data it needs to be guarded. Mutual exclusion must be done by driver <b class="fname">disk_busy</b>() and <b class="fname">disk_unbusy</b>() are not thread safe. The <b class="fname">disk_busy</b>() routine should be called immediately before a command to the disk is sent, e.g.:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+void 
+foostart(sc) 
+	struct foo_softc *sc; 
+{ 
+	[ . . . ] 
+ 
+	/* Get buffer from drive's transfer queue. */ 
+	[ . . . ] 
+ 
+	/* Build command to send to drive. */ 
+	[ . . . ] 
+ 
+	/* Tell the disk framework we're going busy. */ 
+	mutex_enter(&amp;sc-&gt;sc_dk_mtx); 
+	disk_busy(&amp;sc-&gt;sc_dk); 
+	mutex_exit(&amp;sc-&gt;sc_dk_mtx); 
+ 
+	/* Send command to the drive. */ 
+	[ . . . ] 
+}</pre>
+<p>
+When <b class="fname">disk_busy</b>() is called, a timestamp is taken if the disk's busy counter moves from 0 to 1, indicating the disk has gone from an idle to non-idle state. At the end of a transaction, the <b class="fname">disk_unbusy</b>() routine should be called. This routine performs some consistency checks, such as ensuring that the calls to <b class="fname">disk_busy</b>() and <b class="fname">disk_unbusy</b>() are balanced. This routine also performs the actual metrics calculation. A timestamp is taken and the difference from the timestamp taken in <b class="fname">disk_busy</b>() is added to the disk's total running time. The disk's timestamp is then updated in case there is more than one pending transfer on the disk. A byte count is also added to the disk's running total, and if greater than zero, the number of transfers the disk has performed is incremented. The third argument <i class="arg">read</i> specifies the direction of I/O; if non-zero it means reading from the disk, otherwise it means writing to the disk.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+void 
+foodone(xfer) 
+	struct foo_xfer *xfer; 
+{ 
+	struct foo_softc = (struct foo_softc *)xfer-&gt;xf_softc; 
+	struct buf *bp = xfer-&gt;xf_buf; 
+	long nbytes; 
+	[ . . . ] 
+ 
+	/* 
+	 * Get number of bytes transferred.  If there is no buf 
+	 * associated with the xfer, we are being called at the 
+	 * end of a non-I/O command. 
+	 */ 
+	if (bp == NULL) 
+		nbytes = 0; 
+	else 
+		nbytes = bp-&gt;b_bcount - bp-&gt;b_resid; 
+ 
+	[ . . . ] 
+ 
+	mutex_enter(&amp;sc-&gt;sc_dk_mtx); 
+	/* Notify the disk framework that we've completed the transfer. */ 
+	disk_unbusy(&amp;sc-&gt;sc_dk, nbytes, 
+	    bp != NULL ? bp-&gt;b_flags &amp; B_READ : 0); 
+	mutex_exit(&amp;sc-&gt;sc_dk_mtx); 
+ 
+	[ . . . ] 
+}</pre>
+<p>
+<b class="fname">disk_isbusy</b>() is used to get status of disk device it returns true if device is currently busy and false if it is not. Like <b class="fname">disk_busy</b>() and <b class="fname">disk_unbusy</b>() it requires explicit locking from user side.</div>
+<div class="section">
+<h1 id="x434f4445205245464552454e434553">CODE REFERENCES</h1> The disk framework itself is implemented within the file <i class="file">sys/kern/subr_disk.c</i>. Data structures and function prototypes for the framework are located in <i class="file">sys/sys/disk.h</i>.<p>
+The <span class="unix">NetBSD</span> machine-independent SCSI disk and CD-ROM drivers use the disk framework. They are located in <i class="file">sys/scsi/sd.c</i> and <i class="file">sys/scsi/cd.c</i>.<p>
+The <span class="unix">NetBSD</span> <b class="name">ccd</b>, <b class="name">dm</b>, and <b class="name">vnd</b> drivers use the detachment capability of the framework. They are located in <i class="file">sys/dev/ccd.c</i>, <i class="file">sys/dev/vnd.c</i>, and <i class="file">sys/dev/dm/device-mapper.c</i>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../4/ccd">ccd(4)</a>, <a class="link-man" href="../4/dm">dm(4)</a>, <a class="link-man" href="../4/vnd">vnd(4)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <span class="unix">NetBSD</span> generic disk framework appeared in <span class="unix">NetBSD&#160;1.2</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> The <span class="unix">NetBSD</span> generic disk framework was architected and implemented by <span class="author">Jason R. Thorpe</span> &#60;thorpej@NetBSD.org&#62;.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+December 29, 2014</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

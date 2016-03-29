@@ -1,0 +1,235 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+FILEASSOC(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+FILEASSOC(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+FILEASSOC(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">fileassoc</b> &#8212; <span class="desc">in-kernel, file-system independent, file-meta data association</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/fileassoc.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">fileassoc_register</b>(<i class="farg" style="white-space:nowrap;">const char *name</i>, <i class="farg" style="white-space:nowrap;">fileassoc_cleanup_cb_t cleanup_cb</i>, <i class="farg" style="white-space:nowrap;">fileassoc_t *result</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">fileassoc_deregister</b>(<i class="farg" style="white-space:nowrap;">fileassoc_t id</i>);<p>
+<i class="ftype">void *</i><br>
+<b class="fname">fileassoc_lookup</b>(<i class="farg" style="white-space:nowrap;">struct vnode *vp</i>, <i class="farg" style="white-space:nowrap;">fileassoc_t id</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">fileassoc_table_delete</b>(<i class="farg" style="white-space:nowrap;">struct mount *mp</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">fileassoc_table_clear</b>(<i class="farg" style="white-space:nowrap;">struct mount *mp</i>, <i class="farg" style="white-space:nowrap;">fileassoc_t id</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">fileassoc_table_run</b>(<i class="farg" style="white-space:nowrap;">struct mount *mp</i>, <i class="farg" style="white-space:nowrap;">fileassoc_t id</i>, <i class="farg" style="white-space:nowrap;">fileassoc_cb_t cb</i>, <i class="farg" style="white-space:nowrap;">void *cookie</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">fileassoc_file_delete</b>(<i class="farg" style="white-space:nowrap;">struct vnode *vp</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">fileassoc_add</b>(<i class="farg" style="white-space:nowrap;">struct vnode *vp</i>, <i class="farg" style="white-space:nowrap;">fileassoc_t id</i>, <i class="farg" style="white-space:nowrap;">void *data</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">fileassoc_clear</b>(<i class="farg" style="white-space:nowrap;">struct vnode *vp</i>, <i class="farg" style="white-space:nowrap;">fileassoc_t id</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">fileassoc</b> KPI allows association of meta-data with files independent of file-system support for such elaborate meta-data.<p>
+When plugging a new fileassoc to the system, a developer can specify private data to be associated with every file, as well as (potentially different) private data to be associated with every file-system mount.<p>
+For example, a developer might choose to associate a custom ACL with every file, and a count of total files with ACLs with the mount.</div>
+<div class="section">
+<h1 id="x4b45524e454c2050524f4752414d4d494e4720494e54455246414345">KERNEL PROGRAMMING INTERFACE</h1> Designed with simplicity in mind, the <b class="name">fileassoc</b> KPI usually accepts four different types of parameters to the most commonly used routines:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">struct mount *</i> <i class="arg">mp</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Describing a mount on which to take action.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">struct vnode *</i> <i class="arg">vp</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Describing a file on which to take action.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">fileassoc_t</i> <i class="arg">id</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Describing an id, as returned from a successful call to <b class="fname">fileassoc_register</b>().</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void *</i> <i class="arg">data</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Describing a custom private data block, attached to either a file or a mount.</dd>
+</dl>
+<p>
+Before using the <b class="name">fileassoc</b> KPI it is important to keep in mind that the interface provides memory management only for <b class="name">fileassoc</b> internal memory. Any additional memory stored in the tables (such as private data-structures used by custom fileassocs) should be allocated and freed by the developer.<p>
+<b class="name">fileassoc</b> provides the ability to specify a &#8220;cleanup&#8221; routine to <b class="fname">fileassoc_register</b>() (see below) to be called whenever an entry for a file or a mount is deleted.<div class="subsection">
+<h2 id="x524547495354524154494f4e20414e44204445524547495354524154494f4e20524f5554494e4553">REGISTRATION AND DEREGISTRATION ROUTINES</h2> These routines allow a developer to allocate a <b class="name">fileassoc</b> slot to be used for private data.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">fileassoc_register</b>(<i class="farg">name</i>, <i class="farg">cleanup_cb</i>, <i class="farg">result</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Registers a new fileassoc as <i class="arg">name</i>, and returns a <i class="ftype">fileassoc_t</i> via <i class="farg">result</i> to be used as identifier in subsequent calls to the <b class="name">fileassoc</b> subsystem.<p>
+<b class="fname">fileassoc_register</b>() returns zero on success. Otherwise, an error number will be returned.<p>
+If <i class="arg">cleanup_cb</i> is not <span class="define">NULL</span>, it will be called during delete/clear operations (see routines below) with indication whether the passed data is file- or mount-specific.<p>
+<i class="arg">cleanup_cb</i> should be a function receiving a <i class="ftype">void *</i> and returning <i class="ftype">void</i>. See the <i class="link-sec"><a class="link-sec" href="#x4558414d504c4553">EXAMPLES</a></i> section for illustration.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">fileassoc_deregister</b>(<i class="farg">id</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Deregisters a <b class="name">fileassoc</b> whose id is <i class="arg">id</i>.<p>
+Note that calling <b class="fname">fileassoc_deregister</b>() only frees the associated slot in the <b class="name">fileassoc</b> subsystem. It is up to the developer to take care of garbage collection.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x4c4f4f4b555020524f5554494e4553">LOOKUP ROUTINES</h2> These routines allow lookup of <b class="name">fileassoc</b> mounts, files, and private data attached to them.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">fileassoc_lookup</b>(<i class="farg">vp</i>, <i class="farg">id</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Returns the private data for the file/id combination or <span class="define">NULL</span> if not found.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x4d4f554e541e5749444520524f5554494e4553">MOUNT-WIDE ROUTINES</h2><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">fileassoc_table_delete</b>(<i class="farg">mp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Deletes a fileassoc table for <i class="arg">mp</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">fileassoc_table_clear</b>(<i class="farg">mp</i>, <i class="farg">id</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Clear all table entries for <i class="arg">fileassoc</i> from <i class="arg">mp</i>.<p>
+If specified, the fileassoc's &#8220;cleanup routine&#8221; will be called with a pointer to the private data-structure.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">fileassoc_table_run</b>(<i class="farg">mp</i>, <i class="farg">id</i>, <i class="farg">cb</i>, <i class="farg">cookie</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+For each entry for <i class="arg">id</i>, call <i class="arg">cb</i> with the entry being the first argument, and <i class="arg">cookie</i> being the second argument.<p>
+<i class="arg">cb</i> is a function returning <i class="ftype">void</i> and receiving one <i class="ftype">void *</i> parameter.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x46494c451e535045434946494320524f5554494e4553">FILE-SPECIFIC ROUTINES</h2><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">fileassoc_file_delete</b>(<i class="farg">vp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Delete the fileassoc entries for <i class="arg">vp</i>.<p>
+If specified, the &#8220;cleanup routines&#8221; of all fileassoc types added will be called with a pointer to the corresponding private data structure and indication of <span class="define">FILEASSOC_CLEANUP_FILE</span>.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x46494c454153534f431e535045434946494320524f5554494e4553">FILEASSOC-SPECIFIC ROUTINES</h2><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">fileassoc_add</b>(<i class="farg">vp</i>, <i class="farg">id</i>, <i class="farg">data</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Add private data in <i class="arg">data</i> for <i class="arg">vp</i>, for the fileassoc specified by <i class="arg">id</i>.<p>
+If a table for the mount-point <i class="arg">vp</i> is on doesn't exist, one will be created automatically. <b class="name">fileassoc</b> manages internally the optimal table sizes as tables are modified.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">fileassoc_clear</b>(<i class="farg">vp</i>, <i class="farg">id</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Clear the private data for <i class="arg">vp</i>, for the fileassoc specified by <i class="arg">id</i>.<p>
+If specified, the fileassoc's &#8220;cleanup routine&#8221; will be called with a pointer to the private data-structure and indication of <span class="define">FILEASSOC_CLEANUP_FILE</span>.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> The following code examples should give you a clue on using <b class="name">fileassoc</b> for your purposes.<p>
+First, we'll begin with registering a new id. We need to do that to save a slot for private data storage with each mount and/or file:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+fileassoc_t myhook_id; 
+int error; 
+ 
+error = fileassoc_register("my_hook", myhook_cleanup, &amp;myhook_id); 
+if (error != 0) 
+	...handle error...</pre>
+<p>
+In the above example we pass a <b class="fname">myhook_cleanup</b>() routine. It could look something like this:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+void 
+myhook_cleanup(void *data) 
+{ 
+ 
+	printf("Myhook: Removing entry for file.&#92;n"); 
+	...handle file entry removal... 
+	free(data, M_TEMP); 
+}</pre>
+<p>
+Another useful thing would be to add our private data to a file. For example, let's assume we keep a custom ACL with each file:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+int 
+myhook_acl_add(struct vnode *vp, struct myhook_acl *acl) 
+{ 
+	int error; 
+ 
+	error = fileassoc_add(vp, myhook_id, acl); 
+	if (error) { 
+		printf("Myhook: Could not add ACL.&#92;n"); 
+		...handle error... 
+	} 
+ 
+	printf("Myhook: Added ACL.&#92;n"); 
+ 
+	return (0); 
+}</pre>
+<p>
+Adding an entry will override any entry that previously exists.<p>
+Whatever your plug is, eventually you'll want to access the private data you store with each file. To do that you can use the following:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+int 
+myhook_acl_access(struct vnode *vp, int access_flags) 
+{ 
+	struct myhook_acl *acl; 
+ 
+	acl = fileassoc_lookup(vp, myhook_id); 
+	if (acl == NULL) 
+		return (0); 
+ 
+	error = myhook_acl_eval(acl, access_flags); 
+	if (error) { 
+		printf("Myhook: Denying access based on ACL decision.&#92;n"); 
+		return (error); 
+	} 
+ 
+	return (0); 
+}</pre>
+<p>
+And, in some cases, it may be desired to remove private data associated with an file:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+int error; 
+ 
+error = fileassoc_clear(vp, myhook_id); 
+if (error) { 
+	printf("Myhook: Error occurred during fileassoc removal.&#92;n"); 
+	...handle error... 
+}</pre>
+<p>
+As mentioned previously, the call to <b class="fname">fileassoc_clear</b>() will result in a call to the &#8220;cleanup routine&#8221; specified in the initial call to <b class="fname">fileassoc_register</b>().<p>
+The above should be enough to get you started.<p>
+For example usage of <b class="name">fileassoc</b>, see the Veriexec code.</div>
+<div class="section">
+<h1 id="x434f4445205245464552454e434553">CODE REFERENCES</h1> The <b class="name">fileassoc</b> is implemented within <i class="file">src/sys/kern/kern_fileassoc.c</i>.</div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">fileassoc</b> KPI first appeared in <span class="unix">NetBSD&#160;4.0</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <span class="author">Elad Efrat</span> &#60;<a class="link-mail" href="mailto:elad@NetBSD.org">elad@NetBSD.org</a>&#62; <span class="author">Brett Lymn</span> &#60;<a class="link-mail" href="mailto:blymn@NetBSD.org">blymn@NetBSD.org</a>&#62;</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+January 26, 2010</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

@@ -1,0 +1,177 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+d2i_X509(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+d2i_X509(3)</td>
+<td class="head-vol" align="center">
+OpenSSL</td>
+<td class="head-rtitle" align="right">
+d2i_X509(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> d2i_X509, i2d_X509, d2i_X509_bio, d2i_X509_fp, i2d_X509_bio, i2d_X509_fp &#45; X509 encode and decode functions</div>
+<div class="section">
+<h1>LIBRARY</h1> libcrypto, -lcrypto</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br>
+ #include &lt;openssl/x509.h&gt;<br>
+<br>
+ X509 *d2i_X509(X509 **px, const unsigned char **in, int len);<br>
+ int i2d_X509(X509 *x, unsigned char **out);<br>
+<br>
+ X509 *d2i_X509_bio(BIO *bp, X509 **x);<br>
+ X509 *d2i_X509_fp(FILE *fp, X509 **x);<br>
+<br>
+ int i2d_X509_bio(BIO *bp, X509 *x);<br>
+ int i2d_X509_fp(FILE *fp, X509 *x);<br>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The X509 encode and decode routines encode and parse an  <b>X509</b> structure, which represents an X509 certificate.<p>
+<i>d2i_X509()</i> attempts to decode <b>len</b> bytes at <b>*in</b>. If successful a pointer to the  <b>X509</b> structure is returned. If an error occurred then  <b>NULL</b> is returned. If <b>px</b> is not <b>NULL</b> then the returned structure is written to  <b>*px</b>. If <b>*px</b> is not <b>NULL</b> then it is assumed that  <b>*px</b> contains a valid <b>X509</b> structure and an attempt is made to reuse it. This "reuse" capability is present for historical compatibility but its use is  <b>strongly discouraged</b> (see BUGS below, and the discussion in the RETURN VALUES section).<p>
+If the call is successful <b>*in</b> is incremented to the byte following the parsed data.<p>
+<i>i2d_X509()</i> encodes the structure pointed to by <b>x</b> into DER format. If  <b>out</b> is not <b>NULL</b> is writes the DER encoded data to the buffer at  <b>*out</b>, and increments it to point after the data just written. If the return value is negative an error occurred, otherwise it returns the length of the encoded data.<p>
+For OpenSSL 0.9.7 and later if <b>*out</b> is <b>NULL</b> memory will be allocated for a buffer and the encoded data written to it. In this case  <b>*out</b> is not incremented and it points to the start of the data just written.<p>
+<i>d2i_X509_bio()</i> is similar to <i>d2i_X509()</i> except it attempts to parse data from BIO  <b>bp</b>.<p>
+<i>d2i_X509_fp()</i> is similar to <i>d2i_X509()</i> except it attempts to parse data from FILE pointer  <b>fp</b>.<p>
+<i>i2d_X509_bio()</i> is similar to <i>i2d_X509()</i> except it writes the encoding of the structure  <b>x</b> to BIO <b>bp</b> and it returns 1 for success and 0 for failure.<p>
+<i>i2d_X509_fp()</i> is similar to <i>i2d_X509()</i> except it writes the encoding of the structure  <b>x</b> to BIO <b>bp</b> and it returns 1 for success and 0 for failure.</div>
+<div class="section">
+<h1>NOTES</h1> The letters  <b>i</b> and <b>d</b> in for example <b>i2d_X509</b> stand for "internal" (that is an internal C structure) and "DER". So that  <b>i2d_X509</b> converts from internal to DER.<p>
+The functions can also understand <b>BER</b> forms.<p>
+The actual X509 structure passed to <i>i2d_X509()</i> must be a valid populated  <b>X509</b> structure it can <b>not</b> simply be fed with an empty structure such as that returned by  <i>X509_new()</i>.<p>
+The encoded data is in binary form and may contain embedded zeroes. Therefore any FILE pointers or BIOs should be opened in binary mode. Functions such as  <b></b><b><i>strlen()</i></b><b></b> will <b>not</b> return the correct length of the encoded structure.<p>
+The ways that <b>*in</b> and <b>*out</b> are incremented after the operation can trap the unwary. See the  <b>WARNINGS</b> section for some common errors.<p>
+The reason for the auto increment behaviour is to reflect a typical usage of ASN1 functions: after one structure is encoded or decoded another will processed after it.</div>
+<div class="section">
+<h1>EXAMPLES</h1> Allocate and encode the DER encoding of an X509 structure:<p>
+<br>
+ int len;<br>
+ unsigned char *buf, *p;<br>
+<br>
+ len = i2d_X509(x, NULL);<br>
+<br>
+ buf = OPENSSL_malloc(len);<br>
+<br>
+ if (buf == NULL)<br>
+        /* error */<br>
+<br>
+ p = buf;<br>
+<br>
+ i2d_X509(x, &amp;p);<br>
+<p>
+If you are using OpenSSL 0.9.7 or later then this can be simplified to:<p>
+<br>
+ int len;<br>
+ unsigned char *buf;<br>
+<br>
+ buf = NULL;<br>
+<br>
+ len = i2d_X509(x, &amp;buf);<br>
+<br>
+ if (len &lt; 0)<br>
+        /* error */<br>
+<p>
+Attempt to decode a buffer:<p>
+<br>
+ X509 *x;<br>
+<br>
+ unsigned char *buf, *p;<br>
+<br>
+ int len;<br>
+<br>
+ /* Something to setup buf and len */<br>
+<br>
+ p = buf;<br>
+<br>
+ x = d2i_X509(NULL, &amp;p, len);<br>
+<br>
+ if (x == NULL)<br>
+    /* Some error */<br>
+<p>
+Alternative technique:<p>
+<br>
+ X509 *x;<br>
+<br>
+ unsigned char *buf, *p;<br>
+<br>
+ int len;<br>
+<br>
+ /* Something to setup buf and len */<br>
+<br>
+ p = buf;<br>
+<br>
+ x = NULL;<br>
+<br>
+ if(!d2i_X509(&amp;x, &amp;p, len))<br>
+    /* Some error */<br>
+</div>
+<div class="section">
+<h1>WARNINGS</h1> The use of temporary variable is mandatory. A common mistake is to attempt to use a buffer directly as follows:<p>
+<br>
+ int len;<br>
+ unsigned char *buf;<br>
+<br>
+ len = i2d_X509(x, NULL);<br>
+<br>
+ buf = OPENSSL_malloc(len);<br>
+<br>
+ if (buf == NULL)<br>
+        /* error */<br>
+<br>
+ i2d_X509(x, &amp;buf);<br>
+<br>
+ /* Other stuff ... */<br>
+<br>
+ OPENSSL_free(buf);<br>
+<p>
+This code will result in <b>buf</b> apparently containing garbage because it was incremented after the call to point after the data just written. Also  <b>buf</b> will no longer contain the pointer allocated by <b></b><b><i>OPENSSL_malloc()</i></b><b></b> and the subsequent call to  <b></b><b><i>OPENSSL_free()</i></b><b></b> may well crash.<p>
+The auto allocation feature (setting buf to NULL) only works on OpenSSL 0.9.7 and later. Attempts to use it on earlier versions will typically cause a segmentation violation.<p>
+Another trap to avoid is misuse of the <b>xp</b> argument to <b></b><b><i>d2i_X509()</i></b><b></b>:<p>
+<br>
+ X509 *x;<br>
+<br>
+ if (!d2i_X509(&amp;x, &amp;p, len))<br>
+        /* Some error */<br>
+<p>
+This will probably crash somewhere in <b></b><b><i>d2i_X509()</i></b><b></b>. The reason for this is that the variable  <b>x</b> is uninitialized and an attempt will be made to interpret its (invalid) value as an  <b>X509</b> structure, typically causing a segmentation violation. If  <b>x</b> is set to NULL first then this will not happen.</div>
+<div class="section">
+<h1>BUGS</h1> In some versions of OpenSSL the "reuse" behaviour of  <i>d2i_X509()</i> when  <b>*px</b> is valid is broken and some parts of the reused structure may persist if they are not present in the new one. As a result the use of this "reuse" behaviour is strongly discouraged.<p>
+<i>i2d_X509()</i> will not return an error in many versions of OpenSSL, if mandatory fields are not initialized due to a programming error then the encoded structure may contain invalid data or omit the fields entirely and will not be parsed by  <i>d2i_X509()</i>. This may be fixed in future so code should not assume that  <i>i2d_X509()</i> will always succeed.</div>
+<div class="section">
+<h1>RETURN VALUES</h1>  <i>d2i_X509()</i>, <i>d2i_X509_bio()</i> and <i>d2i_X509_fp()</i> return a valid <b>X509</b> structure or  <b>NULL</b> if an error occurs. The error code that can be obtained by  <i>ERR_get_error</i>(3). If the "reuse" capability has been used with a valid X509 structure being passed in via  <b>px</b> then the object is not freed in the event of error but may be in a potentially invalid or inconsistent state.<p>
+<i>i2d_X509()</i> returns the number of bytes successfully encoded or a negative value if an error occurs. The error code can be obtained by  <i>ERR_get_error</i>(3).<p>
+<i>i2d_X509_bio()</i> and <i>i2d_X509_fp()</i> return 1 for success and 0 if an error occurs The error code can be obtained by  <i>ERR_get_error</i>(3).</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <i>ERR_get_error</i>(3)</div>
+<div class="section">
+<h1>HISTORY</h1> d2i_X509, i2d_X509, d2i_X509_bio, d2i_X509_fp, i2d_X509_bio and i2d_X509_fp are available in all versions of SSLeay and OpenSSL.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tr>
+<td class="foot-date">
+2015-03-23</td>
+<td class="foot-os" align="right">
+1.0.1n</td>
+</tr>
+</table>
+</div>
+</body>
+<>
+

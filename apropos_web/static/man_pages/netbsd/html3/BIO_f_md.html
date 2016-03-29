@@ -1,0 +1,131 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+BIO_f_md(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+BIO_f_md(3)</td>
+<td class="head-vol" align="center">
+OpenSSL</td>
+<td class="head-rtitle" align="right">
+BIO_f_md(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> BIO_f_md, BIO_set_md, BIO_get_md, BIO_get_md_ctx &#45; message digest BIO filter</div>
+<div class="section">
+<h1>LIBRARY</h1> libcrypto, -lcrypto</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br>
+ #include &lt;openssl/bio.h&gt;<br>
+ #include &lt;openssl/evp.h&gt;<br>
+<br>
+ BIO_METHOD *   BIO_f_md(void);<br>
+ int BIO_set_md(BIO *b,EVP_MD *md);<br>
+ int BIO_get_md(BIO *b,EVP_MD **mdp);<br>
+ int BIO_get_md_ctx(BIO *b,EVP_MD_CTX **mdcp);<br>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <i>BIO_f_md()</i> returns the message digest BIO method. This is a filter BIO that digests any data passed through it, it is a BIO wrapper for the digest routines  <i>EVP_DigestInit()</i>, <i>EVP_DigestUpdate()</i> and  <i>EVP_DigestFinal()</i>.<p>
+Any data written or read through a digest BIO using <i>BIO_read()</i> and  <i>BIO_write()</i> is digested.<p>
+<i>BIO_gets()</i>, if its <b>size</b> parameter is large enough finishes the digest calculation and returns the digest value.  <i>BIO_puts()</i> is not supported.<p>
+<i>BIO_reset()</i> reinitialises a digest BIO.<p>
+<i>BIO_set_md()</i> sets the message digest of BIO <b>b</b> to <b>md</b>: this must be called to initialize a digest BIO before any data is passed through it. It is a  <i>BIO_ctrl()</i> macro.<p>
+<i>BIO_get_md()</i> places the a pointer to the digest BIOs digest method in  <b>mdp</b>, it is a <i>BIO_ctrl()</i> macro.<p>
+<i>BIO_get_md_ctx()</i> returns the digest BIOs context into <b>mdcp</b>.</div>
+<div class="section">
+<h1>NOTES</h1> The context returned by  <i>BIO_get_md_ctx()</i> can be used in calls to  <i>EVP_DigestFinal()</i> and also the signature routines <i>EVP_SignFinal()</i> and  <i>EVP_VerifyFinal()</i>.<p>
+The context returned by <i>BIO_get_md_ctx()</i> is an internal context structure. Changes made to this context will affect the digest BIO itself and the context pointer will become invalid when the digest BIO is freed.<p>
+After the digest has been retrieved from a digest BIO it must be reinitialized by calling  <i>BIO_reset()</i>, or <i>BIO_set_md()</i> before any more data is passed through it.<p>
+If an application needs to call <i>BIO_gets()</i> or <i>BIO_puts()</i> through a chain containing digest BIOs then this can be done by prepending a buffering BIO.<p>
+Before OpenSSL 1.0.0 the call to <i>BIO_get_md_ctx()</i> would only work if the BIO had been initialized for example by calling  <i>BIO_set_md()</i> ). In OpenSSL 1.0.0 and later the context is always returned and the BIO is state is set to initialized. This allows applications to initialize the context externally if the standard calls such as  <i>BIO_set_md()</i> are not sufficiently flexible.</div>
+<div class="section">
+<h1>RETURN VALUES</h1>  <i>BIO_f_md()</i> returns the digest BIO method.<p>
+<i>BIO_set_md()</i>, <i>BIO_get_md()</i> and <i>BIO_md_ctx()</i> return 1 for success and 0 for failure.</div>
+<div class="section">
+<h1>EXAMPLES</h1> The following example creates a BIO chain containing an SHA1 and MD5 digest BIO and passes the string "Hello World" through it. Error checking has been omitted for clarity.<p>
+<br>
+ BIO *bio, *mdtmp;<br>
+ char message[] = "Hello World";<br>
+ bio = BIO_new(BIO_s_null());<br>
+ mdtmp = BIO_new(BIO_f_md());<br>
+ BIO_set_md(mdtmp, EVP_sha1());<br>
+ /* For BIO_push() we want to append the sink BIO and keep a note of<br>
+  * the start of the chain.<br>
+  */<br>
+ bio = BIO_push(mdtmp, bio);<br>
+ mdtmp = BIO_new(BIO_f_md());<br>
+ BIO_set_md(mdtmp, EVP_md5());<br>
+ bio = BIO_push(mdtmp, bio);<br>
+ /* Note: mdtmp can now be discarded */<br>
+ BIO_write(bio, message, strlen(message));<br>
+<p>
+The next example digests data by reading through a chain instead:<p>
+<br>
+ BIO *bio, *mdtmp;<br>
+ char buf[1024];<br>
+ int rdlen;<br>
+ bio = BIO_new_file(file, "rb");<br>
+ mdtmp = BIO_new(BIO_f_md());<br>
+ BIO_set_md(mdtmp, EVP_sha1());<br>
+ bio = BIO_push(mdtmp, bio);<br>
+ mdtmp = BIO_new(BIO_f_md());<br>
+ BIO_set_md(mdtmp, EVP_md5());<br>
+ bio = BIO_push(mdtmp, bio);<br>
+ do {<br>
+        rdlen = BIO_read(bio, buf, sizeof(buf));<br>
+        /* Might want to do something with the data here */<br>
+ } while(rdlen &gt; 0);<br>
+<p>
+This next example retrieves the message digests from a BIO chain and outputs them. This could be used with the examples above.<p>
+<br>
+ BIO *mdtmp;<br>
+ unsigned char mdbuf[EVP_MAX_MD_SIZE];<br>
+ int mdlen;<br>
+ int i;<br>
+ mdtmp = bio;   /* Assume bio has previously been set up */<br>
+ do {<br>
+        EVP_MD *md;<br>
+        mdtmp = BIO_find_type(mdtmp, BIO_TYPE_MD);<br>
+        if(!mdtmp) break;<br>
+        BIO_get_md(mdtmp, &amp;md);<br>
+        printf("%s digest", OBJ_nid2sn(EVP_MD_type(md)));<br>
+        mdlen = BIO_gets(mdtmp, mdbuf, EVP_MAX_MD_SIZE);<br>
+        for(i = 0; i &lt; mdlen; i++) printf(":%02X", mdbuf[i]);<br>
+        printf("&#92;n");<br>
+        mdtmp = BIO_next(mdtmp);<br>
+ } while(mdtmp);<br>
+<br>
+ BIO_free_all(bio);<br>
+</div>
+<div class="section">
+<h1>BUGS</h1> The lack of support for  <i>BIO_puts()</i> and the non standard behaviour of  <i>BIO_gets()</i> could be regarded as anomalous. It could be argued that <i>BIO_gets()</i> and  <i>BIO_puts()</i> should be passed to the next BIO in the chain and digest the data passed through and that digests should be retrieved using a separate  <i>BIO_ctrl()</i> call.</div>
+<div class="section">
+<h1>SEE ALSO</h1> TBA</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tr>
+<td class="foot-date">
+2009-12-26</td>
+<td class="foot-os" align="right">
+1.0.1n</td>
+</tr>
+</table>
+</div>
+</body>
+<>
+

@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+LIBARCHIVE(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+LIBARCHIVE(3)</td>
+<td class="head-vol" align="center">
+Library Functions Manual</td>
+<td class="head-rtitle" align="right">
+LIBARCHIVE(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">libarchive</b> &#8212; <span class="desc">functions for reading and writing streaming archives</span></div>
+<div class="section">
+<h1 id="x4c494252415259">LIBRARY</h1> <span class="lib">Streaming Archive Library (libarchive, &#45;larchive)</span></div>
+<div class="section">
+<h1 id="x4f56455256494557">OVERVIEW</h1> The <b class="name">libarchive</b> library provides a flexible interface for reading and writing streaming archive files such as tar and cpio. The library is inherently stream-oriented; readers serially iterate through the archive, writers serially add things to the archive. In particular, note that there is no built-in support for random access nor for in-place modification.<p>
+When reading an archive, the library automatically detects the format and the compression. The library currently has read support for:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 0.00em;">
+old-style tar archives,</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+most variants of the POSIX &#8220;ustar&#8221; format,</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+the POSIX &#8220;pax interchange&#8221; format,</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+GNU-format tar archives,</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+most common cpio archive formats,</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+ISO9660 CD images (with or without RockRidge extensions),</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+Zip archives.</li>
+</ul>
+The library automatically detects archives compressed with <a class="link-man" href="../1/gzip">gzip(1)</a>, <a class="link-man" href="../1/bzip2">bzip2(1)</a>, or <a class="link-man" href="../1/compress">compress(1)</a> and decompresses them transparently.<p>
+When writing an archive, you can specify the compression to be used and the format to use. The library can write<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 0.00em;">
+POSIX-standard &#8220;ustar&#8221; archives,</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+POSIX &#8220;pax interchange format&#8221; archives,</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+POSIX octet-oriented cpio archives,</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+two different variants of shar archives.</li>
+</ul>
+Pax interchange format is an extension of the tar archive format that eliminates essentially all of the limitations of historic tar formats in a standard fashion that is supported by POSIX-compliant <a class="link-man" href="../1/pax">pax(1)</a> implementations on many systems as well as several newer implementations of <a class="link-man" href="../1/tar">tar(1)</a>. Note that the default write format will suppress the pax extended attributes for most entries; explicitly requesting pax format will enable those attributes for all entries.<p>
+The read and write APIs are accessed through the <b class="fname">archive_read_XXX</b>() functions and the <b class="fname">archive_write_XXX</b>() functions, respectively, and either can be used independently of the other.<p>
+The rest of this manual page provides an overview of the library operation. More detailed information can be found in the individual manual pages for each API or utility function.</div>
+<div class="section">
+<h1 id="x52454144494e4720414e2041524348495645">READING AN ARCHIVE</h1> To read an archive, you must first obtain an initialized struct archive object from <b class="fname">archive_read_new</b>(). You can then modify this object for the desired operations with the various <b class="fname">archive_read_set_XXX</b>() and <b class="fname">archive_read_support_XXX</b>() functions. In particular, you will need to invoke appropriate <b class="fname">archive_read_support_XXX</b>() functions to enable the corresponding compression and format support. Note that these latter functions perform two distinct operations: they cause the corresponding support code to be linked into your program, and they enable the corresponding auto-detect code. Unless you have specific constraints, you will generally want to invoke <b class="fname">archive_read_support_compression_all</b>() and <b class="fname">archive_read_support_format_all</b>() to enable auto-detect for all formats and compression types currently supported by the library.<p>
+Once you have prepared the struct archive object, you call <b class="fname">archive_read_open</b>() to actually open the archive and prepare it for reading. There are several variants of this function; the most basic expects you to provide pointers to several functions that can provide blocks of bytes from the archive. There are convenience forms that allow you to specify a filename, file descriptor, <i class="ftype">FILE *</i> object, or a block of memory from which to read the archive data. Note that the core library makes no assumptions about the size of the blocks read; callback functions are free to read whatever block size is most appropriate for the medium.<p>
+Each archive entry consists of a header followed by a certain amount of data. You can obtain the next header with <b class="fname">archive_read_next_header</b>(), which returns a pointer to an struct archive_entry structure with information about the current archive element. If the entry is a regular file, then the header will be followed by the file data. You can use <b class="fname">archive_read_data</b>() (which works much like the <a class="link-man" href="../2/read">read(2)</a> system call) to read this data from the archive. You may prefer to use the higher-level <b class="fname">archive_read_data_skip</b>(), which reads and discards the data for this entry, <b class="fname">archive_read_data_to_buffer</b>(), which reads the data into an in-memory buffer, <b class="fname">archive_read_data_to_file</b>(), which copies the data to the provided file descriptor, or <b class="fname">archive_read_extract</b>(), which recreates the specified entry on disk and copies data from the archive. In particular, note that <b class="fname">archive_read_extract</b>() uses the struct archive_entry structure that you provide it, which may differ from the entry just read from the archive. In particular, many applications will want to override the pathname, file permissions, or ownership.<p>
+Once you have finished reading data from the archive, you should call <b class="fname">archive_read_close</b>() to close the archive, then call <b class="fname">archive_read_finish</b>() to release all resources, including all memory allocated by the library.<p>
+The <a class="link-man" href="../3/archive_read">archive_read(3)</a> manual page provides more detailed calling information for this API.</div>
+<div class="section">
+<h1 id="x57524954494e4720414e2041524348495645">WRITING AN ARCHIVE</h1> You use a similar process to write an archive. The <b class="fname">archive_write_new</b>() function creates an archive object useful for writing, the various <b class="fname">archive_write_set_XXX</b>() functions are used to set parameters for writing the archive, and <b class="fname">archive_write_open</b>() completes the setup and opens the archive for writing.<p>
+Individual archive entries are written in a three-step process: You first initialize a struct archive_entry structure with information about the new entry. At a minimum, you should set the pathname of the entry and provide a <b class="var">struct stat</b> with a valid <b class="var">st_mode</b> field, which specifies the type of object and <b class="var">st_size</b> field, which specifies the size of the data portion of the object. The <b class="fname">archive_write_header</b>() function actually writes the header data to the archive. You can then use <b class="fname">archive_write_data</b>() to write the actual data.<p>
+After all entries have been written, use the <b class="fname">archive_write_finish</b>() function to release all resources.<p>
+The <a class="link-man" href="../3/archive_write">archive_write(3)</a> manual page provides more detailed calling information for this API.</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> Detailed descriptions of each function are provided by the corresponding manual pages.<p>
+All of the functions utilize an opaque struct archive datatype that provides access to the archive contents.<p>
+The struct archive_entry structure contains a complete description of a single archive entry. It uses an opaque interface that is fully documented in <a class="link-man" href="../3/archive_entry">archive_entry(3)</a>.<p>
+Users familiar with historic formats should be aware that the newer variants have eliminated most restrictions on the length of textual fields. Clients should not assume that filenames, link names, user names, or group names are limited in length. In particular, pax interchange format can easily accommodate pathnames in arbitrary character sets that exceed <b class="var">PATH_MAX</b>.</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> Most functions return zero on success, non-zero on error. The return value indicates the general severity of the error, ranging from <b class="flag">ARCHIVE_WARN</b>, which indicates a minor problem that should probably be reported to the user, to <b class="flag">ARCHIVE_FATAL</b>, which indicates a serious problem that will prevent any further operations on this archive. On error, the <b class="fname">archive_errno</b>() function can be used to retrieve a numeric error code (see <a class="link-man" href="../2/errno">errno(2)</a>). The <b class="fname">archive_error_string</b>() returns a textual error message suitable for display.<p>
+<b class="fname">archive_read_new</b>() and <b class="fname">archive_write_new</b>() return pointers to an allocated and initialized struct archive object.<p>
+<b class="fname">archive_read_data</b>() and <b class="fname">archive_write_data</b>() return a count of the number of bytes actually read or written. A value of zero indicates the end of the data for this entry. A negative value indicates an error, in which case the <b class="fname">archive_errno</b>() and <b class="fname">archive_error_string</b>() functions can be used to obtain more information.</div>
+<div class="section">
+<h1 id="x454e5649524f4e4d454e54">ENVIRONMENT</h1> There are character set conversions within the <a class="link-man" href="../3/archive_entry">archive_entry(3)</a> functions that are impacted by the currently-selected locale.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/tar">tar(1)</a>, <a class="link-man" href="../3/archive_entry">archive_entry(3)</a>, <a class="link-man" href="../3/archive_read">archive_read(3)</a>, <a class="link-man" href="../3/archive_util">archive_util(3)</a>, <a class="link-man" href="../3/archive_write">archive_write(3)</a>, <a class="link-man" href="../5/tar">tar(5)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">libarchive</b> library first appeared in <span class="unix">FreeBSD&#160;5.3</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <span class="author"></span>The <b class="name">libarchive</b> library was written by <span class="author">Tim Kientzle</span> &#60;<a class="link-mail" href="mailto:kientzle@acm.org">kientzle@acm.org</a>&#62;.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> Some archive formats support information that is not supported by struct archive_entry. Such information cannot be fully archived or restored using this library. This includes, for example, comments, character sets, or the arbitrary key/value pairs that can appear in pax interchange format archives.<p>
+Conversely, of course, not all of the information that can be stored in an struct archive_entry is supported by all formats. For example, cpio formats do not support nanosecond timestamps; old tar formats do not support large device numbers.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+August 19, 2006</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

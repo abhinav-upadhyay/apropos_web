@@ -1,0 +1,204 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+GPIO(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+GPIO(4)</td>
+<td class="head-vol" align="center">
+Kernel Interfaces Manual</td>
+<td class="head-rtitle" align="right">
+GPIO(4)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">gpio</b> &#8212; <span class="desc">General Purpose Input/Output</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">gpio* at elansc?</b><br>
+<b class="config">gpio* at epgpio?</b><br>
+<b class="config">gpio* at gcscpcib?</b><br>
+<b class="config">gpio* at gpiosim?</b><br>
+<b class="config">gpio* at gscpcib?</b><br>
+<b class="config">gpio* at ichlpcib?</b><br>
+<b class="config">gpio* at nsclpcsio?</b><br>
+<b class="config">gpio* at soekrisgpio?</b><br>
+<b class="config">gpio* at ppbus?</b><br>
+<b class="config">gpio* at ptcd?</b><p>
+<br>
+<b class="includes">#include &lt;<a class="link-includes">sys/types.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/gpio.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/ioctl.h</a>&gt;</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">gpio</b> device attaches to the GPIO controller and provides a uniform programming interface to its pins.<p>
+Each GPIO controller with an attached <b class="name">gpio</b> device has an associated device file under the <i class="file">/dev</i> directory, e.g. <i class="file">/dev/gpio0</i>. Access from userland is performed through <a class="link-man" href="../2/ioctl">ioctl(2)</a> calls on these devices.<p>
+Whether the layout of the GPIO device can be configured is subject to authorization by the <a class="link-man" href="../9/kauth">kauth(9)</a> framework.<p>
+If for example <a class="link-man" href="../9/secmodel_securelevel">secmodel_securelevel(9)</a> is active, the layout of the GPIO device is defined at a securelevel less than 1, i.e. typically during system boot, and cannot be changed later. GPIO pins can be configured and given a symbolic name and device drivers that use GPIO pins can be attached to the <b class="name">gpio</b> device at a securelevel less than 1. All other pins will not be accessible once the runlevel has been raised.</div>
+<div class="section">
+<h1 id="x494f43544c20494e54455246414345">IOCTL INTERFACE</h1> The following structures and constants are defined in the <b class="includes">&lt;<a class="link-includes">sys/gpio.h</a>&gt;</b> header file:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIOINFO (struct gpio_info)</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Returns information about the GPIO controller in the <i class="farg">gpio_info</i> structure:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct gpio_info { 
+	int gpio_npins;		/* total number of pins available */ 
+};</pre>
+<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIOREAD (struct gpio_req)</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Returns the input pin value in the <i class="farg">gpio_pin_op</i> structure:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define GPIOMAXNAME		64 
+ 
+struct gpio_req { 
+	char gp_name[GPIOMAXNAME];	/* pin name */ 
+	int gp_pin;			/* pin number */ 
+	int gp_value;			/* value */ 
+};</pre>
+<p>
+The <i class="farg">gp_name</i> or <i class="farg">gp_pin</i> field must be set before calling.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIOWRITE (struct gpio_req)</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Writes the output value to the pin. The value set in the <i class="farg">gp_value</i> field must be either <span class="define">GPIO_PIN_LOW</span> (logical 0) or <span class="define">GPIO_PIN_HIGH</span> (logical 1). On return, the <i class="farg">gp_value</i> field contains the old pin state.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIOTOGGLE (struct gpio_req)</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Toggles the pin output value, i.e. changes it to the opposite. <i class="farg">gp_value</i> field is ignored and on return contains the old pin state.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIOSET (struct gpio_set)</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Changes pin configuration flags with the new ones provided in the <i class="farg">gpio_set</i> structure:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define GPIOMAXNAME          64 
+ 
+struct gpio_set { 
+        char gp_name[GPIOMAXNAME];   /* pin name */ 
+        int gp_pin;                     /* pin number */ 
+        int gp_caps;                    /* pin capabilities (ro) */ 
+        int gp_flags;                   /* pin configuration flags */ 
+        char gp_name2[GPIOMAXNAME];  /* new name */ 
+};</pre>
+<p>
+The <i class="farg">gp_flags</i> field is a combination of the following flags:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIO_PIN_INPUT</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+input direction</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIO_PIN_OUTPUT</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+output direction</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIO_PIN_INOUT</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+bi-directional</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIO_PIN_OPENDRAIN</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+open-drain output</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIO_PIN_PUSHPULL</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+push-pull output</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIO_PIN_TRISTATE</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+output disabled</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIO_PIN_PULLUP</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+internal pull-up enabled</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIO_PIN_PULLDOWN</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+internal pull-down enabled</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIO_PIN_INVIN</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+invert input</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIO_PIN_INVOUT</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+invert output</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIO_PIN_PULSATE</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+pulsate output</dd>
+</dl>
+<p>
+Note that the GPIO controller may not support all of these flags. On return the <i class="farg">gp_caps</i> field contains flags that are supported. If no flags are specified, the pin configuration stays unchanged.<p>
+Only GPIO pins that have been set using <i class="arg">GPIOSET</i> will be accessible at securelevels greater than 0.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIOUNSET (struct gpio_set)</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Unset the specified pin, i.e. clear its name and make it unaccessible at securelevels greater than 0.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">GPIOATTACH (struct gpio_attach)</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Attach the device described in the <i class="farg">gpio_attach</i> structure on this gpio device.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct gpio_attach { 
+        char ga_dvname[16];     /* device name */ 
+        int ga_offset;          /* pin number */ 
+        uint32_t ga_mask;       /* binary mask */ 
+        uint32_t ga_flags;      /* driver dependent */ 
+};</pre>
+<p>
+The <a class="link-man" href="../8/drvctl">drvctl(8)</a> command can be used to detach a device from a gpio pin.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+/dev/gpio<i class="arg">u</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+GPIO device unit <i class="arg">u</i> file.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../2/ioctl">ioctl(2)</a>, <a class="link-man" href="../8/drvctl">drvctl(8)</a>, <a class="link-man" href="../8/gpioctl">gpioctl(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">gpio</b> device first appeared in <span class="unix">OpenBSD&#160;3.6</span> and <span class="unix">NetBSD&#160;4.0</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <span class="author"></span>The <b class="name">gpio</b> driver was written by <span class="author">Alexander Yurchenko</span> &#60;<a class="link-mail" href="mailto:grange@openbsd.org">grange@openbsd.org</a>&#62;. <b class="name">gpio</b> and was ported to <span class="unix">NetBSD</span> by <span class="author">Jared D. McNeill</span> &#60;<a class="link-mail" href="mailto:jmcneill@NetBSD.org">jmcneill@NetBSD.org</a>&#62;. Runtime device attachment was added by <span class="author">Marc Balmer</span> &#60;<a class="link-mail" href="mailto:marc@msys.ch">marc@msys.ch</a>&#62;.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> Event capabilities are not supported.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+June 10, 2013</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

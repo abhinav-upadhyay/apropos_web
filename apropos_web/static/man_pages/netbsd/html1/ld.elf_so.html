@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+LD.ELF_SO(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+LD.ELF_SO(1)</td>
+<td class="head-vol" align="center">
+General Commands Manual</td>
+<td class="head-rtitle" align="right">
+LD.ELF_SO(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">ld.elf_so</b> &#8212; <span class="desc">run-time link-editor (linker)</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="name">ld.elf_so</b> is a self-contained, position independent program image providing run-time support for loading and link-editing shared objects into a process' address space. It uses information stored in data structures within the binary (see <a class="link-man" href="../5/elf">elf(5)</a>) and environment variables to determine which shared objects are needed. These shared objects are loaded at a convenient virtual address using the <a class="link-man" href="../2/mmap">mmap(2)</a> system call. After all shared objects have been successfully loaded, <b class="name">ld.elf_so</b> proceeds to resolve external references from both the main program and all objects loaded. Once all required references are resolved control is passed to the program via its entry point.<div class="subsection">
+<h2 id="x53746172747570">Startup</h2> On the execution of a dynamically linked binary the kernel will load the program and its run-time linker as specified in the PT_INTERP section in the program header. At this point, instead of passing control directly to the program, the kernel passes control to the specified linker. An auxiliary vector of information is passed that includes the address of the program header, the size of each entry in the header, and the number of entries. The entry point of the program and the base address of where <b class="name">ld.elf_so</b> is loaded is also supplied.</div>
+<div class="subsection">
+<h2 id="x46696e64696e67206f626a65637473">Finding objects</h2> Each <a class="link-man" href="../5/elf">elf(5)</a> object file may contain information in its dynamic (PT_DYNAMIC) section about which shared objects it requires (often referred to as dependencies). These dependencies are specified in the optional DT_NEEDED entry within the dynamic section. Each DT_NEEDED entry refers to a filename string of the shared object that is to be searched for.<p>
+The linker will search for libraries in three lists of paths:<ol style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-enum">
+<li class="list-enum" style="margin-top: 1.00em;">
+A user defined list of paths as specified in LD_LIBRARY_PATH and <a class="link-man" href="../5/ld.so.conf">ld.so.conf(5)</a>.<p>
+The use of ld.so.conf should be avoided as the setting of a global search path can present a security risk.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+A list of paths specified within a shared object using a DT_RPATH entry in the dynamic section. This is defined at shared object link time.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+The list of default paths which is set to <i class="file">/usr/lib</i>.</li>
+</ol>
+<p>
+Dynamic loading via <a class="link-man" href="../3/dlopen">dlopen(3)</a> uses the DT_RPATH entries of the main binary, independently of which object the call came from.<p>
+<b class="name">ld.elf_so</b> will expand the following variables if present in the paths:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+$HWCAP</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Processor hardware capabilities, for example FPU, MMX, SSE. Currently unimplemented.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+$ISALIST</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+List of instructions sets this processor can execute. Currently unimplemented.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+$ORIGIN</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+The directory of the main object. Implemented in <b class="name">ld.elf_so</b> but the kernel support is currently disabled.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+$OSNAME</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+The value of the <span class="define">kern.ostype</span> <a class="link-man" href="../3/sysctl">sysctl(3)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+$OSREL</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+The value of the <span class="define">kern.osrelease</span> <a class="link-man" href="../3/sysctl">sysctl(3)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+$PLATFORM</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+The value of the <span class="define">hw.machine_arch</span> <a class="link-man" href="../3/sysctl">sysctl(3)</a>.</dd>
+</dl>
+<p>
+Both <span class="define">${VARIABLE}</span> and <span class="define">$VARIABLE</span> are recognized.<p>
+The filename string can be considered free form, however, it will almost always take the form lib&lt;name&gt;.so.&lt;number&gt;, where name specifies the &#8216;library&#8217; name and number is conceptually the library's major version number.<p>
+This name and another of the form lib&lt;name&gt;.so are normally symbolic links to the real shared object which has a filename of the form lib&lt;name&gt;.so.&lt;major&gt;.&lt;minor&gt;[.&lt;teeny&gt;]. This naming convention allows a versioning scheme similar to <a class="link-man" href="../5/a.out">a.out(5)</a>.</div>
+<div class="subsection">
+<h2 id="x52656c6f636174696f6e">Relocation</h2> <b class="name">ld.elf_so</b> will perform all necessary relocations immediately except for relocations relating to the Procedure Linkage Table (PLT). The PLT is used as a indirection method for procedure calls to globally defined functions. It allows, through the use of intermediate code, the delayed binding of a call to a globally defined function to be performed at procedure call time. This &#8216;lazy&#8217; method is the default (see LD_BIND_NOW).</div>
+<div class="subsection">
+<h2 id="x496e697469616c697a6174696f6e">Initialization</h2> A mechanism is provided for initialization and termination routines to be called, on a per-object basis before execution of the program proper begins or after the program has completed. This gives a shared object an opportunity to perform any extra set-up or completion work.<p>
+The DT_INIT and DT_FINI entries in the dynamic section specify the addresses of the initialization and termination functions, respectively, for the shared object. <b class="name">ld.elf_so</b> arranges for each initialization function to be called before control is passed to the program and for the termination functions to be called by using <a class="link-man" href="../3/atexit">atexit(3)</a>.<p>
+This mechanism is exploited by the system-supplied constructor initialization and destructor code located in <i class="file">/usr/lib/crtbeginS.o</i> and <i class="file">/usr/lib/crtendS.o</i>. These files are automatically included by <a class="link-man" href="../1/cc">cc(1)</a> and <a class="link-man" href="../1/c++">c++(1)</a> in the list of object-code files passed to <a class="link-man" href="../1/ld">ld(1)</a> when building a shared C or C++ object.</div>
+</div>
+<div class="section">
+<h1 id="x454e5649524f4e4d454e54">ENVIRONMENT</h1> If the following environment variables exist they will be used by <b class="name">ld.elf_so</b>.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="env">LD_LIBRARY_PATH</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+A colon separated list of directories, overriding the default search path for shared libraries.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="env">LD_PRELOAD</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+A colon or space separated list of shared object filenames to be loaded <span class="emph">after</span> the main program but <span class="emph">before</span> its shared object dependencies. Space is allowed as a separator for backwards compatibility only. Support may be removed in a future release and should not be relied upon.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="env">LD_BIND_NOW</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+If defined immediate binding of Procedure Link Table (PLT) entries is performed instead of the default lazy method.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="env">LD_DEBUG</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+If defined a variety of debug information will be written to the standard error of an dynamically linked executed when it is run. This variable is only recognized if <b class="name">ld.elf_so</b> was compiled with debugging support (<span class="symb">-DDEBUG</span>).</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/ld.so.conf</i></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+library location hints supplied by the system administrator.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/ld">ld(1)</a>, <a class="link-man" href="../1/ld.aout_so">ld.aout_so(1)</a>, <a class="link-man" href="../3/dlfcn">dlfcn(3)</a>, <a class="link-man" href="../5/elf">elf(5)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The ELF shared library model employed first appeared in Sys V R4.<p>
+The path expansion variables first appeared in Solaris 10, and in <span class="unix">NetBSD&#160;5.0</span>.</div>
+<div class="section">
+<h1 id="x534543555249545920434f4e53494445524154494f4e53">SECURITY CONSIDERATIONS</h1> The environment variables <span class="env">LD_LIBRARY_PATH</span> and <span class="env">LD_PRELOAD</span> are not honored when executing in a set-user-ID or set-group-ID environment. This action is taken to prevent malicious substitution of shared object dependencies or interposition of symbols.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+December 17, 2010</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

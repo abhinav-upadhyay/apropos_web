@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+WORKQUEUE(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+WORKQUEUE(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+WORKQUEUE(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">workqueue</b> &#8212; <span class="desc">simple do-it-in-thread-context framework</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/workqueue.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">workqueue_create</b>(<i class="farg" style="white-space:nowrap;">struct workqueue **wqp</i>, <i class="farg" style="white-space:nowrap;">const char *name</i>, <i class="farg" style="white-space:nowrap;">void (*func)(struct work *, void *)</i>, <i class="farg" style="white-space:nowrap;">void *arg</i>, <i class="farg" style="white-space:nowrap;">pri_t prio</i>, <i class="farg" style="white-space:nowrap;">int ipl</i>, <i class="farg" style="white-space:nowrap;">int flags</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">workqueue_enqueue</b>(<i class="farg" style="white-space:nowrap;">struct workqueue *wq</i>, <i class="farg" style="white-space:nowrap;">struct work *wk</i>, <i class="farg" style="white-space:nowrap;">struct cpu_info *ci</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">workqueue_destroy</b>(<i class="farg" style="white-space:nowrap;">struct workqueue *wq</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">workqueue</b> utility routines are provided to defer work which is needed to be processed in a thread context.<p>
+<b class="fname">workqueue_create</b>() creates a workqueue. It takes the following arguments:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">wqp</i></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Specify where to store the created workqueue.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">name</i></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+The name of the workqueue.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">func</i></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+The function to be called for each <i class="farg">work</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">arg</i></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+An argument to be passed as a second argument of <i class="farg">func</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">prio</i></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+The priority level for the worker threads.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">ipl</i></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+The highest IPL at which this workqueue is used.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">flags</i></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+The value of 0 indicates a standard create operation, however the following flags may be bitwise ORed together:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WQ_MPSAFE</span></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Specifies that the workqueue is multiprocessor safe and does its own locking, otherwise the kernel lock will be held while work will be processed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WQ_PERCPU</span></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Specifies that the workqueue should have a separate queue for each CPU, thus the work could be enqueued on concrete CPUs.</dd>
+</dl>
+</dd>
+</dl>
+<p>
+<b class="fname">workqueue_enqueue</b>() enqueues the work <i class="farg">wk</i> into the workqueue <i class="farg">wq</i>.<p>
+If the <span class="define">WQ_PERCPU</span> flag was set on workqueue creation, the <i class="farg">ci</i> argument may be used to specify the CPU on which the work should be enqueued. Also it may be <span class="define">NULL</span>, then work will be enqueued on the current CPU. If <span class="define">WQ_PERCPU</span> flag was not set, <i class="farg">ci</i> must be <span class="define">NULL</span>.<p>
+The enqueued work will be processed in a thread context. A work must not be enqueued again until the callback is called by the <b class="name">workqueue</b> framework.<p>
+<b class="fname">workqueue_destroy</b>() destroys a workqueue and frees associated resources. The caller should ensure that the workqueue has no work enqueued beforehand.</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> <b class="fname">workqueue_create</b>() returns 0 on success. Otherwise, it returns an <a class="link-man" href="../2/errno">errno(2)</a>.</div>
+<div class="section">
+<h1 id="x434f4445205245464552454e434553">CODE REFERENCES</h1> The <b class="name">workqueue</b> subsystem is implemented within the file <i class="file">sys/kern/subr_workqueue.c</i>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../9/callout">callout(9)</a>, <a class="link-man" href="../9/condvar">condvar(9)</a>, <a class="link-man" href="../9/kthread">kthread(9)</a>, <a class="link-man" href="../9/softint">softint(9)</a></div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+October 24, 2011</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

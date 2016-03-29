@@ -1,0 +1,247 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+MEMCACHE_TABLE(5)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+MEMCACHE_TABLE(5)</td>
+<td class="head-vol" align="center">
+File Formats Manual</td>
+<td class="head-rtitle" align="right">
+MEMCACHE_TABLE(5)</td>
+</tr>
+</tbody>
+</table>
+<br>
+<div class="section">
+<h1>NAME</h1> memcache_table &#45; Postfix memcache client configuration</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br>
+<b>postmap -q "</b><i>string</i><b>" memcache:/etc/postfix/</b><i>filename</i><p>
+<br>
+<b>postmap -q - memcache:/etc/postfix/</b><i>filename</i><b> &lt;</b><i>inputfile</i></div>
+<div class="section">
+<h1>DESCRIPTION</h1><br>
+The Postfix mail system uses optional tables for address rewriting or mail routing. These tables are usually in  <b>dbm</b> or <b>db</b> format.<div style="height: 1.00em;">
+&#160;</div>
+Alternatively, lookup tables can be specified as memcache instances.  To use memcache lookups, define a memcache source as a lookup table in main.cf, for example:<div style="height: 1.00em;">
+&#160;</div>
+<br>
+    virtual_alias_maps = memcache:/etc/postfix/memcache-aliases.cf<br>
+<div style="height: 1.00em;">
+&#160;</div>
+The file /etc/postfix/memcache-aliases.cf has the same format as the Postfix main.cf file, and specifies the parameters described below.<div style="height: 1.00em;">
+&#160;</div>
+The Postfix memcache client supports the lookup, update, delete and sequence (first/next) operations. The sequence operation requires a backup database that supports the operation.</div>
+<div class="section">
+<h1>MEMCACHE MAIN PARAMETERS</h1><br>
+<dl>
+<dt>
+<b>memcache (default: inet:localhost:11211)</b></dt>
+<dd>
+The memcache server (note: singular) that Postfix will try to connect to.  For a TCP server specify "inet:" followed by a hostname or address, ":", and a port name or number. Specify an IPv6 address inside "[]". For a UNIX-domain server specify "unix:" followed by the socket pathname. Examples:<div style="height: 1.00em;">
+&#160;</div>
+<br>
+    memcache = inet:memcache.example.com:11211<br>
+    memcache = inet:127.0.0.1:11211<br>
+    memcache = inet:[fc00:8d00:189::3]:11211<br>
+    memcache = unix:/path/to/socket<br>
+<div style="height: 1.00em;">
+&#160;</div>
+NOTE: to access a UNIX-domain socket with the proxymap(8) server, the socket must be accessible by the unprivileged postfix user.</dd>
+</dl>
+<dl>
+<dt>
+<b>backup (default: undefined)</b></dt>
+<dd>
+An optional Postfix database that provides persistent backup for the memcache database. The Postfix memcache client will update the memcache database whenever it looks up or changes information in the persistent database. Specify a Postfix "type:table" database. Examples:<div style="height: 1.00em;">
+&#160;</div>
+<br>
+    # Non-shared postscreen cache.<br>
+    backup = btree:/var/lib/postfix/postscreen_cache_map<p>
+<br>
+    # Shared postscreen cache for processes on the same host.<br>
+    backup = proxy:btree:/var/lib/postfix/postscreen_cache_map<br>
+<div style="height: 1.00em;">
+&#160;</div>
+Access to remote proxymap servers is under development.<div style="height: 1.00em;">
+&#160;</div>
+NOTE 1: When sharing a persistent <b>postscreen</b>(8) or  <b>verify</b>(8) cache, disable automatic cache cleanup (set *_cache_cleanup_interval = 0) except with one Postfix instance that will be responsible for cache cleanup.<div style="height: 1.00em;">
+&#160;</div>
+NOTE 2: When multiple tables share the same memcache database, each table should use the  <b>key_format</b> feature (see below) to prepend its own unique string to the lookup key.  Otherwise, automatic  <b>postscreen</b>(8) or <b>verify</b>(8) cache cleanup may not work.<div style="height: 1.00em;">
+&#160;</div>
+NOTE 3: When the backup database is accessed with "proxy:" lookups, the full backup database name (including the "proxy:" prefix) must be specified in the proxymap server's proxy_read_maps or proxy_write_maps setting (depending on whether the access is read-only or read-write).</dd>
+</dl>
+<dl>
+<dt>
+<b>flags (default: 0)</b></dt>
+<dd>
+Optional flags that should be stored along with a memcache update. The flags are ignored when looking up information.</dd>
+</dl>
+<dl>
+<dt>
+<b>ttl (default: 3600)</b></dt>
+<dd>
+The expiration time in seconds of memcache updates.<div style="height: 1.00em;">
+&#160;</div>
+NOTE 1: When using a memcache table as <b>postscreen</b>(8) or  <b>verify</b>(8) cache without persistent backup, specify a zero *_cache_cleanup_interval value with all Postfix instances that use the memcache, and specify the largest  <b>postscreen</b>(8) *_ttl value or <b>verify</b>(8) *_expire_time value as the memcache table's  <b>ttl</b> value.<div style="height: 1.00em;">
+&#160;</div>
+NOTE 2: According to memcache protocol documentation, a value greater than 30 days (2592000 seconds) specifies absolute UNIX time. Smaller values are relative to the time of the update.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>MEMCACHE KEY PARAMETERS</h1><br>
+<dl>
+<dt>
+<b>key_format (default: %s)</b><b></b></dt>
+<dd>
+Format of the lookup and update keys that the Postfix memcache client sends to the memcache server. By default, these are the same as the lookup and update keys that the memcache client receives from Postfix applications.<div style="height: 1.00em;">
+&#160;</div>
+NOTE 1: The <b>key_format</b> feature is not used for <b>backup</b> database requests.<div style="height: 1.00em;">
+&#160;</div>
+NOTE 2: When multiple tables share the same memcache database, each table should prepend its own unique string to the lookup key.  Otherwise, automatic  <b>postscreen</b>(8) or  <b>verify</b>(8) cache cleanup may not work.<div style="height: 1.00em;">
+&#160;</div>
+Examples:<div style="height: 1.00em;">
+&#160;</div>
+<br>
+    key_format = aliases:%s<br>
+    key_format = verify:%s<br>
+    key_format = postscreen:%s<br>
+<div style="height: 1.00em;">
+&#160;</div>
+The <b>key_format</b> parameter supports the following '%' expansions:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b></b><b>%%</b></dt>
+<dd>
+This is replaced by a literal '%' character.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>%s</b></dt>
+<dd>
+This is replaced by the memcache client input key.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>%u</b></dt>
+<dd>
+When the input key is an address of the form user@domain,  <b>%u</b> is replaced by the SQL quoted local part of the address.  Otherwise,  <b>%u</b> is replaced by the entire search string.  If the localpart is empty, a lookup is silently suppressed and returns no results (an update is skipped with a warning).</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>%d</b></dt>
+<dd>
+When the input key is an address of the form user@domain,  <b>%d</b> is replaced by the domain part of the address. Otherwise, a lookup is silently suppressed and returns no results (an update is skipped with a warning).</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>%[SUD]</b></dt>
+<dd>
+The upper-case equivalents of the above expansions behave in the  <b>key_format</b> parameter identically to their lower-case counter-parts.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>%[1-9]</b></dt>
+<dd>
+The patterns %1, %2, ... %9 are replaced by the corresponding most significant component of the input key's domain. If the input key is  <i>user@mail.example.com</i>, then %1 is  <b>com</b>, %2 is <b>example</b> and %3 is <b>mail</b>. If the input key is unqualified or does not have enough domain components to satisfy all the specified patterns, a lookup is silently suppressed and returns no results (an update is skipped with a warning).</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<b>domain (default: no domain list)</b></dt>
+<dd>
+This feature can significantly reduce database server load. Specify a list of domain names, paths to files, or "type:table" databases. When specified, only fully qualified search keys with a *non-empty* localpart and a matching domain are eligible for lookup or update: bare 'user' lookups, bare domain lookups and "@domain" lookups are silently skipped (updates are skipped with a warning).  Example:<div style="height: 1.00em;">
+&#160;</div>
+<br>
+    domain = example.com, hash:/etc/postfix/searchdomains<br>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1>MEMCACHE ERROR CONTROLS</h1><br>
+<dl>
+<dt>
+<b>data_size_limit (default: 10240)</b></dt>
+<dd>
+The maximal memcache reply data length in bytes.</dd>
+</dl>
+<dl>
+<dt>
+<b>line_size_limit (default: 1024)</b></dt>
+<dd>
+The maximal memcache reply line length in bytes.</dd>
+</dl>
+<dl>
+<dt>
+<b>max_try (default: 2)</b></dt>
+<dd>
+The number of times to try a memcache command before giving up.  The memcache client does not retry a command when the memcache server accepts no connection.</dd>
+</dl>
+<dl>
+<dt>
+<b>retry_pause (default: 1)</b></dt>
+<dd>
+The time in seconds before retrying a failed memcache command.</dd>
+</dl>
+<dl>
+<dt>
+<b>timeout (default: 2)</b></dt>
+<dd>
+The time limit for sending a memcache command and for receiving a memcache reply.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>BUGS</h1><br>
+The Postfix memcache client cannot be used for security-sensitive tables such as  <b>alias_maps</b> (these may contain " <i>|command</i> and "<i>/file/name</i>" destinations), or  <b>virtual_uid_maps</b>, <b>virtual_gid_maps</b> and  <b>virtual_mailbox_maps</b> (these specify UNIX process privileges or " <i>/file/name</i>" destinations).  In a typical deployment a memcache database is writable by any process that can talk to the memcache server; in contrast, security-sensitive tables must never be writable by the unprivileged Postfix user.<div style="height: 1.00em;">
+&#160;</div>
+The Postfix memcache client requires additional configuration when used as  <b>postscreen</b>(8) or <b>verify</b>(8) cache. For details see the  <b>backup</b> and <b>ttl</b> parameter discussions in the MEMCACHE MAIN PARAMETERS section above.</div>
+<div class="section">
+<h1>SEE ALSO</h1><br>
+postmap(1), Postfix lookup table manager<br>
+postconf(5), configuration parameters</div>
+<div class="section">
+<h1>README FILES</h1><br>
+Use "<b>postconf readme_directory</b>" or " <b>postconf_directory</b>" to locate this information.<br>
+DATABASE_README, Postfix lookup table overview<br>
+MEMCACHE_README, Postfix memcache client guide</div>
+<div class="section">
+<h1>LICENSE</h1><br>
+The Secure Mailer license must be distributed with this software.</div>
+<div class="section">
+<h1>HISTORY</h1><br>
+Memcache support was introduced with Postfix version 2.9.</div>
+<div class="section">
+<h1>AUTHOR(S)</h1><br>
+Wietse Venema<br>
+IBM T.J. Watson Research<br>
+P.O. Box 704<br>
+Yorktown Heights, NY 10598, USA</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tr>
+<td class="foot-date">
+</td>
+<td class="foot-os" align="right">
+</td>
+</tr>
+</table>
+</div>
+</body>
+<>
+

@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+SIGACTION(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SIGACTION(2)</td>
+<td class="head-vol" align="center">
+System Calls Manual</td>
+<td class="head-rtitle" align="right">
+SIGACTION(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">sigaction</b> &#8212; <span class="desc">software signal facilities</span></div>
+<div class="section">
+<h1 id="x4c494252415259">LIBRARY</h1> <span class="lib">Standard C Library (libc, &#45;lc)</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">signal.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">sigaction</b>(<i class="farg" style="white-space:nowrap;">int sig</i>, <i class="farg" style="white-space:nowrap;">const struct sigaction * restrict act</i>, <i class="farg" style="white-space:nowrap;">struct sigaction * restrict oact</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The system defines a set of signals that may be delivered to a process. Signal delivery resembles the occurrence of a hardware interrupt: the signal is blocked from further occurrence, the current process context is saved, and a new one is built. A process may specify a <span class="emph">handler</span> to which a signal is delivered, or specify that a signal is to be <span class="emph">ignored</span>. A process may also specify that a default action is to be taken by the system when a signal occurs. A signal may also be <span class="emph">blocked</span>, in which case its delivery is postponed until it is <span class="emph">unblocked</span>. The action to be taken on delivery is determined at the time of delivery. Normally, signal handlers execute on the current stack of the process. This may be changed, on a per-handler basis, so that signals are taken on a special <span class="emph">signal stack</span>.<p>
+Signal routines execute with the signal that caused their invocation <span class="emph">blocked</span>, but other signals may yet occur. A global <span class="emph">signal mask</span> defines the set of signals currently blocked from delivery to a process. The signal mask for a process is initialized from that of its parent (normally empty). It may be changed with a <a class="link-man" href="../2/sigprocmask">sigprocmask(2)</a> call, or when a signal is delivered to the process. Signal masks are represented using the <span class="emph">sigset_t</span> type; the <a class="link-man" href="../3/sigsetops">sigsetops(3)</a> interface is used to modify such data.<p>
+When a signal condition arises for a process, the signal is added to a set of signals pending for the process. If the signal is not currently <span class="emph">blocked</span> by the process then it is delivered to the process. Signals may be delivered any time a process enters the operating system (e.g., during a system call, page fault or trap, or clock interrupt). If multiple signals are ready to be delivered at the same time, any signals that could be caused by traps are delivered first. Additional signals may be processed at the same time, with each appearing to interrupt the handlers for the previous signals before their first instructions. The set of pending signals is returned by the <a class="link-man" href="../2/sigpending">sigpending(2)</a> function. When a caught signal is delivered, the current state of the process is saved, a new signal mask is calculated (as described below), and the signal handler is invoked. The call to the handler is arranged so that if the signal handling routine returns normally the process will resume execution in the context from before the signal's delivery. If the process wishes to resume in a different context, then it must arrange to restore the previous context itself.<p>
+<span class="emph">struct sigaction</span> includes the following members:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+void 	  (*sa_sigaction)(int sig, siginfo_t *info, void *ctx); 
+void      (*sa_handler)(int sig); 
+sigset_t  sa_mask; 
+int       sa_flags;</pre>
+<p>
+When a signal is delivered to a process a new signal mask is installed for the duration of the process' signal handler (or until a <a class="link-man" href="../2/sigprocmask">sigprocmask(2)</a> call is made). This mask is formed by taking the union of the current signal mask, the signal to be delivered, and the signal mask associated with the handler to be invoked, <span class="emph">sa_mask</span>.<p>
+<b class="fname">sigaction</b>() assigns an action for a specific signal. If <i class="farg">act</i> is non-zero, it specifies an action (<span class="define">SIG_DFL</span>, <span class="define">SIG_IGN</span>, or a handler routine) and mask to be used when delivering the specified signal. If <i class="farg">oact</i> is non-zero, the previous handling information for the signal is returned to the user.<p>
+Once a signal handler is installed, it remains installed until another <b class="fname">sigaction</b>() call is made, or an <a class="link-man" href="../2/execve">execve(2)</a> is performed. A signal-specific default action may be reset by setting <i class="farg">sa_handler</i> to <span class="define">SIG_DFL</span>. The defaults are process termination, possibly with core dump; no action; stopping the process; or continuing the process. See the signal list below for each signal's default action. If <i class="farg">sa_handler</i> is set to <span class="define">SIG_DFL</span>, the default action for the signal is to discard the signal, and if a signal is pending, the pending signal is discarded even if the signal is masked. If <i class="farg">sa_handler</i> is set to <span class="define">SIG_IGN</span>, current and pending instances of the signal are ignored and discarded.<p>
+Options may be specified by setting <span class="emph">sa_flags</span>.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SA_NODEFER</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+If set, then the signal that caused the handler to be executed is not added to the list of block signals. Please note that <i class="farg">sa_mask</i> takes precedence over <span class="define">SA_NODEFER</span>, so that if the specified signal is blocked in <i class="farg">sa_mask</i>, then <span class="define">SA_NODEFER</span> will have no effect.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SA_NOCLDSTOP</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+If set when installing a catching function for the <span class="define">SIGCHLD</span> signal, the <span class="define">SIGCHLD</span> signal will be generated only when a child process exits, not when a child process stops.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SA_NOCLDWAIT</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+If set, the system will not create a zombie when the child exits, but the child process will be automatically waited for. The same effect can be achieved by setting the signal handler for <span class="define">SIGCHLD</span> to <span class="define">SIG_IGN</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SA_ONSTACK</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+If set, the system will deliver the signal to the process on a <span class="emph">signal stack</span>, specified with <a class="link-man" href="../2/sigaltstack">sigaltstack(2)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SA_RESETHAND</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+If set, the default action will be reinstated when the signal is first posted.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SA_RESTART</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Normally, if a signal is caught during the system calls listed below, the call may be forced to terminate with the error <span class="errno">EINTR</span>, the call may return with a data transfer shorter than requested, or the call may be restarted. Restarting of pending calls is requested by setting the <span class="define">SA_RESTART</span> bit in <i class="arg">sa_flags</i>. The affected system calls include <a class="link-man" href="../2/open">open(2)</a>, <a class="link-man" href="../2/read">read(2)</a>, <a class="link-man" href="../2/write">write(2)</a>, <a class="link-man" href="../2/sendto">sendto(2)</a>, <a class="link-man" href="../2/recvfrom">recvfrom(2)</a>, <a class="link-man" href="../2/sendmsg">sendmsg(2)</a> and <a class="link-man" href="../2/recvmsg">recvmsg(2)</a> on a communications channel or a slow device (such as a terminal, but not a regular file) and during a <a class="link-man" href="../2/wait">wait(2)</a> or <a class="link-man" href="../2/ioctl">ioctl(2)</a>. However, calls that have already committed are not restarted, but instead return a partial success (for example, a short read count).<p>
+After a <a class="link-man" href="../2/fork">fork(2)</a> or <a class="link-man" href="../2/vfork">vfork(2)</a> all signals, the signal mask, the signal stack, and the restart/interrupt flags are inherited by the child.<p>
+The <a class="link-man" href="../2/execve">execve(2)</a> system call reinstates the default action for all signals which were caught and resets all signals to be caught on the user stack. Ignored signals remain ignored; the signal mask remains the same; signals that restart pending system calls continue to do so.<p>
+See <a class="link-man" href="../7/signal">signal(7)</a> for comprehensive list of supported signals.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SA_SIGINFO</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+If set, the signal handler function will receive additional information about the caught signal. An alternative handler that gets passed additional arguments will be called which is named <i class="farg">sa_sigaction</i>. The <i class="arg">sig</i> argument of this handler contains the signal number that was caught. The <i class="arg">info</i> argument contains additional signal specific information which is listed in <a class="link-man" href="../2/siginfo">siginfo(2)</a>. The <i class="arg">ctx</i> argument is a pointer to the <a class="link-man" href="../2/ucontext">ucontext(2)</a> context where the signal handler will return to.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SA_NOKERNINFO</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+This flag is relevant only to <span class="define">SIGINFO</span>, and turns off printing kernel messages on the tty. It is similar to the <span class="define">NOKERNINFO</span> flag in <a class="link-man" href="../4/termios">termios(4)</a>.</dd>
+</dl>
+<p>
+Only functions that are async-signal-safe can safely be used in signal handlers; see <a class="link-man" href="../7/signal">signal(7)</a> for a complete list.</div>
+<div class="section">
+<h1 id="x4e4f544553">NOTES</h1> The mask specified in <i class="farg">act</i> is not allowed to block <span class="define">SIGKILL</span> or <span class="define">SIGSTOP</span>. This is enforced silently by the system.</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> A 0 value indicates that the call succeeded. A &#45;1 return value indicates an error occurred and <b class="var">errno</b> is set to indicate the reason.</div>
+<div class="section">
+<h1 id="x4552524f5253">ERRORS</h1> <b class="fname">sigaction</b>() will fail and no new signal handler will be installed if one of the following occurs:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EFAULT</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Either <i class="farg">act</i> or <i class="farg">oact</i> points to memory that is not a valid part of the process address space.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EINVAL</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+<i class="farg">sig</i> is not a valid signal number; or an attempt is made to ignore or supply a handler for <span class="define">SIGKILL</span> or <span class="define">SIGSTOP</span>; or the <span class="emph">sa_flags</span> word contains bits other than <span class="define">SA_NOCLDSTOP</span>, <span class="define">SA_NOCLDWAIT</span>, <span class="define">SA_NODEFER</span>, <span class="define">SA_ONSTACK</span>, <span class="define">SA_RESETHAND</span>, <span class="define">SA_RESTART</span>, and <span class="define">SA_SIGINFO</span>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/kill">kill(1)</a>, <a class="link-man" href="../2/kill">kill(2)</a>, <a class="link-man" href="../2/ptrace">ptrace(2)</a>, <a class="link-man" href="../2/sigaltstack">sigaltstack(2)</a>, <a class="link-man" href="../2/siginfo">siginfo(2)</a>, <a class="link-man" href="../2/sigprocmask">sigprocmask(2)</a>, <a class="link-man" href="../2/sigsuspend">sigsuspend(2)</a>, <a class="link-man" href="../3/setjmp">setjmp(3)</a>, <a class="link-man" href="../3/sigsetops">sigsetops(3)</a>, <a class="link-man" href="../4/tty">tty(4)</a>, <a class="link-man" href="../7/signal">signal(7)</a></div>
+<div class="section">
+<h1 id="x5354414e4441524453">STANDARDS</h1> The <b class="fname">sigaction</b>() function conforms to IEEE Std 1003.1-1990 (&#8220;POSIX.1&#8221;). The <span class="define">SA_ONSTACK</span> and <span class="define">SA_RESTART</span> flags are Berkeley extensions, available on most <span class="unix">BSD</span>&#45;derived systems.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+June 3, 2006</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+TIMECOUNTER(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+TIMECOUNTER(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+TIMECOUNTER(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">timecounter</b>, <b class="name">tc_init</b> &#8212; <span class="desc">machine-independent binary timescale</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/timetc.h</a>&gt;</b><p>
+<i class="ftype">void</i><br>
+<b class="fname">tc_init</b>(<i class="farg" style="white-space:nowrap;">struct timecounter *tc</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The timecounter interface is a machine-independent implementation of a binary timescale using whatever hardware support is at hand for tracking time.<p>
+A timecounter is a binary counter which has two properties:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-bul">
+<li class="list-bul" style="margin-top: 1.00em;">
+it runs at a fixed, known frequency; and</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+it has sufficient bits to not roll over in less than approximately max(2 msec, 2/<span class="emph">HZ</span> seconds) (the value 2 here is really 1 + delta, for some indeterminate value of delta).</li>
+</ul>
+<p>
+The interface between the hardware which implements a timecounter and the machine-independent code which uses this to keep track of time is a <b class="var">timecounter</b> structure:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct timecounter { 
+	timecounter_get_t	*tc_get_timecount; 
+	timecounter_pps_t	*tc_poll_pps; 
+	u_int 			tc_counter_mask; 
+	u_int64_t		tc_frequency; 
+	const char		*tc_name; 
+	int			tc_quality; 
+	void			*tc_priv; 
+	struct timecounter	*tc_next; 
+}</pre>
+<p>
+The fields of the <b class="var">timecounter</b> structure are described below.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">u_int</i> <b class="fname">(*tc_get_timecount)</b>(<i class="farg">struct timecounter *</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This function reads the counter. It is not required to mask any unimplemented bits out, as long as they are constant.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">(*tc_poll_pps)</b>(<i class="farg">struct timecounter *</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This function is optional and can be set to <span class="define">NULL</span>. It will be called whenever the timecounter is rewound, and is intended to check for PPS events. Normal hardware does not need it but timecounters which latch PPS in hardware do.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">tc_counter_mask</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This mask should mask off any unimplemented bits.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">tc_frequency</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Frequency of the counter in Hz.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">tc_name</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Name of the timecounter. Can be any NUL-terminated string.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">tc_quality</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Used to determine if this timecounter is better than another timecounter &#45; higher means better. Negative means &#8220;only use at explicit request&#8221;.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">tc_priv</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Pointer to the timecounter's private parts.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">tc_next</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+For internal use.</dd>
+</dl>
+<p>
+To register a new timecounter, the hardware device driver should fill a <b class="var">timecounter</b> structure with appropriate values and call the <b class="fname">tc_init</b>() function, giving a pointer to the structure as a <i class="farg">tc</i> parameter.</div>
+<div class="section">
+<h1 id="x54494d455354414d5020464f524d4154">TIMESTAMP FORMAT</h1> The timestamp format used in the machine independent timecounter implementation is a <b class="var">bintime</b> structure:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct bintime { 
+	time_t	sec; 
+	uint64_t frac; 
+}</pre>
+<p>
+The <b class="var">sec</b> field records the number of seconds as well as the <b class="var">tv_sec</b> field in the traditional <span class="unix">UNIX</span> <b class="var">timeval</b> and <b class="var">timespec</b> structures, described in <a class="link-man" href="../3/timeval">timeval(3)</a>.<p>
+The <b class="var">frac</b> field records fractional seconds represented in a fully 64 bit integer, i.e. it goes all the way from <code class="lit">0</code> through <code class="lit">0xFFFFFFFFFFFFFFFF</code> per each second. The effective resolution of the <b class="var">frac</b> value depends on a frequency of the machine dependent timecounter source.<p>
+The <b class="var">bintime</b> format is a binary number, not a pseudo-decimal number, so it can be used as a simple binary counter without expensive 64 bit arithmetics.</div>
+<div class="section">
+<h1 id="x434f4445205245464552454e434553">CODE REFERENCES</h1> The timecounter framework is implemented in the file <i class="file">sys/kern/kern_tc.c</i>. The <b class="var">bintime</b> structure and related functions are defined in the file <b class="includes">&lt;<a class="link-includes">sys/time.h</a>&gt;</b>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../2/clock_settime">clock_settime(2)</a>, <a class="link-man" href="../2/ntp_adjtime">ntp_adjtime(2)</a>, <a class="link-man" href="../2/settimeofday">settimeofday(2)</a>, <a class="link-man" href="../9/bintime">bintime(9)</a>, <a class="link-man" href="../9/bintime_add">bintime_add(9)</a>, <a class="link-man" href="../9/binuptime">binuptime(9)</a>, <a class="link-man" href="../9/hz">hz(9)</a>, <a class="link-man" href="../9/time_second">time_second(9)</a><p>
+<span class="ref"><span class="ref-auth">Poul-Henning Kamp</span>, <span class="ref-title">Timecounters: Efficient and precise timekeeping in SMP kernels</span>, <i class="ref-jrnl">Proceedings of EuroBSDCon 2002, Amsterdam</i>, <a class="link-ref" href="http://phk.freebsd.dk/pubs/timecounter.pdf">http://phk.freebsd.dk/pubs/timecounter.pdf</a>, <span class="ref-date">15-17 November, 2002</span>.</span></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The timecounter interface first appeared in <span class="unix">FreeBSD</span>, and was ported to <span class="unix">NetBSD&#160;4.0</span> by Frank Kardel and Simon Burge.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+June 8, 2010</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

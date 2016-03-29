@@ -1,0 +1,1397 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+KAUTH(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+KAUTH(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+KAUTH(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">kauth</b> &#8212; <span class="desc">kernel authorization framework</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/kauth.h</a>&gt;</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="name">kauth</b>, or kernel authorization, is the subsystem managing all authorization requests inside the kernel. It manages user credentials and rights, and can be used to implement a system-wide security policy. It allows external modules to plug-in the authorization process.<p>
+<b class="name">kauth</b> introduces some new concepts, namely &#8220;scopes&#8221; and &#8220;listeners&#8221;, which will be detailed together with other useful information for kernel developers in this document.<div class="subsection">
+<h2 id="x5479706573">Types</h2> Some <b class="name">kauth</b> types include the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+kauth_cred_t</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Representing credentials that can be associated with an object. Includes user- and group-ids (real, effective, and save) as well as group membership information.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+kauth_scope_t</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Describes a scope.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+kauth_listener_t</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Describes a listener.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x5465726d696e6f6c6f6779">Terminology</h2> <b class="name">kauth</b> operates in various &#8220;scopes&#8221;, each scope holding a group of &#8220;listeners&#8221;.<p>
+Each listener works as a callback for when an authorization request within the scope is made. When such a request is made, all listeners on the scope are passed common information such as the credentials of the request context, an identifier for the requested operation, and possibly other information as well.<p>
+Every listener examines the passed information and returns its decision regarding the requested operation. It can either return:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_RESULT_ALLOW</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The listener allows the operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_RESULT_DENY</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The listener denies the operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_RESULT_DEFER</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The listener defers the decision to other listeners.</dd>
+</dl>
+<p>
+For an operation to be allowed, at least one listener has to return <span class="define">KAUTH_RESULT_ALLOW</span> while no other listener returned <span class="define">KAUTH_RESULT_DENY</span>.<p>
+Scopes manage listeners that operate in the same aspect of the system.</div>
+<div class="subsection">
+<h2 id="x4b65726e656c2050726f6772616d6d696e6720496e74657266616365">Kernel Programming Interface</h2> <b class="name">kauth</b> exports a KPI that allows developers both of <span class="unix">NetBSD</span> and third-party products to authorize requests, access and modify credentials, create and remove scopes and listeners, and perform other miscellaneous operations on credentials.</div>
+<div class="subsection">
+<h2 id="x417574686f72697a6174696f6e205265717565737473">Authorization Requests</h2> <b class="name">kauth</b> provides a single authorization request routine, which all authorization requests go through. This routine dispatches the request to the listeners of the appropriate scope, together with four optional user-data variables, and returns the augmented result.<p>
+It is declared as<p>
+<i class="ftype">int</i> <b class="fname">kauth_authorize_action</b>(<i class="farg">kauth_scope_t scope</i>, <i class="farg">kauth_cred_t cred</i>, <i class="farg">kauth_action_t op</i>, <i class="farg">void *arg0</i>, <i class="farg">void *arg1</i>, <i class="farg">void *arg2</i>, <i class="farg">void *arg3</i>)<p>
+An authorization request can return one of two possible values:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">0</span> (zero)</dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+indicates success; operation is allowed.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">EPERM</span></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+indicates failure; operation is denied. See <a class="link-man" href="../2/errno">errno(2)</a>.</dd>
+</dl>
+<p>
+Each scope has its own authorization wrapper, to make it easy to call from various places by eliminating the need to specify the scope and/or cast values. The authorization wrappers are detailed in each scope's section.<p>
+<b class="fname">kauth_authorize_action</b>() has several special cases, when it will always allow the request. These are for when the request is issued by the kernel itself (indicated by the credentials being either <span class="define">NOCRED</span> or <span class="define">FSCRED</span>), or when there was no definitive decision from any of the listeners (i.e., it was not explicitly allowed or denied) and no security model was loaded.</div>
+<div class="subsection">
+<h2 id="x47656e657269632053636f7065">Generic Scope</h2> The generic scope, &#8220;org.netbsd.kauth.generic&#8221;, manages generic authorization requests in the kernel.<p>
+The authorization wrapper for this scope is declared as<p>
+<i class="ftype">int</i> <b class="fname">kauth_authorize_generic</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">kauth_action_t op</i>, <i class="farg">void *arg0</i>)<p>
+The following operations are available for this scope:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_GENERIC_ISSUSER</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether the credentials belong to the super-user.<p>
+Using this request is strongly discouraged and should only be done as a temporary place-holder, as it is breaking the separation between the interface for authorization requests from the back-end implementation.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x53797374656d2053636f7065">System Scope</h2> The system scope, &#8220;org.netbsd.kauth.system&#8221;, manages authorization requests affecting the entire system.<p>
+The authorization wrapper for this scope is declared as<p>
+<i class="ftype">int</i> <b class="fname">kauth_authorize_system</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">kauth_action_t op</i>, <i class="farg">enum kauth_system_req req</i>, <i class="farg">void *arg1</i>, <i class="farg">void *arg2</i>, <i class="farg">void *arg3</i>)<p>
+The following requests are available for this scope:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_ACCOUNTING</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if enabling/disabling accounting allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_CHROOT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+<i class="arg">req</i> can be any of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_CHROOT_CHROOT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if calling <a class="link-man" href="../2/chroot">chroot(2)</a> is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_CHROOT_FCHROOT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if calling <a class="link-man" href="../2/fchroot">fchroot(2)</a> is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_CPU</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check CPU-manipulation access.<p>
+<i class="arg">req</i> can be any of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_CPU_SETSTATE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Set CPU state, including setting it online or offline.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_DEBUG</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+This request concentrates several debugging-related operations. <i class="arg">req</i> can be any of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_DEBUG_IPKDB</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if using <a class="link-man" href="../4/ipkdb">ipkdb(4)</a> is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_DEVMAPPER</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if operations on the device mapper <a class="link-man" href="../4/dm">dm(4)</a> device are allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_FILEHANDLE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if file handle operations allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_FS_EXTATTR</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if starting, stopping, enabling, or disabling extended attributes is allowed. <i class="arg">arg1</i> is a <i class="ftype">struct mount *</i> of the mount-point on which the operation is performed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_FS_SNAPSHOT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if setting up a file system snapshot is allowed. <i class="arg">arg1</i> is a <i class="ftype">struct mount *</i> of the mount-point of which the snapshot is taken, and <i class="arg">arg2</i> is a <i class="ftype">struct vnode *</i> of the vnode where the snapshot is expected to be.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_FS_QUOTA</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if file system quota operations are allowed.<p>
+<i class="arg">arg1</i> is a <i class="ftype">struct mount *</i> describing the file system mount in question. <i class="arg">req</i> can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_FS_QUOTA_GET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if retrieving quota information is allowed.<p>
+<i class="arg">arg2</i> is a <i class="ftype">uid_t</i> with the user-id of the user whose quota information is to be retrieved.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_FS_QUOTA_ONOFF</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if turning quota on/off is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_FS_QUOTA_MANAGE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if managing the quota by setting the quota/quota use is allowed.<p>
+<i class="arg">arg2</i> is a <i class="ftype">uid_t</i> with the user-id of the user whose quota/quota use is to be set.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_FS_QUOTA_NOLIMIT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if bypassing the quota (not enforcing it) is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_FS_RESERVEDSPACE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if using the file system reserved space is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_LFS</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if LFS-related operations are allowed. <i class="arg">req</i> can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_LFS_MARKV</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if calling <a class="link-man" href="../2/lfs_markv">lfs_markv(2)</a> is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_LFS_BMAPV</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if calling <a class="link-man" href="../2/lfs_bmapv">lfs_bmapv(2)</a> is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_LFS_SEGCLEAN</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if calling <a class="link-man" href="../2/lfs_segclean">lfs_segclean(2)</a> is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_LFS_SEGWAIT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if calling <a class="link-man" href="../2/lfs_segwait">lfs_segwait(2)</a> is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_LFS_FCNTL</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if operations on LFS through <a class="link-man" href="../2/fcntl">fcntl(2)</a> are allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_MAP_VA_ZERO</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if changing the status of memory mapping of virtual address zero is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_MODULE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if a module request is allowed.<p>
+<i class="arg">arg1</i> is the command.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_MKNOD</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if creating devices is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_MOUNT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if mount-related operations are allowed.<p>
+<i class="arg">req</i> can be any of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_MOUNT_DEVICE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if mounting a device is allowed. <i class="arg">arg1</i> is a <i class="ftype">vnode_t *</i> of the device, <i class="arg">arg2</i> is a <i class="ftype">struct mount *</i> with the mount-point, and <i class="arg">arg3</i> is a <i class="ftype">mode_t</i> with the desired access mode.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_MOUNT_GET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if retrieving information about a mount is allowed. <i class="arg">arg1</i> is a <i class="ftype">struct mount *</i> with the mount structure in question, <i class="arg">arg2</i> is a <i class="ftype">void *</i> with file system specific data, if any.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_MOUNT_NEW</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if mounting a new file system is allowed.<p>
+<i class="arg">arg1</i> is the <i class="ftype">struct vnode *</i> on which the file system is to be mounted, <i class="arg">arg2</i> is an <i class="ftype">int</i> with the mount flags, and <i class="arg">arg3</i> is a <i class="ftype">void *</i> with file system specific data, if any.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_MOUNT_UNMOUNT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if unmounting a file system is allowed.<p>
+<i class="arg">arg1</i> is a <i class="ftype">struct mount *</i> with the mount in question.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_MOUNT_UPDATE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if updating an existing mount is allowed.<p>
+<i class="arg">arg1</i> is the <i class="ftype">struct mount *</i> of the existing mount, <i class="arg">arg2</i> is an <i class="ftype">int</i> with the new mount flags, and <i class="arg">arg3</i> is a <i class="ftype">void *</i> with file system specific data, if any.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_MOUNT_UMAP</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if mounting the user and group id remapping file system. See <a class="link-man" href="../8/mount_umap">mount_umap(8)</a>.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_MQUEUE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if bypassing permissions on a message queue object are allowed. <i class="arg">arg1</i> is a <i class="ftype">mqueue_t *</i> describing the message queue.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_PSET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check processor-set manipulation.<p>
+<i class="arg">req</i> can be any of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_PSET_ASSIGN</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Change processor-set processor assignment.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_PSET_BIND</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Bind an LWP to a processor-set.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_PSET_CREATE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Create a processor-set.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_PSET_DESTROY</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Destroy a processor-set.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_REBOOT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if rebooting is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_SETIDCORE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if changing coredump settings for set-id processes is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_SEMAPHORE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if access to a kernel semaphore is allowed. <i class="arg">arg1</i> is a <i class="ftype">ksem_t *</i> describing the semaphore.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_SWAPCTL</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if privileged <a class="link-man" href="../2/swapctl">swapctl(2)</a> requests are allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_SYSCTL</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+This requests operations related to <a class="link-man" href="../9/sysctl">sysctl(9)</a>. <i class="arg">req</i> indicates the specific request and can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_SYSCTL_ADD</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if adding a <a class="link-man" href="../9/sysctl">sysctl(9)</a> node is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_SYSCTL_DELETE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if deleting a <a class="link-man" href="../9/sysctl">sysctl(9)</a> node is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_SYSCTL_DESC</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if adding description to a <a class="link-man" href="../9/sysctl">sysctl(9)</a> node is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_SYSCTL_MODIFY</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if modifying a <a class="link-man" href="../9/sysctl">sysctl(9)</a> node variable that doesn't have a custom sysctl helper function is allowed.<p>
+This request might be deprecated in the future.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_SYSCTL_PRVT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if accessing private <a class="link-man" href="../9/sysctl">sysctl(9)</a> nodes is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_SYSVIPC</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check SysV IPC related operations. <i class="arg">req</i> indicates the specific request and can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_SYSVIPC_BYPASS</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if bypassing a SysV IPC object's permissions is allowed. <i class="arg">arg1</i> is a <i class="ftype">struct ipc_perm *</i> with the object's permissions and <i class="arg">arg2</i> is a <i class="ftype">mode_t</i> indicating the requested access mode.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_SYSVIPC_SHM_LOCK</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if shared memory locking is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_SYSVIPC_SHM_UNLOCK</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if shared memory unlocking is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_SYSVIPC_MSGQ_OVERSIZE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if oversizing a message queue is allowed. <i class="arg">arg1</i> is a <i class="ftype">msglen_t</i> indicating the size of the message buffer, and <i class="arg">arg2</i> is a <i class="ftype">msglen_t</i> indicating the size of the message queue.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_TIME</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+This request groups time-related operations. <i class="arg">req</i> can be any of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_TIME_ADJTIME</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if changing the time using <a class="link-man" href="../2/adjtime">adjtime(2)</a> is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_TIME_NTPADJTIME</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if setting the time using <a class="link-man" href="../2/ntp_adjtime">ntp_adjtime(2)</a> is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_TIME_SYSTEM</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if changing the time (usually via <a class="link-man" href="../2/settimeofday">settimeofday(2)</a>) is allowed.<p>
+<i class="arg">arg1</i> is a <i class="ftype">struct timespec *</i> with the new time, <i class="arg">arg2</i> is a <i class="ftype">struct timeval *</i> with the delta from the current time, <i class="arg">arg3</i> is a <i class="ftype">bool</i> indicating whether the caller is a device context (e.g. <i class="file">/dev/clockctl</i>) or not.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_TIME_RTCOFFSET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if changing the RTC offset is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_TIME_TIMECOUNTERS</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if manipulating timecounters is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_SYSTEM_VERIEXEC</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if operations on the <a class="link-man" href="../8/veriexec">veriexec(8)</a> subsystem are allowed. <i class="arg">req</i> can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_VERIEXEC_ACCESS</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if access to the <a class="link-man" href="../8/veriexec">veriexec(8)</a> subsystem is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_SYSTEM_VERIEXEC_MODIFY</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if modifications to the state of <a class="link-man" href="../8/veriexec">veriexec(8)</a> are allowed.</dd>
+</dl>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x50726f636573732053636f7065">Process Scope</h2> The process scope, &#8220;org.netbsd.kauth.process&#8221;, manages authorization requests related to processes in the system.<p>
+The authorization wrapper for this scope is declared as<p>
+<i class="ftype">int</i> <b class="fname">kauth_authorize_process</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">kauth_action_t op</i>, <i class="farg">struct proc *p</i>, <i class="farg">void *arg1</i>, <i class="farg">void *arg2</i>, <i class="farg">void *arg3</i>)<p>
+The following operations are available for this scope:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_KTRACE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether an object with one set of credentials can <a class="link-man" href="../1/ktrace">ktrace(1)</a> another process <i class="arg">p</i>, possibly with a different set of credentials.<p>
+If <i class="arg">arg1</i> is <span class="define">KAUTH_REQ_PROCESS_KTRACE_PERSISTENT</span>, this checks if persistent tracing can be done. Persistent tracing maintains the trace across a set-user-id/set-group-id <a class="link-man" href="../3/exec">exec(3)</a>, and normally requires privileged credentials.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_PROCFS</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether object with passed credentials can use <span class="emph">procfs</span> to access process <i class="arg">p</i>.<p>
+<i class="arg">arg1</i> is the <i class="ftype">struct pfsnode *</i> for the target element in the target process, and <i class="arg">arg2</i> is the access type, which can be either <span class="define">KAUTH_REQ_PROCESS_PROCFS_CTL</span>, <span class="define">KAUTH_REQ_PROCESS_PROCFS_READ</span>, <span class="define">KAUTH_REQ_PROCESS_PROCFS_RW</span>, or <span class="define">KAUTH_REQ_PROCESS_PROCFS_WRITE</span>, indicating <span class="emph">control</span>, <span class="emph">read</span>, <span class="emph">read-write</span>, or <span class="emph">write</span> access respectively.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_PTRACE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether object with passed credentials can use <a class="link-man" href="../2/ptrace">ptrace(2)</a> to access process <i class="arg">p</i>.<p>
+<i class="arg">arg1</i> is the <a class="link-man" href="../2/ptrace">ptrace(2)</a> command.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_CANSEE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether an object with one set of credentials can access information about another process, possibly with a different set of credentials.<p>
+<i class="arg">arg1</i> indicates the class of information being viewed, and can be either of <span class="define">KAUTH_REQ_PROCESS_CANSEE_ARGS</span>, <span class="define">KAUTH_REQ_PROCESS_CANSEE_ENTRY</span>, <span class="define">KAUTH_REQ_PROCESS_CANSEE_ENV</span>, or <span class="define">KAUTH_REQ_PROCESS_CANSEE_OPENFILES</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_SCHEDULER_GETAFFINITY</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether viewing the scheduler affinity is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_SCHEDULER_SETAFFINITY</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether setting the scheduler affinity is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_SCHEDULER_GETPARAM</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether viewing the scheduler policy and parameters is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_SCHEDULER_SETPARAM</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether modifying the scheduler policy and parameters is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_SIGNAL</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether an object with one set of credentials can post signals to another process.<p>
+<i class="arg">p</i> is the process the signal is being posted to, and <i class="arg">arg1</i> is the signal number.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_CORENAME</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Controls access to process corename.<p>
+<i class="arg">arg1</i> can be <span class="define">KAUTH_REQ_PROCESS_CORENAME_GET</span> or <span class="define">KAUTH_REQ_PROCESS_CORENAME_SET</span>, indicating access to read or write the process' corename, respectively.<p>
+When modifying the corename, <i class="arg">arg2</i> holds the new corename to be used.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_FORK</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if the process can fork. <i class="arg">arg1</i> is an <i class="ftype">int</i> indicating how many processes exist on the system at the time of the check.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_KEVENT_FILTER</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether setting a process <a class="link-man" href="../2/kevent">kevent(2)</a> filter is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_NICE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether the <span class="emph">nice</span> value of <i class="arg">p</i> can be changed to <i class="arg">arg1</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_RLIMIT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Controls access to process resource limits.<p>
+<i class="arg">arg1</i> can be <span class="define">KAUTH_REQ_PROCESS_RLIMIT_GET</span> or <span class="define">KAUTH_REQ_PROCESS_RLIMIT_SET</span>, indicating access to read or write the process' resource limits, respectively, or <span class="define">KAUTH_REQ_PROCESS_RLIMIT_BYPASS</span> to check if the limit enforcement can be bypassed.<p>
+When modifying resource limits, <i class="arg">arg2</i> is the new value to be used and <i class="arg">arg3</i> indicates which resource limit is to be modified.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_SETID</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if changing the user- or group-ids, groups, or login-name for <i class="arg">p</i> is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_PROCESS_STOPFLAG</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if setting the stop flags for <a class="link-man" href="../3/exec">exec(3)</a>, <a class="link-man" href="../3/exit">exit(3)</a>, and <a class="link-man" href="../2/fork">fork(2)</a> is allowed.<p>
+<i class="arg">arg1</i> indicates the flag, and can be either <span class="define">P_STOPEXEC</span>, <span class="define">P_STOPEXIT</span>, or <span class="define">P_STOPFORK</span> respectively.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x4e6574776f726b2053636f7065">Network Scope</h2> The network scope, &#8220;org.netbsd.kauth.network&#8221;, manages networking-related authorization requests in the kernel.<p>
+The authorization wrapper for this scope is declared as<p>
+<i class="ftype">int</i> <b class="fname">kauth_authorize_network</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">kauth_action_t op</i>, <i class="farg">enum kauth_network_req req</i>, <i class="farg">void *arg1</i>, <i class="farg">void *arg2</i>, <i class="farg">void *arg3</i>)<p>
+The following operations are available for this scope:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_ALTQ</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if an ALTQ operation is allowed.<p>
+<i class="arg">req</i> indicates the ALTQ subsystem in question, and can be one of the following:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_REQ_NETWORK_ALTQ_AFMAP</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_REQ_NETWORK_ALTQ_BLUE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_REQ_NETWORK_ALTQ_CBQ</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_REQ_NETWORK_ALTQ_CDNR</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_REQ_NETWORK_ALTQ_CONF</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_REQ_NETWORK_ALTQ_FIFOQ</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_REQ_NETWORK_ALTQ_HFSC</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_REQ_NETWORK_ALTQ_JOBS</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_REQ_NETWORK_ALTQ_PRIQ</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_REQ_NETWORK_ALTQ_RED</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_REQ_NETWORK_ALTQ_RIO</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">KAUTH_REQ_NETWORK_ALTQ_WFQ</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_BIND</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if a <a class="link-man" href="../2/bind">bind(2)</a> request is allowed.<p>
+<i class="arg">req</i> allows to indicate the type of the request to structure listeners and callers easier. Supported request types:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_BIND_PORT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if binding to a non-privileged/reserved port is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_BIND_PRIVPORT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if binding to a privileged/reserved port is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_FIREWALL</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if firewall-related operations are allowed.<p>
+<i class="arg">req</i> indicates the sub-action, and can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_FIREWALL_FW</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Modification of packet filtering rules.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_FIREWALL_NAT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Modification of NAT rules.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_INTERFACE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if network interface-related operations are allowed.<p>
+<i class="arg">arg1</i> is (optionally) the <i class="ftype">struct ifnet *</i> associated with the interface. <i class="arg">arg2</i> is (optionally) an <i class="ftype">int</i> describing the interface-specific operation. <i class="arg">arg3</i> is (optionally) a pointer to the interface-specific request structure. <i class="arg">req</i> indicates the sub-action, and can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_INTERFACE_GET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if retrieving information from the device is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_INTERFACE_GETPRIV</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if retrieving privileged information from the device is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_INTERFACE_SET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if setting parameters on the device is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_INTERFACE_SETPRIV</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if setting privileged parameters on the device is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_INTERFACE_FIRMWARE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if manipulating the firmware on a network interface device is allowed.</dd>
+</dl>
+<p>
+Note that unless the <i class="ftype">struct ifnet *</i> for the interface was passed in <i class="arg">arg1</i>, there's no way to tell what structure <i class="arg">arg3</i> is.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_INTERFACE_BRIDGE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if operations performed on the <a class="link-man" href="../4/bridge">bridge(4)</a> network interface are allowed.<p>
+<i class="arg">req</i> can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_INTERFACE_BRIDGE_GETPRIV</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if getting privileges parameters is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_INTERFACE_BRIDGE_SETPRIV</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if setting privileges parameters is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_INTERFACE_PPP</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if operations performed on the <a class="link-man" href="../4/ppp">ppp(4)</a> network interface are allowed.<p>
+<i class="arg">req</i> can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_INTERFACE_PPP_ADD</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if adding and enabling a <a class="link-man" href="../4/ppp">ppp(4)</a> interface to the system is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_INTERFACE_PVC</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if operations performed on a PVC device (e.g. <a class="link-man" href="../4/midway">midway(4)</a>) are allowed. <i class="arg">req</i> can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_INTERFACE_PVC_ADD</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if adding a PVC device is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_INTERFACE_SLIP</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if operations performed on the <a class="link-man" href="../4/sl">sl(4)</a> network interface are allowed.<p>
+<i class="arg">req</i> can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_INTERFACE_SLIP_ADD</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if adding and enabling a <a class="link-man" href="../4/sl">sl(4)</a> interface to the system is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_INTERFACE_STRIP</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if operations performed on the <a class="link-man" href="../4/strip">strip(4)</a> network interface are allowed.<p>
+<i class="arg">req</i> can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_INTERFACE_STRIP_ADD</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if adding and enabling a <a class="link-man" href="../4/strip">strip(4)</a> interface to the system is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_INTERFACE_TUN</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if operations performed on the <a class="link-man" href="../4/tun">tun(4)</a> network interface are allowed.<p>
+<i class="arg">req</i> can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_INTERFACE_TUN_ADD</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if adding and enabling a <a class="link-man" href="../4/tun">tun(4)</a> interface to the system is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_IPSEC</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if operations related to <a class="link-man" href="../4/ipsec">ipsec(4)</a> connections are allowed. <i class="arg">req</i> can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_IPSEC_BYPASS</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if bypassing <a class="link-man" href="../4/ipsec">ipsec(4)</a> policy is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_IPV6</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if IPv6-specific operations are allowed. <i class="arg">req</i> can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_IPV6_HOPBYHOP</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if setting hop-by-hop packet options is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_IPV6_JOIN_MULTICAST</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if joining a multicast network is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_FORWSRCRT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks whether status of forwarding of source-routed packets can be modified or not.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_NFS</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if an NFS related operation is allowed.<p>
+<i class="arg">req</i> can be any of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_NFS_EXPORT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if modifying the NFS export table is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_NFS_SVC</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if access to the NFS <a class="link-man" href="../2/nfssvc">nfssvc(2)</a> syscall is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_ROUTE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if a routing-related request is allowed.<p>
+<i class="arg">arg1</i> is the <i class="ftype">struct rt_msghdr *</i> for the request.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_SMB</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if operations related to SMB are allowed.<p>
+<i class="arg">req</i> can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_SMB_SHARE_ACCESS</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if accessing an SMB share is allowed.<p>
+<i class="arg">arg1</i> is a <i class="ftype">struct smb_share *</i> describing the SMB share, and <i class="arg">arg2</i> is a <i class="ftype">mode_t</i> with the desired access mode.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_SMB_SHARE_CREATE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if creating an SMB share is allowed.<p>
+<i class="arg">arg1</i> is a <i class="ftype">struct smb_sharespec *</i> describing the share to be created.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_SMB_VC_ACCESS</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if accessing an SMB VC is allowed.<p>
+<i class="arg">arg1</i> is a <i class="ftype">struct smb_vc *</i> describing the SMB VC, and <i class="arg">arg2</i> is a <i class="ftype">mode_t</i> with the desired access mode.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_SMB_VC_CREATE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if creating an SMB VC is allowed.<p>
+<i class="arg">arg1</i> is a <i class="ftype">struct smb_vcspec *</i> describing the VC to be created.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_NETWORK_SOCKET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if a socket related operation is allowed.<p>
+<i class="arg">req</i> allows to indicate the type of the request to structure listeners and callers easier. Supported request types:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_SOCKET_RAWSOCK</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if opening a raw socket is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_SOCKET_OPEN</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if opening a socket is allowed. <i class="arg">arg1</i>, <i class="arg">arg2</i>, and <i class="arg">arg3</i> are all <i class="ftype">int</i> parameters describing the domain, socket type, and protocol, respectively.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_SOCKET_CANSEE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if looking at the socket passed is allowed.<p>
+<i class="arg">arg1</i> is a <i class="ftype">struct socket *</i> describing the socket.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_SOCKET_DROP</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if a connection can be dropped.<p>
+<i class="arg">arg1</i> is a <i class="ftype">struct socket *</i> describing the socket.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_NETWORK_SOCKET_SETPRIV</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if setting privileged socket options is allowed.<p>
+<i class="arg">arg1</i> is a <i class="ftype">struct socket *</i> describing the socket, <i class="arg">arg2</i> is a <i class="ftype">u_long</i> describing the socket option.</dd>
+</dl>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x4d616368696e651e646570656e64656e742053636f7065">Machine-dependent Scope</h2> The machine-dependent (machdep) scope, &#8220;org.netbsd.kauth.machdep&#8221;, manages machine-dependent authorization requests in the kernel.<p>
+The authorization wrapper for this scope is declared as<p>
+<i class="ftype">int</i> <b class="fname">kauth_authorize_machdep</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">kauth_action_t op</i>, <i class="farg">void *arg0</i>, <i class="farg">void *arg1</i>, <i class="farg">void *arg2</i>, <i class="farg">void *arg3</i>)<p>
+The actions on this scope provide a set that may or may not affect all platforms. Below is a list of available actions, along with which platforms are affected by each.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_MACHDEP_CACHEFLUSH</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Request to flush the whole CPU cache. Affects <span class="emph">m68k</span> Linux emulation.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_MACHDEP_CPU_UCODE_APPLY</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Request to apply a CPU microcode to a CPU. This is related to <span class="emph">CPU_UCODE</span>, see <a class="link-man" href="../4/options">options(4)</a>. Affects <span class="emph">i386</span> and <span class="emph">xen</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_MACHDEP_IOPERM_GET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Request to get the I/O permission level. Affects <span class="emph">amd64</span>, <span class="emph">i386</span>, <span class="emph">xen</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_MACHDEP_IOPERM_SET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Request to set the I/O permission level. Affects <span class="emph">amd64</span>, <span class="emph">i386</span>, <span class="emph">xen</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_MACHDEP_IOPL</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Request to set the I/O privilege level. Affects <span class="emph">amd64</span>, <span class="emph">i386</span>, <span class="emph">xen</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_MACHDEP_LDT_GET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Request to get the LDT (local descriptor table). Affects <span class="emph">amd64</span>, <span class="emph">i386</span>, <span class="emph">xen</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_MACHDEP_LDT_SET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Request to set the LDT (local descriptor table). Affects <span class="emph">amd64</span>, <span class="emph">i386</span>, <span class="emph">xen</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_MACHDEP_MTRR_GET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Request to get the MTRR (memory type range registers). Affects <span class="emph">amd64</span>, <span class="emph">i386</span>, <span class="emph">xen</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_MACHDEP_MTRR_SET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Request to set the MTRR (memory type range registers). Affects <span class="emph">amd64</span>, <span class="emph">i386</span>, <span class="emph">xen</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_MACHDEP_NVRAM</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Request to access (read/write) the NVRAM. Affects <span class="emph">i386</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_MACHDEP_PXG</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Request to start or stop the <a class="link-man" href="../4/pxg">pxg(4)</a> CPU. <i class="arg">arg0</i> is <i class="ftype">true</i> or <i class="ftype">false</i>, respectively. Affects <span class="emph">pmax</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_MACHDEP_UNMANAGEDMEM</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Request to access unmanaged memory. Affects <span class="emph">alpha</span>, <span class="emph">amd64</span>, <span class="emph">arm</span>, <span class="emph">i386</span>, <span class="emph">powerpc</span>, <span class="emph">sh3</span>, <span class="emph">vax</span>, <span class="emph">xen</span>.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x4465766963652053636f7065">Device Scope</h2> The device scope, &#8220;org.netbsd.kauth.device&#8221;, manages authorization requests related to devices on the system. Devices can be, for example, terminals, tape drives, Bluetooth accessories, and any other hardware. Network devices specifically are handled by the <span class="emph">network</span> scope.<p>
+In addition to the standard authorization wrapper:<p>
+<i class="ftype">int</i> <b class="fname">kauth_authorize_device</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">kauth_action_t op</i>, <i class="farg">void *arg0</i>, <i class="farg">void *arg1</i>, <i class="farg">void *arg2</i>, <i class="farg">void *arg3</i>)<p>
+this scope provides authorization wrappers for various device types.<p>
+<i class="ftype">int</i> <b class="fname">kauth_authorize_device_tty</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">kauth_action_t op</i>, <i class="farg">struct tty *tty</i>)<p>
+Authorizes requests for <span class="emph">terminal devices</span> on the system. The third argument, <i class="arg">tty</i>, is the terminal device in question. It is passed to the listener as <i class="arg">arg0</i>. The second argument, <i class="arg">op</i>, is the action and can be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_DEVICE_TTY_OPEN</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Open the terminal device pointed to by <i class="arg">tty</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_DEVICE_TTY_PRIVSET</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Set privileged settings on the terminal device pointed to by <i class="arg">tty</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_DEVICE_TTY_STI</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Use the &#8220;TIOCSTI&#8221; device <a class="link-man" href="../2/ioctl">ioctl(2)</a>, allowing to inject characters into the terminal buffer, simulating terminal input.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_DEVICE_TTY_VIRTUAL</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Control the virtual console. <i class="arg">tty</i> is the current console <a class="link-man" href="../4/tty">tty(4)</a>.</dd>
+</dl>
+<p>
+<i class="ftype">int</i> <b class="fname">kauth_authorize_device_spec</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">enum kauth_device_req req</i>, <i class="farg">struct vnode *vp</i>)<p>
+Authorizes requests for <span class="emph">special files</span>, usually disk devices, but also direct memory access, on the system.<p>
+It passes <span class="define">KAUTH_DEVICE_RAWIO_SPEC</span> as the action to the listener, and accepts two arguments. <i class="arg">req</i>, passed to the listener as <i class="arg">arg0</i>, is access requested, and can be one of <span class="define">KAUTH_REQ_DEVICE_RAWIO_SPEC_READ</span>, <span class="define">KAUTH_REQ_DEVICE_RAWIO_SPEC_WRITE</span>, or <span class="define">KAUTH_REQ_DEVICE_RAWIO_SPEC_RW</span>, representing read, write, or both read/write access respectively. <i class="arg">vp</i> is the vnode of the special file in question, and is passed to the listener as <i class="arg">arg1</i>.<p>
+Keep in mind that it is the responsibility of the security model developer to check whether the underlying device is a disk or the system memory, using <b class="fname">iskmemdev</b>():<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+if ((vp-&gt;v_type == VCHR) &amp;&amp; 
+    iskmemdev(vp-&gt;v_un.vu_specinfo-&gt;si_rdev)) 
+	/* system memory access */</pre>
+<p>
+<i class="ftype">int</i> <b class="fname">kauth_authorize_device_passthru</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">dev_t dev</i>, <i class="farg">u_long mode</i>, <i class="farg">void *data</i>)<p>
+Authorizes hardware <span class="emph">passthru</span> requests, or user commands passed directly to the hardware. These have the potential of resulting in direct disk and/or memory access.<p>
+It passes <span class="define">KAUTH_DEVICE_RAWIO_PASSTHRU</span> as the action to the listener, and accepts three arguments. <i class="arg">dev</i>, passed as <i class="arg">arg1</i> to the listener, is the device for which the request is made. <i class="arg">mode</i>, passed as <i class="arg">arg0</i> to the listener, is a generic representation of the access mode requested. It can be one or more (binary-OR'd) of the following:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+KAUTH_REQ_DEVICE_RAWIO_PASSTHRU_READ</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+KAUTH_REQ_DEVICE_RAWIO_PASSTHRU_READCONF</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+KAUTH_REQ_DEVICE_RAWIO_PASSTHRU_WRITE</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+KAUTH_REQ_DEVICE_RAWIO_PASSTHRU_WRITECONF</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+</dd>
+</dl>
+<p>
+<i class="arg">data</i>, passed as <i class="arg">arg2</i> to the listener, is device-specific data that may be associated with the request.</div>
+<div class="subsection">
+<h2 id="x426c7565746f6f74682044657669636573">Bluetooth Devices</h2> Authorizing actions relevant to Bluetooth devices is done using the standard authorization wrapper, with the following actions:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_DEVICE_BLUETOOTH_BCSP</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if operations on a <a class="link-man" href="../4/bcsp">bcsp(4)</a> device are allowed.<p>
+<i class="arg">arg0</i> is an <i class="ftype">enum kauth_device_req</i> with one of the following values:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_DEVICE_BLUETOOTH_BCSP_ADD</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if adding and enabling a <a class="link-man" href="../4/bcsp">bcsp(4)</a> device is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_DEVICE_BLUETOOTH_BTUART</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if operations on a <a class="link-man" href="../4/btuart">btuart(4)</a> device are allowed.<p>
+<i class="arg">arg0</i> is an <i class="ftype">enum kauth_device_req</i> with one of the following values:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_REQ_DEVICE_BLUETOOTH_BTUART_ADD</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if adding and enabling a <a class="link-man" href="../4/btuart">btuart(4)</a> device is allowed.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_DEVICE_BLUETOOTH_RECV</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if a packet can be received from the device.<p>
+<i class="arg">arg0</i> is the packet type. For <span class="define">HCI_CMD_PKT</span> packets, <i class="arg">arg1</i> is the opcode, for <span class="define">HCI_EVENT_PKT</span> packets, <i class="arg">arg1</i> is the event ID, and for <span class="define">HCI_ACLDATA_PKT</span> or <span class="define">HCI_SCODATA_PKT</span> packets, <i class="arg">arg1</i> is the connection handle.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_DEVICE_BLUETOOTH_SEND</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if a packet can be sent to the device.<p>
+<i class="arg">arg0</i> is a <i class="ftype">struct hci_unit *</i> describing the HCI unit, <i class="arg">arg1</i> is a <i class="ftype">hci_cmd_hdr_t *</i> describing the packet header.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_DEVICE_BLUETOOTH_SETPRIV</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if privileged settings can be changed.<p>
+<i class="arg">arg0</i> is a <i class="ftype">struct hci_unit *</i> describing the HCI unit, <i class="arg">arg1</i> is a <i class="ftype">struct btreq *</i> describing the request, and <i class="arg">arg2</i> is a <i class="ftype">u_long</i> describing the command.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x4b65726e656c2072616e646f6d20646576696365">Kernel random device</h2> Authorization actions relevant to the kernel random device, <a class="link-man" href="../4/rnd">rnd(4)</a>, is done using the standard authorization wrapper, with the following actions:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_DEVICE_RND_ADDDATA</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if adding data to the entropy pool is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_DEVICE_RND_GETPRIV</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if privileged settings and information can be retrieved.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_DEVICE_RND_SETPRIV</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if privileged settings can be changed.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x5773636f6e732064657669636573">Wscons devices</h2> Authorization actions relevant to <a class="link-man" href="../4/wscons">wscons(4)</a> are done using the standard authorization wrapper, with the following actions:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_DEVICE_WSCONS_KEYBOARD_BELL</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if setting the default bell is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_DEVICE_WSCONS_KEYBOARD_KEYREPEAT</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if setting the default key-repeat is allowed.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x566e6f64652053636f7065">Vnode Scope</h2> The vnode scope, &#8220;org.netbsd.kauth.vnode&#8221;, authorizes operations made on vnodes representing file system objects.<p>
+The authorization wrapper for this scope is declared as<p>
+<i class="ftype">int</i> <b class="fname">kauth_authorize_vnode</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">kauth_action_t action</i>, <i class="farg">vnode_t *vp</i>, <i class="farg">vnode_t *dvp</i>, <i class="farg">int fs_decision</i>)<p>
+This scope is heavily used in file system code and can potentially affect system-wide performance. Therefore, there are several things developers should know when using it.<p>
+First, the <i class="arg">action</i> parameter is a bit-mask and multiple actions can be binary-OR'd and authorized in a single call. Two helper functions help generate the <i class="arg">action</i> value for a couple of common cases: translating file system access to a <a class="link-man" href="../9/kauth">kauth(9)</a> action and checking access to a vnode.<p>
+The first, <b class="fname">kauth_mode_to_action</b>(<i class="farg">mode_t access_mode</i>), and returns a <i class="ftype">kauth_action_t</i> representing the desired access modes. Another function, <b class="fname">kauth_access_action</b>(<i class="farg">mode_t access_mode</i>, <i class="farg">enum vtype v_type</i>, <i class="farg">mode_t file_mode</i>), returns a <i class="ftype">kauth_action_t</i> suitable for use in many file system <a class="link-man" href="../2/access">access(2)</a> implementations. It calls the aforementioned <b class="fname">kauth_mode_to_action</b>(), but before returning also adds the <span class="define">KAUTH_VNODE_IS_EXEC</span> flag if needed. See below for the meaning of this flag and how its necessity is determined.<p>
+Second, it is recommended to be very careful with adding listeners on this scope. A special parameter, <i class="arg">fs_decision</i>, allows different file systems to instrument different policies without adding their own listener. This parameter is special because it also serves as a fall-back decision when no <a class="link-man" href="../9/secmodel">secmodel(9)</a> is present to prevent a fail-open scenario. It can take either an <a class="link-man" href="../2/errno">errno(2)</a> value or &#8220;KAUTH_VNODE_REMOTEFS&#8221;, indicating that the file system on which the authorization is made is remote and cannot provide us with a fall-back decision. In this case, <a class="link-man" href="../9/kauth">kauth(9)</a> can only short-circuit the request but the file system will have the last word if there is no definitive allow or deny decision.<p>
+The value of <i class="arg">fs_decision</i> can be hard-coded or determined by calling an internal function implementing a policy. For the latter case, <a class="link-man" href="../9/genfs">genfs(9)</a> provides a set of helper functions that implement common policies that file systems can use. The calling convention is as follows:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+int error; 
+ 
+error = kauth_authorize_vnode(..., genfs_can_foo(...));</pre>
+<p>
+Actions on the vnode scope are of two types: operations and flags. An operation is similar in concept to actions on other scopes in the sense that it represents an operation desired by the caller. A flag is an indicator of additional information about the vnode that a file system can set in order to allow the listener to make a more informed decision.<p>
+Actions include the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_READ_DATA</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Read file data.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_LIST_DIRECTORY</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Read directory listing. Identical to the above.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_WRITE_DATA</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Write file data.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_ADD_FILE</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Add a file to a directory. Identical to the above.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_EXECUTE</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Execute a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_SEARCH</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Search (enter) a directory. Identical to the above.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_DELETE</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Delete a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_APPEND_DATA</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Append data to a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_ADD_SUBDIRECTORY</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Add a subdirectory to a directory. Identical to the above.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_READ_TIMES</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Read the created, last accessed, and last modified times of a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_WRITE_TIMES</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Modify the created, last accessed, or last modified times of a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_READ_FLAGS</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Read file flags.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_WRITE_FLAGS</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Modify file flags.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_READ_SYSFLAGS</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Read file system flags.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_WRITE_SYSFLAGS</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Modify file system flags.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_RENAME</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Rename a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_CHANGE_OWNERSHIP</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Change ownership of a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_READ_SECURITY</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Read the permissions of a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_WRITE_SECURITY</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Change the permissions of a file, for example by using <a class="link-man" href="../2/chmod">chmod(2)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_READ_ATTRIBUTES</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Read attributes of a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_WRITE_ATTRIBUTES</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Modify attributes of a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_READ_EXTATTRIBUTES</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Read extended attributes of a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_WRITE_EXTATTRIBUTES</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Modify extended attributes of a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_RETAIN_SUID</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if retaining the set-user-id bit on files after <a class="link-man" href="../2/chown">chown(2)</a> is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_RETAIN_SGID</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Check if retaining the set-group-id bit on files after <a class="link-man" href="../2/chown">chown(2)</a> is allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_REVOKE</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Revoke a file.</dd>
+</dl>
+<p>
+Flags include the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_IS_EXEC</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+The vnode is executable.<p>
+The macro <b class="fname">FS_OBJECT_CAN_EXEC</b>() can be used to help determine if this flag should be set. This macro determines a file system object to be executable if it is a directory (in which case we say it is searchable) or if it has at least one executable bit set in its mode.<p>
+Setting this flag helps a listener know that a vnode is executable and is used in implementing privileged access to files and directories while maintaining semantics that prevent execution until a file is marked as an executable. An example for using this in listener code is:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+if (privileged) { 
+	/* Always allow read/write; execute only if executable. */ 
+	if ((action &amp; KAUTH_VNODE_EXECUTE) == 0 || 
+	    (action &amp; KAUTH_VNODE_IS_EXEC)) 
+		result = KAUTH_RESULT_ALLOW; 
+}</pre>
+<p>
+Finally, the vnode scope authorization wrapper returns <span class="errno">EACCES</span> in case of an error, to maintain file system semantics. File systems can override this value if needed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_HAS_SYSFLAGS</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+The file system object represented by the vnode has system flags set.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+KAUTH_VNODE_ACCESS</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+The authorization is advisory only and no actual operation is to be performed. This is not implemented.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x43726564656e7469616c732053636f7065">Credentials Scope</h2> The credentials scope, &#8220;org.netbsd.kauth.cred&#8221;, is a special scope used internally by the <b class="name">kauth</b> framework to provide hooking to credential-related operations.<p>
+It is a &#8220;notify-only&#8221; scope, allowing hooking operations such as initialization of new credentials, credential inheritance during a fork, and copying and freeing of credentials. The main purpose for this scope is to give a security model a way to control the aforementioned operations, especially in cases where the credentials hold security model-private data.<p>
+Notifications are made using the following function, which is internal to <b class="name">kauth</b>:<p>
+<i class="ftype">int</i> <b class="fname">kauth_cred_hook</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">kauth_action_t action</i>, <i class="farg">void *arg0</i>, <i class="farg">void *arg1</i>)<p>
+With the following actions:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_CRED_COPY</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+The credentials are being copied. <i class="arg">cred</i> are the credentials of the lwp context doing the copy, and <i class="arg">arg0</i> and <i class="arg">arg1</i> are both <i class="ftype">kauth_cred_t</i> representing the &#8220;from&#8221; and &#8220;to&#8221; credentials, respectively.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_CRED_FORK</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+The credentials are being inherited from a parent to a child process during a fork.<p>
+<i class="arg">cred</i> are the credentials of the lwp context doing the fork, and <i class="arg">arg0</i> and <i class="arg">arg1</i> are both <i class="ftype">struct proc *</i> of the parent and child processes, respectively.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_CRED_CHROOT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+The credentials in cred belong to a process whose root directory is changed through <a class="link-man" href="../9/change_root">change_root(9)</a><p>
+<i class="arg">Arg0</i> is the new <i class="ftype">struct cwdinfo *</i> of the process.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_CRED_FREE</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+The credentials in <i class="arg">cred</i> are being freed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">KAUTH_CRED_INIT</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+The credentials in <i class="arg">cred</i> are being initialized.</dd>
+</dl>
+<p>
+Since this is a notify-only scope, all listeners are required to return <span class="define">KAUTH_RESULT_ALLOW</span>.</div>
+<div class="subsection">
+<h2 id="x43726564656e7469616c73204163636573736f727320616e64204d757461746f7273">Credentials Accessors and Mutators</h2> <b class="name">kauth</b> has a variety of accessor and mutator routines to handle <i class="ftype">kauth_cred_t</i> objects.<p>
+The following routines can be used to access and modify the user- and group-ids in a <i class="ftype">kauth_cred_t</i>:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">uid_t</i> <b class="fname">kauth_cred_getuid</b>(<i class="farg">kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Returns the real user-id from <i class="arg">cred</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">uid_t</i> <b class="fname">kauth_cred_geteuid</b>(<i class="farg">kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Returns the effective user-id from <i class="arg">cred</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">uid_t</i> <b class="fname">kauth_cred_getsvuid</b>(<i class="farg">kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Returns the saved user-id from <i class="arg">cred</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_cred_setuid</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">uid_t uid</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Sets the real user-id in <i class="arg">cred</i> to <i class="arg">uid</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_cred_seteuid</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">uid_t uid</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Sets the effective user-id in <i class="arg">cred</i> to <i class="arg">uid</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_cred_setsvuid</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">uid_t uid</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Sets the saved user-id in <i class="arg">cred</i> to <i class="arg">uid</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">gid_t</i> <b class="fname">kauth_cred_getgid</b>(<i class="farg">kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Returns the real group-id from <i class="arg">cred</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">gid_t</i> <b class="fname">kauth_cred_getegid</b>(<i class="farg">kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Returns the effective group-id from <i class="arg">cred</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">gid_t</i> <b class="fname">kauth_cred_getsvgid</b>(<i class="farg">kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Returns the saved group-id from <i class="arg">cred</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_cred_setgid</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">gid_t gid</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Sets the real group-id in <i class="arg">cred</i> to <i class="arg">gid</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_cred_setegid</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">gid_t gid</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Sets the effective group-id in <i class="arg">cred</i> to <i class="arg">gid</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_cred_setsvgid</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">gid_t gid</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Sets the saved group-id in <i class="arg">cred</i> to <i class="arg">gid</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">u_int</i> <b class="fname">kauth_cred_getrefcnt</b>(<i class="farg">kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Return the reference count for <i class="arg">cred</i>.</dd>
+</dl>
+<p>
+The following routines can be used to access and modify the group list in a <i class="ftype">kauth_cred_t</i>:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">kauth_cred_ismember_gid</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">gid_t gid</i>, <i class="farg">int *resultp</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Checks if the group-id <i class="arg">gid</i> is a member in the group list of <i class="arg">cred</i>.<p>
+If it is, <i class="arg">resultp</i> will be set to one, otherwise, to zero.<p>
+The return value is an error code, or zero for success.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">u_int</i> <b class="fname">kauth_cred_ngroups</b>(<i class="farg">kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Return the number of groups in the group list of <i class="arg">cred</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">gid_t</i> <b class="fname">kauth_cred_group</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">u_int idx</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Return the group-id of the group at index <i class="arg">idx</i> in the group list of <i class="arg">cred</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">kauth_cred_setgroups</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">const gid_t *groups</i>, <i class="farg">size_t ngroups</i>, <i class="farg">uid_t gmuid</i>, <i class="farg">enum uio_seg seg</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Copy <i class="arg">ngroups</i> groups from array pointed to by <i class="arg">groups</i> to the group list in <i class="arg">cred</i>, adjusting the number of groups in <i class="arg">cred</i> appropriately. <i class="arg">seg</i> should be either <span class="define">UIO_USERSPACE</span> or <span class="define">UIO_SYSSPACE</span> indicating whether <i class="arg">groups</i> is a user or kernel space address.<p>
+Any groups remaining will be set to an invalid value.<p>
+<i class="arg">gmuid</i> is unused for now, and to maintain interface compatibility with the Darwin KPI.<p>
+The return value is an error code, or zero for success.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">kauth_cred_getgroups</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">gid_t *groups</i>, <i class="farg">size_t ngroups</i>, <i class="farg">enum uio_seg seg</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Copy <i class="arg">ngroups</i> groups from the group list in <i class="arg">cred</i> to the buffer pointed to by <i class="arg">groups</i>. <i class="arg">seg</i> should be either <span class="define">UIO_USERSPACE</span> or <span class="define">UIO_SYSSPACE</span> indicating whether <i class="arg">groups</i> is a user or kernel space address.<p>
+The return value is an error code, or zero for success.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x43726564656e7469616c20507269766174652044617461">Credential Private Data</h2> <b class="name">kauth</b> provides an interface to allow attaching security-model private data to credentials.<p>
+The use of this interface has two parts that can be divided to direct and indirect control of the private-data. Directly controlling the private data is done by using the below routines, while the indirect control is often dictated by events such as process fork, and is handled by listening on the credentials scope (see above).<p>
+Attaching private data to credentials works by registering a key to serve as a unique identifier, distinguishing various sets of private data that may be associated with the credentials. Registering, and deregistering, a key is done by using these routines:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">kauth_register_key</b>(<i class="farg">secmodel_t sm</i>, <i class="farg">kauth_key_t *keyp</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Register new key for private data for security model <i class="arg">sm</i>. <i class="arg">keyp</i> will be used to return the key to be used in further calls.<p>
+The function returns 0 on success and an error code (see <a class="link-man" href="../2/errno">errno(2)</a>) on failure.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">kauth_deregister_key</b>(<i class="farg">kauth_key_t key</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Deregister private data key <i class="arg">key</i>.</dd>
+</dl>
+<p>
+Once registered, private data may be manipulated by the following routines:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_cred_setdata</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">kauth_key_t key</i>, <i class="farg">void *data</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Set private data for <i class="arg">key</i> in <i class="arg">cred</i> to be <i class="arg">data</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void *</i> <b class="fname">kauth_cred_getdata</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">kauth_key_t key</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Retrieve private data for <i class="arg">key</i> in <i class="arg">cred</i>.</dd>
+</dl>
+<p>
+Note that it is required to use the above routines every time the private data is changed, i.e., using <b class="fname">kauth_cred_getdata</b>() and later modifying the private data should be accompanied by a call to <b class="fname">kauth_cred_setdata</b>() with the &#8220;new&#8221; private data.</div>
+<div class="subsection">
+<h2 id="x43726564656e7469616c20496e6865726974616e636520616e64205265666572656e636520436f756e74696e67">Credential Inheritance and Reference Counting</h2> <b class="name">kauth</b> provides an interface for handling shared credentials.<p>
+When a <i class="ftype">kauth_cred_t</i> is first allocated, its reference count is set to 1. However, with time, its reference count can grow as more objects (processes, LWPs, files, etc.) reference it.<p>
+The following routines are available for managing credentials reference counting:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_cred_hold</b>(<i class="farg">kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Increases reference count to <i class="arg">cred</i> by one.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_cred_free</b>(<i class="farg">kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Decreases the reference count to <i class="arg">cred</i> by one.<p>
+If the reference count dropped to zero, the memory used by <i class="arg">cred</i> will be freed.</dd>
+</dl>
+<p>
+Credential inheritance happens during a <a class="link-man" href="../2/fork">fork(2)</a>, and is handled by the following function:<p>
+<i class="ftype">void</i> <b class="fname">kauth_proc_fork</b>(<i class="farg">struct proc *parent</i>, <i class="farg">struct proc *child</i>)<p>
+When called, it references the parent's credentials from the child, and calls the credentials scope's hook with the <span class="define">KAUTH_CRED_FORK</span> action to allow security model-specific handling of the inheritance to take place.</div>
+<div class="subsection">
+<h2 id="x43726564656e7469616c73204d656d6f7279204d616e6167656d656e74">Credentials Memory Management</h2> Data-structures for credentials, listeners, and scopes are allocated from memory pools managed by the <a class="link-man" href="../9/pool">pool(9)</a> subsystem.<p>
+The <i class="ftype">kauth_cred_t</i> objects have their own memory management routines:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">kauth_cred_t</i> <b class="fname">kauth_cred_alloc</b>(<i class="farg">void</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Allocates a new <i class="ftype">kauth_cred_t</i>, initializes its lock, and sets its reference count to one.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x436f6e76657273696f6e20526f7574696e6573">Conversion Routines</h2> Sometimes it might be necessary to convert a <i class="ftype">kauth_cred_t</i> to userland's view of credentials, a <i class="ftype">struct uucred</i>, or vice versa.<p>
+The following routines are available for these cases:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_uucred_to_cred</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">const struct uucred *uucred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Convert userland's view of credentials to a <i class="ftype">kauth_cred_t</i>.<p>
+This includes effective user- and group-ids, a number of groups, and a group list. The reference count is set to one.<p>
+Note that <b class="name">kauth</b> will try to copy as many groups as can be held inside a <i class="ftype">kauth_cred_t</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_cred_to_uucred</b>(<i class="farg">struct uucred *uucred</i>, <i class="farg">const kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Convert <i class="ftype">kauth_cred_t</i> to userland's view of credentials.<p>
+This includes effective user- and group-ids, a number of groups, and a group list.<p>
+Note that <b class="name">kauth</b> will try to copy as many groups as can be held inside a <i class="ftype">struct uucred</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">kauth_cred_uucmp</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">struct uucred *uucred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Compares <i class="arg">cred</i> with the userland credentials in <i class="arg">uucred</i>.<p>
+Common values that will be compared are effective user- and group-ids, and the group list.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x4d697363656c6c616e656f757320526f7574696e6573">Miscellaneous Routines</h2> Other routines provided by <b class="name">kauth</b> are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_cred_clone</b>(<i class="farg">kauth_cred_t cred1</i>, <i class="farg">kauth_cred_t cred2</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Clone credentials from <i class="arg">cred1</i> to <i class="arg">cred2</i>, except for the lock and reference count.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">kauth_cred_t</i> <b class="fname">kauth_cred_dup</b>(<i class="farg">kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Duplicate <i class="arg">cred</i>.<p>
+What this routine does is call <b class="fname">kauth_cred_alloc</b>() followed by a call to <b class="fname">kauth_cred_clone</b>().</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">kauth_cred_t</i> <b class="fname">kauth_cred_copy</b>(<i class="farg">kauth_cred_t cred</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Works like <b class="fname">kauth_cred_dup</b>(), except for a few differences.<p>
+If <i class="arg">cred</i> already has a reference count of one, it will be returned. Otherwise, a new <i class="ftype">kauth_cred_t</i> will be allocated and the credentials from <i class="arg">cred</i> will be cloned to it. Last, a call to <b class="fname">kauth_cred_free</b>() for <i class="arg">cred</i> will be done.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">kauth_cred_t</i> <b class="fname">kauth_cred_get</b>(<i class="farg">void</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Return the credentials associated with the current LWP.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x53636f7065204d616e6167656d656e74">Scope Management</h2> <b class="name">kauth</b> provides routines to manage the creation and deletion of scopes on the system.<p>
+Note that the built-in scopes, the &#8220;generic&#8221; scope and the &#8220;process&#8221; scope, can't be deleted.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">kauth_scope_t</i> <b class="fname">kauth_register_scope</b>(<i class="farg">const char *id</i>, <i class="farg">kauth_scope_callback_t cb</i>, <i class="farg">void *cookie</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Register a new scope on the system. <i class="arg">id</i> is the name of the scope, usually in reverse DNS-like notation. For example, &#8220;org.netbsd.kauth.myscope&#8221;. <i class="arg">cb</i> is the default listener, to which authorization requests for this scope will be dispatched to. <i class="arg">cookie</i> is optional user-data that will be passed to all listeners during authorization on the scope.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_deregister_scope</b>(<i class="farg">kauth_scope_t scope</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Deregister <i class="arg">scope</i> from the scopes available on the system, and free the <i class="ftype">kauth_scope_t</i> object <i class="arg">scope</i>.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x4c697374656e6572204d616e6167656d656e74">Listener Management</h2> Listeners in <b class="name">kauth</b> are authorization callbacks that are called during an authorization request in the scope which they belong to.<p>
+When an authorization request is made, all listeners associated with a scope are called to allow, deny, or defer the request.<p>
+It is enough for one listener to deny the request in order for the request to be denied; but all listeners are called during an authorization process none-the-less. All listeners are required to allow the request for it to be granted, and in a case where all listeners defer the request -- leaving the decision for other listeners -- the request is denied.<p>
+The following KPI is provided for the management of listeners:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">kauth_listener_t</i> <b class="fname">kauth_listen_scope</b>(<i class="farg">const char *id</i>, <i class="farg">kauth_scope_callback_t cb</i>, <i class="farg">void *cookie</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Create a new listener on the scope with the id <i class="arg">id</i>, setting the default listener to <i class="arg">cb</i>. <i class="arg">cookie</i> is optional user-data that will be passed to the listener when called during an authorization request.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">void</i> <b class="fname">kauth_unlisten_scope</b>(<i class="farg">kauth_listener_t listener</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Removes <i class="arg">listener</i> from the scope which it belongs to, ensuring it won't be called again, and frees the <i class="ftype">kauth_listener_t</i> object <i class="arg">listener</i>.</dd>
+</dl>
+<p>
+<b class="name">kauth</b> provides no means for synchronization within listeners. It is the programmer's responsibility to make sure data used by the listener is properly locked during its use, as it can be accessed simultaneously from the same listener called multiple times. It is also the programmer's responsibility to do garbage collection after the listener, possibly freeing any allocated data it used.<p>
+The common method to do the above is by having a reference count to each listener. On entry to the listener, this reference count should be raised, and on exit -- lowered.<p>
+During the removal of a listener, first <b class="fname">kauth_scope_unlisten</b>() should be called to make sure the listener code will not be entered in the future. Then, the code should wait (possibly sleeping) until the reference count drops to zero. When that happens, it is safe to do the final cleanup.<p>
+Listeners might sleep, so no locks can be held when calling an authorization wrapper.</div>
+</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> Older code had no abstraction of the security model, so most privilege checks looked like this:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+if (suser(cred, &amp;acflag) == 0) 
+	/* allow privileged operation */</pre>
+<p>
+Using the new interface, you must ask for a specific privilege explicitly. For example, checking whether it is possible to open a socket would look something like this:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+if (kauth_authorize_network(cred, KAUTH_NETWORK_SOCKET, 
+    KAUTH_REQ_NETWORK_SOCKET_OPEN, PF_INET, SOCK_STREAM, 
+    IPPROTO_TCP) == 0) 
+	/* allow opening the socket */</pre>
+<p>
+Note that the <span class="emph">securelevel</span> implications were also integrated into the <b class="name">kauth</b> framework so you don't have to note anything special in the call to the authorization wrapper, but rather just have to make sure the security model handles the request as you expect it to.<p>
+To do that you can just <a class="link-man" href="../1/grep">grep(1)</a> in the relevant security model directory and have a look at the code.</div>
+<div class="section">
+<h1 id="x455854454e44494e47204b41555448">EXTENDING KAUTH</h1> Although <b class="name">kauth</b> provides a large set of both detailed and more or less generic requests, it might be needed eventually to introduce more scopes, actions, or requests.<p>
+Adding a new scope should happen only when an entire subsystem is introduced and it is assumed other parts of the kernel may want to interfere with its inner-workings. When a subsystem that has the potential of impacting the security of the system is introduced, existing security modules must be updated to also handle actions on the newly added scope.<p>
+New actions should be added when sets of operations not covered at all belong in an already existing scope.<p>
+Requests (or sub-actions) can be added as subsets of existing actions when an operation that belongs in an already covered area is introduced.<p>
+Note that all additions should include updates to this manual, the security models shipped with <span class="unix">NetBSD</span>, and the example skeleton security model.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../9/secmodel">secmodel(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The kernel authorization framework first appeared in Mac OS X 10.4.<p>
+The kernel authorization framework in <span class="unix">NetBSD</span> first appeared in <span class="unix">NetBSD&#160;4.0</span>, and is a clean-room implementation based on Apple TN2127, available at <a class="link-ext" href="http://developer.apple.com/technotes/tn2005/tn2127">http://developer.apple.com/technotes/tn2005/tn2127</a></div>
+<div class="section">
+<h1 id="x4e4f544553">NOTES</h1> As <b class="name">kauth</b> in <span class="unix">NetBSD</span> is still under active development, it is likely that the ABI, and possibly the API, will differ between <span class="unix">NetBSD</span> versions. Developers are to take notice of this fact in order to avoid building code that expects one version of the ABI and running it in a system with a different one.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <span class="author">Elad Efrat</span> &#60;<a class="link-mail" href="mailto:elad@NetBSD.org">elad@NetBSD.org</a>&#62; implemented the kernel authorization framework in <span class="unix">NetBSD</span>.<p>
+<span class="author">Jason R. Thorpe</span> &#60;<a class="link-mail" href="mailto:thorpej@NetBSD.org">thorpej@NetBSD.org</a>&#62; provided guidance and answered questions about the Darwin implementation.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+July 4, 2012</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

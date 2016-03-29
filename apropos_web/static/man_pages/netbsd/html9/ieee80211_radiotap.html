@@ -1,0 +1,178 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+IEEE80211_RADIOTAP(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+IEEE80211_RADIOTAP(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+IEEE80211_RADIOTAP(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">ieee80211_radiotap</b> &#8212; <span class="desc">software 802.11 stack packet capture definitions</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">net80211/ieee80211_var.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">net80211/ieee80211_ioctl.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">net80211/ieee80211_radiotap.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">net/bpf.h</a>&gt;</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">ieee80211_radiotap</b> definitions provide a device-independent <a class="link-man" href="../4/bpf">bpf(4)</a> attachment for the capture of information about 802.11 traffic which is not part of the 802.11 frame structure.<p>
+Radiotap was designed to balance the desire for a capture format that conserved CPU and memory bandwidth on embedded systems, with the desire for a hardware-independent, extensible format that would support the diverse capabilities of virtually all 802.11 radios.<p>
+These considerations led radiotap to settle on a format consisting of a standard preamble followed by an extensible bitmap indicating the presence of optional capture fields.<p>
+The capture fields were packed into the header as compactly as possible, modulo the requirements that they had to be packed swiftly, with their natural alignment, in the same order as the bits indicating their presence.<p>
+This typically includes information such as signal quality and timestamps. This information may be used by a variety of user agents, including <a class="link-man" href="../8/tcpdump">tcpdump(8)</a>. It is requested by using the <a class="link-man" href="../4/bpf">bpf(4)</a> data-link type <span class="define">DLT_IEEE_80211_RADIO</span>.<p>
+Each frame using this attachment has the following header prepended to it:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct ieee80211_radiotap_header { 
+	u_int8_t	it_version;	/* set to 0 */ 
+	u_int8_t	it_pad; 
+	u_int16_t	it_len;		/* entire length */ 
+	u_int32_t	it_present;	/* fields present */ 
+} __attribute__((__packed__));</pre>
+<p>
+A device driver implementing <span class="type">radiotap</span> typically defines a structure embedding an instance of <span class="type">struct ieee80211_radiotap_header</span> at the beginning, with subsequent fields naturally aligned, and in the appropriate order. Also, a driver defines a macro to set the bits of the <b class="var">it_present</b> bitmap to indicate which fields exist and are filled in by the driver.<p>
+Radiotap capture fields are in little-endian byte order.<p>
+Radiotap capture fields <span class="emph">must be naturally aligned</span>. That is, 16-, 32-, and 64-bit fields must begin on 16-, 32-, and 64-bit boundaries, respectively. In this way, drivers can avoid unaligned accesses to radiotap capture fields. radiotap-compliant drivers must insert padding before a capture field to ensure its natural alignment. radiotap-compliant packet dissectors, such as <a class="link-man" href="../8/tcpdump">tcpdump(8)</a>, expect the padding.<p>
+Developers beware: all compilers may not pack structs alike. If a driver developer constructs their radiotap header with a packed structure, in order to ensure natural alignment, then it is important that they insert padding bytes by themselves.<p>
+Radiotap headers are copied to the userland via a separate bpf attachment. It is necessary for the driver to create this attachment after calling <a class="link-man" href="../9/ieee80211_ifattach">ieee80211_ifattach(9)</a> by calling <b class="fname">bpfattach2</b>() with the data-link type set to <span class="define">DLT_IEEE802_11_RADIO</span>.<p>
+When the information is available, usually immediately before a link-layer transmission or after a receive, the driver copies it to the bpf layer using the <b class="fname">bpf_mtap2</b>() function.<p>
+The following extension fields are defined for <span class="type">radiotap</span>, in the order in which they should appear in the buffer copied to userland:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_TSFT</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This field contains the unsigned 64-bit value, in microseconds, of the MAC's 802.11 Time Synchronization Function timer, when the first bit of the MPDU arrived at the MAC. This field should be present for received frames only.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_FLAGS</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This field contains a single unsigned 8-bit value, containing a bitmap of flags specifying properties of the frame being transmitted or received.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_RATE</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This field contains a single unsigned 8-bit value, which is the data rate in use in units of 500Kbps.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_CHANNEL</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This field contains two unsigned 16-bit values. The first value is the frequency upon which this PDU was transmitted or received. The second value is a bitmap containing flags which specify properties of the channel in use. These are documented within the header file, <b class="includes">&lt;<a class="link-includes">net80211/ieee80211_radiotap.h</a>&gt;</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_FHSS</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This field contains two 8-bit values. This field should be present for frequency-hopping radios only. The first byte is the hop set. The second byte is the pattern in use.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_DBM_ANTSIGNAL</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This field contains a single signed 8-bit value, which indicates the RF signal power at the antenna, in decibels difference from 1mW.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_DBM_ANTNOISE</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This field contains a single signed 8-bit value, which indicates the RF noise power at the antenna, in decibels difference from 1mW.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_LOCK_QUALITY</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This field contains a single unsigned 16-bit value, indicating the quality of the Barker Code lock. No unit is specified for this field. There does not appear to be a standard way of measuring this at this time; this quantity is often referred to as &#8220;Signal Quality&#8221; in some datasheets.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_TX_ATTENUATION</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This field contains a single unsigned 16-bit value, expressing transmit power as unitless distance from maximum power set at factory calibration. 0 indicates maximum transmit power. Monotonically nondecreasing with lower power levels.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_DB_TX_ATTENUATION</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This field contains a single unsigned 16-bit value, expressing transmit power as decibel distance from maximum power set at factory calibration. 0 indicates maximum transmit power. Monotonically nondecreasing with lower power levels.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_DBM_TX_POWER</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Transmit power expressed as decibels from a 1mW reference. This field is a single signed 8-bit value. This is the absolute power level measured at the antenna port.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_ANTENNA</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+For radios which support antenna diversity, this field contains a single unsigned 8-bit value specifying which antenna is being used to transmit or receive this frame. The first antenna is antenna 0.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_DB_ANTSIGNAL</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This field contains a single unsigned 8-bit value, which indicates the RF signal power at the antenna, in decibels difference from an arbitrary, fixed reference.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_DB_ANTNOISE</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This field contains a single unsigned 8-bit value, which indicates the RF noise power at the antenna, in decibels difference from an arbitrary, fixed reference.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_RX_FLAGS</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+An unsigned 16-bit bitmap indicating properties of received frames.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_TX_FLAGS</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+An unsigned 16-bit bitmap indicating properties of transmitted frames.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_RTS_RETRIES u_int8_t data</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Unsigned 8-bit value indicating how many times the NIC retransmitted the Request to Send (RTS) in an RTS/CTS handshake before receiving an 802.11 Clear to Send (CTS).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_DATA_RETRIES</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Unsigned 8-bit value indicating how many times the NIC retransmitted a unicast data packet before receiving an 802.11 Acknowledgement.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IEEE80211_RADIOTAP_EXT</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This bit is reserved for any future extensions to the <span class="type">radiotap</span> structure. A driver sets <span class="define">IEEE80211_RADIOTAP_EXT</span> to extend the it_present bitmap by another 64 bits. The bitmap can be extended by multiples of 32 bits to 96, 128, 160 bits or longer, by setting <span class="define">IEEE80211_RADIOTAP_EXT</span> in the extensions. The bitmap ends at the first extension field where <span class="define">IEEE80211_RADIOTAP_EXT</span> is not set.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> Radiotap header for the Cisco Aironet driver:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct an_rx_radiotap_header { 
+	struct ieee80211_radiotap_header	ar_ihdr; 
+	u_int8_t	ar_flags; 
+	u_int8_t	ar_rate; 
+	u_int16_t	ar_chan_freq; 
+	u_int16_t	ar_chan_flags; 
+	u_int8_t	ar_antsignal; 
+	u_int8_t	ar_antnoise; 
+} __attribute__((__packed__));</pre>
+<p>
+Bitmap indicating which fields are present in the above structure:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+#define AN_RX_RADIOTAP_PRESENT &#92; 
+	((1 &gt;&gt; IEEE80211_RADIOTAP_FLAGS) | &#92; 
+	 (1 &gt;&gt; IEEE80211_RADIOTAP_RATE) | &#92; 
+	 (1 &gt;&gt; IEEE80211_RADIOTAP_CHANNEL) | &#92; 
+	 (1 &gt;&gt; IEEE80211_RADIOTAP_DBM_ANTSIGNAL) | &#92; 
+	 (1 &gt;&gt; IEEE80211_RADIOTAP_DBM_ANTNOISE))</pre>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../4/bpf">bpf(4)</a>, <a class="link-man" href="../9/ieee80211">ieee80211(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">ieee80211_radiotap</b> definitions first appeared in <span class="unix">NetBSD&#160;1.5</span>, and were later ported to <span class="unix">FreeBSD&#160;4.6</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <span class="author"></span>The <b class="name">ieee80211_radiotap</b> interface was designed and implemented by <span class="author">David Young</span> &#60;<a class="link-mail" href="mailto:dyoung@pobox.com">dyoung@pobox.com</a>&#62;. <span class="author">David Young</span> is the maintainer of the radiotap capture format. Contact him to add new capture fields.<p>
+This manual page was written by <span class="author">Bruce M. Simpson</span> &#60;<a class="link-mail" href="mailto:bms@FreeBSD.org">bms@FreeBSD.org</a>&#62; and <span class="author">Darron Broad</span> &#60;<a class="link-mail" href="mailto:darron@kewl.org">darron@kewl.org</a>&#62;.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+March 12, 2006</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

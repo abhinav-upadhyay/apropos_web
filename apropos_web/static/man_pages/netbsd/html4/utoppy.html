@@ -1,0 +1,175 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+UTOPPY(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+UTOPPY(4)</td>
+<td class="head-vol" align="center">
+Kernel Interfaces Manual</td>
+<td class="head-rtitle" align="right">
+UTOPPY(4)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">utoppy</b> &#8212; <span class="desc">USB driver for the Topfield TF5000PVR range of digital video recorders</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">utoppy* at uhub? port ?</b><p>
+<br>
+<b class="includes">#include &lt;<a class="link-includes">dev/usb/utoppy.h</a>&gt;</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">utoppy</b> driver provides support for the Topfield TF5000PVR range of DVB recorders (nicknamed &#8216;<code class="lit">Toppy</code>&#8217;) which are popular in Europe and Australia. These recorders have a USB device interface which can be used to transfer recordings to and from the unit's hard disk. The USB interface can also be used to upload binary images for execution on the Toppy's MIPS cpu.<p>
+The Toppy's USB protocol has not been officially documented by Topfield, but the basic features have been reverse engineered by others in order to write replacements for the official &#8216;<code class="lit">Altair</code>&#8217; download/upload program from Topfield.<p>
+Existing replacements for Altair suffer from the fact that they are ultimately built on top of <a class="link-man" href="../4/ugen">ugen(4)</a>. This has a number of detrimental side-effects:<ol style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-enum">
+<li class="list-enum" style="margin-top: 1.00em;">
+Performance suffers since all Toppy command packets have to cross the user-kernel interface.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+The userland programs are full of clutter to deal with interpreting the command/status packets, not to mention byte-swapping and host endian issues.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Signals can interrupt a data transfer at a critical point, leaving the Toppy in an undefined state. For example, interrupting a download with &#8216;<code class="lit">Turbo</code>&#8217; mode enabled will leave the Toppy completely unresponsive to the remote control, and prevent timer-based recordings from starting.</li>
+</ol>
+<p>
+The <b class="name">utoppy</b> driver provides a clean and stable interface to the Toppy protocol, and ensures that an interrupt caused by a signal does not leave the Toppy in an undefined state.</div>
+<div class="section">
+<h1 id="x55544f50505920494e54455246414345">UTOPPY INTERFACE</h1> Use the following header file to get access to the utoppy specific structures and defines.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#include &lt;dev/usb/utoppy.h&gt;</pre>
+<p>
+The <b class="name">utoppy</b> driver can be accessed through the <i class="file">/dev/utoppyN</i> character device. The primary means of controlling the driver is by issuing a series of <a class="link-man" href="../2/ioctl">ioctl(2)</a> system calls followed by <a class="link-man" href="../2/read">read(2)</a> or <a class="link-man" href="../2/write">write(2)</a> system calls as appropriate.<p>
+The following <a class="link-man" href="../2/ioctl">ioctl(2)</a> commands are supported by the <b class="name">utoppy</b> driver:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">UTOPPYIOTURBO</span> <i class="farg">int *mode</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command can be used to enable or disable &#8216;<code class="lit">Turbo</code>&#8217; mode for subsequent <span class="define">UTOPPYIOREADFILE</span> or <span class="define">UTOPPYIOWRITEFILE</span> commands (see below). If <i class="farg">num</i> is non-zero, Turbo mode will be enabled. Otherwise Turbo mode will be disabled. In non-Turbo mode, the Toppy's USB interface is capable of sustaining around 5.6 Mbit/s during a file transfer. With Turbo mode enabled, it can sustain just over 16 Mbit/s. Of course, these figures are valid only if the Toppy is connected via a USB 2.0 interface. Performance using an older USB 1 interface will be significantly lower.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">UTOPPYIOCANCEL</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command can be used to abort an in-progress <span class="define">UTOPPYIOREADDIR</span>, <span class="define">UTOPPYIOREADFILE</span>, or <span class="define">UTOPPYIOWRITEFILE</span> command.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">UTOPPYIOREBOOT</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command will cause the Toppy to reboot cleanly.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">UTOPPYIOSTATS</span> <i class="farg">struct utoppy_stats *stats</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command retrieves statistics for the Toppy's hard disk.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct utoppy_stats { 
+	uint64_t us_hdd_size;	/* Size of the disk, in bytes */ 
+	uint64_t us_hdd_free;	/* Free space, in bytes */ 
+};</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+UTOPPYIORENAME <i class="farg">struct utoppy_rename *rename</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command is used to rename a file or directory on the Toppy's hard disk. The full pathname to each file must be provided.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct utoppy_rename { 
+	char *ur_old_path;	/* Path to existing file */ 
+	char *ur_new_path;	/* Path to new file */ 
+};</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+UTOPPYIOMKDIR <i class="farg">char *path</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command creates the directory specified by <i class="farg">path</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+UTOPPYIODELETE <i class="farg">char *path</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command deletes the file or directory specified by <i class="farg">path</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+UTOPPYIOREADDIR <i class="farg">char *path</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command initiates a read of the contents of the directory specified by <i class="farg">path</i>. After issuing this command, the directory contents must be read using consecutive <a class="link-man" href="../2/read">read(2)</a> system calls. Each <a class="link-man" href="../2/read">read(2)</a> will transfer one or more directory entries into the user-supplied buffer. The buffer must be large enough to receive at least one directory entry. When <a class="link-man" href="../2/read">read(2)</a> returns zero, all directory entries have been read.<p>
+A directory entry is described using the following data structure:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct utoppy_dirent { 
+	char ud_path[UTOPPY_MAX_FILENAME_LEN + 1]; 
+	enum { 
+		UTOPPY_DIRENT_UNKNOWN, 
+		UTOPPY_DIRENT_DIRECTORY, 
+		UTOPPY_DIRENT_FILE 
+	} ud_type; 
+	off_t ud_size; 
+	time_t ud_mtime; 
+	uint32_t ud_attributes; 
+};</pre>
+<p>
+The <b class="var">ud_path</b> field contains the name of the directory entry.<p>
+The <b class="var">ud_type</b> field specifies whether the entry corresponds to a file or a sub-directory.<p>
+The <b class="var">ud_size</b> field is valid for files only, and specifies the file's size in bytes.<p>
+The <b class="var">ud_mtime</b> field describes the file or directory's modification time, specified as seconds from the Unix epoch. The timestamp is relative to the current timezone, so <a class="link-man" href="../3/localtime">localtime(3)</a> can be used to convert it into human readable form. Note that the Toppy sets directory timestamps to a predefined value so they are not particularly useful.<p>
+The <b class="var">ud_attributes</b> field is not used at this time.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+UTOPPYIOREADFILE <i class="farg">struct utoppy_readfile *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command is used to initiate reading a file from the Toppy's hard disk. The full pathname, together with the file offset at which to start reading, is specified using the following data structure:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct utoppy_readfile { 
+	char *ur_path; 
+	off_t ur_offset; 
+};</pre>
+<p>
+After issuing this command, the file must be read using consecutive <a class="link-man" href="../2/read">read(2)</a> system calls. When <a class="link-man" href="../2/read">read(2)</a> returns zero, the entire file has been read.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+UTOPPYIOWRITEFILE <i class="farg">struct utoppy_writefile *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command is used to initiate writing to a file on the Toppy's hard disk. The file to be written is described using the following data structure:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct utoppy_writefile { 
+	char *uw_path; 
+	off_t uw_offset; 
+	off_t uw_size; 
+	time_t uw_mtime; 
+};</pre>
+<p>
+The <b class="var">uw_path</b> field specifies the full pathname of the file to be written.<p>
+The <b class="var">uw_offset</b> field specifies the file offset at which to start writing, assuming the file already exists. Otherwise, <b class="var">uw_offset</b> must be zero.<p>
+The protocol requires that the Toppy must be informed of a file's size in advance of the file being written. This is accomplished using the <b class="var">uw_size</b> field. It may be possible to work around this limitation in a future version of the driver.<p>
+The <b class="var">uw_mtime</b> field specifies the file's timestamp expressed as seconds from the Unix epoch in the local timezone.</dd>
+</dl>
+<p>
+Due to limitations with the protocol, a <b class="name">utoppy</b> device can be opened by only one application at a time. Also, only a single <span class="define">UTOPPYIOREADDIR</span>, <span class="define">UTOPPYIOREADFILE</span>, or <span class="define">UTOPPYIOWRITEFILE</span> command can be in progress at any given time.</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/dev/utoppy0</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+device node</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/utoppya">utoppya(1)</a>, <a class="link-man" href="../4/usb">usb(4)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">utoppy</b> driver appeared in <span class="unix">NetBSD&#160;4.0</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <span class="author">Steve C. Woodford</span> &#60;<a class="link-mail" href="mailto:scw@netbsd.org">scw@netbsd.org</a>&#62;</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+April 3, 2006</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

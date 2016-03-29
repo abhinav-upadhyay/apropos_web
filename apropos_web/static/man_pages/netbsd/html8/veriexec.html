@@ -1,0 +1,161 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+VERIEXEC(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+VERIEXEC(8)</td>
+<td class="head-vol" align="center">
+System Manager's Manual</td>
+<td class="head-rtitle" align="right">
+VERIEXEC(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">veriexec</b> &#8212; <span class="desc">file integrity subsystem</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <span class="emph">Veriexec</span> is an in-kernel, real-time, file-system independent, file integrity subsystem. It can be used for a variety of purposes, including defense against trojaned binaries, indirect attacks via third-party remote file-systems, and malicious configuration file corruption.</div>
+<div class="section">
+<h1 id="x434f4e46494755524154494f4e">CONFIGURATION</h1><div class="subsection">
+<h2 id="x5369676e617475726573204461746162617365">Signatures Database</h2> <span class="emph">Veriexec</span> requires a signatures database -- a list of monitored files, along with their digital fingerprint and (optionally) access modes. The format of this file is described by <a class="link-man" href="../5/veriexec">veriexec(5)</a>.<p>
+<span class="unix">NetBSD</span> provides a tool, <a class="link-man" href="../8/veriexecgen">veriexecgen(8)</a>, for generating the signatures database. Example usage:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# veriexecgen</pre>
+<p>
+Although it should be loaded on system boot (see &#8220;RC Configuration&#8221; below), this list can be loaded manually using <a class="link-man" href="../8/veriexecctl">veriexecctl(8)</a>:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# veriexecctl load</pre>
+</div>
+<div class="subsection">
+<h2 id="x4b65726e656c20436f6e66696775726174696f6e">Kernel Configuration</h2> <span class="emph">Veriexec</span> requires a pseudo-device to run:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+pseudo-device veriexec 1</pre>
+<p>
+Additionally, one or more options for digital fingerprint algorithm support:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+options VERIFIED_EXEC_FP_SHA256 
+options VERIFIED_EXEC_FP_SHA512</pre>
+<p>
+Some kernels already enable <span class="emph">Veriexec</span> by default. See your kernel's config file for more information.</div>
+<div class="subsection">
+<h2 id="x524320436f6e66696775726174696f6e">RC Configuration</h2> <span class="emph">Veriexec</span> also allows loading signatures and setting the strict level (see below) during the boot process using the following variables set in <a class="link-man" href="../5/rc.conf">rc.conf(5)</a>:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+veriexec=YES 
+veriexec_strict=1 # IDS mode</pre>
+</div>
+</div>
+<div class="section">
+<h1 id="x535452494354204c4556454c53">STRICT LEVELS</h1> <span class="emph">Veriexec</span> can operate in four modes, also referred to as strict levels:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+Learning mode (strict level 0)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The only level at which the fingerprint tables can be modified, this level is used to help fine-tune the signature database. No enforcement is made, and verbose information is provided (fingerprint matches and mismatches, file removals, incorrect access, etc.).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+IDS mode (strict level 1)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+IDS (intrusion detection system) mode provides an adequate level of integrity for the files it monitors. Implications:<p>
+<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-hyph">
+<li class="list-hyph" style="margin-top: 0.00em;">
+Monitored files cannot be removed</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+If raw disk access is granted to a disk with monitored files on it, all monitored files' fingerprints will be invalidated</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+Access to files with mismatched fingerprints is denied</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+Write access to monitored files is allowed</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+Access type is not enforced</li>
+</ul>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+IPS mode (strict level 2)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+IPS (intrusion prevention system) mode provides a high level of integrity for the files it monitors. Implications:<p>
+<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-hyph">
+<li class="list-hyph" style="margin-top: 0.00em;">
+All implications of IDS mode</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+Write access to monitored files is denied</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+Access type is enforced</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+Raw disk access to disk devices with monitored files on them is denied</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+Execution of non-monitored files is denied</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+Write access to kernel memory via <i class="file">/dev/mem</i> and <i class="file">/dev/kmem</i> is denied</li>
+</ul>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+Lockdown mode (strict level 3)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Lockdown mode provides high assurance integrity for the entire system. Implications:<p>
+<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-hyph">
+<li class="list-hyph" style="margin-top: 0.00em;">
+All implications of IPS mode</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+Access to non-monitored files is denied</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+Write access to files is allowed only if the file was opened before the strict level was raised to this mode</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+Creation of new files is denied</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+Raw access to system disks is denied</li>
+</ul>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x52554e54494d4520494e464f524d4154494f4e">RUNTIME INFORMATION</h1> <span class="emph">Veriexec</span> exports runtime information that may be useful for various purposes.<p>
+It reports the currently supported fingerprinting algorithms, for example:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# /sbin/sysctl kern.veriexec.algorithms 
+kern.veriexec.algorithms = RMD160 SHA256 SHA384 SHA512 SHA1 MD5</pre>
+<p>
+It reports the current verbosity and strict levels, for example:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# /sbin/sysctl kern.veriexec.{verbose,strict} 
+kern.veriexec.verbose = 0 
+kern.veriexec.strict = 1</pre>
+<p>
+It reports a summary of currently loaded files and the mount-points they're on, for example:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# /sbin/sysctl kern.veriexec.count 
+kern.veriexec.count.table0.mntpt = / 
+kern.veriexec.count.table0.fstype = ffs 
+kern.veriexec.count.table0.nentries = 33</pre>
+<p>
+Other information may be retrieved using <a class="link-man" href="../8/veriexecctl">veriexecctl(8)</a>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../4/options">options(4)</a>, <a class="link-man" href="../5/veriexec">veriexec(5)</a>, <a class="link-man" href="../7/sysctl">sysctl(7)</a>, <a class="link-man" href="../8/sysctl">sysctl(8)</a>, <a class="link-man" href="../8/veriexecctl">veriexecctl(8)</a>, <a class="link-man" href="../8/veriexecgen">veriexecgen(8)</a></div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <span class="author">Elad Efrat</span> &#60;<a class="link-mail" href="mailto:elad@NetBSD.org">elad@NetBSD.org</a>&#62;</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+February 18, 2008</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

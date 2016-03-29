@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+DRVCTL(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+DRVCTL(4)</td>
+<td class="head-vol" align="center">
+Kernel Interfaces Manual</td>
+<td class="head-rtitle" align="right">
+DRVCTL(4)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">drvctl</b> &#8212; <span class="desc">driver control device</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">pseudo-device drvctl</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">drvctl</b> driver allows to control some <a class="link-man" href="../9/autoconf">autoconf(9)</a> operations from userland through the <i class="file">/dev/drvctl</i> device and the <a class="link-man" href="../8/drvctl">drvctl(8)</a> command.<p>
+The driver supports the following <a class="link-man" href="../2/ioctl">ioctl(2)</a> operations.<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+DRVSUSPENDDEV</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+DRVRESUMEDEV</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Invoke power management functions for a named driver that has registered itself with the <a class="link-man" href="../9/pmf">pmf(9)</a> framework. The ioctl argument specifies the driver name as:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct devpmargs { 
+        char devname[16]; 
+        uint32_t flags; 
+};</pre>
+<p>
+The flag <span class="define">DEVPM_F_SUBTREE</span> lets the function recurse over all children of that driver.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+DRVLISTDEV</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Return a list of child devices attached to the named driver. The ioctl argument specifies the driver name as:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct devlistargs { 
+        char l_devname[16]; 
+        char (*l_childname)[16]; 
+        size_t l_children; 
+};</pre>
+The names for up to <span class="define">l_children</span> child devices are copied to the <span class="define">l_childname</span> array. If there is no error, the ioctl returns the total number of children. Normally you would call <span class="define">DRVLISTDEV</span> once with <span class="define">l_children</span> set to zero, allocate a buffer for enough 16-character strings and call <span class="define">DRVLISTDEV</span> again to fill the buffer.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+DRVDETACHDEV</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Detach the named driver and all its autoconfigured children. The ioctl argument specifies the driver name as:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct devdetachargs { 
+        char devname[16]; 
+};</pre>
+<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+DRVSCANBUS</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Invoke the rescan method of the named driver to locate child devices. The ioctl argument specifies the driver name as:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct devrescanargs { 
+        char busname[16]; 
+        char ifattr[16]; 
+        unsigned int numlocators; 
+        int *locators; 
+};</pre>
+<p>
+Some device drivers attach children to specific interface attributes, a zero length <span class="define">ifattr</span> represents that no interface attribute should be used. The rescan can also be limited to driver-specific locators.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+DRVCTLCOMMAND</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Send a command formatted as a property list. The property list includes all arguments like the driver name, the result is again a property list. Currently the only supported command is "get-properties", the property list is constructed like:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+const char *device = "sd0"; 
+const char *command = "get-properties"; 
+ 
+prop_string_t s; 
+prop_dictionary_t c, a; 
+ 
+c = prop_dictionary_create(); 
+a = prop_dictionary_create(); 
+ 
+s = prop_string_create_cstring_nocopy(command); 
+prop_dictionary_set(c, "drvctl-command", s); 
+prop_object_release(s); 
+ 
+s = prop_string_create_cstring(device); 
+prop_dictionary_set(a, "device-name", s); 
+prop_object_release(s); 
+ 
+prop_dictionary_set(c, "drvctl-arguments", a); 
+prop_object_release(a);</pre>
+<p>
+The command must be sent with <a class="link-man" href="../3/prop_dictionary_sendrecv_ioctl">prop_dictionary_sendrecv_ioctl(3)</a>. The resulting property list contains the numeric attribute <span class="define">drvctl-error</span>, which corresponds to an <span class="define">errno</span> value, and the dictionary <span class="define">drvctl-result-data</span>. The contents of the dictionary depends on the queried driver.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+DRVGETEVENT</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Return the next queued autoconfig event formatted as a property list. The request needs to be sent with <a class="link-man" href="../3/prop_dictionary_recv_ioctl">prop_dictionary_recv_ioctl(3)</a>. The resulting property list contains the string attributes <span class="define">event, device</span> and <span class="define">parent</span>. Currently the events "device-attach" and "device-detach" are generated by the <a class="link-man" href="../9/autoconf">autoconf(9)</a> framework.<p>
+If <i class="file">/dev/drvctl</i> was opened with <span class="define">O_NONBLOCK</span> and there is no event queued, the call returns immediately with <span class="define">EWOULDBLOCK</span>, otherwise it waits for the next event.</dd>
+</dl>
+<p>
+All names used in the ioctl arguments are zero-terminated strings. A driver name is the name of a driver instance with the appended unit number like <span class="define">sd0</span>, <span class="define">atabus3</span>, <span class="define">...</span></div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/dev/drvctl</i></dt>
+<dd class="list-tag" style="margin-left: 32.00ex;">
+<b class="name">drvctl</b> access device</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../2/ioctl">ioctl(2)</a>, <a class="link-man" href="../3/prop_send_ioctl">prop_send_ioctl(3)</a>, <a class="link-man" href="../3/proplib">proplib(3)</a>, <a class="link-man" href="../8/devpubd">devpubd(8)</a>, <a class="link-man" href="../8/drvctl">drvctl(8)</a>, <a class="link-man" href="../9/autoconf">autoconf(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <i class="file">/dev/drvctl</i> device appeared in <span class="unix">NetBSD&#160;3.0</span> but was only added to the GENERIC configuration in <span class="unix">NetBSD&#160;5.0</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+May 13, 2015</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

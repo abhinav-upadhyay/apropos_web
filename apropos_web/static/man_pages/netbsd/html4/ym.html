@@ -1,0 +1,107 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+YM(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+YM(4)</td>
+<td class="head-vol" align="center">
+Kernel Interfaces Manual</td>
+<td class="head-rtitle" align="right">
+YM(4)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">ym</b> &#8212; <span class="desc">Yamaha OPL3-SA2 and OPL3-SA3 audio device driver</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">ym*    at acpi?</b><br>
+<b class="config">ym*    at isapnp?</b><br>
+<b class="config">ym*    at pnpbios? index ?</b><br>
+<b class="config">audio* at audiobus?</b><br>
+<b class="config">mpu*   at ym?</b><br>
+<b class="config">opl*   at ym?</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">ym</b> driver provides support for Yamaha YMF711 (OPL3-SA2) and YMF715x (OPL3-SA3) sound devices.<p>
+The OPL3-SAx device has WSS compatible full-duplex 16bit CODEC, OPL3 FM synthesizer, and MPU401 compatible MIDI I/O port interface. Additionally, OPL3-SA3 has built-in &#8216;3D Enhanced&#8217; equalizer.<p>
+The joystick interface is handled by the <a class="link-man" href="../4/joy">joy(4)</a> driver.</div>
+<div class="section">
+<h1 id="x4d4958455220444556494345">MIXER DEVICE</h1> The mixer device of <b class="name">ym</b> driver can be accessed by <a class="link-man" href="../1/mixerctl">mixerctl(1)</a> command. The layout is shown below.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            dac ------------------------&lt;-----  ----------------- 
+midi(OPL3/ZV)-&gt;-+----------------------------+-&gt;|inputs.midi    | 
+cd      -&gt;------+-*--------------------------+-&gt;|inputs.cd      | 
+line    -&gt;----*-+-+--------------------------+-&gt;|inputs.line    | 
+speaker -&gt;----+-+-+--------------------------+-&gt;|inputs.speaker | 
+mic     -&gt;--*-+-+-+--------------------------+-&gt;|inputs.mic     | 
+            v v v v      monitor.monitor     |  |               | 
+        ---------------  -------  |  ------- |  |               | 
+        |record.record|-&gt;| A/D |----&gt;| D/A |-*-&gt;|inputs.dac     |analog 
+        |             |  |conv.|-- -&gt;|conv.|    |               |output 
+        ---------------  ------- | | -------    | outputs.master|--&gt; 
+                           wave  v | wave       | equalization.*| 
+                         recording playback     -----------------</pre>
+<p>
+Note that the &#8216;<span class="define">inputs.dac</span>&#8217; is twice as sensitive as other &#8216;<span class="define">inputs</span>&#8217; volume variables.<p>
+The hardware volume changes the &#8216;<span class="define">outputs.master</span>&#8217; value.<p>
+If an external input source is unmuted by setting corresponding &#8216;<span class="define">inputs.*.mute</span>&#8217; variable to &#8216;<span class="define">off</span>&#8217;, the device is never put in global power down or power save mode. This is because if the device is in global power down or power save mode, the output is automatically muted.<p>
+All the external input sources (CD playback, line input, speaker, and MIC) are muted by default.<p>
+The &#8216;<span class="define">equalization.*</span>&#8217; variables does not exists on OPL3-SA2. The &#8216;equalization.treble&#8217; and &#8216;equalization.bass&#8217; are enhancement only, and any values below the center position (128) don't take any effect.</div>
+<div class="section">
+<h1 id="x504f574552204d414e4147454d454e54">POWER MANAGEMENT</h1> The <b class="name">ym</b> driver is capable of power management on the OPL3-SAx devices. The following modes can be selected by setting &#8216;<span class="define">power.save</span>&#8217; variable of <a class="link-man" href="../1/mixerctl">mixerctl(1)</a> to &#8216;<span class="define">powerdown</span>&#8217;, &#8216;<span class="define">powersave</span>&#8217;, and &#8216;<span class="define">nosave</span>&#8217; respectively.<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+Global power-down mode</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When a subpart of the device is unused, the part is power-down after a timeout period (specified by &#8216;<span class="define">power.save.timeout</span>&#8217; variable of <a class="link-man" href="../1/mixerctl">mixerctl(1)</a> in seconds). When all the subparts of the device are unused, and all the external input sources are muted, the driver puts the device in &#8216;Global Power Down&#8217; mode.<p>
+On the global power down mode, the power consumption is minimized (10&#956;A (SA3) or 200&#956;A (SA2) typ.), but the click noise on power up/down the device is rather loud.<div class="emph" style="display:inline;margin-left: 1.00ex;">
+This mode should not be used with headphones or hi&#45;fi audio systems, or your ears or the systems may be damaged.</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+Power save mode</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When a subpart of the device is unused, the part is powered-down after a timeout period (specified by &#8216;<span class="define">power.save.timeout</span>&#8217; variable of <a class="link-man" href="../1/mixerctl">mixerctl(1)</a> in seconds). When all the subparts of the device are unused, and all the external input sources are muted, the driver put the device in &#8216;Power Save&#8217; mode.<p>
+In power save mode, the power consumption is reduced (5mA typ.). The click noise on power up/down of the device is very small, but this operation requires muting/unmuting the device, which make some noise. In order to reduce the noise, setting the master volume at the small value is effective.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+No power-save mode</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Once the device is powered-up, it remains on after the use of the device. Once a subpart of the device is powered-up, it shall not be power-down. This mode minimizes click noises on power switching, but maximizes power consumption (30-100mA).<p>
+On suspending, the device is put into power-save state.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/mixerctl">mixerctl(1)</a>, <a class="link-man" href="../4/apm">apm(4)</a>, <a class="link-man" href="../4/audio">audio(4)</a>, <a class="link-man" href="../4/isapnp">isapnp(4)</a>, <a class="link-man" href="../4/joy">joy(4)</a>, <a class="link-man" href="../4/midi">midi(4)</a>, <a class="link-man" href="../4/mpu">mpu(4)</a>, <a class="link-man" href="../4/opl">opl(4)</a>, <a class="link-man" href="../4/pnpbios">pnpbios(4)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">ym</b> device driver appeared in <span class="unix">NetBSD&#160;1.4</span>.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> Although the parameters of the device are saved and restored on <a class="link-man" href="../4/apm">apm(4)</a> suspend/resume, the DMA state is not restored. That is, if the system suspends during playback, this is not continued after suspend/resume cycle.<p>
+The joystick port is not under power management. If a <a class="link-man" href="../4/joy">joy(4)</a> device is configured, the device will never be put in global power down or power save mode.<p>
+The external devices, such as Zoomed Video port, OPL4-ML/2, modem, and CD-ROM are not supported.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+August 14, 2006</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

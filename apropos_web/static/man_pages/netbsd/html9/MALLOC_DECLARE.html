@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+MALLOC(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+MALLOC(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+MALLOC(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">malloc</b>, <b class="name">realloc</b>, <b class="name">free</b>, <b class="name">malloc_type_attach</b>, <b class="name">malloc_type_detach</b>, <b class="name">MALLOC_DEFINE</b>, <b class="name">MALLOC_DECLARE</b> &#8212; <span class="desc">general-purpose kernel memory allocator</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/malloc.h</a>&gt;</b><p>
+<i class="ftype">void *</i><br>
+<b class="fname">malloc</b>(<i class="farg" style="white-space:nowrap;">unsigned long size</i>, <i class="farg" style="white-space:nowrap;">struct malloc_type *type</i>, <i class="farg" style="white-space:nowrap;">int flags</i>);<p>
+<i class="ftype">void *</i><br>
+<b class="fname">realloc</b>(<i class="farg" style="white-space:nowrap;">void *addr</i>, <i class="farg" style="white-space:nowrap;">unsigned long newsize</i>, <i class="farg" style="white-space:nowrap;">struct malloc_type *type</i>, <i class="farg" style="white-space:nowrap;">int flags</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">free</b>(<i class="farg" style="white-space:nowrap;">void *addr</i>, <i class="farg" style="white-space:nowrap;">struct malloc_type *type</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">malloc_type_attach</b>(<i class="farg" style="white-space:nowrap;">struct malloc_type *type</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">malloc_type_detach</b>(<i class="farg" style="white-space:nowrap;">struct malloc_type *type</i>);<p>
+<b class="includes">#include &lt;<a class="link-includes">sys/mallocvar.h</a>&gt;</b><p>
+<b class="fname">MALLOC_DEFINE</b>(<i class="farg" style="white-space:nowrap;">type</i>, <i class="farg" style="white-space:nowrap;">shortdesc</i>, <i class="farg" style="white-space:nowrap;">longdesc</i>);<p>
+<b class="fname">MALLOC_JUSTDEFINE</b>(<i class="farg" style="white-space:nowrap;">type</i>, <i class="farg" style="white-space:nowrap;">shortdesc</i>, <i class="farg" style="white-space:nowrap;">longdesc</i>);<p>
+<b class="fname">MALLOC_DECLARE</b>(<i class="farg" style="white-space:nowrap;">type</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1><div class="symb" style="display:inline;margin-left: 1.00ex;">
+These interfaces are being obsoleted and their new use is discouraged. For new code, use <a class="link-man" href="../9/kmem">kmem(9)</a> for variable-sized or one-time allocations and <a class="link-man" href="../9/pool_cache">pool_cache(9)</a> for frequent fixed-size allocations instead.</div>
+<p>
+The <b class="fname">malloc</b>() function allocates uninitialized memory in kernel address space for an object whose size is specified by <i class="farg">size</i>. <b class="fname">free</b>() releases memory at address <i class="farg">addr</i> that was previously allocated by <b class="fname">malloc</b>() for re-use. Unlike <a class="link-man" href="../3/free">free(3)</a>, <b class="fname">free</b>() does not accept an <i class="farg">addr</i> argument that is <span class="define">NULL</span>.<p>
+The <b class="fname">realloc</b>() function changes the size of the previously allocated memory referenced by <i class="farg">addr</i> to <i class="farg">size</i> and returns a pointer to the (possibly moved) object. The memory contents are unchanged up to the lesser of the new and old sizes. If the new size is larger, the newly allocated memory is uninitialized. If the requested memory cannot be allocated, <span class="define">NULL</span> is returned and the memory referenced by <i class="farg">addr</i> is unchanged. If <i class="farg">addr</i> is <span class="define">NULL</span>, then <b class="fname">realloc</b>() behaves exactly as <b class="fname">malloc</b>(). If the new size is 0, then <b class="fname">realloc</b>() behaves exactly as <b class="fname">free</b>().<p>
+Unlike its standard C library counterpart (<a class="link-man" href="../3/malloc">malloc(3)</a>), the kernel version takes two more arguments.<p>
+The <i class="farg">flags</i> argument further qualifies <b class="fname">malloc</b>() operational characteristics as follows:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">M_NOWAIT</span></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Causes <b class="fname">malloc</b>() to return <span class="define">NULL</span> if the request cannot be immediately fulfilled due to resource shortage. If this flag is not set (see <span class="define">M_WAITOK</span>), <b class="fname">malloc</b>() will never return <span class="define">NULL</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">M_WAITOK</span></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+By default, <b class="fname">malloc</b>() may call <a class="link-man" href="../9/cv_wait">cv_wait(9)</a> to wait for resources to be released by other processes, and this flag represents this behaviour. Note that <span class="define">M_WAITOK</span> is conveniently defined to be 0, and hence may be or'ed into the <i class="farg">flags</i> argument to indicate that it's ok to wait for resources.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">M_ZERO</span></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Causes the allocated memory to be set to all zeros.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">M_CANFAIL</span></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Changes behaviour for <span class="define">M_WAITOK</span> case - if the requested memory size is bigger than <b class="fname">malloc</b>() can ever allocate, return failure, rather than calling <a class="link-man" href="../9/panic">panic(9)</a>. This is different to M_NOWAIT, since the call can still wait for resources.<p>
+Rather than depending on <span class="define">M_CANFAIL</span>, kernel code should do proper bound checking itself. This flag should only be used in cases where this is not feasible. Since it can hide real kernel bugs, its usage is <span class="emph">strongly discouraged</span>.</dd>
+</dl>
+<p>
+The <i class="farg">type</i> argument describes the subsystem and/or use within a subsystem for which the allocated memory was needed, and is commonly used to maintain statistics about kernel memory usage and, optionally, enforce limits on this usage for certain memory types.<p>
+In addition to some built-in generic types defined by the kernel memory allocator, subsystems may define their own types.<p>
+The <b class="fname">MALLOC_DEFINE</b>() macro defines a malloc type named <i class="farg">type</i> with the short description <i class="farg">shortdesc</i>, which must be a constant string; this description will be used for kernel memory statistics reporting. The <i class="farg">longdesc</i> argument, also a constant string, is intended as way to place a comment in the actual type definition, and is not currently stored in the type structure. If kernel memory statistics are being gathered, the system will choose a reasonable default limit for the malloc type.<p>
+The <b class="fname">MALLOC_DECLARE</b>() macro is intended for use in header files which are included by code which needs to use the malloc type, providing the necessary extern declaration.<p>
+Code which includes &lt;sys/malloc.h&gt; does not need to include &lt;sys/mallocvar.h&gt; to get these macro definitions. The &lt;sys/mallocvar.h&gt; header file is intended for other header files which need to use the <b class="fname">MALLOC_DECLARE</b>() macro.<p>
+The <b class="fname">malloc_type_attach</b>() function attaches the malloc type <i class="farg">type</i> to the kernel memory allocator.<p>
+The <b class="fname">malloc_type_detach</b>() function detaches the malloc type <i class="farg">type</i> previously attached with <b class="fname">malloc_type_attach</b>().<p>
+The following generic malloc types are currently defined:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">M_DEVBUF</span></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+Device driver memory.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">M_DMAMAP</span></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+<a class="link-man" href="../9/bus_dma">bus_dma(9)</a> structures.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">M_FREE</span></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+Should be on free list.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">M_PCB</span></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+Protocol control block.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">M_SOFTINTR</span></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+Softinterrupt structures.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">M_TEMP</span></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+Misc temporary data buffers.</dd>
+</dl>
+<p>
+Other malloc types are defined by the corresponding subsystem; see the documentation for that subsystem for information its available malloc types.<p>
+Statistics based on the <i class="farg">type</i> argument are maintained only if the kernel option <span class="define">KMEMSTATS</span> is used when compiling the kernel (the default in current <span class="unix">NetBSD</span> kernels) and can be examined by using &#8216;vmstat -m&#8217;.</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> <b class="fname">malloc</b>() returns a kernel virtual address that is suitably aligned for storage of any type of object.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/vmstat">vmstat(1)</a>, <a class="link-man" href="../9/memoryallocators">memoryallocators(9)</a></div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+May 23, 2015</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

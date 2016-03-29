@@ -1,0 +1,542 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+SCSIPI(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SCSIPI(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+SCSIPI(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">scsipi</b> &#8212; <span class="desc">SCSI/ATAPI middle-layer interface</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">dev/scsipi/atapiconf.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">dev/scsipi/scsiconf.h</a>&gt;</b><p>
+<i class="ftype">void</i><br>
+<b class="fname">scsipi_async_event</b>(<i class="farg" style="white-space:nowrap;">struct scsipi_channel *chan</i>, <i class="farg" style="white-space:nowrap;">scsipi_async_event_t event</i>, <i class="farg" style="white-space:nowrap;">void *arg</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">scsipi_channel_freeze</b>(<i class="farg" style="white-space:nowrap;">struct scsipi_channel *chan</i>, <i class="farg" style="white-space:nowrap;">int count</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">scsipi_channel_thaw</b>(<i class="farg" style="white-space:nowrap;">struct scsipi_channel *chan</i>, <i class="farg" style="white-space:nowrap;">int count</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">scsipi_channel_timed_thaw</b>(<i class="farg" style="white-space:nowrap;">void *arg</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">scsipi_periph_freeze</b>(<i class="farg" style="white-space:nowrap;">struct scsipi_periph *periph</i>, <i class="farg" style="white-space:nowrap;">int count</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">scsipi_periph_thaw</b>(<i class="farg" style="white-space:nowrap;">struct scsipi_periph *periph</i>, <i class="farg" style="white-space:nowrap;">int count</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">scsipi_periph_timed_thaw</b>(<i class="farg" style="white-space:nowrap;">void *arg</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">scsipi_done</b>(<i class="farg" style="white-space:nowrap;">struct scsipi_xfer *xs</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">scsipi_printaddr</b>(<i class="farg" style="white-space:nowrap;">struct scsipi_periph *periph</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">scsipi_target_detach</b>(<i class="farg" style="white-space:nowrap;">struct scsipi_channel *chan</i>, <i class="farg" style="white-space:nowrap;">int target</i>, <i class="farg" style="white-space:nowrap;">int lun</i>, <i class="farg" style="white-space:nowrap;">int flags</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">scsipi_thread_call_callback</b>(<i class="farg" style="white-space:nowrap;">struct scsipi_channel *chan</i>, <i class="farg" style="white-space:nowrap;">void (*callback)(struct scsipi_channel *, void *)</i>, <i class="farg" style="white-space:nowrap;">void *arg</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">scsipi</b> system is the middle layer interface between SCSI/ATAPI host bus adapters (HBA) and high-level SCSI/ATAPI drivers. This document describes the interfaces provided by the <b class="name">scsipi</b> layer towards the HBA layer. An HBA has to provide a pointer to a <b class="var">struct scsipi_adapter</b> and one pointer per channel to a <b class="var">struct scsipi_channel</b>. Once the SCSI or ATAPI bus is attached, the <b class="name">scsipi</b> system will scan the bus and allocate a <b class="var">struct scsipi_periph</b> for each device found on the bus. A high-level command (command sent from the high-level SCSI/ATAPI layer to the low-level HBA layer) is described by a <b class="var">struct scsipi_xfer</b>.<p>
+A request is sent to the HBA driver through the <b class="fname">adapt_request</b>() callback. The HBA driver signals completion (with or without errors) of the request through <b class="fname">scsipi_done</b>(). <b class="name">scsipi</b> knows the resource's limits of the HBA (max number of concurrent requests per adapter of channel, and per periph), and will make sure the HBA won't receive more requests than it can handle.<p>
+The mid-layer can also handle <span class="define">QUEUE FULL</span> and <span class="define">CHECK CONDITION</span> events.<div class="subsection">
+<h2 id="x494e495449414c49534154494f4e">INITIALISATION</h2> An HBA driver has to allocate and initialize to 0 a <b class="var">struct scsipi_adapter</b> and fill in the following members:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">struct device *adapt_dev</b></dt>
+<dd class="list-tag" style="margin-left: 24.00ex;">
+pointer to the HBA's <b class="var">struct device</b></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int adapt_nchannels</b></dt>
+<dd class="list-tag" style="margin-left: 24.00ex;">
+number of channels (or busses) of the adapter</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int adapt_openings</b></dt>
+<dd class="list-tag" style="margin-left: 24.00ex;">
+total number of commands the adapter can handle (may be replaced by <b class="var">chan_openings</b>, see below)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int adapt_max_periph</b></dt>
+<dd class="list-tag" style="margin-left: 24.00ex;">
+number of commands the adapter can handle per device</dd>
+</dl>
+<p>
+The following callbacks should be provided through the <b class="var">struct scsipi_adapter</b>:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+void <b class="fname">(*adapt_request)</b>(<i class="farg">struct scsipi_channel *</i>, <i class="farg">scsipi_adapter_req_t</i>, <i class="farg">void *</i>)</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+mandatory</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+void <b class="fname">(*adapt_minphys)</b>(<i class="farg">struct buf *</i>)</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+mandatory</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+int <b class="fname">(*adapt_ioctl)</b>(<i class="farg">struct scsipi_channel *</i>, <i class="farg">u_long</i>, <i class="farg">void *</i>, <i class="farg">int</i>, <i class="farg">struct lwp *</i>)</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+optional</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+int <b class="fname">(*adapt_enable)</b>(<i class="farg">struct device *</i>, <i class="farg">int</i>)</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+optional, set to <span class="define">NULL</span> if not used</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+int <b class="fname">(*adapt_getgeom)</b>(<i class="farg">struct scsipi_periph *</i>, <i class="farg">struct disk_parms *</i>, <i class="farg">u_long</i>)</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+optional, set to <span class="define">NULL</span> if not used</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+int <b class="fname">(*adapt_accesschk)</b>(<i class="farg">struct scsipi_periph *</i>, <i class="farg">struct scsipi_inquiry_pattern *</i>)</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+optional, set to <span class="define">NULL</span> if not used</dd>
+</dl>
+<p>
+The HBA driver has to allocate and initialize to 0 one <b class="var">struct scsipi_channel</b> per channel and fill in the following members:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">struct scsipi_adapter *chan_adapter</b></dt>
+<dd class="list-tag" style="margin-left: 21.00ex;">
+Pointer to the HBA's <i class="farg">struct scsipi_adapter</i></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">struct scsipi_bustype *chan_bustype</b></dt>
+<dd class="list-tag" style="margin-left: 21.00ex;">
+should be initialized to either <b class="var">bus_atapi</b> or <b class="var">bus_scsi</b>, both defined in the <b class="name">scsipi</b> code.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int chan_channel</b></dt>
+<dd class="list-tag" style="margin-left: 21.00ex;">
+channel number (starting at 0)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int chan_flags</b></dt>
+<dd class="list-tag" style="margin-left: 21.00ex;">
+channel flags:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SCSIPI_CHAN_OPENINGS</span></dt>
+<dd class="list-tag" style="margin-left: 20.00ex;">
+Use per-channel max number of commands <b class="var">chan_openings</b> instead of per-adapter <b class="var">adapt_openings</b></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SCSIPI_CHAN_CANGROW</span></dt>
+<dd class="list-tag" style="margin-left: 20.00ex;">
+This channel can grow its <b class="var">chan_openings</b> or <b class="var">adapt_openings</b> on request (via the <b class="fname">adapt_request</b>() callback)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SCSIPI_CHAN_NOSETTLE</span></dt>
+<dd class="list-tag" style="margin-left: 20.00ex;">
+Do not wait SCSI_DELAY seconds for devices to settle before probing (usually used by adapters that provide an &#34;abstracted&#34; view of the bus).</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int chan_openings</b></dt>
+<dd class="list-tag" style="margin-left: 21.00ex;">
+total number of commands the adapter can handle for this channel (used only if the <span class="define">SCSIPI_CHAN_OPENINGS</span> flag is set)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">chan_max_periph</b></dt>
+<dd class="list-tag" style="margin-left: 21.00ex;">
+number of commands per device the adapter can handle on this channel (used only if the <b class="var">SCSIPI_CHAN_OPENINGS</b> flag is set)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int chan_ntargets</b></dt>
+<dd class="list-tag" style="margin-left: 21.00ex;">
+number of targets</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int chan_nluns</b></dt>
+<dd class="list-tag" style="margin-left: 21.00ex;">
+number of LUNs per target</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int chan_id</b></dt>
+<dd class="list-tag" style="margin-left: 21.00ex;">
+adapter's ID on this channel</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int chan_defquirks</b></dt>
+<dd class="list-tag" style="margin-left: 21.00ex;">
+default device quirks. Quirks are defined in <b class="includes">&lt;<a class="link-includes">dev/scsipi/scsipiconf.h</a>&gt;</b> and are usually set in the middle layer based on the device's inquiry data. For some kinds of adapters it may be convenient to have a set of quirks applied to all devices, regardless of the inquiry data.</dd>
+</dl>
+<p>
+The HBA driver attaches the SCSI or ATAPI bus (depending on the setting of <b class="var">chan_bustype</b>) by passing a pointer to the <b class="var">struct scsipi_channel</b> to the <a class="link-man" href="../9/autoconf">autoconf(9)</a> machinery. The print function shall be either <b class="fname">scsiprint</b>() or <b class="fname">atapiprint</b>().</div>
+<div class="subsection">
+<h2 id="x4f5448455220444154412053545255435455524553">OTHER DATA STRUCTURES</h2> When scanning the bus, the <b class="name">scsipi</b> system allocates a <b class="var">struct scsipi_periph</b> for each device probed. The interesting fields are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">struct device *periph_dev</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+pointer to the device's <b class="var">struct device</b></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">struct scsipi_channel *periph_channel</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+pointer to the channel the device is connected to</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int periph_quirks</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+device quirks, defined in <b class="includes">&lt;<a class="link-includes">dev/scsipi/scsipiconf.h</a>&gt;</b></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int periph_target</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+target ID, or drive number on ATAPI</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int periph_lun</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+LUN (currently not used on ATAPI)</dd>
+</dl>
+<p>
+A SCSI or ATAPI request is passed to the HBA through a <b class="var">struct scsipi_xfer</b>. The HBA driver has access to the following data:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">struct callout xs_callout</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+callout for adapter use, usually for command timeout</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int xs_control</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+control flags (only flags of interest for HBA drivers are described):<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_CTL_POLL</span></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+poll in the HBA driver for request completion (most likely because interrupts are disabled)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_CTL_RESET</span></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+reset the device</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_CTL_DATA_UIO</span></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+xs_data points to a <i class="farg">struct uio</i> buffer</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_CTL_DATA_IN</span></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+data is transferred from HBA to memory</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_CTL_DATA_OUT</span></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+data is transferred from memory to HBA</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_CTL_DISCOVERY</span></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+this xfer is part of a device discovery done by the middle layer</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_CTL_REQSENSE</span></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+xfer is a request sense</dd>
+</dl>
+<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int xs_status</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+status flags:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">XS_STS_DONE</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+xfer is done (set by <b class="fname">scsipi_done</b>())</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">XS_STS_PRIVATE</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+mask of flags reserved for HBA's use (0xf0000000)</dd>
+</dl>
+<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">struct scsipi_periph *xs_periph</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+periph doing the xfer</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int timeout</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+command timeout, in milliseconds. The HBA should start the timeout at the time the command is accepted by the device. If the timeout happens, the HBA shall terminate the command through <b class="fname">scsipi_done</b>() with a XS_TIMEOUT error</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">struct scsipi_generic *cmd</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+scsipi command to execute</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int cmdlen</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+len (in bytes) of the cmd buffer</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">u_char *data</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+data buffer (this is either a DMA or uio address)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int datalen</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+data length (in bytes, zero if uio)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int resid</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+difference between <i class="farg">datalen</i> and how much data was really transferred</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">scsipi_xfer_result_t error</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+error value returned by the HBA driver to mid-layer. See description of <b class="fname">scsipi_done</b>() for valid values</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">union {struct scsipi_sense_data scsi_sense; uint32_t atapi_sense;} sense</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+where to store sense info if <i class="farg">error</i> is <span class="define">XS_SENSE</span> or <span class="define">XS_SHORTSENSE</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">uint8_t status</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+SCSI status; checked by middle layer when <i class="farg">error is</i> <span class="define">XS_BUSY</span> (the middle layer handles <span class="define">SCSI_CHECK</span> and <span class="define">SCSI_QUEUE_FULL</span>)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">uint8_t xs_tag_type</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+SCSI tag type, set to 0 if untagged command</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">uint8_t xs_tag_id</b></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+tag ID, used for tagged commands</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x46554e4354494f4e5320414e442043414c4c4241434b53">FUNCTIONS AND CALLBACKS</h2><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">(*adapt_request)</b>(<i class="farg">struct scsipi_channel *chan</i>, <i class="farg">scsipi_adapter_req_t req</i>, <i class="farg">void *arg</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Used by the mid-layer to transmit a request to the adapter. <b class="var">req</b> can be one of:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">ADAPTER_REQ_RUN_XFER</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+request the adapter to send a command to the device. <i class="farg">arg</i> is a pointer to the <b class="var">struct scsipi_xfer</b>. Once the xfer is complete the HBA driver shall call <b class="fname">scsipi_done</b>() with updated status and error information.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">ADAPTER_REQ_GROW_RESOURCES</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+ask the adapter to increase resources of the channel (grow <b class="var">adapt_openings</b> or <b class="var">chan_openings</b>) if possible. Support of this feature is optional. This request is called from the kernel completion thread. <i class="farg">arg</i> must be ignored.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">ADAPTER_REQ_SET_XFER_MODE</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+set the xfer mode for a for I_T Nexus. This will be called once all LUNs of a target have been probed. <i class="farg">arg</i> points to a <b class="var">struct scsipi_xfer_mode</b> defined as follows:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int xm_target</b></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+target for I_T Nexus</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int xm_mode</b></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+bitmask of device capabilities</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int xm_period</b></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+sync period</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int xm_offset</b></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+sync offset</dd>
+</dl>
+<p>
+<b class="var">xm_period</b> and <b class="var">xm_offset</b> shall be ignored for <span class="define">ADAPTER_REQ_SET_XFER_MODE</span>. <b class="var">xm_mode</b> holds the following bits:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PERIPH_CAP_SYNC</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+ST synchronous transfers</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PERIPH_CAP_WIDE16</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+ST 16 bit wide transfers</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PERIPH_CAP_WIDE32</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+ST 32 bit wide transfers</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PERIPH_CAP_DT</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+DT transfers</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PERIPH_CAP_TQING</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+tagged queuing</dd>
+</dl>
+Whenever the xfer mode changes, the driver should call <b class="fname">scsipi_async_event</b>() to notify the mid-layer.</dd>
+</dl>
+<p>
+<b class="fname">adapt_request</b>() may be called from interrupt context.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">adapt_minphys</b>()</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+pointer to the driver's minphys function. If the driver can handle transfers of size <span class="define">MAXPHYS</span>, this can point to <b class="fname">minphys</b>().</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">adapt_ioctl</b>()</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+ioctl function for the channel. The only ioctl supported at this level is <span class="define">SCBUSIORESET</span> for which the HBA driver shall issue a SCSI reset on the channel.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+int <b class="fname">adapt_enable</b>(<i class="farg">struct device *dev</i>, <i class="farg">int enable</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Disable the adapter if <b class="var">enable</b> is zero, or enable it if non-zero. Returns 0 if operation is successful, or error from <i class="file">&lt;sys/errno.h&gt;</i>. This callback is optional, and is useful mostly for hot-plug devices. For example, this callback would power on or off the relevant PCMCIA socket for a PCMCIA controller.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+int <b class="fname">adapt_getgeom</b>(<i class="farg">struct scsipi_periph *periph</i>, <i class="farg">struct disk_parms *params</i>, <i class="farg">u_long sectors</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Optional callback, used by high-level drivers to get the fictitious geometry used by the controller's firmware for the specified periph. Returns 0 if successful. See Adaptec drivers for details.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+int <b class="fname">adapt_accesschk</b>(<i class="farg">struct scsipi_periph *periph</i>, <i class="farg">struct scsipi_inquiry_pattern *inqbuf</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Optional callback; if present the mid-layer uses it to check if it can attach a driver to the specified periph. If the callback returns a non-zero value, the periph is ignored by the <b class="name">scsipi</b> code. This callback is used by adapters which want to drive some devices themselves, for example hardware RAID controllers.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">scsipi_async_event</b>(<i class="farg">struct scsipi_channel *chan</i>, <i class="farg">scsipi_async_event_t event</i>, <i class="farg">void *arg</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Asynchronous event notification for the mid-layer. <i class="farg">event</i> can be one of:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">ASYNC_EVENT_MAX_OPENINGS</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+set max openings for a periph. Argument is a <b class="var">struct scsipi_max_openings</b> with at least the following members:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int mo_target</b></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int mo_lun</b></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="var">int mo_openings</b></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+</dd>
+</dl>
+<p>
+Not all periphs may allow openings to increase; if not allowed the request is silently ignored.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">ASYNC_EVENT_XFER_MODE</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+update the xfer mode for an I_T nexus. Argument is a <b class="var">struct scsipi_xfer_mode</b> properly filled in. An <span class="define">ASYNC_EVENT_XFER_MODE</span> call with <span class="define">PERIPH_CAP_TQING</span> set in <b class="var">xm_mode</b> is mandatory to activate tagged queuing.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">ASYNC_EVENT_RESET</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+channel has been reset. No argument. HBA drivers have to issue <span class="define">ASYNC_EVENT_RESET events if they rely on the</span> mid-layer for SCSI CHECK CONDITION handling.</dd>
+</dl>
+<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">scsipi_done</b>(<i class="farg">struct scsipi_xfer *xs</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+shall be called by the HBA when the xfer is complete, or when it needs to be requeued by the mid-layer. <b class="var">error</b> in the scsipi_xfer shall be set to one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_NOERROR</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+xfer completed without error.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_SENSE</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Check the returned SCSI sense for the error.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_SHORTSENSE</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Check the ATAPI sense for the error.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_DRIVER_STUFFUP</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Driver failed to perform operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_RESOURCE_SHORTAGE</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Adapter resource shortage. The mid-layer will retry the command after some delay.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_SELTIMEOUT</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+The device timed out while trying to send the command</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_TIMEOUT</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+The command was accepted by the device, but it didn't complete in allowed time.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_BUSY</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+The mid-layer will check <b class="var">status</b> for additional details:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SCSI_CHECK</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+SCSI check condition. The mid-layer will freeze the periph queue and issue a REQUEST SENSE command. If the HBA supports tagged queuing, it shall remove and requeue any command not yet accepted by the HBA (or at last make sure no more commands will be sent to the device before the REQUEST SENSE is complete).</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SCSI_QUEUE_FULL</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+The mid layer will adjust the periph's openings and requeue the command.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SCSI_BUSY</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+The mid-layer will requeue the xfer after delay.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_RESET</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+xfer destroyed by a reset; the mid-layer will requeue it.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">XS_REQUEUE</span></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Ask the mid-layer to requeue this command immediately.</dd>
+</dl>
+<p>
+The adapter should not reference an <i class="farg">xfer</i> once <b class="fname">scsipi_done</b>(<i class="farg">xfer</i>) has been called, unless the <i class="farg">xfer</i> had <span class="define">XS_CTL_POLL</span> set.<p>
+<b class="fname">scsipi_done</b>() will call the <b class="fname">adapt_request</b>() callback again only if called with <i class="farg">xs-&gt;error</i> set to <span class="define">XS_NOERROR</span>, and <i class="farg">xfer</i> doesn't have <span class="define">XS_CTL_POLL</span> set. All other error conditions are handled by a kernel thread (once the HBA's interrupt handler has returned).</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">scsipi_printaddr</b>(<i class="farg">struct scsipi_periph *periph</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+print a kernel message with the periph's name, in the form device(controller:channel:target:lun).</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">scsipi_channel_freeze</b>(<i class="farg">struct scsipi_channel *chan</i>, <i class="farg">int count</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Freeze the specified channel (requests are queued but not sent to HBA). The channel's freeze counter is increased by <i class="farg">count</i>.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">scsipi_channel_thaw</b>(<i class="farg">struct scsipi_channel *chan</i>, <i class="farg">int count</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Decrement the channel's freeze counter by <i class="farg">count</i> and process the queue if the counter goes to 0. In order to preserve command ordering, HBA drivers should not call <b class="fname">scsipi_channel_thaw</b>() before calling <b class="fname">scsipi_done</b>() for all commands in the HBA's queue which need to be requeued.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">scsipi_periph_timed_thaw</b>(<i class="farg">void *arg</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Call <b class="fname">scsipi_channel_thaw</b>(<i class="farg">arg</i>, <i class="farg">1</i>). Intended to be used as <a class="link-man" href="../9/callout">callout(9)</a> callback.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">scsipi_periph_freeze</b>(<i class="farg">struct scsipi_periph *periph</i>, <i class="farg">int count</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">scsipi_periph_thaw</b>(<i class="farg">struct scsipi_periph *periph</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">scsipi_periph_timed_thaw</b>(<i class="farg">void *arg</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Same as the channel counterparts, but only for one specific peripheral.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">scsipi_target_detach</b>(<i class="farg">struct scsipi_channel *chan</i>, <i class="farg">int target</i>, <i class="farg">int lun</i>, <i class="farg">int flags</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+detach the periph associated with this I_T_L nexus. Both <i class="farg">target</i> and <i class="farg">lun</i> may be wildcarded using the magic value -1. <i class="farg">flags</i> is passed to <b class="fname">config_detach</b>(<i class="farg"></i>) . Returns 0 if successful, or error code if a device couldn't be removed.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="fname">scsipi_thread_call_callback</b>(<i class="farg">struct scsipi_channel *chan</i>, <i class="farg">void (*callback)(struct scsipi_channel *, void *)</i>, <i class="farg">void *arg</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+<b class="fname">callback</b>() will be called with <i class="farg">chan</i> and <i class="farg">arg</i> as arguments, from the channel completion thread. The callback is run at splbio. <b class="fname">scsipi_thread_call_callback</b>() will freeze the channel by one, it's up to the caller to thaw it when appropriate. Returns 0 if the callback was properly recorded, or EBUSY if the channel has already a callback pending.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">sys/dev/scsiconf.h</i></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+header file for use by SCSI HBA drivers</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">sys/dev/atapiconf.h</i></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+header file for use by ATAPI HBA drivers</dd>
+</dl>
+<p>
+Both header files include <i class="file">sys/dev/scsipiconf.h</i> which contains most structure definitions, function prototypes and macros.</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> The best examples are existing HBA drivers. Most of them sit in the <i class="file">sys/dev/ic</i> directory.</div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">scsipi</b> interface appeared in <span class="unix">NetBSD&#160;1.6</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> The <b class="name">scsipi</b> interface was designed and implemented by Jason R. Thorpe. Manuel Bouyer converted most drivers to the new interface.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+December 20, 2005</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

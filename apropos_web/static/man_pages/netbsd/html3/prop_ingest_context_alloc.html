@@ -1,0 +1,136 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+PROP_INGEST(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PROP_INGEST(3)</td>
+<td class="head-vol" align="center">
+Library Functions Manual</td>
+<td class="head-rtitle" align="right">
+PROP_INGEST(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">prop_ingest_context_alloc</b>, <b class="name">prop_ingest_context_free</b>, <b class="name">prop_ingest_context_error</b>, <b class="name">prop_ingest_context_type</b>, <b class="name">prop_ingest_context_key</b>, <b class="name">prop_ingest_context_private</b>, <b class="name">prop_dictionary_ingest</b> &#8212; <span class="desc">Ingest a dictionary into an arbitrary binary format</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">prop/proplib.h</a>&gt;</b><p>
+<i class="ftype">prop_ingest_context_t</i><br>
+<b class="fname">prop_ingest_context_alloc</b>(<i class="farg" style="white-space:nowrap;">void *private</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">prop_ingest_context_free</b>(<i class="farg" style="white-space:nowrap;">prop_ingest_context_t ctx</i>);<p>
+<i class="ftype">prop_ingest_error_t</i><br>
+<b class="fname">prop_ingest_context_error</b>(<i class="farg" style="white-space:nowrap;">prop_ingest_context_t ctx</i>);<p>
+<i class="ftype">prop_type_t</i><br>
+<b class="fname">prop_ingest_context_type</b>(<i class="farg" style="white-space:nowrap;">prop_ingest_context_t ctx</i>);<p>
+<i class="ftype">const char *</i><br>
+<b class="fname">prop_ingest_context_key</b>(<i class="farg" style="white-space:nowrap;">prop_ingest_context_t ctx</i>);<p>
+<i class="ftype">void *</i><br>
+<b class="fname">prop_ingest_context_private</b>(<i class="farg" style="white-space:nowrap;">prop_ingest_context_t ctx</i>);<p>
+<i class="ftype">bool</i><br>
+<b class="fname">prop_dictionary_ingest</b>(<i class="farg" style="white-space:nowrap;">prop_dictionary_t dict</i>, <i class="farg" style="white-space:nowrap;">const prop_ingest_table_entry rules[]</i>, <i class="farg" style="white-space:nowrap;">prop_ingest_context_t ctx</i>);<p>
+<br>
+<i class="ftype">typedef bool</i><br>
+<b class="fname">(*prop_ingest_handler_t)</b>(<i class="farg" style="white-space:nowrap;">prop_ingest_context_t</i>, <i class="farg" style="white-space:nowrap;">prop_object_t</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">prop_dictionary_ingest</b> function provides a convenient way to convert a property list into an arbitrary binary format or to extract values from dictionaries in a way that is convenient to an application (for configuration files, for example).<p>
+<b class="name">prop_dictionary_ingest</b> is driven by a table of rules provided by the application. Each rule consists of three items:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 1.00em;">
+A C string containing a key to be looked up in the dictionary.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+The expected property type of the object associated with the key (or <span class="define">PROP_TYPE_UNKNOWN</span> to specify that any type is allowed).</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+A callback function of type <span class="define">prop_ingest_handler_t</span> that will perform the translation for the application.</li>
+</ul>
+<p>
+The table is constructed using a series of macros as follows:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+static const prop_ingest_table_entry ingest_rules[] = { 
+	PROP_INGEST("file-name", PROP_TYPE_STRING, ingest_filename), 
+	PROP_INGEST("count", PROP_TYPE_NUMBER, ingest_count), 
+	PROP_INGEST_OPTIONAL("required", PROP_TYPE_BOOL, ingest_required), 
+	PROP_INGEST_OPTIONAL("extra", PROP_TYPE_UNKNOWN, ingest_extra), 
+	PROP_INGEST_END 
+};</pre>
+<p>
+The <span class="define">PROP_INGEST</span> macro specifies that the key is required to be present in the dictionary. The <span class="define">PROP_INGEST_OPTIONAL</span> macro specifies that the presence of the key in the dictionary is optional. The <span class="define">PROP_INGEST_END</span> macro marks the end of the rules table.<p>
+In each case, <b class="name">prop_dictionary_ingest</b> looks up the rule's key in the dictionary. If an object is present in the dictionary at that key, its type is checked against the type specified in the rule. A type specification of <span class="define">PROP_TYPE_UNKNOWN</span> allows the object to be of any type. If the object does not exist and the rule is not marked as optional, then an error is returned. Otherwise, the handler specified in the rule is invoked with the ingest context and the object (or <span class="define">NULL</span> if the key does not exist in the dictionary). The handler should return <span class="define">false</span> if the value of the object is invalid to indicate failure and <span class="define">true</span> otherwise.<p>
+The ingest context contains several pieces of information that are useful during the ingest process. The context also provides specific error information should the ingest fail.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">prop_ingest_context_alloc</b>(<i class="farg">void *private</i>)</dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Allocate an ingest context. The argument <i class="farg">private</i> may be used to pass application-specific context to the ingest handlers. Note that an ingest context can be re-used to perform multiple ingests. Returns <span class="define">NULL</span> on failure.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">prop_ingest_context_free</b>(<i class="farg">prop_ingest_context_t ctx</i>)</dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Free an ingest context.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">prop_ingest_context_error</b>(<i class="farg">prop_ingest_context_t ctx</i>)</dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Returns the code indicating the error encountered during ingest. The following error codes are defined:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PROP_INGEST_ERROR_NO_ERROR</span></dt>
+<dd class="list-tag" style="margin-left: 32.00ex;">
+No error was encountered during ingest.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PROP_INGEST_ERROR_NO_KEY</span></dt>
+<dd class="list-tag" style="margin-left: 32.00ex;">
+A non-optional key was not found in the dictionary.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PROP_INGEST_ERROR_WRONG_TYPE</span></dt>
+<dd class="list-tag" style="margin-left: 32.00ex;">
+An object in the dictionary was not the same type specified in the rules.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PROP_INGEST_ERROR_HANDLER_FAILED</span></dt>
+<dd class="list-tag" style="margin-left: 32.00ex;">
+An object's handler returned <span class="define">false</span>.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">prop_ingest_context_type</b>(<i class="farg">prop_ingest_context_t ctx</i>)</dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Returns the type of the last object visited during an ingest. When called by an ingest handler, it returns the type of the object currently being processed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">prop_ingest_context_key</b>(<i class="farg">prop_ingest_context_t ctx</i>)</dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Returns the last dictionary key looked up during an ingest. When called by an ingest handler, it returns the dictionary key corresponding to the object currently being processed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">prop_ingest_context_private</b>(<i class="farg">prop_ingest_context_t ctx</i>)</dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Returns the private data set when the context was allocated with <b class="fname">prop_ingest_context_alloc</b>().</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../3/prop_dictionary">prop_dictionary(3)</a>, <a class="link-man" href="../3/proplib">proplib(3)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">proplib</b> property container object library first appeared in <span class="unix">NetBSD&#160;4.0</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+January 21, 2008</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

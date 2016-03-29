@@ -1,0 +1,204 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+HOSTS_OPTIONS(5)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+HOSTS_OPTIONS(5)</td>
+<td class="head-vol" align="center">
+File Formats Manual</td>
+<td class="head-rtitle" align="right">
+HOSTS_OPTIONS(5)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> hosts_options &#45; host access control language extensions</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This document describes optional extensions to the language described in the hosts_access(5) document. The extensions are enabled at program build time. For example, by editing the Makefile and turning on the PROCESS_OPTIONS compile-time option.<p>
+The extensible language uses the following format:<div style="height: 1.00em;">
+&#160;</div>
+daemon_list : client_list : option : option ...<p>
+The first two fields are described in the hosts_access(5) manual page. The remainder of the rules is a list of zero or more options. Any ":" characters within options should be protected with a backslash.<p>
+An option is of the form "keyword" or "keyword value". Options are processed in the specified order. Some options are subjected to %&lt;letter&gt; substitutions. For the sake of backwards compatibility with earlier versions, an "=" is permitted between keyword and value.</div>
+<div class="section">
+<h1>LOGGING</h1><dl>
+<dt>
+severity mail.info</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+severity notice</dt>
+<dd>
+Change the severity level at which the event will be logged. Facility names (such as mail) are optional, and are not supported on systems with older syslog implementations. The severity option can be used to emphasize or to ignore specific events.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>ACCESS CONTROL</h1><dl>
+<dt>
+allow</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+deny</dt>
+<dd>
+Grant (deny) service. These options must appear at the end of a rule.</dd>
+</dl>
+<p>
+The <i>allow</i> and <i>deny</i> keywords make it possible to keep all access control rules within a single file, for example in the  <i>hosts.allow</i> file.<div style="height: 1.00em;">
+&#160;</div>
+To permit access from specific hosts only:<div style="height: 1.00em;">
+&#160;</div>
+ALL: .friendly.domain: ALLOW ALL: ALL: DENY<div style="height: 1.00em;">
+&#160;</div>
+To permit access from all hosts except a few trouble makers:<div style="height: 1.00em;">
+&#160;</div>
+ALL: .bad.domain: DENY ALL: ALL: ALLOW<div style="height: 1.00em;">
+&#160;</div>
+Notice the leading dot on the domain name patterns.</div>
+<div class="section">
+<h1>RUNNING OTHER COMMANDS</h1><dl>
+<dt>
+spawn shell_command</dt>
+<dd>
+Execute, in a child process, the specified shell command, after performing the %&lt;letter&gt; expansions described in the hosts_access(5) manual page. The command is executed with stdin, stdout and stderr connected to the null device, so that it won&#769;t mess up the conversation with the client host. Example:<div style="height: 1.00em;">
+&#160;</div>
+<br>
+spawn (/some/where/safe_finger -l @%h | /usr/ucb/mail root) &amp;<br>
+<div style="height: 1.00em;">
+&#160;</div>
+executes, in a background child process, the shell command "safe_finger -l @%h | mail root" after replacing %h by the name or address of the remote host.<div style="height: 1.00em;">
+&#160;</div>
+The example uses the "safe_finger" command instead of the regular "finger" command, to limit possible damage from data sent by the finger server. The "safe_finger" command is part of the daemon wrapper package; it is a wrapper around the regular finger command that filters the data sent by the remote host.</dd>
+</dl>
+<dl>
+<dt>
+twist shell_command</dt>
+<dd>
+Replace the current process by an instance of the specified shell command, after performing the %&lt;letter&gt; expansions described in the hosts_access(5) manual page. Stdin, stdout and stderr are connected to the client process. This option must appear at the end of a rule.<div style="height: 1.00em;">
+&#160;</div>
+To send a customized bounce message to the client instead of running the real ftp daemon:<div style="height: 1.00em;">
+&#160;</div>
+<br>
+in.ftpd : ... : twist /bin/echo 421 Some bounce message<br>
+<div style="height: 1.00em;">
+&#160;</div>
+For an alternative way to talk to client processes, see the  <i>banners</i> option below.<div style="height: 1.00em;">
+&#160;</div>
+To run /some/other/in.telnetd without polluting its command-line array or its process environment:<div style="height: 1.00em;">
+&#160;</div>
+<br>
+in.telnetd : ... : twist PATH=/some/other; exec in.telnetd<br>
+<div style="height: 1.00em;">
+&#160;</div>
+Warning:  in case of UDP services, do not twist to commands that use the standard I/O or the read(2)/write(2) routines to communicate with the client process; UDP requires other I/O primitives.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>NETWORK OPTIONS</h1><dl>
+<dt>
+keepalive</dt>
+<dd>
+Causes the server to periodically send a message to the client. The connection is considered broken when the client does not respond. The keepalive option can be useful when users turn off their machine while it is still connected to a server. The keepalive option is not useful for datagram (UDP) services.</dd>
+</dl>
+<dl>
+<dt>
+linger number_of_seconds</dt>
+<dd>
+Specifies how long the kernel will try to deliver not-yet delivered data after the server process closes a connection.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>USERNAME LOOKUP</h1><dl>
+<dt>
+rfc931 [ timeout_in_seconds ]</dt>
+<dd>
+Look up the client user name with the RFC 931 (TAP, IDENT, RFC 1413) protocol. This option is silently ignored in case of services based on transports other than TCP. It requires that the client system runs an RFC 931 (IDENT, etc.) -compliant daemon, and may cause noticeable delays with connections from non-UNIX clients. The timeout period is optional. If no timeout is specified a compile-time defined default value is taken.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>MISCELLANEOUS</h1><dl>
+<dt>
+banners /some/directory</dt>
+<dd>
+Look for a file in `/some/directory' with the same name as the daemon process (for example in.telnetd for the telnet service), and copy its contents to the client. Newline characters are replaced by carriage-return newline, and %&lt;letter&gt; sequences are expanded (see the hosts_access(5) manual page).<div style="height: 1.00em;">
+&#160;</div>
+The tcp wrappers source code distribution provides a sample makefile (Banners.Makefile) for convenient banner maintenance.<div style="height: 1.00em;">
+&#160;</div>
+Warning: banners are supported for connection-oriented (TCP) network services only.</dd>
+</dl>
+<dl>
+<dt>
+nice [ number ]</dt>
+<dd>
+Change the nice value of the process (default 10). Specify a positive value to spend more CPU resources on other processes.</dd>
+</dl>
+<dl>
+<dt>
+setenv name value</dt>
+<dd>
+Place a (name, value) pair into the process environment. The value is subjected to %&lt;letter&gt; expansions and may contain whitespace (but leading and trailing blanks are stripped off).<div style="height: 1.00em;">
+&#160;</div>
+Warning: many network daemons reset their environment before spawning a login or shell process.</dd>
+</dl>
+<dl>
+<dt>
+umask 022</dt>
+<dd>
+Like the umask command that is built into the shell. An umask of 022 prevents the creation of files with group and world write permission. The umask argument should be an octal number.</dd>
+</dl>
+<dl>
+<dt>
+user nobody</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+user nobody.kmem</dt>
+<dd>
+Assume the privileges of the "nobody" userid (or user "nobody", group "kmem"). The first form is useful with inetd implementations that run all services with root privilege. The second form is useful for services that need special group privileges only.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>DIAGNOSTICS</h1> When a syntax error is found in an access control rule, the error is reported to the syslog daemon; further options will be ignored, and service is denied.</div>
+<div class="section">
+<h1>SEE ALSO</h1> hosts_access(3) hosts_access(5), the default access control language</div>
+<div class="section">
+<h1>AUTHOR</h1><br>
+Wietse Venema (wietse@wzv.win.tue.nl)<br>
+Department of Mathematics and Computing Science<br>
+Eindhoven University of Technology<br>
+Den Dolech 2, P.O. Box 513,<br>
+5600 MB Eindhoven, The Netherlands<p>
+</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tr>
+<td class="foot-date">
+</td>
+<td class="foot-os" align="right">
+</td>
+</tr>
+</table>
+</div>
+</body>
+<>
+

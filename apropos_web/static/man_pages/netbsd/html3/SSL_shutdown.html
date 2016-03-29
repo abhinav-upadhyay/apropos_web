@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+SSL_shutdown(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SSL_shutdown(3)</td>
+<td class="head-vol" align="center">
+OpenSSL</td>
+<td class="head-rtitle" align="right">
+SSL_shutdown(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> SSL_shutdown &#45; shut down a TLS/SSL connection</div>
+<div class="section">
+<h1>LIBRARY</h1> libcrypto, -lcrypto</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br>
+ #include &lt;openssl/ssl.h&gt;<br>
+<br>
+ int SSL_shutdown(SSL *ssl);<br>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <i>SSL_shutdown()</i> shuts down an active TLS/SSL connection. It sends the "close notify" shutdown alert to the peer.</div>
+<div class="section">
+<h1>NOTES</h1>  <i>SSL_shutdown()</i> tries to send the "close notify" shutdown alert to the peer. Whether the operation succeeds or not, the SSL_SENT_SHUTDOWN flag is set and a currently open session is considered closed and good and will be kept in the session cache for further reuse.<p>
+The shutdown procedure consists of 2 steps: the sending of the "close notify" shutdown alert and the reception of the peer's "close notify" shutdown alert. According to the TLS standard, it is acceptable for an application to only send its shutdown alert and then close the underlying connection without waiting for the peer's response (this way resources can be saved, as the process can already terminate or serve another connection). When the underlying connection shall be used for more communications, the complete shutdown procedure (bidirectional "close notify" alerts) must be performed, so that the peers stay synchronized.<p>
+<i>SSL_shutdown()</i> supports both uni&#45; and bidirectional shutdown by its 2 step behaviour.<dl>
+<dt>
+When the application is the first party to send the "close notify" alert, <i>SSL_shutdown()</i> will only send the alert and then set the SSL_SENT_SHUTDOWN flag (so that the session is considered good and will be kept in cache). <i>SSL_shutdown()</i> will then return with 0. If a unidirectional shutdown is enough (the underlying connection shall be closed anyway), this first call to <i>SSL_shutdown()</i> is sufficient. In order to complete the bidirectional shutdown handshake, <i>SSL_shutdown()</i> must be called again. The second call will make <i>SSL_shutdown()</i> wait for the peer's "close notify" shutdown alert. On success, the second call to <i>SSL_shutdown()</i> will return with 1.</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+If the peer already sent the "close notify" alert <b>and</b> it was already processed implicitly inside another function (<i>SSL_read</i>(3)), the SSL_RECEIVED_SHUTDOWN flag is set. <i>SSL_shutdown()</i> will send the "close notify" alert, set the SSL_SENT_SHUTDOWN flag and will immediately return with 1. Whether SSL_RECEIVED_SHUTDOWN is already set can be checked using the <i>SSL_get_shutdown()</i> (see also <i>SSL_set_shutdown</i>(3) call.</dt>
+<dd>
+</dd>
+</dl>
+<p>
+It is therefore recommended, to check the return value of <i>SSL_shutdown()</i> and call  <i>SSL_shutdown()</i> again, if the bidirectional shutdown is not yet complete (return value of the first call is 0). As the shutdown is not specially handled in the SSLv2 protocol,  <i>SSL_shutdown()</i> will succeed on the first call.<p>
+The behaviour of <i>SSL_shutdown()</i> additionally depends on the underlying BIO. <p>
+If the underlying BIO is <b>blocking</b>, <i>SSL_shutdown()</i> will only return once the handshake step has been finished or an error occurred.<p>
+If the underlying BIO is <b>non-blocking</b>, <i>SSL_shutdown()</i> will also return when the underlying BIO could not satisfy the needs of  <i>SSL_shutdown()</i> to continue the handshake. In this case a call to  <i>SSL_get_error()</i> with the return value of  <i>SSL_shutdown()</i> will yield <b>SSL_ERROR_WANT_READ</b> or  <b>SSL_ERROR_WANT_WRITE</b>. The calling process then must repeat the call after taking appropriate action to satisfy the needs of  <i>SSL_shutdown()</i>. The action depends on the underlying BIO. When using a non-blocking socket, nothing is to be done, but  <i>select()</i> can be used to check for the required condition. When using a buffering BIO, like a BIO pair, data must be written into or retrieved out of the BIO before being able to continue.<p>
+<i>SSL_shutdown()</i> can be modified to only set the connection to "shutdown" state but not actually send the "close notify" alert messages, see  <i>SSL_CTX_set_quiet_shutdown</i>(3). When "quiet shutdown" is enabled,  <i>SSL_shutdown()</i> will always succeed and return 1.</div>
+<div class="section">
+<h1>RETURN VALUES</h1> The following return values can occur:<dl>
+<dt>
+0</dt>
+<dd>
+The shutdown is not yet finished. Call <i>SSL_shutdown()</i> for a second time, if a bidirectional shutdown shall be performed. The output of  <i>SSL_get_error</i>(3) may be misleading, as an erroneous SSL_ERROR_SYSCALL may be flagged even though no error occurred.</dd>
+</dl>
+<dl>
+<dt>
+1</dt>
+<dd>
+The shutdown was successfully completed. The "close notify" alert was sent and the peer's "close notify" alert was received.</dd>
+</dl>
+<dl>
+<dt>
+&#45;1</dt>
+<dd>
+The shutdown was not successful because a fatal error occurred either at the protocol level or a connection failure occurred. It can also occur if action is need to continue the operation for non-blocking BIOs. Call  <i>SSL_get_error</i>(3) with the return value <b>ret</b> to find out the reason.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <i>SSL_get_error</i>(3), <i>SSL_connect</i>(3),  <i>SSL_accept</i>(3), <i>SSL_set_shutdown</i>(3),  <i>SSL_CTX_set_quiet_shutdown</i>(3),  <i>SSL_clear</i>(3), <i>SSL_free</i>(3),  <i>ssl</i>(3), <i>openssl_bio</i>(3)</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tr>
+<td class="foot-date">
+2014-06-05</td>
+<td class="foot-os" align="right">
+1.0.1n</td>
+</tr>
+</table>
+</div>
+</body>
+<>
+

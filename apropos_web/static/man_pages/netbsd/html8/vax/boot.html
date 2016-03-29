@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../../style.css" type="text/css" media="all">
+<title>
+BOOT(8) (VAX)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+BOOT(8)</td>
+<td class="head-vol" align="center">
+System Manager's Manual (VAX)</td>
+<td class="head-rtitle" align="right">
+BOOT(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">boot</b> &#8212; <span class="desc">system bootstrapping procedures</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1><div class="subsection">
+<h2 id="x506f776572206661696c20616e64206372617368207265636f76657279">Power fail and crash recovery</h2> Normally, the system will reboot itself at power-up or after crashes. Provided the auto-restart is enabled on the machine front panel, an automatic consistency check of the file systems will be performed, and unless this fails, the system will resume multi-user operations.</div>
+<div class="subsection">
+<h2 id="x436f6c6420737461727473">Cold starts</h2> These are processor-type dependent. On an 11/780, there are two floppy files for each disk controller, both of which cause boots from unit 0 of the root file system of a controller located on mba0 or uba0. One gives a single user shell, while the other invokes the multi-user automatic reboot. Thus these files are HPS and HPM for the single and multi-user boot from MASSBUS RP06/RM03/RM05 disks, UPS and UPM for UNIBUS storage module controller and disks such as the EMULEX SC-21 and AMPEX 9300 pair, RAS and RAM to boot from MSCP controllers and disks such as the RA81, or HKS and HKM for RK07 disks. There is also a script for booting from the default device, which is normally a copy of one of the standard multi-user boot scripts, but which may be modified to perform other actions or to boot from a different unit. The situation on the 8600 is similar, with scripts loaded from the console RL02.<p>
+Giving the command<p>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">&gt;&gt;&gt;BOOT HPM</code></div>
+</blockquote>
+<p>
+would boot the system from (e.g.) an RP06 and run the automatic consistency check as described in <a class="link-man" href="../../8/fsck">fsck(8)</a>. (Note that it may be necessary to type control-P and halt the processor to gain the attention of the LSI-11 before getting the &gt;&gt;&gt; prompt.) The command<p>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">&gt;&gt;&gt;BOOT ANY</code></div>
+</blockquote>
+<p>
+invokes a version of the boot program in a way which allows you to specify any system as the system to be booted. It reads from the console a device specification (see below) followed immediately by a pathname.<p>
+The scripts may be modified for local configuration if necessary. The flags are placed in register 11 (as defined in <b class="includes">&lt;<a class="link-includes">sys/reboot.h</a>&gt;</b>). The boot device is specified in register 10. The encoding of this register is also defined in <b class="includes">&lt;<a class="link-includes">sys/reboot.h</a>&gt;</b>. The current encoding has a historical basis, and is shown in the following table:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+bits	usage 
+0-7	boot device type (the device major number) 
+8-15	disk partition 
+16-19	drive unit 
+20-23	controller number 
+24-27	adaptor number (UNIBUS or MASSBUS as appropriate)</pre>
+<p>
+The adaptor number corresponds to the normal configuration on the 11/750, and to the order in which adaptors are found on the 11/780 and 8600 (generally the same as the numbers used by <span class="unix">UNIX</span>).<p>
+On an 11/750, the reset button will boot from the device selected by the front panel boot device switch. In systems with RK07's, position B normally selects the RK07 for boot. This will boot multi-user. To boot from RK07 with boot flags you may specify<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+<code class="lit">&gt;&gt;&gt;B/</code><b class="flag">&#45;n</b> DMA0</pre>
+<p>
+where, giving a <i class="arg">n</i> of 1 causes the boot program to ask for the name of the system to be bootstrapped, giving a <i class="arg">n</i> of 2 causes the boot program to come up single user, and a <i class="arg">n</i> of 3 causes both of these actions to occur. The ``DM'' specifies RK07, the ``A'' represents the adaptor number (UNIBUS or MASSBUS), and the ``0'' is the drive unit number. Other disk types which may be used are DB (MASSBUS), DD (TU58), and DU (UDA-50/RA disk). A non-zero disk partition can be used by adding (partition times 1000 hex) to <i class="arg">n</i>.<p>
+The boot procedure on the Micro VAX II is similar. A switch on the back panel sets the power-up action to autoboot or to halt. When halted, the processor may be booted using the same syntax as on the 11/750.<p>
+The 11/750 boot procedure uses the boot ROMs to load block 0 off of the specified device. The <i class="file">/usr/mdec</i> directory contains a number of bootstrap programs for the various disks which should be placed in a new pack by <a class="link-man" href="../../8/disklabel">disklabel(8)</a>. Similarly, the Micro VAX II boot procedure loads a boot parameter block from block 0 of the disk. The <b class="cmd">rdboot</b> &#8220;bootstrap&#8221; contains the correct parameters for an MSCP disk such as the RD53.<p>
+On any processor, the <span class="emph">boot</span> program finds the corresponding file on the given device (<i class="file">netbsd</i> by default), loads that file into memory location zero, and starts the program at the entry address specified in the program header (after clearing off the high bit of the specified entry address).<p>
+The file specifications used with &#8220;BOOT ANY&#8221; or &#8220;B/3&#8221; are of the form:<p>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">device(adaptor,controller,unit,minor)</code></div>
+</blockquote>
+<p>
+where <i class="arg">device</i> is the type of the device to be searched, <i class="arg">adaptor</i> is the UNIBUS or MASSBUS number of the adaptor to which the device is attached, <i class="arg">controller</i> is the unit number of the controller or MASSBUS tape formatter on that adaptor, <i class="arg">unit</i> is the unit number of the disk or transport slave unit of the tape, and <i class="arg">minor</i> is the disk partition or tape file number. Leading adaptor or controller numbers default to 0. Normal line editing characters can be used when typing the file specification. The following list of supported devices may vary from installation to installation:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+hp	MASSBUS disk drive 
+up	UNIBUS storage module drive 
+ht	TE16,TU45,TU77 on MASSBUS 
+kra	storage module on a KDB50 
+mt	TU78 on MASSBUS 
+hk	RK07 on UNIBUS 
+ra	storage module on a MSCP-compatible UNIBUS controller 
+rb	storage module on a 730 IDC 
+rl	RL02 on UNIBUS 
+tm	TM11 emulation tape drives on UNIBUS 
+tms	TMSCP-compatible tape 
+ts	TS11 on UNIBUS 
+ut	UNIBUS TU45 emulator</pre>
+<p>
+For example, to boot from a file system which starts at cylinder 0 of unit 0 of a MASSBUS disk, type &#8216;<code class="lit">hp(0,0)netbsd</code>&#8217; to the boot prompt; &#8216;<code class="lit">hp(2,0,1,0)netbsd</code>&#8217; would specify drive 1 on MASSBUS adaptor 2; &#8216;<code class="lit">up(0,0)netbsd</code>&#8217; would specify a UNIBUS drive, &#8216;<code class="lit">hk(0,0)netbsd</code>&#8217; would specify an RK07 disk drive, &#8216;<code class="lit">ra(1,0,0,0)netbsd</code>&#8217; would specify a UDA50 disk drive on a second UNIBUS, and &#8216;<code class="lit">rb(0,0)netbsd</code>&#8217; would specify a disk on a 730 IDC. For tapes, the minor device number gives a file offset; &#8216;<code class="lit">mt(1,2,3,4)</code>&#8217; would specify the fifth file on slave 3 of the formatter at &#8216;<code class="lit">drive</code>&#8217; 2 on mba 1.<p>
+On an 11/750 with patchable control store, microcode patches will be installed by <span class="emph">boot</span> if the file <i class="file">psc750.bin</i> exists in the root of the filesystem from which the system is booted.<p>
+In an emergency, the bootstrap methods described in the paper <span class="ref-title">Installing and Operating 4.3bsd</span> can be used to boot from a distribution tape.</div>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/netbsd</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+system code</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/boot</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+system bootstrap</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/usr/mdec/xxboot</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+sector-0 boot block for 750, xx is disk type</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/usr/mdec/bootxx</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+second-stage boot for 750, xx is disk type</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/pcs750.bin</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+microcode patch file on 750</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../../8/arff">arff(8)</a>, <a class="link-man" href="../../8/halt">halt(8)</a>, <a class="link-man" href="../../8/reboot">reboot(8)</a>, <a class="link-man" href="../../8/shutdown">shutdown(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">boot</b> command appeared in <span class="unix">4.0BSD</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+April 19, 1994</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

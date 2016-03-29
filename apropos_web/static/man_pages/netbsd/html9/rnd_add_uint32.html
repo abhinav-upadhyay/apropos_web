@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+RND(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+RND(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+RND(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">RND</b>, <b class="name">rnd_attach_source</b>, <b class="name">rnd_detach_source</b>, <b class="name">rnd_add_data</b>, <b class="name">rnd_add_uint32</b> &#8212; <span class="desc">functions to make a device available for entropy collection</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/rndsource.h</a>&gt;</b><p>
+<i class="ftype">void</i><br>
+<b class="fname">rnd_attach_source</b>(<i class="farg" style="white-space:nowrap;">krndsource_t *rnd_source</i>, <i class="farg" style="white-space:nowrap;">char *devname</i>, <i class="farg" style="white-space:nowrap;">uint32_t source_type</i>, <i class="farg" style="white-space:nowrap;">uint32_t flags</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">rnd_detach_source</b>(<i class="farg" style="white-space:nowrap;">krndsource_t *rnd_source</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">rnd_add_data</b>(<i class="farg" style="white-space:nowrap;">krndsource_t *rnd_source</i>, <i class="farg" style="white-space:nowrap;">void *data</i>, <i class="farg" style="white-space:nowrap;">uint32_t len</i>, <i class="farg" style="white-space:nowrap;">uint32_t entropy</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">rnd_add_uint32</b>(<i class="farg" style="white-space:nowrap;">krndsource_t *rnd_source</i>, <i class="farg" style="white-space:nowrap;">uint32_t datum</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> These <b class="name">RND</b> functions make a device available for entropy collection for the kernel entropy pool, which provides key material for the <a class="link-man" href="../9/cprng">cprng(9)</a> and <a class="link-man" href="../4/rnd">rnd(4)</a> (<i class="file">/dev/random</i>) interfaces.<p>
+Ideally the first argument <i class="farg">rnd_source</i> of these functions gets included in the devices' entity struct, but any means to permanently (statically) attach one such argument to one incarnation of the device is ok. Do not share <i class="farg">rnd_source</i> structures between two devices.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">rnd_attach_source</b>(<i class="farg">krndsource_t *rnd_source</i>, <i class="farg">char *devname</i>, <i class="farg">uint32_t source_type</i>, <i class="farg">uint32_t flags</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+This function announces the availability of a device for entropy collection. It must be called before the source struct pointed to by <i class="farg">rnd_source</i> is used in any of the following functions.<p>
+<i class="farg">devname</i> is the name of the device. It is used to print a message (if the kernel is compiled with ``options RND_VERBOSE'') and also for status information printed with <a class="link-man" href="../8/rndctl">rndctl(8)</a>.<p>
+<i class="farg">source_type</i> is <span class="define">RND_TYPE_NET</span> for network devices, <span class="define">RND_TYPE_DISK</span> for physical disks, <span class="define">RND_TYPE_TAPE</span> for a tape drive, <span class="define">RND_TYPE_TTY</span> for a tty, <span class="define">RND_TYPE_RNG</span> for a random number generator, and <span class="define">RND_TYPE_ENV</span> for an environment sensor. <span class="define">RND_TYPE_UNKNOWN</span> is not to be used as a type. It is used internally to the rnd system.<p>
+<i class="farg">flags</i> are the logical OR of <span class="define">RND_FLAG_COLLECT_VALUE</span> (mix data provided by this source into the pool) <span class="define">RND_FLAG_COLLECT_TIME</span> (mix timestamps from this source into the pool) <span class="define">RND_FLAG_ESTIMATE_VALUE</span> (use a delta estimator to count bits of entropy from this source's data towards the pool estimate) <span class="define">RND_FLAG_ESTIMATE_TIME</span> (use a delta estimator to count bits of entropy from this source's timestamps towards the pool estimate). For many devices, <span class="define">RND_FLAG_DEFAULT</span> (<span class="define">RND_FLAG_COLLECT_VALUE</span> | <span class="define">RND_FLAG_COLLECT_TIME</span> | <span class="define">RND_FLAG_ESTIMATE_TIME</span>) is the best choice. Note that devices of type <span class="define">RND_TYPE_NET</span> default to <span class="define">RND_FLAG_COLLECT_VALUE</span> | <span class="define">RND_FLAG_COLLECT_TIME</span> (no entropy counted).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">rnd_detach_source</b>(<i class="farg">krndsource_t *rnd_source</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+This function disconnects the device from entropy collection.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">rnd_add_uint32</b>(<i class="farg">krndsource_t *rnd_source</i>, <i class="farg">uint32_t datum</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+This function adds the value of <b class="var">datum</b> to the entropy pool. No entropy is assumed to be collected from this value, it merely helps stir the entropy pool. All entropy is gathered from jitter between the timing of events.<p>
+Note that using a constant for <b class="var">datum</b> does not weaken security, but it does not help. Try to use something that can change, such as an interrupt status register which might have a bit set for receive ready or transmit ready, or other device status information.<p>
+To allow the system to gather the timing information accurately, this call should be placed within the actual hardware interrupt service routine. Care must be taken to ensure that the interrupt was actually serviced by the interrupt handler, since on some systems interrupts can be shared.<p>
+This function loses nearly all usefulness if it is called from a scheduled software interrupt. If that is the only way to add the device as an entropy source, don't.<p>
+If it is desired to mix in the <b class="var">datum</b> and to add in a timestamp, but not to actually estimate entropy from a source of randomness, passing <span class="define">NULL</span> for <b class="var">rnd_source</b> is permitted, and the device does not need to be attached.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">rnd_add_data</b>(<i class="farg">krndsource_t *rnd_source</i>, <i class="farg">void *data</i>, <i class="farg">uint32_t len</i>, <i class="farg">uint32_t entropy</i>)</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+adds (hopefully) random <i class="farg">data</i> to the entropy pool. <i class="farg">len</i> is the number of bytes in <i class="farg">data</i> and <i class="farg">entropy</i> is an "entropy quality" measurement. If every bit of <i class="farg">data</i> is known to be random, <i class="farg">entropy</i> is the number of bits in <i class="farg">data</i>.<p>
+Timing information is also used to add entropy into the system, using inter-event timings.<p>
+If it is desired to mix in the <b class="var">data</b> and to add in a timestamp, but not to actually estimate entropy from a source of randomness, passing <span class="define">NULL</span> for <b class="var">rnd_source</b> is permitted, and the device does not need to be attached.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x494e5445524e414c20454e54524f505920504f4f4c204d414e4147454d454e54">INTERNAL ENTROPY POOL MANAGEMENT</h1> When a hardware event occurs (such as completion of a hard drive transfer or an interrupt from a network device) a timestamp is generated. This timestamp is compared to the previous timestamp recorded for the device, and the first, second, and third order differentials are calculated.<p>
+If any of these differentials is zero, no entropy is assumed to have been gathered. If all are non-zero, one bit is assumed. Next, data is mixed into the entropy pool using an LFSR (linear feedback shift register).<p>
+To extract data from the entropy pool, a cryptographically strong hash function is used. The output of this hash is mixed back into the pool using the LFSR, and then folded in half before being returned to the caller.<p>
+Mixing the actual hash into the pool causes the next extraction to return a different value, even if no timing events were added to the pool. Folding the data in half prevents the caller to derive the actual hash of the pool, preventing some attacks.<p>
+In the <span class="unix">NetBSD</span> kernel, values should be extracted from the entropy pool <span class="emph">only</span> via the <a class="link-man" href="../9/cprng">cprng(9)</a> interface. Direct access to the entropy pool is unsupported and may be dangerous. There is no supported API for direct access to the output of the entropy pool.</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1> These functions are declared in src/sys/sys/rndsource.h and defined in src/sys/kern/kern_rndq.c.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../4/rnd">rnd(4)</a>, <a class="link-man" href="../8/rndctl">rndctl(8)</a>, <a class="link-man" href="../9/cprng">cprng(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The random device was introduced in <span class="unix">NetBSD&#160;1.3</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> This implementation was written by <span class="author">Michael Graff</span> &#60;<a class="link-mail" href="mailto:explorer@flame.org">explorer@flame.org</a>&#62; using ideas and algorithms gathered from many sources, including the driver written by Ted Ts'o.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> The only good sources of randomness are quantum mechanical, and most computers avidly avoid having true sources of randomness included. Don't expect to surpass "pretty good".</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+August 10, 2014</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

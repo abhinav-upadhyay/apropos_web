@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+RUMP_LWPROC(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+RUMP_LWPROC(3)</td>
+<td class="head-vol" align="center">
+Library Functions Manual</td>
+<td class="head-rtitle" align="right">
+RUMP_LWPROC(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">rump_lwproc</b> &#8212; <span class="desc">rump kernel process/lwp management</span></div>
+<div class="section">
+<h1 id="x4c494252415259">LIBRARY</h1> rump kernel (librump, &#45;lrump)</div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">rump/rump.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">rump_pub_lwproc_rfork</b>(<i class="farg" style="white-space:nowrap;">int flags</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">rump_pub_lwproc_newlwp</b>(<i class="farg" style="white-space:nowrap;">pid_t pid</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">rump_pub_lwproc_switch</b>(<i class="farg" style="white-space:nowrap;">struct lwp *l</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">rump_pub_lwproc_releaselwp</b>();<p>
+<i class="ftype">struct lwp *</i><br>
+<b class="fname">rump_pub_lwproc_curlwp</b>();</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> In a normal operating system model a process is a resource container and a thread (lwp) is the execution context. Every lwp is associated with exactly one process, and a process is associated with one or more lwps. The current lwp (curlwp) indicates the current process and determines which resources, such as UID/GID, current working directory, and file descriptor table, are currently used. These basic principles apply to rump kernels as well, but since a rump kernel uses the host's thread and process context directly, the rules for how thread context is determined are different.<p>
+In the rump kernel model, each host thread (implemented for example with pthreads or green threads) is either bound to a rump kernel lwp or accesses the rump kernel with an implicit thread context associated with pid 1. An implicit thread context is created every time the rump kernel is entered and disbanded upon exit. While convenient for occasional calls, creating an implicit thread uses a shared resource which can become highly contended in a multithreaded situation. It is therefore recommended that dedicated threads are created.<p>
+The association between host threads and the rump kernel curlwp is left to the caller. It is possible to create a dedicated host thread for every rump kernel lwp or multiplex them on top of a single host thread. After rump kernel lwps have been created, switching curlwp is very cheap. In case multiple lwps/processes are created, it is the caller's responsibility to keep track of them and release them when they are no longer necessary. A rump kernel lwp will persist until it is explicitly released. A rump kernel process will persist until all of its lwps have been released, at which point the process is automatically released.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">rump_pub_lwproc_rfork</b>()</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Create a process, one lwp inside it and set curlwp to the new lwp. The <i class="arg">flags</i> parameter controls how file descriptors are inherited from the parent. By default (flags=0) file descriptors are shared. Other options are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">RUMP_RFFDG</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Copy file descriptors from parent. This is what <a class="link-man" href="../2/fork">fork(2)</a> does.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">RUMP_RFCFDG</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+File descriptors neither copied nor shared, i.e. new process does not have access to the parent's file descriptors.</dd>
+</dl>
+<p>
+This routine returns 0 for success or an errno indicating the reason for failure. The new process id can be retrieved in the normal fashion by calling <b class="fname">rump_sys_getpid</b>().</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">rump_pub_lwproc_newlwp</b>(<i class="farg">pid</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Create a new lwp attached to the process specified by <i class="farg">pid</i>. Sets curlwp to the new lwp. This routine returns 0 for success or an errno indicating the reason for failure.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">rump_pub_lwproc_switch</b>(<i class="farg">l</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Sets curlwp to <i class="farg">l</i>. In case the new thread is associated with a different process than the current one, the process context is also switched. The special value <span class="define">NULL</span> sets curlwp to implicit context. Switching to an already running lwp, i.e. attempting to use the same curlwp in two host threads simultaneously causes a fatal error.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">rump_pub_lwproc_releaselwp</b>()</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Release curlwp and set curlwp to implicit context. In case curlwp was the last thread inside the current process, the process container is also released. Calling this routine without a dedicated curlwp is a fatal error.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">rump_pub_lwproc_curlwp</b>()</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Returns curlwp or <span class="define">NULL</span> if the current context is an implicit context.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> <b class="fname">rump_pub_lwproc_rfork</b>() and <b class="fname">rump_pub_lwproc_newlwp</b>() return 0 on success or an errno indicating the reason for failure. <b class="fname">rump_pub_lwproc_curlwp</b>() returns curlwp or <span class="define">NULL</span> if the current context is an implicit context.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../2/getpid">getpid(2)</a>, <a class="link-man" href="../3/rump">rump(3)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> <b class="name">rump_lwproc</b> first appeared in <span class="unix">NetBSD&#160;6.0</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+October 27, 2014</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

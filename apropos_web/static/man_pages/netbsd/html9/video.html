@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+VIDEO(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+VIDEO(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+VIDEO(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">video</b> &#8212; <span class="desc">interface between low and high level video drivers</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">dev/video_if.h</a>&gt;</b><p>
+<i class="ftype">device_t</i><br>
+<b class="fname">video_attach_mi</b>(<i class="farg" style="white-space:nowrap;">const struct video_hw_if *hw_if</i>, <i class="farg" style="white-space:nowrap;">device_t hw_dev</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">video_submit_payload</b>(<i class="farg" style="white-space:nowrap;">device_t vl_dev</i>, <i class="farg" style="white-space:nowrap;">const struct video_payload *payload</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The video device driver is divided into a high level, machine independent layer, and a low level hardware dependent layer. The interface between these is the <i class="farg">video_hw_if</i> structure function pointers called by the video layer, and video layer functions called by the hardware driver.<p>
+The high level video driver attaches to the low level driver when the latter calls <i class="farg">video_attach_mi</i>. The <i class="farg">video_hw_if</i> struct is as shown below. <i class="farg">dev</i> is the device struct for the hardware device. Return value is the video layer device.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct video_hw_if { 
+	int	(*open)(void *, int); /* open hardware */ 
+	void	(*close)(void *);     /* close hardware */ 
+ 
+	const char *	(*get_devname)(void *); 
+ 
+	int	(*enum_format)(void *, uint32_t, struct video_format *); 
+	int	(*get_format)(void *, struct video_format *); 
+	int	(*set_format)(void *, struct video_format *); 
+	int	(*try_format)(void *, struct video_format *); 
+ 
+	int	(*start_transfer)(void *); 
+	int	(*stop_transfer)(void *); 
+ 
+	int	(*control_iter_init)(void *, struct video_control_iter *); 
+	int	(*control_iter_next)(void *, struct video_control_iter *); 
+	int	(*get_control_desc_group)(void *, 
+					  struct video_control_desc_group *); 
+	int	(*get_control_group)(void *, struct video_control_group *); 
+	int	(*set_control_group)(void *, const struct video_control_group *); 
+};</pre>
+<p>
+The upper layer of the video driver allocates buffers for video samples. The hardware driver submits data to the video layer with <i class="farg">video_submit_payload</i>. <i class="farg">vl_dev</i> is the video layer device returned by <i class="farg">video_attach_mi</i>.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct video_payload { 
+	const uint8_t	*data; 
+	size_t		size; 
+	int		frameno; 
+	bool		end_of_frame; 
+};</pre>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">data</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Pointer to the video data for this payload. This may only be a portion of the data in one video sample or frame.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">size</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Size in bytes of the video data in this payload</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">frameno</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Frame number to which this payload belongs. The hardware driver must toggle the frame number between 0 and 1 so the video layer can detect sample or frame boundaries.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">end_of_frame</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Optional end of frame marker. If the hardware layer sets this, the video layer can immediately pass the completed sample or frame to userspace rather than waiting for the next payload to toggle <i class="farg">frameno</i>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x48415244574152451e4c415945522046554e4354494f4e53">HARDWARE-LAYER FUNCTIONS</h1> The fields of <b class="var">video_hw_if</b> are described in some more detail below. Some fields are optional and can be set to <span class="define">NULL</span> if not needed.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">int open(void *hdl, int flags)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+optional, is called when the video device is opened. It should initialize the hardware for I/O. Every successful call to <b class="var">open</b> is matched by a call to <b class="var">close</b>. Return 0 on success, otherwise an error code.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">void close(void *hdl)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+optional, is called when the audio device is closed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">const char * get_devname(void *hdl)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+mandatory, returns a NUL-terminated string naming the device, e.g. a vendor and product model name.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">int enum_format(void *hdl, uint32_t index, struct video_format *format);</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+mandatory, called with an <b class="var">index</b> from 0 to <b class="var">max_index &#45; 1</b>. Fills <b class="var">format</b> with the format description at that index. Returns 0 on success, otherwise an error code.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">int get_format(void *hdl, struct video_format *format)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+mandatory, fills <b class="var">format</b> with the current video format. There should be a default format so this function works before and streaming has begun. Returns 0 on success, otherwise an error code.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">int set_format(void *hdl, struct video_format *format)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+mandatory, sets the format of the video stream based on <b class="var">format</b>. Fills <b class="var">format</b> with the actual format used which may not be the same as requested. Returns 0 on success, otherwise an error code.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">int try_format(void *hdl, struct video_format *format)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+optional, like <b class="var">set_format</b> but does not actually change the stream format, just checks what is available. Returns 0 on success, otherwise an error code.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">int start_transfer(void *hdl)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+mandatory, starts the capture of video frames. Incoming video data must be submitted to the video layer with repeated calls to <b class="fname">video_submit_payload</b>().</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">int stop_transfer(void *hdl)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">int control_iter_init(void *hdl, struct video_control_iter *)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Does nothing at this time.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">int control_iter_next(void *hdl, struct video_control_iter *)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Does nothing at this time.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">int get_control_group(void *hdl, struct video_control_group *)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">int set_control_group(void *hdl, struct video_control_group *)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../4/video">video(4)</a></div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <span class="author">Patrick Mahoney</span> &#60;<a class="link-mail" href="mailto:pat@polycrystal.org">pat@polycrystal.org</a>&#62;</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> Incomplete. Only supports a single video capture stream. Does not support output streams. Format handling may change in the future. Control handling may change. Current design requires copying all incoming video data.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+July 24, 2008</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

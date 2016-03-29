@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+MOUNT_PORTAL(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+MOUNT_PORTAL(8)</td>
+<td class="head-vol" align="center">
+System Manager's Manual</td>
+<td class="head-rtitle" align="right">
+MOUNT_PORTAL(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">mount_portal</b> &#8212; <span class="desc">mount the portal daemon</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1><table class="synopsis">
+<col style="width: 12.00ex;">
+<col>
+<tbody>
+<tr>
+<td>
+mount_portal</td>
+<td>
+&#91;<span class="opt"><b class="flag">&#45;o</b> <i class="arg">options</i></span>&#93; <i class="arg">/etc/portal.conf</i> <i class="arg">mount_point</i></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">mount_portal</b> command attaches an instance of the portal daemon to the global filesystem namespace. The conventional mount point is <i class="file">/p</i>. The directory specified by <i class="arg">mount_point</i> is converted to an absolute path before use. This command is normally executed by <a class="link-man" href="../8/mount">mount(8)</a> at boot time.<p>
+The options are as follows:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;o</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Options are specified with a <b class="flag">&#45;o</b> flag followed by a comma separated string of options. See the <a class="link-man" href="../8/mount">mount(8)</a> man page for possible options and their meanings.</dd>
+</dl>
+<p>
+The portal daemon provides an <span class="emph">open</span> service. Objects opened under the portal mount point are dynamically created by the portal daemon according to rules specified in the named configuration file. Using this mechanism allows descriptors such as sockets to be made available in the filesystem namespace.<p>
+The portal daemon works by being passed the full pathname of the object being opened. The daemon creates an appropriate descriptor according to the rules in the configuration file, and then passes the descriptor back to the calling process as the result of the open system call.</div>
+<div class="section">
+<h1 id="x4e414d455350414345">NAMESPACE</h1> By convention, the portal daemon divides the namespace into sub-namespaces, each of which handles objects of a particular type.<p>
+Currently, four sub-namespaces are implemented: <i class="file">tcp</i>, <i class="file">fs</i>, <i class="file">rfilter</i> and <i class="file">wfilter</i>. The <i class="file">tcp</i> namespace takes a hostname and a port (slash separated) and creates an open TCP/IP connection. The <i class="file">fs</i> namespace opens the named file, starting back at the root directory. This can be used to provide a controlled escape path from a chrooted environment.<p>
+The <i class="file">rfilter</i> and <i class="file">wfilter</i> namespaces open a pipe to a process, typically a data-filter such as compression or decompression programs. The <i class="file">rfilter</i> namespace opens a read-only pipe, while the <i class="file">wfilter</i> namespace opens a write-only pipe. See the <i class="link-sec"><a class="link-sec" href="#x4558414d504c4553">EXAMPLES</a></i> section below for more examples.</div>
+<div class="section">
+<h1 id="x434f4e46494755524154494f4e2046494c45">CONFIGURATION FILE</h1> The configuration file contains a list of rules. Each rule takes one line and consists of two or more whitespace separated fields. A hash (&#8220;#&#8221;) character causes the remainder of a line to be ignored. Blank lines are ignored.<p>
+The first field is a pathname prefix to match against the requested pathname. If a match is found, the second field tells the daemon what type of object to create. Subsequent fields are passed to the creation function.<p>
+The <i class="file">rfilter</i> and <i class="file">wfilter</i> namespaces have additional meanings for the remaining fields. The third field specifies a prefix that is to be stripped off of the passed name before passing it on to the pipe program. If the prefix does not match, no stripping is performed. The fourth argument specifies the program to use for the pipe. Any remaining fields are passed to the pipe program. If the string &#8220;<code class="lit">%s</code>&#8221; exists within these remaining fields, it will be replaced by the path after stripping is performed. If there is no field after the program name, &#8220;<code class="lit">%s</code>&#8221; will be assumed, to maintain similarity with the <i class="file">tcp</i> and <i class="file">fs</i> namespaces.</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/p/*</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> A tutorial and several examples are provided in <i class="file">/usr/share/examples/mount_portal</i>. The following is an example configuration file.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+# @(#)portal.conf	5.1 (Berkeley) 7/13/92 
+tcp/		tcp tcp/ 
+fs/		file fs/ 
+echo/		rfilter	echo/	echo %s 
+echo_nostrip/	rfilter	nostrip	echo %s 
+echo_noslash    rfilter echo_noslash    echo %s 
+gzcat/		rfilter gzcat/ gzcat %s 
+gzip/		wfilter	gzip/	gzip &gt; %s 
+gzip9/		wfilter	gzip9/	gzip -9 &gt; %s 
+ftp/		rfilter	ftp/	ftp -Vo - %s 
+ftp://		rfilter	nostrip	ftp -Vo - %s 
+http://		rfilter	nostrip	ftp -Vo - %s 
+bzcat/		rfilter	bzcat/	bzcat %s 
+nroff/		rfilter	nroff/	nroff -man %s</pre>
+<p>
+As is true with many other filesystems, a weird sense of humor is handy.<p>
+Notice that after the keynames, like nroff/ and bzcat/, we typically use another slash. In reality, the <b class="name">mount_portal</b> process changes directory to <i class="file">/</i>, which makes the subsequent slash unnecessary. However, the extra slash provides a visual hint that we are not operating on an ordinary file. An alternative would be to change the configuration file to something like:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+nroff%	rfilter	nroff%	nroff -man</pre>
+<p>
+One might then use<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+less /p/nroff%/usr/share/man/man8/mount_portal.8</pre>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../2/mount">mount(2)</a>, <a class="link-man" href="../2/unmount">unmount(2)</a>, <a class="link-man" href="../5/fstab">fstab(5)</a>, <a class="link-man" href="../8/mount">mount(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">mount_portal</b> utility first appeared in <span class="unix">4.4BSD</span>. The <i class="file">rfilter</i> and <i class="file">wfilter</i> capabilities first appeared in <span class="unix">NetBSD&#160;1.5</span>. The portal kernel driver was removed and <b class="name">mount_portal</b> was converted to use <a class="link-man" href="../3/puffs">puffs(3)</a> in <span class="unix">NetBSD&#160;6.0</span>.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> This filesystem may not be NFS-exported.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+December 5, 2009</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

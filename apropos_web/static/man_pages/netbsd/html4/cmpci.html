@@ -1,0 +1,141 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+CMPCI(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+CMPCI(4)</td>
+<td class="head-vol" align="center">
+Kernel Interfaces Manual</td>
+<td class="head-rtitle" align="right">
+CMPCI(4)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">cmpci</b> &#8212; <span class="desc">C-Media CMI8x38 audio device driver</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">cmpci* at pci? dev ? function ?</b><br>
+<b class="config">audio* at audiobus?</b><br>
+<b class="config">mpu*   at cmpci?</b><br>
+<b class="config">opl*   at cmpci? flags 1</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">cmpci</b> device driver supports C-Media CMI8x38 based sound cards.<p>
+The device has SPDIF input/output interfaces, 16bit CODEC with analog mixer, OPL3 FM Synthesizer, and MPU401 compatible MIDI I/O port interface.</div>
+<div class="section">
+<h1 id="x4d4958455220444556494345">MIXER DEVICE</h1> The mixer device of <b class="name">cmpci</b> driver can be accessed via <a class="link-man" href="../1/mixerctl">mixerctl(1)</a> command. The complex structure is analyzed as follows.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+SPDIF in  ---------------------- 
+#1(coax)-&gt;|spdin1              |  R    ----------------------- 
+#2(opt)--&gt;|spdin2  spdif.input |--*-&gt;--|spdin   spdif.output |--&gt; SPDIF 
+       --&gt;|spdout              |  | --&gt;|playback             |    output 
+       |  ----------------------  | |  ----------------------- 
+       --------------------&lt;------+-* 
+     ---------&lt;-------------------+-+---------------------------------- 
+     |  ------------------------  | |   -----------------------       | 
+     --&gt;|legacy  spdif.output. |--+-*--&gt;|spdout               |       | 
+     --&gt;|wave    playback      |  -----&gt;|spdin  spdif.monitor |----   | 
+     |  ------------------------     NC-|off                  |   |   | 
+     ---------&lt;-- spdif                 -----------------------   |   | 
+         -------+------- dac ------------    -----------------    v   | 
+wave  --&gt;|playback.mode|----&gt;|inputs.dac|-*-&gt;|inputs.dac.mute|-&gt;----- | 
+playback ---------------     ------------ R  -----------------  | + | | 
+                  -----------------     ---------------------   |mix| | 
+FM synthesizer --&gt;|inputs.fmsynth |--*-&gt;|inputs.fmsynth.mute|--&gt;----- | 
+                  -----------------  R  ---------------------     *-&gt;-- 
+CD        ----------------------   ---------------------------    v 
+LINE-IN -&gt;|inputs.{cd,line,aux}|-*&gt;|inputs.{cd,line,aux}.mute|-&gt;----- 
+AUX       ---------------------- R ---------------------------  |   | 
+          ------------------                                    |   | 
+PC-SPK --&gt;| inputs.speaker |-----------------------------------&gt;| + | 
+          ------------------                                    |   | 
+          -------------------  ------------  -----------------  |mix| 
+MIC --*--&gt;|inputs.mic.preamp|-&gt;|inputs.mic|-&gt;|inputs.mic.mute|-&gt;|   | 
+      |   -------------------  ------------  -----------------  ----- 
+      |   ------------   -----------------                       | 
+      ---&gt;|record.mic|--&gt;|               |                       v 
+          ------------   | record.source |--&gt;to         ----------- 
+                    *R--&gt;| (select, mix) |   recording  |outputs.*|--&gt; 
+                         -----------------              ----------- SPK 
+                                                                 (front)</pre>
+<p>
+Note the 2nd SPDIF input exists only on CMI8738/PCI-6ch versions.</div>
+<div class="section">
+<h1 id="x4d49584552204558414d504c4553">MIXER EXAMPLES</h1> Here are examples about wave playback and SPDIF input/output ports.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+Playback to speaker, SPDIF input to SPDIF output</dt>
+<dd class="list-tag" style="margin-left: 1.00ex;">
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">mixerctl -w playback.mode=dac spdif.output=spdin spdif.monitor=off</code></div>
+</blockquote>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+Playback to SPDIF output, SPDIF input to speaker</dt>
+<dd class="list-tag" style="margin-left: 1.00ex;">
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">mixerctl -w playback.mode=spdif spdif.output=playback spdif.output.playback=wave spdif.monitor=spdin</code></div>
+</blockquote>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+SPDIF input to both SPDIF output and speaker</dt>
+<dd class="list-tag" style="margin-left: 1.00ex;">
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">mixerctl -w spdif.output=spdin spdif.monitor=spdin</code></div>
+</blockquote>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+Playback to both SPDIF output and speaker</dt>
+<dd class="list-tag" style="margin-left: 1.00ex;">
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">mixerctl -w playback.mode=spdif spdif.output=playback spdif.output.playback=wave spdif.monitor=spdout</code></div>
+</blockquote>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+Mix playback and SPDIF input to speaker</dt>
+<dd class="list-tag" style="margin-left: 1.00ex;">
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">mixerctl -w playback.mode=dac spdif.monitor=spdin</code></div>
+</blockquote>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/mixerctl">mixerctl(1)</a>, <a class="link-man" href="../4/audio">audio(4)</a>, <a class="link-man" href="../4/midi">midi(4)</a>, <a class="link-man" href="../4/mpu">mpu(4)</a>, <a class="link-man" href="../4/opl">opl(4)</a>, <a class="link-man" href="../4/pci">pci(4)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">cmpci</b> device driver appeared in <span class="unix">NetBSD&#160;1.5</span>.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> 4ch/6ch playback is not yet available. Joystick port is not supported.<p>
+<span class="define">spdif.output.playback=legacy</span> does not seem to work properly.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+June 22, 2005</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

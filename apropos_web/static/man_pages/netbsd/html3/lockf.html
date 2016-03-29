@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+LOCKF(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+LOCKF(3)</td>
+<td class="head-vol" align="center">
+Library Functions Manual</td>
+<td class="head-rtitle" align="right">
+LOCKF(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">lockf</b> &#8212; <span class="desc">record locking on files</span></div>
+<div class="section">
+<h1 id="x4c494252415259">LIBRARY</h1> <span class="lib">Standard C Library (libc, &#45;lc)</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">unistd.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">lockf</b>(<i class="farg" style="white-space:nowrap;">int filedes</i>, <i class="farg" style="white-space:nowrap;">int function</i>, <i class="farg" style="white-space:nowrap;">off_t size</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="fname">lockf</b>() function allows sections of a file to be locked with advisory-mode locks. Calls to <b class="fname">lockf</b>() from other processes which attempt to lock the locked file section will either return an error value or block until the section becomes unlocked. All the locks for a process are removed when the process terminates.<p>
+The argument <i class="farg">filedes</i> is an open file descriptor. The file descriptor must have been opened either for write-only (<span class="define">O_WRONLY</span>) or read/write (<span class="define">O_RDWR</span>) operation.<p>
+The <i class="farg">function</i> argument is a control value which specifies the action to be taken. The permissible values for <i class="farg">function</i> are as follows:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="symb">Function</span></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+<span class="symb">Description</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">F_ULOCK</span></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+unlock locked sections</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">F_LOCK</span></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+lock a section for exclusive use</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">F_TLOCK</span></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+test and lock a section for exclusive use</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">F_TEST</span></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+test a section for locks by other processes</dd>
+</dl>
+<p>
+<span class="define">F_ULOCK</span> removes locks from a section of the file; <span class="define">F_LOCK</span> and <span class="define">F_TLOCK</span> both lock a section of a file if the section is available; <span class="define">F_TEST</span> detects if a lock by another process is present on the specified section.<p>
+The <i class="farg">size</i> argument is the number of contiguous bytes to be locked or unlocked. The section to be locked or unlocked starts at the current offset in the file and extends forward for a positive size or backward for a negative size (the preceding bytes up to but not including the current offset). However, it is not permitted to lock a section that starts or extends before the beginning of the file. If <i class="farg">size</i> is 0, the section from the current offset through the largest possible file offset is locked (that is, from the current offset through the present or any future end-of-file).<p>
+The sections locked with <span class="define">F_LOCK</span> or <span class="define">F_TLOCK</span> may, in whole or in part, contain or be contained by a previously locked section for the same process. When this occurs, or if adjacent locked sections would occur, the sections are combined into a single locked section. If the request would cause the number of locks to exceed a system-imposed limit, the request will fail.<p>
+<span class="define">F_LOCK</span> and <span class="define">F_TLOCK</span> requests differ only by the action taken if the section is not available. <span class="define">F_LOCK</span> blocks the calling process until the section is available. <span class="define">F_TLOCK</span> makes the function fail if the section is already locked by another process.<p>
+File locks are released on first close by the locking process of any file descriptor for the file.<p>
+<span class="define">F_ULOCK</span> requests release (wholly or in part) one or more locked sections controlled by the process. Locked sections will be unlocked starting at the current file offset through <i class="farg">size</i> bytes or to the end of file if size is 0. When all of a locked section is not released (that is, when the beginning or end of the area to be unlocked falls within a locked section), the remaining portions of that section are still locked by the process. Releasing the center portion of a locked section will cause the remaining locked beginning and end portions to become two separate locked sections. If the request would cause the number of locks in the system to exceed a system-imposed limit, the request will fail.<p>
+An <span class="define">F_ULOCK</span> request in which size is non-zero and the offset of the last byte of the requested section is the maximum value for an object of type off_t, when the process has an existing lock in which size is 0 and which includes the last byte of the requested section, will be treated as a request to unlock from the start of the requested section with a size equal to 0. Otherwise an <span class="define">F_ULOCK</span> request will attempt to unlock only the requested section.<p>
+A potential for deadlock occurs if a process controlling a locked region is put to sleep by attempting to lock the locked region of another process. This implementation detects that sleeping until a locked region is unlocked would cause a deadlock and fails with an <span class="errno">EDEADLK</span> error.<p>
+<b class="fname">lockf</b>(), <a class="link-man" href="../2/fcntl">fcntl(2)</a> and <a class="link-man" href="../2/flock">flock(2)</a> locks may be safely used concurrently.<p>
+Blocking on a section is interrupted by any signal.</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> If successful, the <b class="fname">lockf</b>() function returns 0. Otherwise, it returns &#45;1, sets <b class="var">errno</b> to indicate an error, and existing locks are not changed.</div>
+<div class="section">
+<h1 id="x4552524f5253">ERRORS</h1> <b class="fname">lockf</b>() will fail if:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EAGAIN</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The argument <i class="farg">function</i> is <span class="define">F_TLOCK</span> or <span class="define">F_TEST</span> and the section is already locked by another process.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EBADF</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The argument <i class="farg">filedes</i> is not a valid open file descriptor.<p>
+The argument <i class="farg">function</i> is <span class="define">F_LOCK</span> or <span class="define">F_TLOCK</span>, and <i class="farg">filedes</i> is not a valid file descriptor open for writing.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EDEADLK</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The argument <i class="farg">function</i> is <span class="define">F_LOCK</span> and a deadlock is detected.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EINTR</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The argument <i class="farg">function</i> is F_LOCK and <b class="fname">lockf</b>() was interrupted by the delivery of a signal.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EINVAL</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The argument <i class="farg">function</i> is not one of <span class="define">F_ULOCK</span>, <span class="define">F_LOCK</span>, <span class="define">F_TLOCK</span> or <span class="define">F_TEST</span>.<p>
+The argument <i class="farg">filedes</i> refers to a file that does not support locking.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">ENOLCK</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The argument <i class="farg">function</i> is <span class="define">F_ULOCK</span>, <span class="define">F_LOCK</span> or <span class="define">F_TLOCK</span>, and satisfying the lock or unlock request would result in the number of locked regions in the system exceeding a system-imposed limit.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../2/fcntl">fcntl(2)</a>, <a class="link-man" href="../2/flock">flock(2)</a>, <a class="link-man" href="../3/flockfile">flockfile(3)</a></div>
+<div class="section">
+<h1 id="x5354414e4441524453">STANDARDS</h1> The <b class="fname">lockf</b>() function conforms to X/Open Portability Guide Issue&#160;4, Version&#160;2 (&#8220;XPG4.2&#8221;) and IEEE Std 1003.1-2008 (&#8220;POSIX.1&#8221;).</div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="fname">lockf</b>() function first appeared in <span class="unix">FreeBSD&#160;1.4</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+October 15, 2011</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

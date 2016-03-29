@@ -1,0 +1,301 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+POSTSUPER(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+POSTSUPER(1)</td>
+<td class="head-vol" align="center">
+General Commands Manual</td>
+<td class="head-rtitle" align="right">
+POSTSUPER(1)</td>
+</tr>
+</tbody>
+</table>
+<br>
+<div class="section">
+<h1>NAME</h1> postsuper &#45; Postfix superintendent</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br>
+<b>postsuper</b> [<b>-psSv</b>] [ <b>-c </b><i>config_dir</i>] [<b>-d </b><i>queue_id</i>]<br>
+        [<b>-h </b><i>queue_id</i>] [<b>-H </b><i>queue_id</i>]<br>
+        [<b>-r </b><i>queue_id</i>] [<i>directory ...</i>]</div>
+<div class="section">
+<h1>DESCRIPTION</h1><br>
+The <b>postsuper</b>(1) command does maintenance jobs on the Postfix queue. Use of the command is restricted to the superuser. See the  <b>postqueue</b>(1) command for unprivileged queue operations such as listing or flushing the mail queue.<div style="height: 1.00em;">
+&#160;</div>
+By default, <b>postsuper</b>(1) performs the operations requested with the  <b>-s</b> and <b>-p</b> command-line options on all Postfix queue directories - this includes the  <b>incoming</b>, <b>active</b> and  <b>deferred</b> directories with mail files and the <b>bounce</b>,  <b>defer</b>, <b>trace</b> and <b>flush</b> directories with log files.<div style="height: 1.00em;">
+&#160;</div>
+Options:<dl>
+<dt>
+<b>-c </b><i>config_dir</i></dt>
+<dd>
+The <b>main.cf</b> configuration file is in the named directory instead of the default configuration directory. See also the MAIL_CONFIG environment setting below.</dd>
+</dl>
+<dl>
+<dt>
+<b>-d </b><i>queue_id</i></dt>
+<dd>
+Delete one message with the named queue ID from the named mail queue(s) (default:  <b>hold</b>, <b>incoming</b>, <b>active</b> and  <b>deferred</b>).<div style="height: 1.00em;">
+&#160;</div>
+If a <i>queue_id</i> of <b>-</b> is specified, the program reads queue IDs from standard input. For example, to delete all mail with exactly one recipient  <b>user@example.com</b>:<div style="height: 1.00em;">
+&#160;</div>
+<br>
+mailq | tail +2 | grep -v '^ *(' | awk  &#769;BEGIN { RS = "" }<br>
+    # $7=sender, $8=recipient1, $9=recipient2<br>
+    { if ($8 == "user@example.com" &amp;&amp; $9 == "")<br>
+          print $1 }<br>
+&#769; | tr -d '*!' | postsuper -d -<br>
+<div style="height: 1.00em;">
+&#160;</div>
+Specify "<b>-d ALL</b>" to remove all messages; for example, specify " <b>-d ALL deferred</b>" to delete all mail in the <b>deferred</b> queue. As a safety measure, the word  <b>ALL</b> must be specified in upper case.<div style="height: 1.00em;">
+&#160;</div>
+Warning: Postfix queue IDs are reused (always with Postfix &lt;= 2.8; and with Postfix &gt;= 2.9 when enable_long_queue_ids=no). There is a very small possibility that postsuper deletes the wrong message file when it is executed while the Postfix mail system is delivering mail.<div style="height: 1.00em;">
+&#160;</div>
+The scenario is as follows:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+1)</dt>
+<dd>
+The Postfix queue manager deletes the message that <b>postsuper</b>(1) is asked to delete, because Postfix is finished with the message (it is delivered, or it is returned to the sender).</dd>
+</dl>
+<dl>
+<dt>
+2)</dt>
+<dd>
+New mail arrives, and the new message is given the same queue ID as the message that  <b>postsuper</b>(1) is supposed to delete. The probability for reusing a deleted queue ID is about 1 in 2**15 (the number of different microsecond values that the system clock can distinguish within a second).</dd>
+</dl>
+<dl>
+<dt>
+3)</dt>
+<dd>
+<b>postsuper</b>(1) deletes the new message, instead of the old message that it should have deleted.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<b>-h </b><i>queue_id</i></dt>
+<dd>
+Put mail "on hold" so that no attempt is made to deliver it. Move one message with the named queue ID from the named mail queue(s) (default:  <b>incoming</b>, <b>active</b> and  <b>deferred</b>) to the <b>hold</b> queue.<div style="height: 1.00em;">
+&#160;</div>
+If a <i>queue_id</i> of <b>-</b> is specified, the program reads queue IDs from standard input.<div style="height: 1.00em;">
+&#160;</div>
+Specify "<b>-h ALL</b>" to hold all messages; for example, specify " <b>-h ALL deferred</b>" to hold all mail in the <b>deferred</b> queue. As a safety measure, the word  <b>ALL</b> must be specified in upper case.<div style="height: 1.00em;">
+&#160;</div>
+Note: while mail is "on hold" it will not expire when its time in the queue exceeds the  <b>maximal_queue_lifetime</b> or  <b>bounce_queue_lifetime</b> setting. It becomes subject to expiration after it is released from "hold".<div style="height: 1.00em;">
+&#160;</div>
+This feature is available in Postfix 2.0 and later.</dd>
+</dl>
+<dl>
+<dt>
+<b>-H </b><i>queue_id</i></dt>
+<dd>
+Release mail that was put "on hold". Move one message with the named queue ID from the named mail queue(s) (default:  <b>hold</b>) to the <b>deferred</b> queue.<div style="height: 1.00em;">
+&#160;</div>
+If a <i>queue_id</i> of <b>-</b> is specified, the program reads queue IDs from standard input.<div style="height: 1.00em;">
+&#160;</div>
+Note: specify "<b>postsuper -r</b>" to release mail that was kept on hold for a significant fraction of  <b>$maximal_queue_lifetime</b> or  <b>$bounce_queue_lifetime</b>, or longer.<div style="height: 1.00em;">
+&#160;</div>
+Specify "<b>-H ALL</b>" to release all mail that is "on hold". As a safety measure, the word  <b>ALL</b> must be specified in upper case.<div style="height: 1.00em;">
+&#160;</div>
+This feature is available in Postfix 2.0 and later.</dd>
+</dl>
+<dl>
+<dt>
+<b>-p</b></dt>
+<dd>
+Purge old temporary files that are left over after system or software crashes.</dd>
+</dl>
+<dl>
+<dt>
+<b>-r </b><i>queue_id</i></dt>
+<dd>
+Requeue the message with the named queue ID from the named mail queue(s) (default:  <b>hold</b>, <b>incoming</b>, <b>active</b> and  <b>deferred</b>). To requeue multiple messages, specify multiple  <b>-r</b> command-line options.<div style="height: 1.00em;">
+&#160;</div>
+Alternatively, if a <i>queue_id</i> of <b>-</b> is specified, the program reads queue IDs from standard input.<div style="height: 1.00em;">
+&#160;</div>
+Specify "<b>-r ALL</b>" to requeue all messages. As a safety measure, the word  <b>ALL</b> must be specified in upper case.<div style="height: 1.00em;">
+&#160;</div>
+A requeued message is moved to the <b>maildrop</b> queue, from where it is copied by the  <b>pickup</b>(8) and  <b>cleanup</b>(8) daemons to a new queue file. In many respects its handling differs from that of a new local submission.</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The message is not subjected to the smtpd_milters or non_smtpd_milters settings.  When mail has passed through an external content filter, this would produce incorrect results with Milter applications that depend on original SMTP connection state information.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The message is subjected again to mail address rewriting and substitution.  This is useful when rewriting rules or virtual mappings have changed.<div style="height: 1.00em;">
+&#160;</div>
+The address rewriting context (local or remote) is the same as when the message was received.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The message is subjected to the same content_filter settings (if any) as used for new local mail submissions.  This is useful when content_filter settings have changed.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+</dt>
+<dd>
+Warning: Postfix queue IDs are reused (always with Postfix &lt;= 2.8; and with Postfix &gt;= 2.9 when enable_long_queue_ids=no). There is a very small possibility that  <b>postsuper</b>(1) requeues the wrong message file when it is executed while the Postfix mail system is running, but no harm should be done.<div style="height: 1.00em;">
+&#160;</div>
+This feature is available in Postfix 1.1 and later.</dd>
+</dl>
+<dl>
+<dt>
+<b>-s</b></dt>
+<dd>
+Structure check and structure repair.  This should be done once before Postfix startup.</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Rename files whose name does not match the message file inode number. This operation is necessary after restoring a mail queue from a different machine or from backup, when queue files were created with Postfix &lt;= 2.8 or with "enable_long_queue_ids = no".</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Move queue files that are in the wrong place in the file system hierarchy and remove subdirectories that are no longer needed. File position rearrangements are necessary after a change in the  <b>hash_queue_names</b> and/or <b>hash_queue_depth</b> configuration parameters.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Rename queue files created with "enable_long_queue_ids = yes" to short names, for migration to Postfix &lt;= 2.8.  The procedure is as follows:<div style="height: 1.00em;">
+&#160;</div>
+<br>
+# postfix stop<br>
+# postconf enable_long_queue_ids=no<br>
+# postsuper<br>
+<div style="height: 1.00em;">
+&#160;</div>
+Run <b>postsuper</b>(1) repeatedly until it stops reporting file name changes.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<b>-S</b></dt>
+<dd>
+A redundant version of <b>-s</b> that requires that long file names also match the message file inode number. This option exists for testing purposes, and is available with Postfix 2.9 and later.</dd>
+</dl>
+<dl>
+<dt>
+<b>-v</b></dt>
+<dd>
+Enable verbose logging for debugging purposes. Multiple <b>-v</b> options make the software increasingly verbose.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>DIAGNOSTICS</h1><br>
+Problems are reported to the standard error stream and to  <b>syslogd</b>(8).<div style="height: 1.00em;">
+&#160;</div>
+<b>postsuper</b>(1) reports the number of messages deleted with <b>-d</b>, the number of messages requeued with  <b>-r</b>, and the number of messages whose queue file name was fixed with  <b>-s</b>. The report is written to the standard error stream and to  <b>syslogd</b>(8).</div>
+<div class="section">
+<h1>ENVIRONMENT</h1><br>
+<dl>
+<dt>
+MAIL_CONFIG</dt>
+<dd>
+Directory with the <b>main.cf</b> file.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>BUGS</h1><br>
+Mail that is not sanitized by Postfix (i.e. mail in the <b>maildrop</b> queue) cannot be placed "on hold".</div>
+<div class="section">
+<h1>CONFIGURATION PARAMETERS</h1><br>
+The following <b>main.cf</b> parameters are especially relevant to this program. The text below provides only a parameter summary. See  <b>postconf</b>(5) for more details including examples.<dl>
+<dt>
+<b>config_directory (see 'postconf -d' output)</b></dt>
+<dd>
+The default location of the Postfix main.cf and master.cf configuration files.</dd>
+</dl>
+<dl>
+<dt>
+<b>hash_queue_depth (1)</b></dt>
+<dd>
+The number of subdirectory levels for queue directories listed with the hash_queue_names parameter.</dd>
+</dl>
+<dl>
+<dt>
+<b>hash_queue_names (deferred, defer)</b></dt>
+<dd>
+The names of queue directories that are split across multiple subdirectory levels.</dd>
+</dl>
+<dl>
+<dt>
+<b>queue_directory (see 'postconf -d' output)</b></dt>
+<dd>
+The location of the Postfix top-level queue directory.</dd>
+</dl>
+<dl>
+<dt>
+<b>syslog_facility (mail)</b></dt>
+<dd>
+The syslog facility of Postfix logging.</dd>
+</dl>
+<dl>
+<dt>
+<b>syslog_name (see 'postconf -d' output)</b></dt>
+<dd>
+The mail system name that is prepended to the process name in syslog records, so that "smtpd" becomes, for example, "postfix/smtpd".</dd>
+</dl>
+<p>
+Available in Postfix version 2.9 and later:<dl>
+<dt>
+<b>enable_long_queue_ids (no)</b></dt>
+<dd>
+Enable long, non-repeating, queue IDs (queue file names).</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1><br>
+sendmail(1), Sendmail-compatible user interface<br>
+postqueue(1), unprivileged queue operations</div>
+<div class="section">
+<h1>LICENSE</h1><br>
+The Secure Mailer license must be distributed with this software.</div>
+<div class="section">
+<h1>AUTHOR(S)</h1><br>
+Wietse Venema<br>
+IBM T.J. Watson Research<br>
+P.O. Box 704<br>
+Yorktown Heights, NY 10598, USA</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tr>
+<td class="foot-date">
+</td>
+<td class="foot-os" align="right">
+</td>
+</tr>
+</table>
+</div>
+</body>
+<>
+

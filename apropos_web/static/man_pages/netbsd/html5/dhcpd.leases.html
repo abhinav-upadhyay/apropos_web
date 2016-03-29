@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+dhcpd.leases(5)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+dhcpd.leases(5)</td>
+<td class="head-vol" align="center">
+File Formats Manual</td>
+<td class="head-rtitle" align="right">
+dhcpd.leases(5)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> dhcpd.leases - DHCP client lease database</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The Internet Systems Consortium DHCP Server keeps a persistent database of leases that it has assigned.  This database is a free-form ASCII file containing a series of lease declarations.  Every time a lease is acquired, renewed or released, its new value is recorded at the end of the lease file.  So if more than one declaration appears for a given lease, the last one in the file is the current one.<p>
+When dhcpd is first installed, there is no lease database.   However, dhcpd requires that a lease database be present before it will start. To make the initial lease database, just create an empty file called DBDIR/dhcpd.leases.   You can do this with:<p>
+<br>
+	touch DBDIR/dhcpd.leases<br>
+<p>
+In order to prevent the lease database from growing without bound, the file is rewritten from time to time.   First, a temporary lease database is created and all known leases are dumped to it.   Then, the old lease database is renamed DBDIR/dhcpd.leases~.   Finally, the newly written lease database is moved into place.</div>
+<div class="section">
+<h1>FORMAT</h1> Lease descriptions are stored in a format that is parsed by the same recursive descent parser used to read the <b>dhcpd.conf(5)</b> and <b>dhclient.conf(5)</b> files.  Lease files can contain lease declarations, and also group and subgroup declarations, host declarations and failover state declarations.  Group, subgroup and host declarations are used to record objects created using the OMAPI protocol.<p>
+The lease file is a log-structured file - whenever a lease changes, the contents of that lease are written to the end of the file.   This means that it is entirely possible and quite reasonable for there to be two or more declarations of the same lease in the lease file at the same time.   In that case, the instance of that particular lease that appears last in the file is the one that is in effect.<p>
+Group, subgroup and host declarations in the lease file are handled in the same manner, except that if any of these objects are deleted, a  <i>rubout</i> is written to the lease file.   This is just the same declaration, with  <b>{ deleted; }</b> in the scope of the declaration.   When the lease file is rewritten, any such rubouts that can be eliminated are eliminated.   It is possible to delete a declaration in the  <b>dhcpd.conf</b> file; in this case, the rubout can never be eliminated from the  <b>dhcpd.leases</b> file.</div>
+<div class="section">
+<h1>THE LEASE DECLARATION</h1> <b>lease  <i>ip-address</i><b></b>  <b>{</b>  <b></b><i>statements...</i><b></b>  <b>}</b></b><p>
+Each lease declaration includes the single IP address that has been leased to the client.   The statements within the braces define the duration of the lease and to whom it is assigned.<p>
+<b>starts<br>
+<i>date</i><b>;</b></b> <b>ends<br>
+<i>date</i><b>;</b></b> <b>tstp<br>
+<i>date</i><b>;</b></b> <b>tsfp<br>
+<i>date</i><b>;</b></b> <b>atsfp<br>
+<i>date</i><b>;</b></b> <b>cltt<br>
+<i>date</i><b>;</b></b><br>
+<p>
+The start and end time of a lease are recorded using the <b>starts</b> and  <b>ends</b> statements.   The <b>tstp</b> statement is specified if the failover protocol is being used, and indicates what time the peer has been told the lease expires.   The  <b>tsfp</b> statement is also specified if the failover protocol is being used, and indicates the lease expiry time that the peer has acknowledged. The  <b>atsfp</b> statement is the actual time sent from the failover partner. The  <b>cltt</b> statement is the client's last transaction time.<p>
+The <i>date</i> is specified in two ways, depending on the configuration value for the  <b>db-time-format</b> parameter.  If it was set to <i>default</i>, then the  <i>date</i> fields appear as follows:<p>
+<i>weekday year <b>/</b><i>month</i><b>/</b><i>day</i>  <i>hour</i><b>:</b><i>minute</i><b>:</b><i>second</i></i><p>
+The weekday is present to make it easy for a human to tell when a lease expires - it's specified as a number from zero to six, with zero being Sunday.  The day of week is ignored on input.  The year is specified with the century, so it should generally be four digits except for really long leases.  The month is specified as a number starting with 1 for January.  The day of the month is likewise specified starting with 1.  The hour is a number between 0 and 23, the minute a number between 0 and 59, and the second also a number between 0 and 59.<p>
+Lease times are specified in Universal Coordinated Time (UTC), not in the local time zone.  There is probably nowhere in the world where the times recorded on a lease are always the same as wall clock times.  On most unix machines, you can display the current time in UTC by typing  <b>date -u</b>.<p>
+If the <b>db-time-format</b> was configured to <i>local</i>, then the  <i>date</i> fields appear as follows:<p>
+<br>
+ <b>epoch</b> <i>&lt;seconds-since-epoch&gt;</i><b>; #</b> <i>&lt;day-name&gt; &lt;month-name&gt;</i>  <i>&lt;day-number&gt; &lt;hours&gt;</i><b>:</b><i>&lt;minutes&gt;</i><b>:</b><i>&lt;seconds&gt; &lt;year&gt;</i><p>
+The <i>seconds-since-epoch</i> is as according to the system's local clock (often referred to as "unix time").  The  <b>#</b> symbol supplies a comment that describes what actual time this is as according to the system's configured timezone, at the time the value was written.  It is provided only for human inspection.<p>
+If a lease will never expire, <i>date</i> is <b>never</b> instead of an actual date.<p>
+<b>hardware  <i>hardware-type</i>  <i>mac-address</i><b>;</b></b><p>
+The hardware statement records the MAC address of the network interface on which the lease will be used.   It is specified as a series of hexadecimal octets, separated by colons.<p>
+<b>uid  <i>client-identifier</i><b>;</b></b><p>
+The <b>uid</b> statement records the client identifier used by the client to acquire the lease.   Clients are not required to send client identifiers, and this statement only appears if the client did in fact send one.   Client identifiers are normally an ARP type (1 for ethernet) followed by the MAC address, just like in the  <b>hardware</b><i></i>  <i>statement, but this is not required.</i><p>
+The client identifier is recorded as a colon-separated hexadecimal list or as a quoted string.   If it is recorded as a quoted string and it contains one or more non-printable characters, those characters are represented as octal escapes - a backslash character followed by three octal digits.<p>
+<b>client-hostname  <i>hostname</i><b></b>  <b>;</b></b><p>
+Most DHCP clients will send their hostname in the <i>host-name</i> option.  If a client sends its hostname in this way, the hostname is recorded on the lease with a  <b>client-hostname</b> statement.   This is not required by the protocol, however, so many specialized DHCP clients do not send a host-name option.<p>
+<b>abandoned;</b><p>
+The <b>abandoned</b> statement indicates that the DHCP server has abandoned the lease.   In that case, the  <b>abandoned</b> statement will be used to indicate that the lease should not be reassigned. Please see the  <b>dhcpd.conf(5)</b> manual page for information about abandoned leases.<p>
+<b>binding state  <i>state</i><b>;</b></b> <b>next binding state  <i>state</i><b>;</b></b><p>
+The <b>binding state</b> statement declares the lease's binding state. When the DHCP server is not configured to use the failover protocol, a lease's binding state will be either  <b>active</b> or <b>free</b>.   The failover protocol adds some additional transitional states, as well as the  <b>backup</b> state, which indicates that the lease is available for allocation by the failover secondary.<p>
+The <b>next binding state</b> statement indicates what state the lease will move to when the current state expires.   The time when the current state expires is specified in the  <i>ends</i> statement.<p>
+<b>option agent.circuit-id  <i>string</i>;</b> <b>option agent.remote-id  <i>string</i>;</b><p>
+The <b>option agent.circuit-id</b> and <b>option agent.remote-id</b> statements are used to record the circuit ID and remote ID options send by the relay agent, if the relay agent uses the  <i>relay agent</i>  <i>information option</i>.   This allows these options to be used consistently in conditional evaluations even when the client is contacting the server directly rather than through its relay agent.<p>
+<b>set  <i>variable</i><b></b>  <b>=</b>  <b></b><i>value</i><b>;</b></b><p>
+The <b>set</b> statement sets the value of a variable on the lease. For general information on variables, see the  <b>dhcp-eval(5)</b> manual page.<p>
+<b>The  <i>ddns-text</i><b></b>  <b>variable</b></b><p>
+The <i>ddns-text</i> variable is used to record the value of the client's TXT identification record when the interim DDNS update style has been used to update the DNS for a particular lease.<p>
+<b>The  <i>ddns-fwd-name</i><b></b>  <b>variable</b></b><p>
+The <i>ddns-fwd-name</i><b> variable records the value of the name used in</b>  <b>updating the client's A record if a DDNS update has been successfully</b>  <b>done by the server.   The server may also have used this name to</b>  <b>update the client's PTR record.</b><p>
+<b>The  <i>ddns-client-fqdn</i><b></b>  <b>variable</b></b><p>
+If the server is configured to use the interim DDNS update style, and is also configured to allow clients to update their own FQDNs, and the client did in fact update its own FQDN, then the  <i>ddns-client-fqdn</i> variable records the name that the client has indicated it is using.   This is the name that the server will have used to update the client's PTR record in this case.<p>
+<b>The  <i>ddns-rev-name</i><b></b>  <b>variable</b></b><p>
+If the server successfully updates the client's PTR record, this variable will record the name that the DHCP server used for the PTR record.   The name to which the PTR record points will be either the  <i>ddns-fwd-name</i> or the <i>ddns-client-fqdn</i>.<p>
+<b>The  <i>vendor-class-identifier</i><b></b>  <b>variable</b></b><p>
+The server retains the client-supplied Vendor Class Identifier option for informational purposes, and to render them in DHCPLEASEQUERY responses.<p>
+<b>on  <i>events</i><b></b>  <b>{</b>  <b></b><i>statements...</i><b></b>  <b>}</b></b>  <b>The </b><b>on</b><i> statement records a list of statements to execute if a</i>  <i>certain event occurs.   The possible events that can occur for an</i>  <i>active lease are </i><b>release</b> and <b>expiry</b>.   More than one event can be specified - if so, the events are separated by '|' characters.<p>
+<b>bootp;</b> <b>reserved;</b> These two statements are effectively flags.  If present, they indicate that the BOOTP and RESERVED failover flags, respectively, should be set.  BOOTP and RESERVED dynamic leases are treated differently than normal dynamic leases, as they may only be used by the client to which they are currently allocated.</div>
+<div class="section">
+<h1>THE FAILOVER PEER STATE DECLARATION</h1> The state of any failover peering arrangements is also recorded in the lease file, using the  <b>failover peer</b> statement:<p>
+<b>failover<br>
+peer<br>
+<i>name</i><b></b><br>
+<b>state</b><br>
+<b>{</b></b> <b>my<br>
+state<br>
+<i>state</i><b></b><br>
+<b>at</b><br>
+<b></b><i>date</i><b>;</b></b> <b>peer<br>
+state<br>
+<i>state</i><b></b><br>
+<b>at</b><br>
+<b></b><i>date</i><b>;</b></b> <b>}</b><br>
+<p>
+The states of the peer named <i>name</i> is being recorded.   Both the state of the running server ( <b>my state</b>) and the other failover partner ( <i>peer state</i>) are recorded.   The following states are possible:  <b>unknown-state</b>, <b>partner-down</b>, <b>normal</b>,  <b>communications-interrupted</b>, <b>resolution-interrupted</b>,  <b>potential-conflict</b>, <b>recover</b>, <b>recover-done</b>,  <b>shutdown</b>, <b>paused</b>, and <b>startup</b>.</div>
+<div class="section">
+<h1>FILES</h1> <b>DBDIR/dhcpd.leases DBDIR/dhcpd.leases~</b></div>
+<div class="section">
+<h1>SEE ALSO</h1> dhcpd(8), dhcp-options(5), dhcp-eval(5), dhcpd.conf(5), RFC2132, RFC2131.</div>
+<div class="section">
+<h1>AUTHOR</h1> <b>dhcpd(8)</b> is maintained by ISC. Information about Internet Systems Consortium can be found at: <b>https://www.isc.org/</b></div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tr>
+<td class="foot-date">
+</td>
+<td class="foot-os" align="right">
+</td>
+</tr>
+</table>
+</div>
+</body>
+<>
+

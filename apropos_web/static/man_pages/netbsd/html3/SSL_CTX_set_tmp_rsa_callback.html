@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+SSL_CTX_set_tmp_rsa_callback(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SSL_CTX_set_tmp_rsa_callback(3)</td>
+<td class="head-vol" align="center">
+OpenSSL</td>
+<td class="head-rtitle" align="right">
+SSL_CTX_set_tmp_rsa_callback(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> SSL_CTX_set_tmp_rsa_callback, SSL_CTX_set_tmp_rsa, SSL_CTX_need_tmp_rsa, SSL_set_tmp_rsa_callback, SSL_set_tmp_rsa, SSL_need_tmp_rsa &#45; handle RSA keys for ephemeral key exchange</div>
+<div class="section">
+<h1>LIBRARY</h1> libcrypto, -lcrypto</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br>
+ #include &lt;openssl/ssl.h&gt;<br>
+<br>
+ void SSL_CTX_set_tmp_rsa_callback(SSL_CTX *ctx,<br>
+            RSA *(*tmp_rsa_callback)(SSL *ssl, int is_export, int keylength));<br>
+ long SSL_CTX_set_tmp_rsa(SSL_CTX *ctx, RSA *rsa);<br>
+ long SSL_CTX_need_tmp_rsa(SSL_CTX *ctx);<br>
+<br>
+ void SSL_set_tmp_rsa_callback(SSL_CTX *ctx,<br>
+            RSA *(*tmp_rsa_callback)(SSL *ssl, int is_export, int keylength));<br>
+ long SSL_set_tmp_rsa(SSL *ssl, RSA *rsa)<br>
+ long SSL_need_tmp_rsa(SSL *ssl)<br>
+<br>
+ RSA *(*tmp_rsa_callback)(SSL *ssl, int is_export, int keylength);<br>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <i>SSL_CTX_set_tmp_rsa_callback()</i> sets the callback function for <b>ctx</b> to be used when a temporary/ephemeral RSA key is required to  <b>tmp_rsa_callback</b>. The callback is inherited by all SSL objects newly created from  <b>ctx</b> with &lt; <i>SSL_new</i>(3)|<i>SSL_new</i>(3)&gt;. Already created SSL objects are not affected.<p>
+<i>SSL_CTX_set_tmp_rsa()</i> sets the temporary/ephemeral RSA key to be used to be  <b>rsa</b>. The key is inherited by all SSL objects newly created from <b>ctx</b> with &lt; <i>SSL_new</i>(3)|<i>SSL_new</i>(3)&gt;. Already created SSL objects are not affected.<p>
+<i>SSL_CTX_need_tmp_rsa()</i> returns 1, if a temporary/ephemeral RSA key is needed for RSA-based strength-limited 'exportable' ciphersuites because a RSA key with a keysize larger than 512 bits is installed.<p>
+<i>SSL_set_tmp_rsa_callback()</i> sets the callback only for <b>ssl</b>.<p>
+<i>SSL_set_tmp_rsa()</i> sets the key only for <b>ssl</b>.<p>
+<i>SSL_need_tmp_rsa()</i> returns 1, if a temporary/ephemeral RSA key is needed, for RSA-based strength-limited 'exportable' ciphersuites because a RSA key with a keysize larger than 512 bits is installed.<p>
+These functions apply to SSL/TLS servers only.</div>
+<div class="section">
+<h1>NOTES</h1> When using a cipher with RSA authentication, an ephemeral RSA key exchange can take place. In this case the session data are negotiated using the ephemeral/temporary RSA key and the RSA key supplied and certified by the certificate chain is only used for signing.<p>
+Under previous export restrictions, ciphers with RSA keys shorter (512 bits) than the usual key length of 1024 bits were created. To use these ciphers with RSA keys of usual length, an ephemeral key exchange must be performed, as the normal (certified) key cannot be directly used.<p>
+Using ephemeral RSA key exchange yields forward secrecy, as the connection can only be decrypted, when the RSA key is known. By generating a temporary RSA key inside the server application that is lost when the application is left, it becomes impossible for an attacker to decrypt past sessions, even if he gets hold of the normal (certified) RSA key, as this key was used for signing only. The downside is that creating a RSA key is computationally expensive.<p>
+Additionally, the use of ephemeral RSA key exchange is only allowed in the TLS standard, when the RSA key can be used for signing only, that is for export ciphers. Using ephemeral RSA key exchange for other purposes violates the standard and can break interoperability with clients. It is therefore strongly recommended to not use ephemeral RSA key exchange and use EDH (Ephemeral Diffie-Hellman) key exchange instead in order to achieve forward secrecy (see  <i>SSL_CTX_set_tmp_dh_callback</i>(3)).<p>
+An application may either directly specify the key or can supply the key via a callback function. The callback approach has the advantage, that the callback may generate the key only in case it is actually needed. As the generation of a RSA key is however costly, it will lead to a significant delay in the handshake procedure.  Another advantage of the callback function is that it can supply keys of different size while the explicit setting of the key is only useful for key size of 512 bits to satisfy the export restricted ciphers and does give away key length if a longer key would be allowed.<p>
+The <b>tmp_rsa_callback</b> is called with the <b>keylength</b> needed and the  <b>is_export</b> information. The <b>is_export</b> flag is set, when the ephemeral RSA key exchange is performed with an export cipher.</div>
+<div class="section">
+<h1>EXAMPLES</h1> Generate temporary RSA keys to prepare ephemeral RSA key exchange. As the generation of a RSA key costs a lot of computer time, they saved for later reuse. For demonstration purposes, two keys for 512 bits and 1024 bits respectively are generated.<p>
+<br>
+ ...<br>
+ /* Set up ephemeral RSA stuff */<br>
+ RSA *rsa_512 = NULL;<br>
+ RSA *rsa_1024 = NULL;<br>
+<br>
+ rsa_512 = RSA_generate_key(512,RSA_F4,NULL,NULL);<br>
+ if (rsa_512 == NULL)<br>
+     evaluate_error_queue();<br>
+<br>
+ rsa_1024 = RSA_generate_key(1024,RSA_F4,NULL,NULL);<br>
+ if (rsa_1024 == NULL)<br>
+   evaluate_error_queue();<br>
+<br>
+ ...<br>
+<br>
+ RSA *tmp_rsa_callback(SSL *s, int is_export, int keylength)<br>
+ {<br>
+    RSA *rsa_tmp=NULL;<br>
+<br>
+    switch (keylength) {<br>
+    case 512:<br>
+      if (rsa_512)<br>
+        rsa_tmp = rsa_512;<br>
+      else { /* generate on the fly, should not happen in this example */<br>
+        rsa_tmp = RSA_generate_key(keylength,RSA_F4,NULL,NULL);<br>
+        rsa_512 = rsa_tmp; /* Remember for later reuse */<br>
+      }<br>
+      break;<br>
+    case 1024:<br>
+      if (rsa_1024)<br>
+        rsa_tmp=rsa_1024;<br>
+      else<br>
+        should_not_happen_in_this_example();<br>
+      break;<br>
+    default:<br>
+      /* Generating a key on the fly is very costly, so use what is there */<br>
+      if (rsa_1024)<br>
+        rsa_tmp=rsa_1024;<br>
+      else<br>
+        rsa_tmp=rsa_512; /* Use at least a shorter key */<br>
+    }<br>
+    return(rsa_tmp);<br>
+ }<br>
+</div>
+<div class="section">
+<h1>RETURN VALUES</h1>  <i>SSL_CTX_set_tmp_rsa_callback()</i> and <i>SSL_set_tmp_rsa_callback()</i> do not return diagnostic output.<p>
+<i>SSL_CTX_set_tmp_rsa()</i> and <i>SSL_set_tmp_rsa()</i> do return 1 on success and 0 on failure. Check the error queue to find out the reason of failure.<p>
+<i>SSL_CTX_need_tmp_rsa()</i> and <i>SSL_need_tmp_rsa()</i> return 1 if a temporary RSA key is needed and 0 otherwise.</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <i>ssl</i>(3), <i>SSL_CTX_set_cipher_list</i>(3),  <i>SSL_CTX_set_options</i>(3),  <i>SSL_CTX_set_tmp_dh_callback</i>(3),  <i>SSL_new</i>(3), <i>openssl_ciphers</i>(1)</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tr>
+<td class="foot-date">
+2015-01-13</td>
+<td class="foot-os" align="right">
+1.0.1n</td>
+</tr>
+</table>
+</div>
+</body>
+<>
+

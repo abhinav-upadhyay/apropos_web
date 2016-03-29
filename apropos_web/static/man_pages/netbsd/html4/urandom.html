@@ -1,0 +1,260 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+RND(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+RND(4)</td>
+<td class="head-vol" align="center">
+Kernel Interfaces Manual</td>
+<td class="head-rtitle" align="right">
+RND(4)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">rnd</b> &#8212; <span class="desc">random number generator</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <i class="file">/dev/random</i> and <i class="file">/dev/urandom</i> devices generate bytes randomly with uniform distribution. Every read from them is independent.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/dev/urandom</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Never blocks.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/dev/random</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Sometimes blocks. Will block early at boot if the system's state is known to be predictable.</dd>
+</dl>
+<p>
+Applications should read from <i class="file">/dev/urandom</i> when they need randomly generated data, e.g. key material for cryptography or seeds for simulations.<p>
+Systems should be engineered to judiciously read at least once from <i class="file">/dev/random</i> at boot before running any services that talk to the internet or otherwise require cryptography, in order to avoid generating keys predictably.<p>
+<i class="file">/dev/random</i> may block at any time, so programs that read from it must be prepared to handle blocking. Interactive programs that block due to reads from <i class="file">/dev/random</i> can be especially frustrating.<p>
+If interrupted by a signal, reads from either <i class="file">/dev/random</i> or <i class="file">/dev/urandom</i> may return short, so programs that handle signals must be prepared to retry reads.<p>
+Writing to either <i class="file">/dev/random</i> or <i class="file">/dev/urandom</i> influences subsequent output of both devices, guaranteed to take effect at next open.<p>
+If you have a coin in your pocket, you can flip it 256 times and feed the outputs to <i class="file">/dev/random</i> to guarantee your system is in a state that nobody but you and the bored security guard watching the surveillance camera in your office can guess:<p>
+<pre style="margin-left: 4.00ex;" class="lit display">
+% echo tthhhhhthhhththtthhhhthtththttth... &gt; /dev/random</pre>
+<p>
+(Sequence generated from a genuine US quarter dollar, guaranteed random.)</div>
+<div class="section">
+<h1 id="x5345435552495459204d4f44454c">SECURITY MODEL</h1> The <b class="name">rnd</b> subsystem provides the following security properties against two different classes of attackers, provided that there is enough entropy from entropy sources not seen by attackers:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 4.00ex;" class="list list-bul">
+<li class="list-bul" style="margin-top: 1.00em;">
+An attacker who has seen some outputs and can supply some entropy sources' inputs to the operating system cannot predict past or future unseen outputs.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+An attacker who has seen the entire state of the machine cannot predict past outputs.</li>
+</ul>
+<p>
+One &#8216;output&#8217; means a single read, no matter how short it is.<p>
+&#8216;Cannot predict&#8217; means it is conjectured of the cryptography in <i class="farg">/dev/random</i> that any computationally bounded attacker who tries to distinguish outputs from uniform random cannot do more than negligibly better than uniform random guessing.</div>
+<div class="section">
+<h1 id="x454e54524f5059">ENTROPY</h1> The operating system contiuously makes observations of hardware devices, such as network packet timings, disk seek delays, and keystrokes. The observations are combined into a seed for a cryptographic pseudorandom number generator (PRNG) which is used to generate the outputs of both <i class="file">/dev/random</i> and <i class="file">/dev/urandom</i>.<p>
+An attacker may be able to guess with nonnegligible chance of success what your last keystroke was, but guessing every observation the operating system may have made is more difficult. The difficulty of the best strategy at guessing a random variable is analyzed as the -log_2 of the highest probability of any outcome, measured in bits, and called its <span class="emph">min-entropy</span>, or <span class="emph">entropy</span> for short in cryptography. For example:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 4.00ex;" class="list list-bul">
+<li class="list-bul" style="margin-top: 0.00em;">
+A fair coin toss has one bit of entropy.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+A fair (six-sided) die roll has a little over 2.5 bits of entropy.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+A string of two independent fair coin tosses has two bits of entropy.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+The toss of a pair of fair coins that are glued together has one bit of entropy.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+A uniform random distribution with <i class="farg">n</i> possibilities has log_2 <i class="farg">n</i> bits of entropy.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+An utterance from an accounting troll who always says &#8216;nine&#8217; has zero bits of entropy.</li>
+</ul>
+<p>
+Note that entropy is a property of an observable physical process, not of a particular sample obtained by observing it. There are also kinds of entropy in information theory other than min-entropy, including the more well-known Shannon entropy, but they are not relevant here.<p>
+Hardware devices that the operating system monitors for observations are called <span class="emph">entropy sources</span>, and the observations are combined into an <span class="emph">entropy pool</span>. The <a class="link-man" href="../8/rndctl">rndctl(8)</a> command queries information about entropy sources and the entropy pool, and can control which entropy sources the operating system uses or ignores.<p>
+256 bits of entropy is typically considered intractible to guess with classical computers and with current models of the capabilities of quantum computers.<p>
+Systems with nonvolatile storage should store a secret from <i class="file">/dev/urandom</i> on disk during installation or shutdown, and feed it back during boot, so that the work the operating system has done to gather entropy -- including the work its operator may have done to flip a coin! -- can be saved from one boot to the next, and so that newly installed systems are not vulnerable to generating cryptographic keys predictably.<p>
+The boot loaders in some <span class="unix">NetBSD</span> ports support a command to load a seed from disk before the kernel has started. For those that don't, the <a class="link-man" href="../8/rndctl">rndctl(8)</a> command can do it once userland has started, for example by setting &#8220;<b class="var">rndctl=YES</b>&#8221; in <i class="file">/etc/rc.conf</i>; see <a class="link-man" href="../5/rc.conf">rc.conf(5)</a>.</div>
+<div class="section">
+<h1 id="x4c494d49544154494f4e53">LIMITATIONS</h1> Some people worry about recovery from state compromise -- that is, ensuring that even if an attacker sees the entire state of the operating system, then the attacker will be unable to predict any new future outputs as long as the operating system gathers fresh entropy quickly enough.<p>
+But if an attacker has seen the entire state of your machine, refreshing entropy is probably the least of your worries, so we do not address that threat model here.<p>
+The <b class="name">rnd</b> subsystem does <span class="emph">not</span> automatically defend against hardware colluding with an attacker to influence entropy sources based on the state of the operating system.<p>
+For example, a PCI device or CPU instruction for random number generation which has no side channel to an attacker other than the <i class="file">/dev/urandom</i> device could be bugged to observe all other entropy sources, and to carefully craft &#8216;observations&#8217; that cause a certain number of bits of <i class="file">/dev/urandom</i> output to be ciphertext that either is predictable to an attacker or conveys a message to an attacker.<p>
+No amount of scrutiny by the system's operator could detect this. The only way to prevent this attack would be for the operator to disable all entropy sources that may be colluding with an attacker. If you're not sure which ones are not, you can always disable all of them and fall back to the coin in your pocket.</div>
+<div class="section">
+<h1 id="x494f43544c53">IOCTLS</h1> The <i class="file">/dev/random</i> and <i class="file">/dev/urandom</i> devices support a number of ioctls, defined in the <b class="includes">&lt;<a class="link-includes">sys/rndio.h</a>&gt;</b> header file, for querying and controlling the entropy pool.<p>
+Since timing between hardware events contributes to the entropy pool, statistics about the entropy pool over time may serve as a side channel for the state of the pool, so access to such statistics is restricted to the super-user and should be used with caution.<p>
+Several ioctls are concerned with particular entropy sources, described by the following structure:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct { 
+	char		name[16];	/* symbolic name */ 
+	uint32_t	total;		/* estimate of entropy provided */ 
+	uint32_t	type;		/* RND_TYPE_* value */ 
+	uint32_t	flags;		/* RND_FLAG_* mask */ 
+} rndsource_t; 
+ 
+#define	RND_TYPE_UNKNOWN 
+#define	RND_TYPE_DISK		/* disk device */ 
+#define	RND_TYPE_ENV		/* environment sensor (temp, fan, &amp;c.) */ 
+#define	RND_TYPE_NET		/* network device */ 
+#define	RND_TYPE_POWER		/* power events */ 
+#define	RND_TYPE_RNG		/* hardware RNG */ 
+#define	RND_TYPE_SKEW		/* clock skew */ 
+#define	RND_TYPE_TAPE		/* tape drive */ 
+#define	RND_TYPE_TTY		/* tty device */ 
+#define	RND_TYPE_VM		/* virtual memory faults */ 
+ 
+#define	RND_TYPE_MAX		/* value of highest-numbered type */ 
+ 
+#define	RND_FLAG_COLLECT_TIME		/* use timings of samples */ 
+#define	RND_FLAG_COLLECT_VALUE		/* use values of samples */ 
+#define	RND_FLAG_ESTIMATE_TIME		/* estimate entropy of timings */ 
+#define	RND_FLAG_ESTIMATE_VALUE		/* estimate entropy of values */ 
+#define	RND_FLAG_NO_COLLECT		/* ignore samples from this */ 
+#define	RND_FLAG_NO_ESTIMATE		/* do not estimate entropy */</pre>
+<p>
+The following ioctls are supported:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">RNDGETENTCNT</span> (<span class="type">uint32_t</span>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Return the number of bits of entropy the system is estimated to have.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">RNDGETSRCNUM</span> (<span class="type">rndstat_t</span>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct { 
+	uint32_t	start; 
+	uint32_t	count; 
+	rndsource_t	source[RND_MAXSTATCOUNT]; 
+} rndstat_t;</pre>
+<p>
+Fill the <i class="farg">sources</i> array with information about up to <i class="farg">count</i> entropy sources, starting at <i class="farg">start</i>. The actual number of sources described is returned in <i class="farg">count</i>. At most <span class="define">RND_MAXSTATCOUNT</span> sources may be requested at once.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">RNDGETSRCNAME</span> (<span class="type">rndstat_name_t</span>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct { 
+	char		name[16]; 
+	rndsource_t	source; 
+} rndstat_name_t;</pre>
+<p>
+Fill <i class="farg">source</i> with information about the entropy source named <i class="farg">name</i>, or fail with <span class="define">ENOENT</span> if there is none.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">RNDCTL</span> (<span class="type">rndctl_t</span>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct { 
+	char		name[16]; 
+	uint32_t	type; 
+	uint32_t	flags; 
+	uint32_t	mask; 
+} rndctl_t;</pre>
+<p>
+For each entropy source of the type <i class="farg">type</i>, or if <i class="farg">type</i> is <code class="lit">0xff</code> then for the entropy source named <i class="farg">name</i>, replace the flags in <i class="farg">mask</i> by <i class="farg">flags</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">RNDADDDATA</span> (<span class="type">rnddata_t</span>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct { 
+	uint32_t	len; 
+	uint32_t	entropy; 
+	unsigned char	data[RND_SAVEWORDS * sizeof(uint32_t)]; 
+} rnddata_t;</pre>
+<p>
+Feed <i class="farg">len</i> bytes of data to the entropy pool. The sample is expected to have been drawn with at least <i class="farg">entropy</i> bits of entropy.<p>
+This ioctl can be used only once per boot. It is intended for a system that saves entropy to disk on shutdown and restores it on boot, so that the system can immediately be unpredictable without having to wait to gather entropy.<p>
+This ioctl is the only way for userland to directly change the system's entropy estimate.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">RNDGETPOOLSTAT</span> (<span class="type">rndpoolstat_t</span>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct { 
+	uint32_t poolsize;	/* size of each LFSR in pool */ 
+	uint32_t threshold;	/* no. bytes of pool hash returned */ 
+	uint32_t maxentropy;	/* total size of pool in bits */ 
+	uint32_t added;		/* no. bits of entropy ever added */ 
+	uint32_t curentropy;	/* current entropy `balance' */ 
+	uint32_t discarded;	/* no. bits dropped when pool full */ 
+	uint32_t generated;	/* no. bits yielded by pool while 
+				   curentropy is zero */ 
+} rndpoolstat_t;</pre>
+<p>
+Return various statistics about entropy.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x494d504c454d454e544154494f4e204e4f544553">IMPLEMENTATION NOTES</h1> (This section describes the current implementation of the <b class="name">rnd</b> subsystem at the time of writing. It may be out-of-date by the time you read it, and nothing in here should be construed as a guarantee about the behaviour of the <i class="file">/dev/random</i> and <i class="file">/dev/urandom</i> devices.)<p>
+Samples from entropy sources are fed 32 bits at a time into the entropy pool, which is an array of 4096 bits, or 128 32-bit words, representing 32 linear feedback shift registers each 128 bits long.<p>
+When a user process opens <i class="file">/dev/random</i> or <i class="file">/dev/urandom</i> and first reads from it, the kernel draws from the entropy pool to seed a cryptographic pseudorandom number generator, the NIST CTR_DRBG (counter-mode deterministic random bit generator) with AES-128 as the block cipher, and uses that to generate data.<p>
+To draw a seed from the entropy pool, the kernel<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 4.00ex;" class="list list-bul">
+<li class="list-bul" style="margin-top: 0.00em;">
+computes the SHA-1 hash of the entropy pool,</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+feeds the SHA-1 hash word-by-word back into the entropy pool like an entropy source, and</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+yields the xor of bytes 0..<i class="farg">n</i> with bytes <i class="farg">n</i>+0..<i class="farg">n</i>+<i class="farg">n</i> of the hash, where <i class="farg">n</i> is <span class="define">RND_ENTROPY_THRESHOLD</span> (currently 10).</li>
+</ul>
+The kernel repeats the process, concatenating the results, until it has filled the seed.<p>
+For each entropy source, the kernel estimates based on the previous samples how much entropy the source is providing in each new sample. The kernel maintains a count of the &#8216;amount of entropy&#8217; or &#8216;number of bits of entropy&#8217; in the pool. Each sample &#8216;credits&#8217; to the amount of entropy. Every time the kernel draws a PRNG seed from the entropy pool, it &#8216;debits&#8217; from the amount of entropy.<p>
+Every open from <i class="file">/dev/urandom</i> seeds an independent PRNG which is reseeded at the convenience of the kernel after a billion requests for output. Reads from <i class="file">/dev/urandom</i> never block, even if the kernel estimates its state to be totally predictable.<p>
+Every open from <i class="file">/dev/random</i> seeds an independent PRNG which is reseeded after every 16 bytes of output. Reads from <i class="file">/dev/random</i> block if the PRNG needs to be (re)seeded and the kernel's entropy estimate is too low.<p>
+It is possible to fool the kernel's entropy estimator, in which case reads from <i class="file">/dev/random</i> may return immediately even if the kernel is in a totally predictable state.<p>
+Writes to <i class="file">/dev/random</i> and <i class="file">/dev/urandom</i> devices do not change the kernel's entropy estimate.</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/dev/random</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Uniform random byte source. May block.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/dev/urandom</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Uniform random byte source. Never blocks.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../3/arc4random">arc4random(3)</a>, <a class="link-man" href="../8/rndctl">rndctl(8)</a>, <a class="link-man" href="../9/cprng">cprng(9)</a><p>
+<span class="ref"><span class="ref-auth">Elaine Barker</span> and <span class="ref-auth">John Kelsey</span>, <span class="ref-title">Recommendation for Random Number Generation Using Deterministic Random Bit Generators</span>, <i class="ref-issue">National Institute of Standards and Technology</i>, <a class="link-ref" href="http://csrc.nist.gov/publications/nistpubs/800-90A/SP800-90A.pdf">http://csrc.nist.gov/publications/nistpubs/800-90A/SP800-90A.pdf</a>, <span class="ref-date">January 2012</span>, <span class="ref-opt">NIST Special Publication 800-90A</span>.</span><p>
+<span class="ref"><span class="ref-auth">Daniel J. Bernstein</span>, <span class="ref-title">Entropy Attacks!</span>, <a class="link-ref" href="http://blog.cr.yp.to/20140205-entropy">http://blog.cr.yp.to/20140205-entropy</a>, <span class="ref-date">2014-02-05</span>.</span><p>
+<span class="ref"><span class="ref-auth">Nadia Heninger</span>, <span class="ref-auth">Zakir Durumeric</span>, <span class="ref-auth">Eric Wustrow</span>, and <span class="ref-auth">J. Alex Halderman</span>, <span class="ref-title">Mining Your Ps and Qs: Detection of Widespread Weak Keys in Network Devices</span>, <i class="ref-book">Proceedings of the 21st USENIX Security Symposium</i>, <i class="ref-issue">USENIX</i>, <a class="link-ref" href="https://www.usenix.org/conference/usenixsecurity12/technical-sessions/presentation/heninger">https://www.usenix.org/conference/usenixsecurity12/technical-sessions/presentation/heninger</a>, <a class="link-ref" href="https://factorable.net/">https://factorable.net/</a>, <span class="ref-page">205-220</span>, <span class="ref-date">August 2012</span>.</span></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <i class="file">/dev/random</i> and <i class="file">/dev/urandom</i> devices first appeared in <span class="unix">NetBSD&#160;1.3</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> The <b class="name">rnd</b> subsystem was first implemented by <span class="author">Michael Graff</span> &#60;<a class="link-mail" href="mailto:explorer@flame.org">explorer@flame.org</a>&#62;, and was then largely rewritten by <span class="author">Thor Lancelot Simon</span> &#60;<a class="link-mail" href="mailto:tls@NetBSD.org">tls@NetBSD.org</a>&#62; with later contributions by <span class="author">Taylor R. Campbell</span> &#60;<a class="link-mail" href="mailto:riastradh@NetBSD.org">riastradh@NetBSD.org</a>&#62;.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> There is no way to disable all entropy sources, in this and subsequent boots and no matter what USB devices you plug in against your mother's sage advice, in order to defend against the colluding hardware attack.<p>
+The implementation confuses the number of bits in the entropy pool's physical representation, as a set of 32 128-bit LFSRs, with the number of bits of entropy that a system needs in order to be unpredictable, so even if entropy estimates were accurate and high, it takes unreasonably long for <i class="file">/dev/random</i> to stop blocking.<p>
+Many people are confused about what <i class="file">/dev/random</i> and <i class="file">/dev/urandom</i> mean. Unfortunately, no amount of software engineering can fix that.</div>
+<div class="section">
+<h1 id="x454e54524f5059204143434f554e54494e47">ENTROPY ACCOUNTING</h1> The entropy accounting described here is not grounded in any cryptography theory. It is done because it was always done, and because it gives people a warm fuzzy feeling about information theory.<p>
+The folklore is that every <i class="farg">n</i>-bit output of <i class="farg">/dev/random</i> is not merely indistinguishable from uniform random to a computationally bounded attacker, but information-theoretically is independent and has <i class="farg">n</i> bits of entropy even to a computationally <span class="emph">unbounded</span> attacker -- that is, an attacker who can recover AES keys, compute SHA-1 preimages, etc. This property is not provided, nor was it ever provided in any implementation of <i class="farg">/dev/random</i> known to the author.<p>
+This property would require that, after each read, the system discard all measurements from hardware in the entropy pool and begin anew. All work done to make the system unpredictable would be thrown out, and the system would immediately become predictable again. Reverting the system to being predictable every time a process reads from <i class="farg">/dev/random</i> would give attackers a tremendous advantage in predicting future outputs, especially if they can fool the entropy estimator, e.g. by sending carefully timed network packets.<p>
+If you filled your entropy pool by flipping a coin 256 times, you would have to flip it again 256 times for the next output, and so on. In that case, if you really want information-theoretic guarantees, you might as well take <i class="farg">/dev/random</i> out of the picture and use your coin flips verbatim.<p>
+On the other hand, every cryptographic protocol in practice, including HTTPS, SSH, PGP, etc., expands short secrets deterministically into long streams of bits, and their security relies on conjectures that a computationally bounded attacker cannot distinguish the long streams from uniform random. If we couldn't do that for <i class="farg">/dev/random</i>, it would be hopeless to assume we could for HTTPS, SSH, PGP, etc.<p>
+History is littered with examples of broken entropy sources and failed system engineering for random number generators. Nobody has ever reported distinguishing AES ciphertext from uniform random without side channels, nor reported computing SHA-1 preimages faster than brute force. The folklore information-theoretic defence against computationally unbounded attackers replaces system engineering that successfully defends against realistic threat models by imaginary theory that defends only against fantasy threat models.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+November 16, 2014</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

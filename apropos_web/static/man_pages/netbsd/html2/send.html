@@ -1,0 +1,156 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+SEND(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SEND(2)</td>
+<td class="head-vol" align="center">
+System Calls Manual</td>
+<td class="head-rtitle" align="right">
+SEND(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">send</b>, <b class="name">sendto</b>, <b class="name">sendmsg</b>, <b class="name">sendmmsg</b> &#8212; <span class="desc">send a message from a socket</span></div>
+<div class="section">
+<h1 id="x4c494252415259">LIBRARY</h1> <span class="lib">Standard C Library (libc, &#45;lc)</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/socket.h</a>&gt;</b><p>
+<i class="ftype">ssize_t</i><br>
+<b class="fname">send</b>(<i class="farg" style="white-space:nowrap;">int s</i>, <i class="farg" style="white-space:nowrap;">const void *msg</i>, <i class="farg" style="white-space:nowrap;">size_t len</i>, <i class="farg" style="white-space:nowrap;">int flags</i>);<p>
+<i class="ftype">ssize_t</i><br>
+<b class="fname">sendto</b>(<i class="farg" style="white-space:nowrap;">int s</i>, <i class="farg" style="white-space:nowrap;">const void *msg</i>, <i class="farg" style="white-space:nowrap;">size_t len</i>, <i class="farg" style="white-space:nowrap;">int flags</i>, <i class="farg" style="white-space:nowrap;">const struct sockaddr *to</i>, <i class="farg" style="white-space:nowrap;">socklen_t tolen</i>);<p>
+<i class="ftype">ssize_t</i><br>
+<b class="fname">sendmsg</b>(<i class="farg" style="white-space:nowrap;">int s</i>, <i class="farg" style="white-space:nowrap;">const struct msghdr *msg</i>, <i class="farg" style="white-space:nowrap;">int flags</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">sendmmsg</b>(<i class="farg" style="white-space:nowrap;">int s</i>, <i class="farg" style="white-space:nowrap;">struct mmsghdr *mmsg</i>, <i class="farg" style="white-space:nowrap;">unsigned int vlen</i>, <i class="farg" style="white-space:nowrap;">unsigned int flags</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="fname">send</b>(), <b class="fname">sendto</b>(), <b class="fname">sendmsg</b>(), and <b class="fname">sendmmsg</b>() are used to transmit a message to another socket. <b class="fname">send</b>() may be used only when the socket is in a <span class="emph">connected</span> state, while <b class="fname">sendto</b>(), <b class="fname">sendmsg</b>() and <b class="fname">sendmmsg</b>() may be used at any time.<p>
+The <b class="fname">sendmmsg</b>() call be used to send multiple messages in the same call using an array of <i class="farg">mmsghdr</i> elements with the following form, as defined in &#60;<i class="file">sys/socket.h</i>&#62;:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct mmsghdr { 
+	struct msghdr	msg_hdr;	/* the message to be sent */ 
+	unsigned int	msg_len;	/* number of bytes transmitted */ 
+};</pre>
+<p>
+The <i class="farg">msg_len</i> member contains the number of bytes sent for each <i class="farg">msg_hdr</i> member. The array has <i class="farg">vlen</i> elements, which is limited to <span class="define">1024</span>. If there is an error, a number fewer than <i class="farg">vlen</i> may be returned, and the error may be retrieved using <a class="link-man" href="../2/getsockopt">getsockopt(2)</a> with <span class="define">SO_ERROR</span>.<p>
+The address of the target is given by <i class="farg">to</i> with <i class="farg">tolen</i> specifying its size. The length of the message is given by <i class="farg">len</i>. If the message is too long to pass atomically through the underlying protocol, the error <span class="errno">EMSGSIZE</span> is returned, and the message is not transmitted.<p>
+No indication of failure to deliver is implicit in a <b class="fname">send</b>(). Locally detected errors are indicated by a return value of &#45;1.<p>
+If no messages space is available at the socket to hold the message to be transmitted, then <b class="fname">send</b>() normally blocks, unless the socket has been placed in non-blocking I/O mode. The <a class="link-man" href="../2/select">select(2)</a> or <a class="link-man" href="../2/poll">poll(2)</a> call may be used to determine when it is possible to send more data. Unfortunately this does not work when the interface queue which is used to send the message is full, and the call returns <span class="errno">ENOBUFS</span>.<p>
+The <i class="farg">flags</i> parameter may include one or more of the following:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define	MSG_OOB		0x0001 /* process out-of-band data */ 
+#define	MSG_PEEK	0x0002 /* peek at incoming message */ 
+#define	MSG_DONTROUTE	0x0004 /* bypass routing, use direct interface */ 
+#define	MSG_EOR		0x0008 /* data completes record */ 
+#define	MSG_NOSIGNAL	0x0400 /* do not generate SIGPIPE on EOF */</pre>
+<p>
+The flag <span class="define">MSG_OOB</span> is used to send &#8220;out-of-band&#8221; data on sockets that support this notion (e.g. <span class="define">SOCK_STREAM</span>); the underlying protocol must also support &#8220;out-of-band&#8221; data. <span class="define">MSG_EOR</span> is used to indicate a record mark for protocols which support the concept. <span class="define">MSG_DONTROUTE</span> is usually used only by diagnostic or routing programs.<p>
+See <a class="link-man" href="../2/recv">recv(2)</a> for a description of the <i class="farg">msghdr</i> structure. <span class="define">MSG_NOSIGNAL</span> is used to prevent <span class="define">SIGPIPE</span> generation when writing a socket that may be closed.</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> The <b class="fname">send</b>(), <b class="fname">sendto</b>(), and <b class="fname">sendmsg</b>() calls return the number of characters sent, or &#45;1 if an error occurred. The <b class="fname">sendmmsg</b>() call returns the number of messages sent, or &#45;1 if an error occured.</div>
+<div class="section">
+<h1 id="x4552524f5253">ERRORS</h1> <b class="fname">send</b>(), <b class="fname">sendto</b>(), <b class="fname">sendmsg</b>(), and <b class="fname">sendmmsg</b>() fail if:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EACCES</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The SO_BROADCAST option is not set on the socket, and a broadcast address was given as the destination.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EAFNOSUPPORT</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Addresses in the specified address family cannot be used with this socket.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EAGAIN|EWOULDBLOCK</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The socket is marked non-blocking and the requested operation would block.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EBADF</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+An invalid descriptor was specified.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EDSTADDRREQ</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+In a non-connected socket a destination address has not been specified.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EFAULT</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+An invalid user space address was specified for a parameter.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EHOSTDOWN</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The destination is a host on the local subnet and does not respond to <a class="link-man" href="../4/arp">arp(4)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EHOSTUNREACH</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The destination for the message is unreachable.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EINVAL</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The total length of the I/O is more than can be expressed by the ssize_t return value.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EMSGSIZE</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The socket requires that message be sent atomically, and the size of the message to be sent made this impossible.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">ENOBUFS</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The system was unable to allocate an internal buffer. The operation may succeed when buffers become available.<p>
+An alternative reason: the output queue for a network interface was full. This generally indicates that the interface has stopped sending, but may be caused by transient congestion.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">ENOTSOCK</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The argument <i class="farg">s</i> is not a socket.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EPIPE</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+In a connected socket the connection has been broken.</dd>
+</dl>
+<p>
+<b class="fname">sendto</b>() will also fail if:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EISCONN</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+A destination address was specified and the socket is already connected.</dd>
+</dl>
+<p>
+<b class="fname">sendmsg</b>() and <b class="fname">sendmmsg</b>() will also fail if:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EMSGSIZE</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The <i class="farg">msg_iovlen</i> member of the <i class="farg">msg</i> structure is less than or equal to 0 or is greater than &#123;<span class="define">IOV_MAX</span>&#125;.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../2/fcntl">fcntl(2)</a>, <a class="link-man" href="../2/getsockopt">getsockopt(2)</a>, <a class="link-man" href="../2/recv">recv(2)</a>, <a class="link-man" href="../2/select">select(2)</a>, <a class="link-man" href="../2/socket">socket(2)</a>, <a class="link-man" href="../2/write">write(2)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="fname">send</b>() function call appeared in <span class="unix">4.2BSD</span>. The <b class="fname">sendmmsg</b>() function call appeared in Linux 3.0 and <span class="unix">NetBSD&#160;7.0</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+June 22, 2012</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

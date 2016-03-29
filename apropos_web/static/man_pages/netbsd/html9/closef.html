@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+FILE(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+FILE(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+FILE(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">file</b>, <b class="name">closef</b>, <b class="name">ffree</b>, <b class="name">FILE_IS_USABLE</b>, <b class="name">FILE_USE</b>, <b class="name">FILE_UNUSE</b>, <b class="name">FILE_SET_MATURE</b> &#8212; <span class="desc">operations on file entries</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/file.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">closef</b>(<i class="farg" style="white-space:nowrap;">struct file *fp</i>, <i class="farg" style="white-space:nowrap;">struct lwp *l</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">ffree</b>(<i class="farg" style="white-space:nowrap;">struct file *fp</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">FILE_IS_USABLE</b>(<i class="farg" style="white-space:nowrap;">struct file *fp</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">FILE_USE</b>(<i class="farg" style="white-space:nowrap;">struct file *fp</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">FILE_UNUSE</b>(<i class="farg" style="white-space:nowrap;">struct file *fp</i>, <i class="farg" style="white-space:nowrap;">struct lwp *l</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">FILE_SET_MATURE</b>(<i class="farg" style="white-space:nowrap;">struct file *fp</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The file descriptor table of a process references a file entry for each file used by the kernel. See <a class="link-man" href="../9/filedesc">filedesc(9)</a> for details of the file descriptor table. Each file entry is given by:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct file { 
+        LIST_ENTRY(file) f_list;        /* list of active files */ 
+        int             f_flag; 
+        int             f_iflags;       /* internal flags */ 
+        int             f_type;         /* descriptor type */ 
+        u_int           f_count;        /* reference count */ 
+        u_int           f_msgcount;     /* message queue references */ 
+        int             f_usecount;     /* number active users */ 
+        kauth_cred_t    f_cred;         /* creds associated with descriptor */ 
+        struct fileops { 
+                int (*fo_read)(struct file *fp, off_t *offset, 
+			struct uio *uio, kauth_cred_t cred, int flags); 
+                int (*fo_write)(struct file *fp, off_t *offset, 
+                        struct uio *uio, kauth_cred_t cred, int flags); 
+                int (*fo_ioctl)(struct file *fp, u_long com, void *data, 
+			struct lwp *l); 
+                int (*fo_fcntl)(struct file *fp, u_int com, void *data, 
+			struct lwp *l); 
+                int (*fo_poll)(struct file *fp, int events, 
+			struct lwp *l); 
+                int (*fo_stat)(struct file *fp, struct stat *sp, 
+			struct lwp *l); 
+                int (*fo_close)(struct file *fp, struct lwp *l); 
+        } *f_ops; 
+        off_t           f_offset; 
+        void         *f_data;         /* descriptor data */ 
+};</pre>
+<p>
+<span class="unix">NetBSD</span> treats file entries in an object-oriented fashion after they are created. Each entry specifies the object type, <span class="emph">f_type</span>, which can have the values <span class="define">DTYPE_VNODE</span>, <span class="define">DTYPE_SOCKET</span>, <span class="define">DTYPE_PIPE</span> and <span class="define">DTYPE_MISC</span>. The file entry also has a pointer to a data structure, <span class="emph">f_data</span>, that contains information specific to the instance of the underlying object. The data structure is opaque to the routines that manipulate the file entry. Each entry also contains an array of function pointers, <span class="emph">f_ops</span>, that translate the generic operations on a file descriptor into the specific action associated with its type. A reference to the data structure is passed as the first parameter to a function that implements a file operation. The operations that must be implemented for each descriptor type are read, write, ioctl, fcntl, poll, stat, and close. See <a class="link-man" href="../9/vnfileops">vnfileops(9)</a> for an overview of the vnode file operations. All state associated with an instance of an object must be stored in that instance's data structure; the underlying objects are not permitted to manipulate the file entry themselves.<p>
+For data files, the file entry points to a <a class="link-man" href="../9/vnode">vnode(9)</a> structure. Pipes and sockets do not have data blocks allocated on the disk and are handled by the special-device filesystem that calls appropriate drivers to handle I/O for them. For pipes, the file entry points to a system block that is used during data transfer. For sockets, the file entry points to a system block that is used in doing interprocess communications.<p>
+The descriptor table of a process (and thus access to the objects to which the descriptors refer) is inherited from its parent, so several different processes may reference the same file entry. Thus, each file entry has a reference count, <span class="emph">f_count</span>. Each time a new reference is created, the reference count is incremented. When a descriptor is closed, the reference count is decremented. When the reference count drops to zero, the file entry is freed.<p>
+Some file descriptor semantics can be altered through the <i class="arg">flags</i> argument to the <a class="link-man" href="../2/open">open(2)</a> system call. These flags are recorded in <span class="emph">f_flags</span> member of the file entry. For example, the flags record whether the descriptor is open for reading, writing, or both reading and writing. The following flags and their corresponding <a class="link-man" href="../2/open">open(2)</a> flags are:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+FAPPEND</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+<span class="define">O_APPEND</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+FASYNC</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+<span class="define">O_ASYNC</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+O_FSYNC</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+<span class="define">O_SYNC</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+FNDELAY</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+<span class="define">O_NONBLOCK</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+O_NDELAY</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+<span class="define">O_NONBLOCK</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+FNONBLOCK</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+<span class="define">O_NONBLOCK</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+FFSYNC</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+<span class="define">O_SYNC</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+FDSYNC</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+<span class="define">O_DSYNC</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+FRSYNC</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+<span class="define">O_RSYNC</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+FALTIO</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+<span class="define">O_ALT_IO</span></dd>
+</dl>
+<p>
+Some additional state-specific flags are recorded in the <span class="emph">f_iflags</span> member. Valid values include:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+FIF_WANTCLOSE</dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+If set, then the reference count on the file is zero, but there were multiple users of the file. This can happen if a file descriptor table is shared by multiple processes. This flag notifies potential users that the file is closing and will prevent them from adding additional uses to the file.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+FIF_LARVAL</dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+The file entry is not fully constructed (mature) and should not be used.</dd>
+</dl>
+<p>
+The <a class="link-man" href="../2/read">read(2)</a> and <a class="link-man" href="../2/write">write(2)</a> system calls do not take an offset in the file as an argument. Instead, each read or write updates the current file offset, <span class="emph">f_offset</span> in the file according to the number of bytes transferred. Since more than one process may open the same file and each needs its own offset in the file, the offset cannot be stored in the per-object data structure.</div>
+<div class="section">
+<h1 id="x46554e4354494f4e53">FUNCTIONS</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">closef</b>(<i class="farg">fp</i>, <i class="farg">l</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+The internal form of <a class="link-man" href="../2/close">close(2)</a> which decrements the reference count on file entry <i class="farg">fp</i>. The <b class="fname">closef</b>() function  release all locks on the file owned by lwp <i class="farg">l</i>, decrements the reference count on the file entry, and invokes <b class="fname">ffree</b>() to free the file entry.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">ffree</b>(<i class="farg">struct file *fp</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Free file entry <i class="farg">fp</i>. The file entry was created in <a class="link-man" href="../9/falloc">falloc(9)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">FILE_IS_USABLE</b>(<i class="farg">fp</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Ensure that the file entry is useable by ensuring that neither the FIF_WANTCLOSE and FIF_LARVAL flags are not set in <span class="emph">f_iflags</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">FILE_USE</b>(<i class="farg">fp</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Increment the reference count on file entry <i class="farg">fp</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">FILE_UNUSE</b>(<i class="farg">fp</i>, <i class="farg">l</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Decrement the reference count on file entry <i class="farg">fp</i>. If the FIF_WANTCLOSE flag is set in <span class="emph">f_iflags</span>, the file entry is freed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">FILE_SET_MATURE</b>(<i class="farg">fp</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Mark the file entry as being fully constructed (mature) by clearing the FIF_LARVAL flag in <span class="emph">f_iflags</span>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x434f4445205245464552454e434553">CODE REFERENCES</h1> The framework for file entry handling is implemented within the file <i class="file">sys/kern/kern_descrip.c</i>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../9/dofileread">dofileread(9)</a>, <a class="link-man" href="../9/filedesc">filedesc(9)</a>, <a class="link-man" href="../9/vnfileops">vnfileops(9)</a>, <a class="link-man" href="../9/vnode">vnode(9)</a></div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+May 17, 2009</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

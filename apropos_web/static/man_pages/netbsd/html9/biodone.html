@@ -1,0 +1,239 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+BUFFERIO(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+BUFFERIO(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+BUFFERIO(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">BUFFERIO</b>, <b class="name">biodone</b>, <b class="name">biowait</b>, <b class="name">getiobuf</b>, <b class="name">putiobuf</b>, <b class="name">nestiobuf_setup</b>, <b class="name">nestiobuf_done</b> &#8212; <span class="desc">block I/O buffer transfers</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/buf.h</a>&gt;</b><p>
+<i class="ftype">void</i><br>
+<b class="fname">biodone</b>(<i class="farg" style="white-space:nowrap;">struct buf *bp</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">biowait</b>(<i class="farg" style="white-space:nowrap;">struct buf *bp</i>);<p>
+<i class="ftype">struct buf *</i><br>
+<b class="fname">getiobuf</b>(<i class="farg" style="white-space:nowrap;">struct vnode *vp</i>, <i class="farg" style="white-space:nowrap;">bool waitok</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">putiobuf</b>(<i class="farg" style="white-space:nowrap;">struct buf *bp</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">nestiobuf_setup</b>(<i class="farg" style="white-space:nowrap;">struct buf *mbp</i>, <i class="farg" style="white-space:nowrap;">struct buf *bp</i>, <i class="farg" style="white-space:nowrap;">int offset</i>, <i class="farg" style="white-space:nowrap;">size_t size</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">nestiobuf_done</b>(<i class="farg" style="white-space:nowrap;">struct buf *mbp</i>, <i class="farg" style="white-space:nowrap;">int donebytes</i>, <i class="farg" style="white-space:nowrap;">int error</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">BUFFERIO</b> subsystem manages block I/O buffer transfers, described by the <span class="type">struct buf</span> structure, which serves multiple purposes between users in <b class="name">BUFFERIO</b>, users in <a class="link-man" href="../9/buffercache">buffercache(9)</a>, and users in block device drivers to execute transfers to physical disks.</div>
+<div class="section">
+<h1 id="x424c4f434b20444556494345205553455253">BLOCK DEVICE USERS</h1> Users of <b class="name">BUFFERIO</b> wishing to submit a buffer for block I/O transfer must obtain a <span class="type">struct buf</span>, e.g. via <b class="fname">getiobuf</b>(), fill its parameters, and submit it to a block device with <a class="link-man" href="../9/bdev_strategy">bdev_strategy(9)</a>, usually via <a class="link-man" href="../9/VOP_STRATEGY">VOP_STRATEGY(9)</a>.<p>
+The parameters to an I/O transfer described by <i class="farg">bp</i> are specified by the following <span class="type">struct buf</span> fields:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 4.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">bp</i><code class="lit">-&gt;b_flags</code></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Flags specifying the type of transfer.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">B_READ</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Transfer is read from device. If not set, transfer is write to device.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">B_ASYNC</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Asynchronous I/O. Caller must not provide <i class="farg">bp</i><code class="lit">-&gt;b_iodone</code> and must not call <b class="fname">biowait</b>(<i class="farg">bp</i>).</dd>
+</dl>
+For legibility, callers should indicate writes by passing the pseudo-flag <span class="define">B_WRITE</span>, which is zero.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">bp</i><code class="lit">-&gt;b_data</code></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Pointer to kernel virtual address of source/target for transfer.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">bp</i><code class="lit">-&gt;b_bcount</code></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Nonnegative number of bytes requested for transfer.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">bp</i><code class="lit">-&gt;b_blkno</code></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Block number at which to do transfer.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">bp</i><code class="lit">-&gt;b_iodone</code></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+I/O completion callback. <span class="define">B_ASYNC</span> must not be set in <i class="farg">bp</i><code class="lit">-&gt;b_flags</code>.</dd>
+</dl>
+<p>
+Additionally, if the I/O transfer is a write associated with a <a class="link-man" href="../9/vnode">vnode(9)</a> <i class="farg">vp</i>, then before the user submits it to a block device, the user must increment <i class="farg">vp</i><code class="lit">-&gt;v_numoutput</code>. The user must not acquire <i class="farg">vp</i>&#39;s vnode lock between incrementing <i class="farg">vp</i><code class="lit">-&gt;v_numoutput</code> and submitting <i class="farg">bp</i> to a block device -- doing so will likely cause deadlock with the syncer.<p>
+Block I/O transfer completion may be notified by the <i class="farg">bp</i><code class="lit">-&gt;b_iodone</code> callback, by signalling <b class="fname">biowait</b>() waiters, or not at all in the <span class="define">B_ASYNC</span> case.<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-dash">
+<li class="list-dash" style="margin-top: 1.00em;">
+If the user sets the <i class="farg">bp</i><code class="lit">-&gt;b_iodone</code> callback to a non-<span class="define">NULL</span> function pointer, it will be called in soft interrupt context when the I/O transfer is complete. The user <span class="emph">may not</span> call <b class="fname">biowait</b>(<i class="farg">bp</i>) in this case.</li>
+<li class="list-dash" style="margin-top: 1.00em;">
+If <span class="define">B_ASYNC</span> is set, then the I/O transfer is asynchronous and the user will not be notified when it is completed. The user <span class="emph">may not</span> call <b class="fname">biowait</b>(<i class="farg">bp</i>) in this case.</li>
+<li class="list-dash" style="margin-top: 1.00em;">
+Otherwise, if <i class="farg">bp</i><code class="lit">-&gt;b_iodone</code> is <span class="define">NULL</span> and <span class="define">B_ASYNC</span> is not specified, the user may wait for the I/O transfer to complete with <b class="fname">biowait</b>(<i class="farg">bp</i>).</li>
+</ul>
+<p>
+Once an I/O transfer has completed, its <span class="type">struct buf</span> may be reused, but the user must first clear the <span class="define">BO_DONE</span> flag of <i class="farg">bp</i><code class="lit">-&gt;b_oflags</code> before reusing it.</div>
+<div class="section">
+<h1 id="x4e455354454420492f4f205452414e5346455253">NESTED I/O TRANSFERS</h1> Sometimes an I/O transfer from a single buffer in memory cannot go to a single location on a block device: it must be split up into smaller transfers for each segment of the memory buffer.<p>
+After initializing the <code class="lit">b_flags</code>, <code class="lit">b_data</code>, and <code class="lit">b_bcount</code> parameters of an I/O transfer for the buffer, called the <span class="emph">master</span> buffer, the user can issue smaller transfers for segments of the buffer using <b class="fname">nestiobuf_setup</b>(). When nested I/O transfers complete, in any order, they debit from the amount of work left to be done in the master buffer. If any segments of the buffer were skipped, the user can report this with <b class="fname">nestiobuf_done</b>() to debit the skipped part of the work.<p>
+The master buffer's I/O transfer is completed when all nested buffers' I/O transfers are completed, and if <b class="fname">nestiobuf_done</b>() is called in the case of skipped segments.<p>
+For writes associated with a vnode <i class="farg">vp</i>, <b class="fname">nestiobuf_setup</b>() accounts for <i class="farg">vp</i><code class="lit">-&gt;v_numoutput</code>, so the caller is not allowed to acquire <i class="farg">vp</i>&#39;s vnode lock before submitting the nested I/O transfer to a block device. However, the caller is responsible for accounting the master buffer in <i class="farg">vp</i><code class="lit">-&gt;v_numoutput</code>. This must be done very carefully because after incrementing <i class="farg">vp</i><code class="lit">-&gt;v_numoutput</code>, the caller is not allowed to acquire <i class="farg">vp</i>&#39;s vnode lock before either calling <b class="fname">nestiobuf_done</b>() or submitting the last nested I/O transfer to a block device.<p>
+For example:<p>
+<pre style="margin-left: 4.00ex;" class="lit display">
+struct buf *mbp, *bp; 
+size_t skipped = 0; 
+unsigned i; 
+int error = 0; 
+ 
+mbp = getiobuf(vp, true); 
+mbp-&gt;b_data = data; 
+mbp-&gt;b_resid = mbp-&gt;b_bcount = datalen; 
+mbp-&gt;b_flags = B_WRITE; 
+ 
+KASSERT(0 &lt; nsegs); 
+KASSERT(datalen == nsegs*segsz); 
+for (i = 0; i &lt; nsegs; i++) { 
+	struct vnode *devvp; 
+	daddr_t blkno; 
+ 
+	vn_lock(vp, LK_EXCLUSIVE | LK_RETRY); 
+	error = VOP_BMAP(vp, i*segsz, &amp;devvp, &amp;blkno, NULL); 
+	VOP_UNLOCK(vp); 
+	if (error == 0 &amp;&amp; blkno == -1) 
+		error = EIO; 
+	if (error) { 
+		/* Give up early, don't try to handle holes.  */ 
+		skipped += datalen - i*segsz; 
+		break; 
+	} 
+ 
+	bp = getiobuf(vp, true); 
+	nestiobuf_setup(bp, mbp, i*segsz, segsz); 
+	bp-&gt;b_blkno = blkno; 
+	if (i == nsegs - 1)	/* Last segment.  */ 
+		break; 
+	VOP_STRATEGY(devvp, bp); 
+} 
+ 
+/* 
+ * Account v_numoutput for master write. 
+ * (Must not vn_lock before last VOP_STRATEGY!) 
+ */ 
+mutex_enter(&amp;vp-&gt;v_interlock); 
+vp-&gt;v_numoutput++; 
+mutex_exit(&amp;vp-&gt;v_interlock); 
+ 
+if (skipped) 
+	nestiobuf_done(mbp, skipped, error); 
+else 
+	VOP_STRATEGY(devvp, bp);</pre>
+</div>
+<div class="section">
+<h1 id="x424c4f434b204445564943452044524956455253">BLOCK DEVICE DRIVERS</h1> Block device drivers implement a &#8216;strategy&#8217; method, in the <code class="lit">d_strategy</code> member of <code class="lit">struct bdevsw</code> (<a class="link-man" href="../9/driver">driver(9)</a>), to queue a buffer for disk I/O. The inputs to the strategy method are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 4.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">bp</i><code class="lit">-&gt;b_flags</code></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Flags specifying the type of transfer.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">B_READ</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Transfer is read from device. If not set, transfer is write to device.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">bp</i><code class="lit">-&gt;b_data</code></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Pointer to kernel virtual address of source/target for transfer.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">bp</i><code class="lit">-&gt;b_bcount</code></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Nonnegative number of bytes requested for transfer.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">bp</i><code class="lit">-&gt;b_blkno</code></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Block number at which to do transfer, relative to partition start.</dd>
+</dl>
+<p>
+If the strategy method uses <a class="link-man" href="../9/bufq">bufq(9)</a>, it must additionally initialize the following fields before queueing <i class="farg">bp</i> with <a class="link-man" href="../9/bufq_put">bufq_put(9)</a>:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 4.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">bp</i><code class="lit">-&gt;b_rawblkno</code></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Block number relative to volume start.</dd>
+</dl>
+<p>
+When the I/O transfer is complete, whether it succeeded or failed, the strategy method must:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-dash">
+<li class="list-dash" style="margin-top: 1.00em;">
+Set <i class="farg">bp</i><code class="lit">-&gt;b_error</code> to zero on success, or to an <a class="link-man" href="../2/errno">errno(2)</a> error code on failure.</li>
+<li class="list-dash" style="margin-top: 1.00em;">
+Set <i class="farg">bp</i><code class="lit">-&gt;b_resid</code> to the number of bytes remaining to transfer, whether on success or on failure. If no bytes were transferred, this must be set to <i class="farg">bp</i><code class="lit">-&gt;b_bcount</code>.</li>
+<li class="list-dash" style="margin-top: 1.00em;">
+Call <b class="fname">biodone</b>(<i class="farg">bp</i>).</li>
+</ul>
+</div>
+<div class="section">
+<h1 id="x46554e4354494f4e53">FUNCTIONS</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">biodone</b>(<i class="farg">bp</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Notify that the I/O transfer described by <i class="farg">bp</i> has completed.<p>
+To be called by a block device driver. Caller must first set <i class="farg">bp</i><code class="lit">-&gt;b_error</code> to an error code and <i class="farg">bp</i><code class="lit">-&gt;b_resid</code> to the number of bytes remaining to transfer.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">biowait</b>(<i class="farg">bp</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Wait for the synchronous I/O transfer described by <i class="farg">bp</i> to complete. Returns the value of <i class="farg">bp</i><code class="lit">-&gt;b_error</code>.<p>
+To be called by a user requesting the I/O transfer.<p>
+May not be called if <i class="farg">bp</i> has a callback or is asynchronous -- that is, if <i class="farg">bp</i><code class="lit">-&gt;b_iodone</code> is set, or if <span class="define">B_ASYNC</span> is set in <i class="farg">bp</i><code class="lit">-&gt;b_flags</code>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">getiobuf</b>(<i class="farg">vp</i>, <i class="farg">waitok</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Allocate a <span class="type">struct buf</span> for an I/O transfer. If <i class="farg">vp</i> is non-<span class="define">NULL</span>, the transfer is associated with it. If <i class="farg">waitok</i> is false, returns <span class="define">NULL</span> if none can be allocated immediately.<p>
+The resulting <span class="type">struct buf</span> pointer must eventually be passed to <b class="fname">putiobuf</b>() to release it. Do <span class="emph">not</span> use <a class="link-man" href="../9/brelse">brelse(9)</a>.<p>
+The buffer may not be used for an asynchronous I/O transfer, because there is no way to know when it is completed and may be safely passed to <b class="fname">putiobuf</b>(). Asynchronous I/O transfers are allowed only for buffers in the <a class="link-man" href="../9/buffercache">buffercache(9)</a>.<p>
+May sleep if <i class="farg">waitok</i> is true.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">putiobuf</b>(<i class="farg">bp</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Free <i class="farg">bp</i>, which must have been allocated by <b class="fname">getiobuf</b>(). Either <i class="farg">bp</i> must never have been submitted to a block device, or the I/O transfer must have completed.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x434f4445205245464552454e434553">CODE REFERENCES</h1> The <b class="name">BUFFERIO</b> subsystem is implemented in <i class="file">sys/kern/vfs_bio.c</i>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../9/buffercache">buffercache(9)</a>, <a class="link-man" href="../9/bufq">bufq(9)</a></div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> The <b class="name">BUFFERIO</b> abstraction provides no way to cancel an I/O transfer once it has been submitted to a block device.<p>
+The <b class="name">BUFFERIO</b> abstraction provides no way to do I/O transfers with non-kernel pages, e.g. directly to buffers in userland without copying into the kernel first.<p>
+The <span class="type">struct buf</span> type is all mixed up with the <a class="link-man" href="../9/buffercache">buffercache(9)</a>.<p>
+The <b class="name">BUFFERIO</b> abstraction is a totally idiotic API design.<p>
+The <code class="lit">v_numoutput</code> accounting required of <b class="name">BUFFERIO</b> callers is asinine.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+March 29, 2015</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

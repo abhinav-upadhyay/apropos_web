@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+SSL_read(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SSL_read(3)</td>
+<td class="head-vol" align="center">
+OpenSSL</td>
+<td class="head-rtitle" align="right">
+SSL_read(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> SSL_read &#45; read bytes from a TLS/SSL connection.</div>
+<div class="section">
+<h1>LIBRARY</h1> libcrypto, -lcrypto</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br>
+ #include &lt;openssl/ssl.h&gt;<br>
+<br>
+ int SSL_read(SSL *ssl, void *buf, int num);<br>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <i>SSL_read()</i> tries to read <b>num</b> bytes from the specified <b>ssl</b> into the buffer  <b>buf</b>.</div>
+<div class="section">
+<h1>NOTES</h1> If necessary,  <i>SSL_read()</i> will negotiate a TLS/SSL session, if not already explicitly performed by  <i>SSL_connect</i>(3) or  <i>SSL_accept</i>(3). If the peer requests a re-negotiation, it will be performed transparently during the  <i>SSL_read()</i> operation. The behaviour of <i>SSL_read()</i> depends on the underlying BIO. <p>
+For the transparent negotiation to succeed, the <b>ssl</b> must have been initialized to client or server mode. This is being done by calling  <i>SSL_set_connect_state</i>(3) or <i>SSL_set_accept_state()</i> before the first call to an  <i>SSL_read()</i> or <i>SSL_write</i>(3) function.<p>
+<i>SSL_read()</i> works based on the SSL/TLS records. The data are received in records (with a maximum record size of 16kB for SSLv3/TLSv1). Only when a record has been completely received, it can be processed (decryption and check of integrity). Therefore data that was not retrieved at the last call of  <i>SSL_read()</i> can still be buffered inside the SSL layer and will be retrieved on the next call to  <i>SSL_read()</i>. If <b>num</b> is higher than the number of bytes buffered,  <i>SSL_read()</i> will return with the bytes buffered. If no more bytes are in the buffer,  <i>SSL_read()</i> will trigger the processing of the next record. Only when the record has been received and processed completely,  <i>SSL_read()</i> will return reporting success. At most the contents of the record will be returned. As the size of an SSL/TLS record may exceed the maximum packet size of the underlying transport (e.g. TCP), it may be necessary to read several packets from the transport layer before the record is complete and  <i>SSL_read()</i> can succeed.<p>
+If the underlying BIO is <b>blocking</b>, <i>SSL_read()</i> will only return, once the read operation has been finished or an error occurred, except when a renegotiation take place, in which case a SSL_ERROR_WANT_READ may occur. This behaviour can be controlled with the SSL_MODE_AUTO_RETRY flag of the  <i>SSL_CTX_set_mode</i>(3) call.<p>
+If the underlying BIO is <b>non-blocking</b>, <i>SSL_read()</i> will also return when the underlying BIO could not satisfy the needs of  <i>SSL_read()</i> to continue the operation. In this case a call to  <i>SSL_get_error</i>(3) with the return value of  <i>SSL_read()</i> will yield <b>SSL_ERROR_WANT_READ</b> or  <b>SSL_ERROR_WANT_WRITE</b>. As at any time a re-negotiation is possible, a call to  <i>SSL_read()</i> can also cause write operations! The calling process then must repeat the call after taking appropriate action to satisfy the needs of  <i>SSL_read()</i>. The action depends on the underlying BIO. When using a non-blocking socket, nothing is to be done, but  <i>select()</i> can be used to check for the required condition. When using a buffering BIO, like a BIO pair, data must be written into or retrieved out of the BIO before being able to continue.<p>
+<i>SSL_pending</i>(3) can be used to find out whether there are buffered bytes available for immediate retrieval. In this case  <i>SSL_read()</i> can be called without blocking or actually receiving new data from the underlying socket.</div>
+<div class="section">
+<h1>WARNING</h1> When an  <i>SSL_read()</i> operation has to be repeated because of  <b>SSL_ERROR_WANT_READ</b> or <b>SSL_ERROR_WANT_WRITE</b>, it must be repeated with the same arguments.</div>
+<div class="section">
+<h1>RETURN VALUES</h1> The following return values can occur:<dl>
+<dt>
+&gt;0</dt>
+<dd>
+The read operation was successful; the return value is the number of bytes actually read from the TLS/SSL connection.</dd>
+</dl>
+<dl>
+<dt>
+0</dt>
+<dd>
+The read operation was not successful. The reason may either be a clean shutdown due to a "close notify" alert sent by the peer (in which case the SSL_RECEIVED_SHUTDOWN flag in the ssl shutdown state is set (see  <i>SSL_shutdown</i>(3),  <i>SSL_set_shutdown</i>(3)). It is also possible, that the peer simply shut down the underlying transport and the shutdown is incomplete. Call  <i>SSL_get_error()</i> with the return value <b>ret</b> to find out, whether an error occurred or the connection was shut down cleanly (SSL_ERROR_ZERO_RETURN).<div style="height: 1.00em;">
+&#160;</div>
+SSLv2 (deprecated) does not support a shutdown alert protocol, so it can only be detected, whether the underlying connection was closed. It cannot be checked, whether the closure was initiated by the peer or by something else.</dd>
+</dl>
+<dl>
+<dt>
+&lt;0</dt>
+<dd>
+The read operation was not successful, because either an error occurred or action must be taken by the calling process. Call  <i>SSL_get_error()</i> with the return value  <b>ret</b> to find out the reason.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <i>SSL_get_error</i>(3), <i>SSL_write</i>(3),  <i>SSL_CTX_set_mode</i>(3), <i>SSL_CTX_new</i>(3),  <i>SSL_connect</i>(3), <i>SSL_accept</i>(3)  <i>SSL_set_connect_state</i>(3),  <i>SSL_pending</i>(3),  <i>SSL_shutdown</i>(3), <i>SSL_set_shutdown</i>(3),  <i>ssl</i>(3), <i>openssl_bio</i>(3)</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tr>
+<td class="foot-date">
+2014-06-05</td>
+<td class="foot-os" align="right">
+1.0.1n</td>
+</tr>
+</table>
+</div>
+</body>
+<>
+

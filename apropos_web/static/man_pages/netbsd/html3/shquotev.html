@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+SHQUOTE(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SHQUOTE(3)</td>
+<td class="head-vol" align="center">
+Library Functions Manual</td>
+<td class="head-rtitle" align="right">
+SHQUOTE(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">shquote</b>, <b class="name">shquotev</b> &#8212; <span class="desc">quote argument strings for use with the shell</span></div>
+<div class="section">
+<h1 id="x4c494252415259">LIBRARY</h1> <span class="lib">Standard C Library (libc, &#45;lc)</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">stdlib.h</a>&gt;</b><p>
+<i class="ftype">size_t</i><br>
+<b class="fname">shquote</b>(<i class="farg" style="white-space:nowrap;">const char *arg</i>, <i class="farg" style="white-space:nowrap;">char *buf</i>, <i class="farg" style="white-space:nowrap;">size_t bufsize</i>);<p>
+<i class="ftype">size_t</i><br>
+<b class="fname">shquotev</b>(<i class="farg" style="white-space:nowrap;">int argc</i>, <i class="farg" style="white-space:nowrap;">char * const *argv</i>, <i class="farg" style="white-space:nowrap;">char *buf</i>, <i class="farg" style="white-space:nowrap;">size_t bufsize</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="fname">shquote</b>() and <b class="fname">shquotev</b>() functions copy strings and transform the copies by adding shell escape and quoting characters. They are used to encapsulate arguments to be included in command strings passed to the <b class="fname">system</b>() and <b class="fname">popen</b>() functions, so that the arguments will have the correct values after being evaluated by the shell.<p>
+The exact method of quoting and escaping may vary, and is intended to match the conventions of the shell used by <b class="fname">system</b>() and <b class="fname">popen</b>(). It may not match the conventions used by other shells. In this implementation, the following transformation is applied to each input string:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 1.00em;">
+it is surrounded by single quotes ('),</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+any single quotes in the input are escaped by replacing them with the four-character sequence: <code class="lit">'&#92;''</code>, and</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+extraneous pairs of single quotes (caused by multiple adjacent single quotes in the input string, or by single quotes at the beginning or end of the input string) are elided.</li>
+</ul>
+<p>
+The <b class="fname">shquote</b>() function transforms the string specified by its <i class="farg">arg</i> argument, and places the result into the memory pointed to by <i class="farg">buf</i>.<p>
+The <b class="fname">shquotev</b>() function transforms each of the <i class="farg">argc</i> strings specified by the array <i class="farg">argv</i> independently. The transformed strings are placed in the memory pointed to by <i class="farg">buf</i>, separated by spaces. It does not modify the pointer array specified by <i class="farg">argv</i> or the strings pointed to by the pointers in the array.<p>
+Both functions write up to <i class="farg">bufsize</i> - 1 characters of output into the buffer pointed to by <i class="farg">buf</i>, then add a <code class="lit">NUL</code> character to terminate the output string. If <i class="farg">bufsize</i> is given as zero, the <i class="farg">buf</i> parameter is ignored and no output is written.</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> The <b class="fname">shquote</b>() and <b class="fname">shquotev</b>() functions return the number of characters necessary to hold the result from operating on their input strings, not including the terminating <code class="lit">NUL</code>. That is, they return the length of the string that would have been written to the output buffer, if it were large enough. If an error occurs during processing, the value ((size_t)&#45;1) is returned and <b class="var">errno</b> is set appropriately.</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> The following code fragment demonstrates how you might use <b class="fname">shquotev</b>() to construct a command string to be used with <b class="fname">system</b>(). The command uses an environment variable (which will be expanded by the shell) to determine the actual program to run. Note that the environment variable may be expanded by the shell into multiple words. The first word of the expansion will be used by the shell as the name of the program to run, and the rest will be passed as arguments to the program.<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+char **argv, c, *cmd; 
+size_t cmdlen, len, qlen; 
+int argc; 
+ 
+... 
+ 
+/* 
+ * Size buffer to hold the command string, and allocate it. 
+ * Buffer of length one given to snprintf() for portability. 
+ */ 
+cmdlen = snprintf(&amp;c, 1, "${PROG-%s} ", PROG_DEFAULT); 
+qlen = shquotev(argc, argv, NULL, 0); 
+if (qlen == (size_t)-1) { 
+	... 
+} 
+cmdlen += qlen + 1; 
+cmd = malloc(cmdlen); 
+if (cmd == NULL) { 
+	... 
+} 
+ 
+/* Create the command string. */ 
+len = snprintf(cmd, cmdlen, "${PROG-%s} ", PROG_DEFAULT); 
+qlen = shquotev(argc, argv, cmd + len, cmdlen - len); 
+if (qlen == (size_t)-1) { 
+	/* Should not ever happen. */ 
+	... 
+} 
+len += qlen; 
+ 
+/* "cmd" can now be passed to system(). */</pre>
+<p>
+The following example shows how you would implement the same functionality using the <b class="fname">shquote</b>() function directly.<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+char **argv, c, *cmd; 
+size_t cmdlen, len, qlen; 
+int argc, i; 
+ 
+... 
+ 
+/* 
+ * Size buffer to hold the command string, and allocate it. 
+ * Buffer of length one given to snprintf() for portability. 
+ */ 
+cmdlen = snprintf(&amp;c, 1, "${PROG-%s} ", PROG_DEFAULT); 
+for (i = 0; i &lt; argc; i++) { 
+	qlen = shquote(argv[i], NULL, 0); 
+	if (qlen == (size_t)-1) { 
+		... 
+	} 
+	cmdlen += qlen + 1; 
+} 
+cmd = malloc(cmdlen); 
+if (cmd == NULL) { 
+	... 
+} 
+ 
+/* Start the command string with the env var reference. */ 
+len = snprintf(cmd, cmdlen, "${PROG-%s} ", PROG_DEFAULT); 
+ 
+/* Quote all of the arguments when copying them. */ 
+for (i = 0; i &lt; argc; i++) { 
+	qlen = shquote(argv[i], cmd + len, cmdlen - len); 
+	if (qlen == (size_t)-1) { 
+		/* Should not ever happen. */ 
+		... 
+	} 
+	len += qlen; 
+	cmd[len++] = ' '; 
+} 
+cmd[--len] = '&#92;0'; 
+ 
+/* "cmd" can now be passed to system(). */</pre>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/sh">sh(1)</a>, <a class="link-man" href="../3/popen">popen(3)</a>, <a class="link-man" href="../3/system">system(3)</a></div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> This implementation does not currently handle strings containing multibyte characters properly. To address this issue, <i class="file">/bin/sh</i> (the shell used by <b class="fname">system</b>() and <b class="fname">popen</b>()) must first be fixed to handle multibyte characters. When that has been done, these functions can have multibyte character support enabled.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+September 7, 2008</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

@@ -1,0 +1,186 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+INETD(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+INETD(8)</td>
+<td class="head-vol" align="center">
+System Manager's Manual</td>
+<td class="head-rtitle" align="right">
+INETD(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">inetd</b>, <b class="name">inetd.conf</b> &#8212; <span class="desc">internet &#8220;super-server&#8221;</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1><table class="synopsis">
+<col style="width: 5.00ex;">
+<col>
+<tbody>
+<tr>
+<td>
+inetd</td>
+<td>
+&#91;<span class="opt"><b class="flag">&#45;d</b></span>&#93; &#91;<span class="opt"><b class="flag">&#45;l</b></span>&#93; &#91;<span class="opt"><i class="arg">configuration file</i></span>&#93;</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="name">inetd</b> should be run at boot time by <i class="file">/etc/rc</i> (see <a class="link-man" href="../8/rc">rc(8)</a>). It then opens sockets according to its configuration and listens for connections. When a connection is found on one of its sockets, it decides what service the socket corresponds to, and invokes a program to service the request. After the program is finished, it continues to listen on the socket (except in some cases which will be described below). Essentially, <b class="name">inetd</b> allows running one daemon to invoke several others, reducing load on the system.<p>
+The options available for <b class="name">inetd</b>:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;d</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Turns on debugging.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;l</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Turns on libwrap connection logging.</dd>
+</dl>
+<p>
+Upon execution, <b class="name">inetd</b> reads its configuration information from a configuration file which, by default, is <i class="file">/etc/inetd.conf</i>. The path given for this configuration file must be absolute, unless the <b class="flag">&#45;d</b> option is also given on the command line. There must be an entry for each field of the configuration file, with entries for each field separated by a tab or a space. Comments are denoted by a ``#'' at the beginning of a line. There must be an entry for each field (except for one special case, described below). The fields of the configuration file are as follows:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+[addr:]service-name 
+socket-type[:accept_filter] 
+protocol[,sndbuf=size][,rcvbuf=size] 
+wait/nowait[:max] 
+user[:group] 
+server-program 
+server program arguments</pre>
+<p>
+To specify an <span class="emph">Sun-RPC</span> based service, the entry would contain these fields:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+service-name/version 
+socket-type 
+rpc/protocol[,sndbuf=size][,rcvbuf=size] 
+wait/nowait[:max] 
+user[:group] 
+server-program 
+server program arguments</pre>
+<p>
+To specify a UNIX-domain (local) socket, the entry would contain these fields:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+path 
+socket-type 
+unix[,sndbuf=size][,rcvbuf=size] 
+wait/nowait[:max] 
+user[:group] 
+server-program 
+server program arguments</pre>
+<p>
+For Internet services, the first field of the line may also have a host address specifier prefixed to it, separated from the service name by a colon. If this is done, the string before the colon in the first field indicates what local address <b class="name">inetd</b> should use when listening for that service, or the single character &#8220;*&#8221; to indicate <span class="define">INADDR_ANY</span>, meaning &#8216;all local addresses&#8217;. To avoid repeating an address that occurs frequently, a line with a host address specifier and colon, but no further fields, causes the host address specifier to be remembered and used for all further lines with no explicit host specifier (until another such line or the end of the file). A line<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">*:</code></div>
+</blockquote>
+is implicitly provided at the top of the file; thus, traditional configuration files (which have no host address specifiers) will be interpreted in the traditional manner, with all services listened for on all local addresses.<p>
+The <span class="emph">service-name</span> entry is the name of a valid service in the file <i class="file">/etc/services</i>. For &#8220;internal&#8221; services (discussed below), the service name <span class="emph">must</span> be the official name of the service (that is, the first entry in <i class="file">/etc/services</i>). When used to specify a <span class="emph">Sun-RPC</span> based service, this field is a valid RPC service name in the file <i class="file">/etc/rpc</i>. The part on the right of the &#8220;/&#8221; is the RPC version number. This can simply be a single numeric argument or a range of versions. A range is bounded by the low version to the high version &#45; &#8220;rusers/1-3&#8221;.<p>
+The <span class="emph">socket-type</span> should be one of &#8220;stream&#8221;, &#8220;dgram&#8221;, &#8220;raw&#8221;, &#8220;rdm&#8221;, or &#8220;seqpacket&#8221;, depending on whether the socket is a stream, datagram, raw, reliably delivered message, or sequenced packet socket.<p>
+Optionally, an <a class="link-man" href="../9/accept_filter">accept_filter(9)</a> can be specified by appending a colon to the socket-type, followed by the name of the desired accept filter. In this case <b class="name">inetd</b> will not see new connections for the specified service until the accept filter decides they are ready to be handled.<p>
+The <span class="emph">protocol</span> must be a valid protocol as given in <i class="file">/etc/protocols</i> or the string &#8220;unix&#8221;. Examples might be &#8220;tcp&#8221; and &#8220;udp&#8221;. Rpc based services are specified with the &#8220;rpc/tcp&#8221; or &#8220;rpc/udp&#8221; service type. &#8220;tcp&#8221; and &#8220;udp&#8221; will be recognized as &#8220;TCP or UDP over default IP version&#8221;. It is currently IPv4, but in the future it will be IPv6. If you need to specify IPv4 or IPv6 explicitly, use something like &#8220;tcp4&#8221; or &#8220;udp6&#8221;. If you would like to enable special support for <a class="link-man" href="../8/faithd">faithd(8)</a>, prepend a keyword &#8220;faith&#8221; into <span class="emph">protocol</span>, like &#8220;faith/tcp6&#8221;.<p>
+In addition to the protocol, the configuration file may specify the send and receive socket buffer sizes for the listening socket. This is especially useful for TCP as the window scale factor, which is based on the receive socket buffer size, is advertised when the connection handshake occurs, thus the socket buffer size for the server must be set on the listen socket. By increasing the socket buffer sizes, better TCP performance may be realized in some situations. The socket buffer sizes are specified by appending their values to the protocol specification as follows:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+tcp,rcvbuf=16384 
+tcp,sndbuf=64k 
+tcp,rcvbuf=64k,sndbuf=1m</pre>
+<p>
+A literal value may be specified, or modified using &#8216;k&#8217; to indicate kilobytes or &#8216;m&#8217; to indicate megabytes. Socket buffer sizes may be specified for all services and protocols except for tcpmux services.<p>
+The <span class="emph">wait/nowait</span> entry is used to tell <b class="name">inetd</b> if it should wait for the server program to return, or continue processing connections on the socket. If a datagram server connects to its peer, freeing the socket so <b class="name">inetd</b> can receive further messages on the socket, it is said to be a &#8220;multi-threaded&#8221; server, and should use the &#8220;nowait&#8221; entry. For datagram servers which process all incoming datagrams on a socket and eventually time out, the server is said to be &#8220;single-threaded&#8221; and should use a &#8220;wait&#8221; entry. <a class="link-man" href="../8/comsat">comsat(8)</a> (<a class="link-man" href="../1/biff">biff(1)</a>) and <a class="link-man" href="../8/ntalkd">ntalkd(8)</a> are both examples of the latter type of datagram server. <a class="link-man" href="../8/tftpd">tftpd(8)</a> is an exception; it is a datagram server that establishes pseudo-connections. It must be listed as &#8220;wait&#8221; in order to avoid a race; the server reads the first packet, creates a new socket, and then forks and exits to allow <b class="name">inetd</b> to check for new service requests to spawn new servers. The optional &#8220;max&#8221; suffix (separated from &#8220;wait&#8221; or &#8220;nowait&#8221; by a dot or a colon) specifies the maximum number of server instances that may be spawned from <b class="name">inetd</b> within an interval of 60 seconds. When omitted, &#8220;max&#8221; defaults to 40. If it reaches this maximum spawn rate, <b class="name">inetd</b> will log the problem (via the syslogger using the <span class="define">LOG_DAEMON</span> facility and <span class="define">LOG_ERR</span> level) and stop handling the specific service for ten minutes.<p>
+Stream servers are usually marked as &#8220;nowait&#8221; but if a single server process is to handle multiple connections, it may be marked as &#8220;wait&#8221;. The master socket will then be passed as fd 0 to the server, which will then need to accept the incoming connection. The server should eventually time out and exit when no more connections are active. <b class="name">inetd</b> will continue to listen on the master socket for connections, so the server should not close it when it exits. <a class="link-man" href="../8/identd">identd(8)</a> is usually the only stream server marked as wait.<p>
+The <span class="emph">user</span> entry should contain the user name of the user as whom the server should run. This allows for servers to be given less permission than root. Optionally, a group can be specified by appending a colon to the user name, followed by the group name (it is possible to use a dot (``.'') in lieu of a colon, however this feature is provided only for backward compatibility). This allows for servers to run with a different (primary) group id than specified in the password file. If a group is specified and <span class="emph">user</span> is not root, the supplementary groups associated with that user will still be set.<p>
+The <span class="emph">server-program</span> entry should contain the pathname of the program which is to be executed by <b class="name">inetd</b> when a request is found on its socket. If <b class="name">inetd</b> provides this service internally, this entry should be &#8220;internal&#8221;.<p>
+The <span class="emph">server program arguments</span> should be just as arguments normally are, starting with argv[0], which is the name of the program. If the service is provided internally, the word &#8220;internal&#8221; should take the place of this entry. It is possible to quote an argument using either single or double quotes. This allows you to have, e.g., spaces in paths and parameters.<div class="subsection">
+<h2 id="x496e7465726e616c205365727669636573">Internal Services</h2> <b class="name">inetd</b> provides several &#8220;trivial&#8221; services internally by use of routines within itself. These services are &#8220;echo&#8221;, &#8220;discard&#8221;, &#8220;chargen&#8221; (character generator), &#8220;daytime&#8221; (human readable time), and &#8220;time&#8221; (machine readable time, in the form of the number of seconds since midnight, January 1, 1900 GMT). For details of these services, consult the appropriate RFC.<p>
+TCP services without official port numbers can be handled with the RFC1078-based tcpmux internal service. TCPmux listens on port 1 for requests. When a connection is made from a foreign host, the service name requested is passed to TCPmux, which performs a lookup in the service name table provided by <i class="file">/etc/inetd.conf</i> and returns the proper entry for the service. TCPmux returns a negative reply if the service doesn't exist, otherwise the invoked server is expected to return the positive reply if the service type in <i class="file">/etc/inetd.conf</i> file has the prefix &#8220;tcpmux/&#8221;. If the service type has the prefix &#8220;tcpmux/+&#8221;, TCPmux will return the positive reply for the process; this is for compatibility with older server code, and also allows you to invoke programs that use stdin/stdout without putting any special server code in them. Services that use TCPmux are &#8220;nowait&#8221; because they do not have a well-known port number and hence cannot listen for new requests.<p>
+<b class="name">inetd</b> rereads its configuration file when it receives a hangup signal, <span class="define">SIGHUP</span>. Services may be added, deleted or modified when the configuration file is reread. <b class="name">inetd</b> creates a file <span class="emph">/var/run/inetd.pid</span> that contains its process identifier.</div>
+<div class="subsection">
+<h2 id="x6c696277726170">libwrap</h2> Support for TCP wrappers is included with <b class="name">inetd</b> to provide internal tcpd-like access control functionality. An external tcpd program is not needed. You do not need to change the <i class="file">/etc/inetd.conf</i> server-program entry to enable this capability. <b class="name">inetd</b> uses <i class="file">/etc/hosts.allow</i> and <i class="file">/etc/hosts.deny</i> for access control facility configurations, as described in <a class="link-man" href="../5/hosts_access">hosts_access(5)</a>.<p>
+<span class="emph">Nota Bene</span>: TCP wrappers do not affect/restrict UDP or internal services.</div>
+<div class="subsection">
+<h2 id="x4950736563">IPsec</h2> The implementation includes a tiny hack to support IPsec policy settings for each socket. A special form of the comment line, starting with &#8220;<code class="lit">#@</code>&#8221;, is used as a policy specifier. The content of the above comment line will be treated as a IPsec policy string, as described in <a class="link-man" href="../3/ipsec_set_policy">ipsec_set_policy(3)</a>. Multiple IPsec policy strings may be specified by using a semicolon as a separator. If conflicting policy strings are found in a single line, the last string will take effect. A <code class="lit">#@</code> line affects all of the following lines in <i class="file">/etc/inetd.conf</i>, so you may want to reset the IPsec policy by using a comment line containing only <code class="lit">#@</code> (with no policy string).<p>
+If an invalid IPsec policy string appears in <i class="file">/etc/inetd.conf</i>, <b class="name">inetd</b> logs an error message using <a class="link-man" href="../3/syslog">syslog(3)</a> and terminates itself.</div>
+<div class="subsection">
+<h2 id="x49507636205443502f554450206265686176696f72">IPv6 TCP/UDP behavior</h2> If you wish to run a server for both IPv4 and IPv6 traffic, you will need to run two separate processes for the same server program, specified as two separate lines in <i class="file">/etc/inetd.conf</i> using &#8220;tcp4&#8221; and &#8220;tcp6&#8221; respectively. Plain &#8220;tcp&#8221; means TCP on top of the current default IP version, which is, at this moment, IPv4.<p>
+Under various combination of IPv4/v6 daemon settings, <b class="name">inetd</b> will behave as follows:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 0.00em;">
+If you have only one server on &#8220;tcp4&#8221;, IPv4 traffic will be routed to the server. IPv6 traffic will not be accepted.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+If you have two servers on &#8220;tcp4&#8221; and &#8220;tcp6&#8221;, IPv4 traffic will be routed to the server on &#8220;tcp4&#8221;, and IPv6 traffic will go to server on &#8220;tcp6&#8221;.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+If you have only one server on &#8220;tcp6&#8221;, only IPv6 traffic will be routed to the server. The kernel may route to the server IPv4 traffic as well, under certain configuration. See <a class="link-man" href="../4/ip6">ip6(4)</a> for details.</li>
+</ul>
+</div>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/inetd.conf</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+configuration file for all <b class="name">inetd</b> provided services</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/services</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+service name to protocol and port number mappings.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/protocols</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+protocol name to protocol number mappings</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/rpc</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Sun-RPC service name to service number mappings.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/hosts.allow</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+explicit remote host access list.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/hosts.deny</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+explicit remote host denial of service list.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../5/hosts_access">hosts_access(5)</a>, <a class="link-man" href="../5/hosts_options">hosts_options(5)</a>, <a class="link-man" href="../5/protocols">protocols(5)</a>, <a class="link-man" href="../5/rpc">rpc(5)</a>, <a class="link-man" href="../5/services">services(5)</a>, <a class="link-man" href="../8/comsat">comsat(8)</a>, <a class="link-man" href="../8/fingerd">fingerd(8)</a>, <a class="link-man" href="../8/ftpd">ftpd(8)</a>, <a class="link-man" href="../8/rexecd">rexecd(8)</a>, <a class="link-man" href="../8/rlogind">rlogind(8)</a>, <a class="link-man" href="../8/rshd">rshd(8)</a>, <a class="link-man" href="../8/telnetd">telnetd(8)</a>, <a class="link-man" href="../8/tftpd">tftpd(8)</a><p>
+<span class="ref"><span class="ref-auth">J. Postel</span>, <span class="ref-title">Echo Protocol</span>, <span class="ref-rep">RFC</span>, <span class="ref-num">862</span>, <span class="ref-date">May 1983</span>.</span><p>
+<span class="ref"><span class="ref-auth">J. Postel</span>, <span class="ref-title">Discard Protocol</span>, <span class="ref-rep">RFC</span>, <span class="ref-num">863</span>, <span class="ref-date">May 1983</span>.</span><p>
+<span class="ref"><span class="ref-auth">J. Postel</span>, <span class="ref-title">Character Generator Protocol</span>, <span class="ref-rep">RFC</span>, <span class="ref-num">864</span>, <span class="ref-date">May 1983</span>.</span><p>
+<span class="ref"><span class="ref-auth">J. Postel</span>, <span class="ref-title">Daytime Protocol</span>, <span class="ref-rep">RFC</span>, <span class="ref-num">867</span>, <span class="ref-date">May 1983</span>.</span><p>
+<span class="ref"><span class="ref-auth">J. Postel</span> and <span class="ref-auth">K. Harrenstien</span>, <span class="ref-title">Time Protocol</span>, <span class="ref-rep">RFC</span>, <span class="ref-num">868</span>, <span class="ref-date">May 1983</span>.</span><p>
+<span class="ref"><span class="ref-auth">M. Lottor</span>, <span class="ref-title">TCP port service Multiplexer (TCPMUX)</span>, <span class="ref-rep">RFC</span>, <span class="ref-num">1078</span>, <span class="ref-date">November 1988</span>.</span></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">inetd</b> command appeared in <span class="unix">4.3BSD</span>. Support for <span class="emph">Sun-RPC</span> based services is modeled after that provided by SunOS 4.1. Support for specifying the socket buffer sizes was added in <span class="unix">NetBSD&#160;1.4</span>. In November 1996, libwrap support was added to provide internal tcpd-like access control functionality; libwrap is based on Wietse Venema's tcp_wrappers. IPv6 support and IPsec hack was made by KAME project, in 1999.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> Host address specifiers, while they make conceptual sense for RPC services, do not work entirely correctly. This is largely because the portmapper interface does not provide a way to register different ports for the same service on different local addresses. Provided you never have more than one entry for a given RPC service, everything should work correctly (Note that default host address specifiers do apply to RPC lines with no explicit specifier.)<p>
+&#8220;tcpmux&#8221; on IPv6 is not tested enough.</div>
+<div class="section">
+<h1 id="x534543555249545920434f4e53494445524154494f4e53">SECURITY CONSIDERATIONS</h1> Enabling the &#8220;echo&#8221;, &#8220;discard&#8221;, and &#8220;chargen&#8221; built-in trivial services is not recommended because remote users may abuse these to cause a denial of network service to or from the local host.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+August 27, 2008</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

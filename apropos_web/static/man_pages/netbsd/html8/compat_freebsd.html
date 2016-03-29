@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+COMPAT_FREEBSD(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+COMPAT_FREEBSD(8)</td>
+<td class="head-vol" align="center">
+System Manager's Manual</td>
+<td class="head-rtitle" align="right">
+COMPAT_FREEBSD(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">compat_freebsd</b> &#8212; <span class="desc">setup procedure for running FreeBSD binaries</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <span class="unix">NetBSD</span> supports running <span class="unix">FreeBSD</span> binaries. Most binaries should work, except programs that use <span class="unix">FreeBSD</span>-specific features. These include i386-specific calls, such as syscons utilities. The <span class="unix">FreeBSD</span> compatibility feature is active for kernels compiled with the <span class="define">COMPAT_FREEBSD</span> option enabled.<p>
+A lot of programs are dynamically linked. This means, that you will also need the <span class="unix">FreeBSD</span> shared libraries that the program depends on, and the runtime linker. Also, you will need to create a &#8220;shadow root&#8221; directory for <span class="unix">FreeBSD</span> binaries on your <span class="unix">NetBSD</span> system. This directory is named <i class="file">/emul/freebsd</i>. Any file operations done by <span class="unix">FreeBSD</span> programs run under <span class="unix">NetBSD</span> will look in this directory first. So, if a <span class="unix">FreeBSD</span> program opens, for example, <i class="file">/etc/passwd</i>, <span class="unix">NetBSD</span> will first try to open <i class="file">/emul/freebsd/etc/passwd</i>, and if that does not exist open the &#8216;real&#8217; <i class="file">/etc/passwd</i> file. It is recommended that you install <span class="unix">FreeBSD</span> packages that include configuration files, etc under <i class="file">/emul/freebsd</i>, to avoid naming conflicts with possible <span class="unix">NetBSD</span> counterparts. Shared libraries should also be installed in the shadow tree.<p>
+Generally, you will need to look for the shared libraries that <span class="unix">FreeBSD</span> binaries depend on only the first few times that you install a <span class="unix">FreeBSD</span> program on your <span class="unix">NetBSD</span> system. After a while, you will have a sufficient set of <span class="unix">FreeBSD</span> shared libraries on your system to be able to run newly imported <span class="unix">FreeBSD</span> binaries without any extra work.<div class="subsection">
+<h2 id="x53657474696e6720757020736861726564206c6962726172696573">Setting up shared libraries</h2> How to get to know which shared libraries <span class="unix">FreeBSD</span> binaries need, and where to get them? Basically, there are 2 possibilities (when following these instructions: you will need to be root on your <span class="unix">NetBSD</span> system to do the necessary installation steps).<p>
+<ol style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-enum">
+<li class="list-enum" style="margin-top: 0.00em;">
+You have access to a <span class="unix">FreeBSD</span> system. In this case you can temporarily install the binary there, see what shared libraries it needs, and copy them to your <span class="unix">NetBSD</span> system. Example: you have just ftp-ed the <span class="unix">FreeBSD</span> binary of SimCity. Put it on the <span class="unix">FreeBSD</span> system you have access to, and check which shared libraries it needs by running &#8216;ldd sim&#8217;:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+me@freebsd% ldd /usr/local/lib/SimCity/res/sim 
+/usr/local/lib/SimCity/res/sim: 
+	-lXext.6 =&gt; /usr/X11R6/lib/libXext.so.6.0 (0x100c1000) 
+	-lX11.6 =&gt; /usr/X11R6/lib/libX11.so.6.0 (0x100c9000) 
+	-lc.2 =&gt; /usr/lib/libc.so.2.1 (0x10144000) 
+	-lm.2 =&gt; /usr/lib/libm.so.2.0 (0x101a7000) 
+	-lgcc.261 =&gt; /usr/lib/libgcc.so.261.0 (0x101bf000)</pre>
+<p>
+You would need go get all the files from the last column, and put them under <i class="file">/emul/freebsd</i>. This means you eventually have these files on your <span class="unix">NetBSD</span> system:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-item">
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">/emul/freebsd/usr/X11R6/lib/libXext.so.6.0</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">/emul/freebsd/usr/X11R6/lib/libX11.so.6.0</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">/emul/freebsd/usr/lib/libc.so.2.1</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">/emul/freebsd/usr/lib/libm.so.2.0</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">/emul/freebsd/usr/lib/libgcc.so.261.0</i></li>
+</ul>
+<p>
+Note that if you already have a <span class="unix">FreeBSD</span> shared library with a matching major revision number to the first column of the <b class="cmd">ldd</b> output, you won't need to copy the file named in the last column to your system, the one you already have should work. It is advisable to copy the shared library anyway if it is a newer version, though. You can remove the old one. So, if you have these libraries on your system:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-item">
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">/emul/freebsd/usr/lib/libc.so.2.0</i></li>
+</ul>
+<p>
+and you find that the ldd output for a new binary you want to install is:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+&#45;lc.2 =&gt; /usr/lib/libc.so.2.1 (0x10144000)</pre>
+<p>
+You won't need to worry about copying <i class="file">/usr/lib/libc.so.2.1</i> too, because the program should work fine with the slightly older version. You can decide to replace the libc.so anyway, and that should leave you with:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-item">
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">/emul/freebsd/usr/lib/libc.so.2.1</i></li>
+</ul>
+<p>
+Finally, you must make sure that you have the <span class="unix">FreeBSD</span> runtime linker and its config files on your system. You should copy these files from the <span class="unix">FreeBSD</span> system to their appropriate place on your <span class="unix">NetBSD</span> system (in the <i class="file">/emul/freebsd</i> tree):<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-item">
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">usr/libexec/ld.so</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">var/run/ld.so.hints</i></li>
+</ul>
+</li>
+<li class="list-enum" style="margin-top: 0.00em;">
+You don't have access to a <span class="unix">FreeBSD</span> system. In that case, you should get the extra files you need from various ftp sites. Information on where to look for the various files is appended below. For now, let's assume you know where to get the files.<p>
+Retrieve the following files (from _one_ ftp site to avoid any version mismatches), and install them under <i class="file">/emul/freebsd</i> (i.e. <i class="file">foo/bar</i> is installed as <i class="file">/emul/freebsd/foo/bar</i>):<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-item">
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">sbin/ldconfig</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">usr/bin/ldd</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">usr/lib/libc.so.x.y.z</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">usr/libexec/ld.so</i></li>
+</ul>
+<p>
+<b class="cmd">ldconfig</b> and <b class="cmd">ldd</b> don't necessarily need to be under <i class="file">/emul/freebsd</i>, you can install them elsewhere in the system too. Just make sure they don't conflict with their <span class="unix">NetBSD</span> counterparts. A good idea would be to install them in <i class="file">/usr/local/bin</i> as <b class="cmd">ldconfig-freebsd</b> and <b class="cmd">ldd-freebsd</b>.<p>
+Run the <span class="unix">FreeBSD</span> ldconfig program with directory arguments in which the <span class="unix">FreeBSD</span> runtime linker should look for shared libs. <i class="file">/usr/lib</i> are standard, you could run like the following:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+me@netbsd% mkdir -p /emul/freebsd/var/run 
+me@netbsd% touch /emul/freebsd/var/run/ld.so.hints 
+me@netbsd% ldconfig-freebsd /usr/X11R6/lib /usr/local/lib</pre>
+<p>
+Note that argument directories of ldconfig are mapped to <i class="file">/emul/freebsd/XXXX</i> by <span class="unix">NetBSD</span>'s compat code, and should exist as such on your system. Make sure <i class="file">/emul/freebsd/var/run/ld.so.hints</i> is existing when you run <span class="unix">FreeBSD</span>'s ldconfig, if not, you may lose <span class="unix">NetBSD</span>'s <i class="file">/var/run/ld.so.hints</i>. <span class="unix">FreeBSD</span> <b class="cmd">ldconfig</b> should be statically linked, so it doesn't need any shared libraries by itself. It will create the file <i class="file">/emul/freebsd/var/run/ld.so.hints</i>. You should rerun the <span class="unix">FreeBSD</span> version of the ldconfig program each time you add a new shared library.<p>
+You should now be set up for <span class="unix">FreeBSD</span> binaries which only need a shared libc. You can test this by running the <span class="unix">FreeBSD</span> <b class="cmd">ldd</b> on itself. Suppose that you have it installed as <b class="cmd">ldd-freebsd</b>, it should produce something like:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+me@netbsd% ldd-freebsd `which ldd-freebsd` 
+/usr/local/bin/ldd-freebsd: 
+	-lc.2 =&gt; /usr/lib/libc.so.2.1 (0x1001a000)</pre>
+<p>
+This being done, you are ready to install new <span class="unix">FreeBSD</span> binaries. Whenever you install a new <span class="unix">FreeBSD</span> program, you should check if it needs shared libraries, and if so, whether you have them installed in the <i class="file">/emul/freebsd</i> tree. To do this, you run the <span class="unix">FreeBSD</span> version <b class="cmd">ldd</b> on the new program, and watch its output. <b class="cmd">ldd</b> (see also the manual page for <a class="link-man" href="../1/ldd">ldd(1)</a>) will print a list of shared libraries that the program depends on, in the form -l&lt;majorname&gt; =&gt; &lt;fullname&gt;.<p>
+If it prints &#8220;not found&#8221; instead of &lt;fullname&gt; it means that you need an extra library. Which library this is, is shown in &lt;majorname&gt;, which will be of the form XXXX.&lt;N&gt; You will need to find a libXXXX.so.&lt;N&gt;.&lt;mm&gt; on a <span class="unix">FreeBSD</span> ftp site, and install it on your system. The XXXX (name) and &lt;N&gt; (major revision number) should match; the minor number(s) &lt;mm&gt; are less important, though it is advised to take the most recent version.<p>
+</li>
+<li class="list-enum" style="margin-top: 0.00em;">
+In some cases, <span class="unix">FreeBSD</span> binary needs access to certain device file. For example, <span class="unix">FreeBSD</span> X server software needs <span class="unix">FreeBSD</span> <i class="file">/dev/ttyv0</i> for ioctls. In this case, create a symbolic link from <i class="file">/emul/freebsd/dev/ttyv0</i> to a <a class="link-man" href="../4/wscons">wscons(4)</a> device file like <i class="file">/dev/ttyE0</i>. You will need to have at least <b class="config">options WSDISPLAY_COMPAT_SYSCONS</b> and probably also <b class="config">options WSDISPLAY_COMPAT_USL</b> in your kernel (see <a class="link-man" href="../4/options">options(4)</a> and <a class="link-man" href="../4/wscons">wscons(4)</a>).</li>
+</ol>
+</div>
+<div class="subsection">
+<h2 id="x46696e64696e6720746865206e65636573736172792066696c6573">Finding the necessary files</h2> <span class="emph">Note</span>: the information below is valid as of the time this document was written (June, 1995), but certain details such as names of ftp sites, directories and distribution names may have changed by the time you read this.<p>
+The <span class="unix">FreeBSD</span> distribution is available on a lot of ftp sites. Sometimes the files are unpacked, and you can get the individual files you need, but mostly they are stored in distribution sets, usually consisting of subdirectories with gzipped tar files in them. The primary ftp sites for the distributions are:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-item">
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">ftp.freebsd.org:/pub/FreeBSD</i></li>
+</ul>
+<p>
+Mirror sites are described on:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-item">
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="file">ftp.freebsd.org:/pub/FreeBSD/MIRROR.SITES</i></li>
+</ul>
+<p>
+This distribution consists of a number of tar-ed and gzipped files, Normally, they're controlled by an install program, but you can retrieve files &#8220;by hand&#8221; too. The way to look something up is to retrieve all the files in the distribution, and ``tar ztvf'' through them for the file you need. Here is an example of a list of files that you might need.<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+Needed                 Files 
+ 
+ld.so                  2.0-RELEASE/bindist/bindist.?? 
+ldconfig               2.0-RELEASE/bindist/bindist.?? 
+ldd                    2.0-RELEASE/bindist/bindist.?? 
+libc.so.2              2.0-RELEASE/bindist/bindist.?? 
+libX11.so.6.0          2.0-RELEASE/XFree86-3.1/XFree86-3.1-bin.tar.gz 
+libX11.so.6.0          XFree86-3.1.1/X311bin.tgz 
+libXt.so.6.0           2.0-RELEASE/XFree86-3.1/XFree86-3.1-bin.tar.gz 
+libXt.so.6.0           XFree86-3.1.1/X311bin.tgz</pre>
+<p>
+The files called &#8220;bindist.??&#8221; are tar-ed, gzipped and split, so you can extract contents by &#8220;cat bindist.?? | tar zpxf -&#8221;.<p>
+Extract the files from these gzipped tarfiles in your <i class="file">/emul/freebsd</i> directory (possibly omitting or afterwards removing files you don't need), and you are done.</div>
+</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> The information about <span class="unix">FreeBSD</span> distributions may become outdated.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+June 4, 1995</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

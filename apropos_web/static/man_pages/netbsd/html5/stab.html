@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+STAB(5)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+STAB(5)</td>
+<td class="head-vol" align="center">
+File Formats Manual</td>
+<td class="head-rtitle" align="right">
+STAB(5)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">stab</b> &#8212; <span class="desc">symbol table types</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">stab.h</a>&gt;</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The file <b class="includes">&lt;<a class="link-includes">stab.h</a>&gt;</b> defines some of the symbol table <i class="farg">n_type</i> field values for a.out files. These are the types for permanent symbols (i.e. not local labels, etc.) used by the old debugger <span class="emph">sdb</span> and the Berkeley Pascal compiler <b class="cmd">pc</b>. Symbol table entries can be produced by the <i class="file">.stabs</i> assembler directive. This allows one to specify a double-quote delimited name, a symbol type, one char and one short of information about the symbol, and an unsigned long (usually an address). To avoid having to produce an explicit label for the address field, the <i class="file">.stabd</i> directive can be used to implicitly address the current location. If no name is needed, symbol table entries can be generated using the <i class="file">.stabn</i> directive. The loader promises to preserve the order of symbol table entries produced by <i class="file">.stab</i> directives. As described in <a class="link-man" href="../5/a.out">a.out(5)</a>, an element of the symbol table consists of the following structure:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+/* 
+* Format of a symbol table entry. 
+*/ 
+ 
+struct nlist { 
+	union { 
+		char	*n_name;	/* for use when in-core */ 
+		long	n_strx;		/* index into file string table */ 
+	} n_un; 
+	unsigned char	n_type;		/* type flag */ 
+	char		n_other;	/* unused */ 
+	short		n_desc;		/* see struct desc, below */ 
+	unsigned	n_value;	/* address or offset or line */ 
+};</pre>
+<p>
+The low bits of the <i class="farg">n_type</i> field are used to place a symbol into at most one segment, according to the following masks, defined in <b class="includes">&lt;<a class="link-includes">a.out.h</a>&gt;</b>. A symbol can be in none of these segments by having none of these segment bits set.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+/* 
+* Simple values for n_type. 
+*/ 
+ 
+#define	N_UNDF	0x0	/* undefined */ 
+#define	N_ABS	0x2	/* absolute */ 
+#define	N_TEXT	0x4	/* text */ 
+#define	N_DATA	0x6	/* data */ 
+#define	N_BSS	0x8	/* bss */ 
+ 
+#define	N_EXT	01	/* external bit, or'ed in */</pre>
+<p>
+The <i class="farg">n_value</i> field of a symbol is relocated by the linker, <a class="link-man" href="../1/ld">ld(1)</a> as an address within the appropriate segment. <i class="farg">n_value</i> fields of symbols not in any segment are unchanged by the linker. In addition, the linker will discard certain symbols, according to rules of its own, unless the <i class="farg">n_type</i> field has one of the following bits set:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+/* 
+* Other permanent symbol table entries have some of the N_STAB bits set. 
+* These are given in &lt;stab.h&gt; 
+*/ 
+ 
+#define	N_STAB	0xe0	/* if any of these bits set, don't discard */</pre>
+<p>
+This allows up to 112 (7 &#8727; 16) symbol types, split between the various segments. Some of these have already been claimed. The old symbolic debugger, <span class="emph">sdb</span>, uses the following n_type values:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define	N_GSYM	0x20	/* global symbol: name,,0,type,0 */ 
+#define	N_FNAME	0x22	/* procedure name (f77 kludge): name,,0 */ 
+#define	N_FUN	0x24	/* procedure: name,,0,linenumber,address */ 
+#define	N_STSYM	0x26	/* static symbol: name,,0,type,address */ 
+#define	N_LCSYM	0x28	/* .lcomm symbol: name,,0,type,address */ 
+#define	N_RSYM	0x40	/* register sym: name,,0,type,register */ 
+#define	N_SLINE	0x44	/* src line: 0,,0,linenumber,address */ 
+#define	N_SSYM	0x60	/* structure elt: name,,0,type,struct_offset */ 
+#define	N_SO	0x64	/* source file name: name,,0,0,address */ 
+#define	N_LSYM	0x80	/* local sym: name,,0,type,offset */ 
+#define	N_SOL	0x84	/* #included file name: name,,0,0,address */ 
+#define	N_PSYM	0xa0	/* parameter: name,,0,type,offset */ 
+#define	N_ENTRY	0xa4	/* alternative entry: name,linenumber,address */ 
+#define	N_LBRAC	0xc0	/* left bracket: 0,,0,nesting level,address */ 
+#define	N_RBRAC	0xe0	/* right bracket: 0,,0,nesting level,address */ 
+#define	N_BCOMM	0xe2	/* begin common: name,, */ 
+#define	N_ECOMM	0xe4	/* end common: name,, */ 
+#define	N_ECOML	0xe8	/* end common (local name): ,,address */ 
+#define	N_LENG	0xfe	/* second stab entry with length information */</pre>
+<p>
+where the comments give <span class="emph">sdb</span> conventional use for <i class="file">.stab</i> <i class="farg">s</i> and the <i class="farg">n_name</i>, <i class="farg">n_other</i>, <i class="farg">n_desc</i>, and <i class="farg">n_value</i> fields of the given <i class="farg">n_type</i>. <span class="emph">Sdb</span> uses the <i class="farg">n_desc</i> field to hold a type specifier in the form used by the Portable C Compiler, <a class="link-man" href="../1/cc">cc(1)</a>; see the header file <i class="file">pcc.h</i> for details on the format of these type values.<p>
+The Berkeley Pascal compiler, <b class="cmd">pc</b>, uses the following <i class="farg">n_type</i> value:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define	N_PC	0x30	/* global pascal symbol: name,,0,subtype,line */</pre>
+<p>
+and uses the following subtypes to do type checking across separately compiled files:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+1	source file name 
+2	included file name 
+3	global label 
+4	global constant 
+5	global type 
+6	global variable 
+7	global function 
+8	global procedure 
+9	external function 
+10	external procedure 
+11	library variable 
+12	library routine</pre>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/as">as(1)</a>, <a class="link-man" href="../1/gdb">gdb(1)</a>, <a class="link-man" href="../1/ld">ld(1)</a>, <a class="link-man" href="../5/a.out">a.out(5)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">stab</b> file appeared in <span class="unix">4.0BSD</span>.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> More basic types are needed.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+June 5, 1993</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

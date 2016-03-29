@@ -1,0 +1,242 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+RC(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+RC(8)</td>
+<td class="head-vol" align="center">
+System Manager's Manual</td>
+<td class="head-rtitle" align="right">
+RC(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">rc</b>, <b class="name">rc.local</b>, <b class="name">rc.shutdown</b>, <b class="name">rc.d/</b> &#8212; <span class="desc">startup and shutdown scripts</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1><table class="synopsis">
+<col style="width: 2.00ex;">
+<col>
+<tbody>
+<tr>
+<td>
+rc</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<br>
+<table class="synopsis">
+<col style="width: 2.00ex;">
+<col>
+<tbody>
+<tr>
+<td>
+rc.local</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<br>
+<table class="synopsis">
+<col style="width: 2.00ex;">
+<col>
+<tbody>
+<tr>
+<td>
+rc.shutdown</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<br>
+<table class="synopsis">
+<col style="width: 2.00ex;">
+<col>
+<tbody>
+<tr>
+<td>
+rc.d/</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="name">rc</b> is the command script which controls the startup of various services, and is invoked by <a class="link-man" href="../8/init">init(8)</a> as part of the process of entering the automatic reboot to multi-user startup, or after the single user mode shell has exited. If <a class="link-man" href="../8/init">init(8)</a> is starting the automatic reboot process, <b class="name">rc</b> is invoked with the argument of &#8216;autoboot&#8217;.<p>
+<b class="name">rc.local</b> is a command script to which local boot-time actions can be added. It is (nearly) the last thing invoked by <b class="name">rc</b> during a normal boot.<p>
+<b class="name">rc.shutdown</b> is the command script which shuts down various services, and is invoked by <a class="link-man" href="../8/shutdown">shutdown(8)</a> as part of the process of shutting down the system.<p>
+<b class="name">rc.d/</b> is the directory which contains various <a class="link-man" href="../1/sh">sh(1)</a> scripts, one for each service, which are called by <b class="name">rc</b> at startup, <b class="name">rc.shutdown</b> at shutdown, and as necessary during system operation to stop, start, restart, reload, or otherwise control the service.<div class="subsection">
+<h2 id="x4f7065726174696f6e206f66207263">Operation of rc</h2><ol style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-enum">
+<li class="list-enum" style="margin-top: 1.00em;">
+Source <i class="file">/etc/rc.subr</i> to load various <a class="link-man" href="../8/rc.subr">rc.subr(8)</a> shell functions to use.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+If autobooting, set <span class="symb">autoboot=yes</span> and enable a flag (<span class="symb">rc_fast=yes</span>), which prevents the <b class="name">rc.d</b> scripts from performing the check for already running processes (thus speeding up the boot process). This <span class="symb">rc_fast=yes</span> speedup won't occur when <b class="name">rc</b> is started up after exiting the single-user shell.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Invoke <a class="link-man" href="../8/rcorder">rcorder(8)</a> to order the files in <i class="file">/etc/rc.d/</i> that do not have a &#8220;nostart&#8221; keyword (refer to <a class="link-man" href="../8/rcorder">rcorder(8)</a>'s <b class="flag">&#45;s</b> flag), and assigns the result to a variable.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Calls each script in turn using <b class="fname">run_rc_script</b>() (from <a class="link-man" href="../8/rc.subr">rc.subr(8)</a>), which sets <span class="define">$1</span> to &#8216;start&#8217;, and sources the script in a subshell. If the script has a &#8216;.sh&#8217; suffix then it is sourced directly into the current shell.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+The output from the above steps is sent to a post-processor. If <span class="symb">rc_silent</span> is false, then the post-processor displays the output. If <span class="symb">rc_silent</span> is true, then the post-processor invokes the command specified in <b class="var">rc_silent_cmd</b> once for each line, without otherwise displaying the output. Useful values for <b class="var">rc_silent_cmd</b> include &#8220;:&#8221; to display nothing at all, and &#8220;twiddle&#8221; to display a spinning symbol on the console. Regardless of the value of <span class="symb">rc_silent</span>, the post-processor saves the output in <i class="file">/var/run/rc.log</i>.</li>
+</ol>
+</div>
+<div class="subsection">
+<h2 id="x4f7065726174696f6e206f662072632e73687574646f776e">Operation of rc.shutdown</h2><ol style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-enum">
+<li class="list-enum" style="margin-top: 1.00em;">
+Source <i class="file">/etc/rc.subr</i> to load various <a class="link-man" href="../8/rc.subr">rc.subr(8)</a> shell functions to use.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Invoke <a class="link-man" href="../8/rcorder">rcorder(8)</a> to order the files in <i class="file">/etc/rc.d/</i> that have a &#8220;shutdown&#8221; keyword (refer to <a class="link-man" href="../8/rcorder">rcorder(8)</a>'s <b class="flag">&#45;k</b> flag), reverses that order, and assigns the result to a variable.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Calls each script in turn using <b class="fname">run_rc_script</b>() (from <a class="link-man" href="../8/rc.subr">rc.subr(8)</a>), which sets <span class="define">$1</span> to &#8216;stop&#8217;, and sources the script in a subshell. If the script has a &#8216;.sh&#8217; suffix then it is sourced directly into the current shell.</li>
+</ol>
+</div>
+<div class="subsection">
+<h2 id="x436f6e74656e7473206f662072632e642f">Contents of rc.d/</h2> <b class="name">rc.d/</b> is located in <i class="file">/etc/rc.d</i>. The following file naming conventions are currently used in <b class="name">rc.d/</b>:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">ALLUPPERCASE</i></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+Scripts that are &#8216;placeholders&#8217; to ensure that certain operations are performed before others. In order of startup, these are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">NETWORKING</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Ensure basic network services are running, including general network configuration (<i class="file">network</i>) and <i class="file">dhclient</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">SERVERS</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Ensure basic services (such as <i class="file">NETWORKING</i>, <i class="file">ppp</i>, <i class="file">syslogd</i>, and <i class="file">kdc</i>) exist for services that start early (such as <i class="file">named</i>), because they're required by <i class="file">DAEMON</i> below.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">DAEMON</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Before all general purpose daemons such as <i class="file">dhcpd</i>, <i class="file">lpd</i>, and <i class="file">ntpd</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">LOGIN</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Before user login services (<i class="file">inetd</i>, <i class="file">telnetd</i>, <i class="file">rshd</i>, <i class="file">sshd</i>, and <i class="file">xdm</i>), as well as before services which might run commands as users (<i class="file">cron</i>, <i class="file">postfix</i>, and <i class="file">sendmail</i>).</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">foo.sh</i></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+Scripts that are to be sourced into the current shell rather than a subshell have a &#8216;<i class="file">.sh</i>&#8217; suffix. Extreme care must be taken in using this, as the startup sequence will terminate if the script does. <i class="file">/etc/rc.d/bootconf.sh</i> uses this behaviour to allow the user to select a different configuration (including <i class="file">/etc/rc.conf</i>) early in the boot.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">bar</i></dt>
+<dd class="list-tag" style="margin-left: 14.00ex;">
+Scripts that are sourced in a subshell. The boot does not stop if such a script terminates with a non-zero status, but a script can stop the boot if necessary by invoking the <b class="fname">stop_boot</b>() function (from <a class="link-man" href="../8/rc.subr">rc.subr(8)</a>).</dd>
+</dl>
+<p>
+Each script should contain <a class="link-man" href="../8/rcorder">rcorder(8)</a> keywords, especially an appropriate &#8220;PROVIDE&#8221; entry.<p>
+The scripts are expected to support at least the following arguments:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">start</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Start the service. This should check that the service is to be started as specified by <a class="link-man" href="../5/rc.conf">rc.conf(5)</a>. Also checks if the service is already running and refuses to start if it is. This latter check is not performed by standard <span class="unix">NetBSD</span> scripts if the system is starting directly to multi-user mode, to speed up the boot process.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">stop</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+If the service is to be started as specified by <a class="link-man" href="../5/rc.conf">rc.conf(5)</a>, stop the service. This should check that the service is running and complain if it's not.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">restart</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Perform a <span class="symb">stop</span> then a <span class="symb">start</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">status</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+If the script starts a process (rather than performing a one-off operation), show the status of the process. Otherwise it's not necessary to support this argument. Defaults to displaying the process ID of the program (if running).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">poll</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+If the script starts a process (rather than performing a one-off operation), wait for the command to exit. Otherwise it's not necessary to support this argument.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">rcvar</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Display which <a class="link-man" href="../5/rc.conf">rc.conf(5)</a> variables are used to control the startup of the service (if any).</dd>
+</dl>
+<p>
+Other arguments (such as &#8216;reload&#8217;, &#8216;dumpdb&#8217;, etc) can be added if necessary.<p>
+The argument may have one of the following prefixes to alter its operation:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">fast</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Skip the check for an existing running process. Sets <span class="symb">rc_fast=yes</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">force</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Skips the <a class="link-man" href="../5/rc.conf">rc.conf(5)</a> check, ignores a failure result from any of the prerequisite checks, executes the command, and always returns a zero exit status. Sets <span class="symb">rc_force=yes</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">one</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Skips the <a class="link-man" href="../5/rc.conf">rc.conf(5)</a> check, but performs all other prerequisite tests.</dd>
+</dl>
+<p>
+In order to simplify scripts, the <b class="fname">run_rc_command</b>() function from <a class="link-man" href="../8/rc.subr">rc.subr(8)</a> may be used.</div>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/rc</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Startup script called by <a class="link-man" href="../8/init">init(8)</a>.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/rc.d/</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Directory containing control scripts for each service.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/rc.local</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Local startup script.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/rc.shutdown</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Shutdown script called by <a class="link-man" href="../8/shutdown">shutdown(8)</a>.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/rc.subr</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Contains <a class="link-man" href="../8/rc.subr">rc.subr(8)</a> functions used by various scripts.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/rc.conf</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+System startup configuration file.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/var/run/rc.log</i></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Log file created by <b class="name">rc</b>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../5/rc.conf">rc.conf(5)</a>, <a class="link-man" href="../8/init">init(8)</a>, <a class="link-man" href="../8/rc.subr">rc.subr(8)</a>, <a class="link-man" href="../8/rcorder">rcorder(8)</a>, <a class="link-man" href="../8/reboot">reboot(8)</a>, <a class="link-man" href="../8/shutdown">shutdown(8)</a><p>
+<span class="ref"><span class="ref-auth">Luke Mewburn</span>, <span class="ref-title">The Design and Implementation of the NetBSD rc.d system</span>, <i class="ref-book">Proceedings of the FREENIX Track: 2001 USENIX Annual Technical Conference</i>, <i class="ref-issue">USENIX Association</i>, <a class="link-ref" href="http://www.usenix.org/publications/library/proceedings/usenix01/freenix01/full_papers/mewburn/mewburn.pdf">http://www.usenix.org/publications/library/proceedings/usenix01/freenix01/full_papers/mewburn/mewburn.pdf</a>, <span class="ref-date">June 25-30, 2001</span>.</span></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">rc</b> command appeared in <span class="unix">4.0BSD</span>. The <i class="file">/etc/rc.d</i> support was implemented in <span class="unix">NetBSD&#160;1.5</span> by <span class="author">Luke Mewburn</span> &#60;lukem@NetBSD.org&#62;. The post-processor, support for <b class="var">rc_silent</b>, and saving output to a file, was implemented in <span class="unix">NetBSD&#160;6.0</span> by <span class="author">Alan Barrett</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+May 14, 2010</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

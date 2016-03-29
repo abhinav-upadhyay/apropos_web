@@ -1,0 +1,435 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+ELF(5)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+ELF(5)</td>
+<td class="head-vol" align="center">
+File Formats Manual</td>
+<td class="head-rtitle" align="right">
+ELF(5)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">ELF</b> &#8212; <span class="desc">executable and linking format</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">elf.h</a>&gt;</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> Because of the flexible nature of ELF, the structures describing it are available both as 32bit and 64bit versions. This document uses the 32bit versions, refer to <b class="includes">&lt;<a class="link-includes">elf.h</a>&gt;</b> for the corresponding 64bit versions.<p>
+The four main types of an ELF object file are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+executable</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+A file suitable for execution. It contains the information required for creating a new process image.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+relocatable</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Contains the necessary information to be run through the link editor <a class="link-man" href="../1/ld">ld(1)</a> to create an executable or a shared library.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+shared</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The shared object contains necessary information which can be used by either the link editor <a class="link-man" href="../1/ld">ld(1)</a> at link time or by the dynamic loader <a class="link-man" href="../1/ld.elf_so">ld.elf_so(1)</a> at run time.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+core</dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+A file which describes the virtual address space and register state of a process.  Core files are typically used in conjunction with debuggers such as <a class="link-man" href="../1/gdb">gdb(1)</a>.</dd>
+</dl>
+<p>
+ELF files have a dual nature. The toolchain, including tools such as the <a class="link-man" href="../1/as">as(1)</a> and linker <a class="link-man" href="../1/ld">ld(1)</a>, treats them as a set of sections described by their section headers. The system loader treats them as a set of segments described by the program headers.<p>
+The general format of an ELF file is the following: The file starts with an ELF header. This is followed by a table of program headers (optional for relocatable and shared files). After this come the sections/segments. The file ends with a table of section headers (optional for executable files).<p>
+A segment can be considered to consist of several sections. For example, all executable sections are typically packed into one loadable segment which is read-only and executable (see <i class="farg">p_flags</i> in the program header). This enables the system to map the entire file with just a few operations, one for each loadable segment, instead of doing numerous map operations for each section separately.<p>
+Each file is described by the ELF header:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+typedef struct { 
+	unsigned char	e_ident[ELF_NIDENT]; 
+	Elf32_Half	e_type; 
+	Elf32_Half	e_machine; 
+	Elf32_Word	e_version; 
+	Elf32_Addr	e_entry; 
+	Elf32_Off	e_phoff; 
+	Elf32_Off	e_shoff; 
+	Elf32_Word	e_flags; 
+	Elf32_Half	e_ehsize; 
+	Elf32_Half	e_phentsize; 
+	Elf32_Half	e_phnum; 
+	Elf32_Half	e_shentsize; 
+	Elf32_Half	e_shnum; 
+	Elf32_Half	e_shstrndx; 
+} Elf32_Ehdr;</pre>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_ident[]</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The array contains the following information in the indicated locations:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EI_MAG0</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+The elements ranging from <span class="define">EI_MAG0</span> to <span class="define">EI_MAG3</span> contain the ELF magic number: \0177ELF</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EI_CLASS</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Contains the address size of the binary, either 32 or 64bit.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EI_DATA</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+byte order</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EI_VERSION</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Contains the ELF header version. This is currently always set to 1.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EI_OSABI</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Contains the operating system ABI identification. Note that even though the definition <span class="define">ELFOSABI_NETBSD</span> exists, <span class="unix">NetBSD</span> uses <span class="define">ELFOSABI_SYSV</span> here, since the <span class="unix">NetBSD</span> ABI does not deviate from the standard.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EI_ABIVERSION</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+ABI version.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_type</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Contains the file type identification. It can be either <span class="define">ET_REL</span>, <span class="define">ET_EXEC</span>, <span class="define">ET_DYN</span>, or <span class="define">ET_CORE</span> for relocatable, executable, shared, or core, respectively.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_machine</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Contains the machine type, e.g. SPARC, Alpha, MIPS, ...</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_entry</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The program entry point if the file is executable.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_phoff</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The position of the program header table in the file or 0 if it doesn't exist.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_shoff</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The position of the section header table in the file or 0 if it doesn't exist.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_flags</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Contains processor-specific flags. For example, the SPARC port uses this space to specify what kind of memory store ordering is required.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_ehsize</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The size of the ELF header.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_phentsize</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The size of an entry in the program header table. All entries are the same size.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_phnum</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The number of entries in the program header table, or 0 if none exists.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_shentsize</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The size of an entry in the section header table. All entries are the same size.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_shnum</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The number of entries in the section header table, or 0 if none exists.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">e_shstrndx</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Contains the index number of the section which contains the section name strings.</dd>
+</dl>
+<p>
+Each ELF section in turn is described by the section header:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+typedef struct { 
+	Elf32_Word	sh_name; 
+	Elf32_Word	sh_type; 
+	Elf32_Word	sh_flags; 
+	Elf32_Addr	sh_addr; 
+	Elf32_Off	sh_offset; 
+	Elf32_Word	sh_size; 
+	Elf32_Word	sh_link; 
+	Elf32_Word	sh_info; 
+	Elf32_Word	sh_addralign; 
+	Elf32_Word	sh_entsize; 
+} Elf32_Shdr;</pre>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">sh_name</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Contains an index to the position in the section header string section where the name of the current section can be found.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">sh_type</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Contains the section type indicator. The more important possible values are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHT_NULL</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Section is inactive. The other fields contain undefined values.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHT_PROGBITS</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Section contains program information. It can be for example code, data, or debugger information.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHT_SYMTAB</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Section contains a symbol table. This section usually contains all the symbols and is intended for the regular link editor <a class="link-man" href="../1/ld">ld(1)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHT_STRTAB</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Section contains a string table.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHT_RELA</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Section contains relocation information with an explicit addend.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHT_HASH</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Section contains a symbol hash table.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHT_DYNAMIC</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Section contains dynamic linking information.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHT_NOTE</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Section contains some special information. The format can be e.g. vendor-specific.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHT_NOBITS</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Sections contains information similar to <span class="define">SHT_PROGBITS</span>, but takes up no space in the file. This can be used for e.g. bss.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHT_REL</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Section contains relocation information without an explicit addend.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHT_SHLIB</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+This section type is reserved but has unspecified semantics.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHT_DYNSYM</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Section contains a symbol table. This symbol table is intended for the dynamic linker, and is kept as small as possible to conserve space, since it must be loaded to memory at run time.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">sh_flags</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Contains the section flags, which can have the following values or any combination of them:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHF_WRITE</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Section is writable after it has been loaded.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHF_ALLOC</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Section will occupy memory at run time.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SHF_EXECINSTR</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Section contains executable machine instructions.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">sh_addr</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Address to where the section will be loaded, or 0 if this section does not reside in memory at run time.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">sh_offset</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The byte offset from the beginning of the file to the beginning of this section. If the section is of type <span class="define">SHT_NOBITS</span>, this field specifies the conceptual placement in the file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">sh_size</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The size of the section in the file for all types except <span class="define">SHT_NOBITS</span>. For that type the value may differ from zero, but the section will still always take up no space from the file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">sh_link</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Contains an index to the section header table. The interpretation depends on the section type as follows:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SHT_REL</span></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SHT_RELA</span></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Section index of the associated symbol table.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SHT_SYMTAB</span></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SHT_DYNSYM</span></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Section index of the associated string table.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SHT_HASH</span></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Section index of the symbol table to which the hash table applies.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SHT_DYNAMIC</span></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Section index of of the string table by which entries in this section are used.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">sh_info</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Contains extra information. The interpretation depends on the type as follows:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SHT_REL</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SHT_RELA</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Section index of the section to which the relocation information applies.<p>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SHT_SYMTAB</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">SHT_DYNSYM</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Contains a value one greater that the last local symbol table index.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">sh_addralign</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Marks the section alignment requirement. If, for example, the section contains a doubleword, the entire section must be doubleword aligned to ensure proper alignment. Only 0 and integral powers of two are allowed. Values 0 and 1 denote that the section has no alignment.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">sh_entsize</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Contains the entry size of an element for sections which are constructed of a table of fixed-size entries. If the section does not hold a table of fixed-size entries, this value is 0.</dd>
+</dl>
+<p>
+Every executable object must contain a program header. The program header contains information necessary in constructing a process image.<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+typedef struct { 
+	Elf32_Word	p_type; 
+	Elf32_Off	p_offset; 
+	Elf32_Addr	p_vaddr; 
+	Elf32_Addr	p_paddr; 
+	Elf32_Word	p_filesz; 
+	Elf32_Word	p_memsz; 
+	Elf32_Word	p_flags; 
+	Elf32_Word	p_align; 
+} Elf32_Phdr;</pre>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">p_type</i></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Contains the segment type indicator. The possible values are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_NULL</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Segment is inactive. The other fields contain undefined values.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_LOAD</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Segment is loadable. It is loaded to the address described by <i class="farg">p_vaddr</i>. If <i class="farg">p_memsz</i> is greater than <i class="farg">p_filesz</i>, the memory range from (<i class="farg">p_vaddr</i> + <i class="farg">p_filesz</i>) to (<i class="farg">p_vaddr</i> + <i class="farg">p_memsz</i>) is zero-filled when the segment is loaded. <i class="farg">p_filesz</i> can not be greater than <i class="farg">p_memsz</i>. Segments of this type are sorted in the header table by <i class="farg">p_vaddr</i> in ascending order.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_DYNAMIC</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Segment contains dynamic linking information.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_INTERP</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Segment contains a null-terminated path name to the interpreter. This segment may be present only once in a file, and it must appear before any loadable segments. This field will most likely contain the ELF dynamic loader: <i class="file">/libexec/ld.elf_so</i></dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_NOTE</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Segment contains some special information. Format can be e.g. vendor-specific.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_SHLIB</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+This segment type is reserved but has unspecified semantics. Programs which contain a segment of this type do not conform to the ABI, and must indicate this by setting the appropriate ABI in the ELF header <span class="define">EI_OSABI</span> field.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_PHDR</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The values in a program header of this type specify the characteristics of the program header table itself. For example, the <i class="farg">p_vaddr</i> field specifies the program header table location in memory once the program is loaded. This field may not occur more than once, may occur only if the program header table is part of the file memory image, and must come before any loadable segments.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">p_offset</i></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Contains the byte offset from the beginning of the file to the beginning of this segment.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">p_vaddr</i></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Contains the virtual memory address to which this segment is loaded.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">p_paddr</i></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Contains the physical address to which this segment is loaded. This value is usually ignored, but may be used while bootstrapping or in embedded systems.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">p_filesz</i></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Contains the number of bytes this segment occupies in the file image.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">p_memsz</i></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Contains the number of bytes this segment occupies in the memory image.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">p_flags</i></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Contains the segment flags, which specify the permissions for the segment after it has been loaded. The following values or any combination of them is acceptable:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PF_R</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Segment can be read.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PF_W</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Segment can be written.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PF_X</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Segment is executable.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">p_align</i></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Contains the segment alignment. Acceptable values are 0 and 1 for no alignment, and integral powers of two. <i class="farg">p_vaddr</i> should equal <i class="farg">p_offset</i> modulo <i class="farg">p_align</i>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/as">as(1)</a>, <a class="link-man" href="../1/gdb">gdb(1)</a>, <a class="link-man" href="../1/ld">ld(1)</a>, <a class="link-man" href="../1/ld.elf_so">ld.elf_so(1)</a>, <a class="link-man" href="../2/execve">execve(2)</a>, <a class="link-man" href="../3/nlist">nlist(3)</a>, <a class="link-man" href="../5/a.out">a.out(5)</a>, <a class="link-man" href="../5/core">core(5)</a>, <a class="link-man" href="../5/link">link(5)</a>, <a class="link-man" href="../5/stab">stab(5)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The ELF object file format first appeared in AT&amp;T System&#160;V UNIX.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+November 18, 2006</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

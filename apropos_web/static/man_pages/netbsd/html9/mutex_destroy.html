@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+MUTEX(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+MUTEX(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+MUTEX(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">mutex</b>, <b class="name">mutex_init</b>, <b class="name">mutex_destroy</b>, <b class="name">mutex_enter</b>, <b class="name">mutex_exit</b>, <b class="name">mutex_owned</b>, <b class="name">mutex_spin_enter</b>, <b class="name">mutex_spin_exit</b>, <b class="name">mutex_tryenter</b> &#8212; <span class="desc">mutual exclusion primitives</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/mutex.h</a>&gt;</b><p>
+<i class="ftype">void</i><br>
+<b class="fname">mutex_init</b>(<i class="farg" style="white-space:nowrap;">kmutex_t *mtx</i>, <i class="farg" style="white-space:nowrap;">kmutex_type_t type</i>, <i class="farg" style="white-space:nowrap;">int ipl</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">mutex_destroy</b>(<i class="farg" style="white-space:nowrap;">kmutex_t *mtx</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">mutex_enter</b>(<i class="farg" style="white-space:nowrap;">kmutex_t *mtx</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">mutex_exit</b>(<i class="farg" style="white-space:nowrap;">kmutex_t *mtx</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">mutex_owned</b>(<i class="farg" style="white-space:nowrap;">kmutex_t *mtx</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">mutex_spin_enter</b>(<i class="farg" style="white-space:nowrap;">kmutex_t *mtx</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">mutex_spin_exit</b>(<i class="farg" style="white-space:nowrap;">kmutex_t *mtx</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">mutex_tryenter</b>(<i class="farg" style="white-space:nowrap;">kmutex_t *mtx</i>);<p>
+<br>
+<b class="config">options DIAGNOSTIC</b><br>
+<b class="config">options LOCKDEBUG</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> Mutexes are used in the kernel to implement mutual exclusion among LWPs (lightweight processes) and interrupt handlers.<p>
+The <span class="type">kmutex_t</span> type provides storage for the mutex object. This should be treated as an opaque object and not examined directly by consumers.<p>
+Mutexes replace the <a class="link-man" href="../9/spl">spl(9)</a> system traditionally used to provide synchronization between interrupt handlers and LWPs.</div>
+<div class="section">
+<h1 id="x4f5054494f4e53">OPTIONS</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="config">options DIAGNOSTIC</b></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+Kernels compiled with the <span class="define">DIAGNOSTIC</span> option perform basic sanity checks on mutex operations.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="config">options LOCKDEBUG</b></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+Kernels compiled with the <span class="define">LOCKDEBUG</span> option perform potentially CPU intensive sanity checks on mutex operations.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x46554e4354494f4e53">FUNCTIONS</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">mutex_init</b>(<i class="farg">mtx</i>, <i class="farg">type</i>, <i class="farg">ipl</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+Dynamically initialize a mutex for use.<p>
+No other operations can be performed on a mutex until it has been initialized. Once initialized, all types of mutex are manipulated using the same interface. Note that <b class="fname">mutex_init</b>() may block in order to allocate memory.<p>
+The <i class="farg">type</i> argument must be given as <span class="define">MUTEX_DEFAULT</span>. Other constants are defined but are for low-level system use and are not an endorsed, stable part of the interface.<p>
+The type of mutex returned depends on the <i class="farg">ipl</i> argument:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+IPL_NONE, or one of the IPL_SOFT* constants</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+An adaptive mutex will be returned. Adaptive mutexes provide mutual exclusion between LWPs, and between LWPs and soft interrupt handlers.<p>
+Adaptive mutexes cannot be acquired from a hardware interrupt handler. An LWP may either sleep or busy-wait when attempting to acquire an adaptive mutex that is already held.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+IPL_VM, IPL_SCHED, IPL_HIGH</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+A spin mutex will be returned. Spin mutexes provide mutual exclusion between LWPs, and between LWPs and interrupt handlers.<p>
+The <i class="farg">ipl</i> argument is used to pass a system interrupt priority level (IPL) that will block all interrupt handlers that may try to acquire the mutex.<p>
+LWPs that own spin mutexes may not sleep, and therefore must not try to acquire adaptive mutexes or other sleep locks.<p>
+A processor will always busy-wait when attempting to acquire a spin mutex that is already held.</dd>
+</dl>
+<p>
+See <a class="link-man" href="../9/spl">spl(9)</a> for further information on interrupt priority levels (IPLs).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">mutex_destroy</b>(<i class="farg">mtx</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+Release resources used by a mutex. The mutex may not be used after it has been destroyed. <b class="fname">mutex_destroy</b>() may block in order to free memory.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">mutex_enter</b>(<i class="farg">mtx</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+Acquire a mutex. If the mutex is already held, the caller will block and not return until the mutex is acquired.<p>
+Mutexes and other types of locks must always be acquired in a consistent order with respect to each other. Otherwise, the potential for system deadlock exists.<p>
+Adaptive mutexes and other types of lock that can sleep may not be acquired while a spin mutex is held by the caller.<p>
+When acquiring a spin mutex, the IPL of the current CPU will be raised to the level set in <b class="fname">mutex_init</b>() if it is not already equal or higher.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">mutex_exit</b>(<i class="farg">mtx</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+Release a mutex. The mutex must have been previously acquired by the caller. Mutexes may be released out of order as needed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">mutex_owned</b>(<i class="farg">mtx</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+For adaptive mutexes, return non-zero if the current LWP holds the mutex. For spin mutexes, return non-zero if the mutex is held, potentially by the current processor. Otherwise, return zero.<p>
+<b class="fname">mutex_owned</b>() is provided for making diagnostic checks to verify that a lock is held. For example:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+	KASSERT(mutex_owned(&amp;driver_lock));</pre>
+<p>
+It should not be used to make locking decisions at run time. For spin mutexes, it must not be used to verify that a lock is not held.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">mutex_spin_enter</b>(<i class="farg">mtx</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+Equivalent to <b class="fname">mutex_enter</b>(), but may only be used when it is known that <i class="arg">mtx</i> is a spin mutex. On some architectures, this can substantially reduce the cost of acquiring a spin mutex.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">mutex_spin_exit</b>(<i class="farg">mtx</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+Equivalent to <b class="fname">mutex_exit</b>(), but may only be used when it is known that <i class="arg">mtx</i> is a spin mutex. On some architectures, this can substantially reduce the cost of releasing a spin mutex.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">mutex_tryenter</b>(<i class="farg">mtx</i>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<p>
+Try to acquire a mutex, but do not block if the mutex is already held. Returns non-zero if the mutex was acquired, or zero if the mutex was already held.<p>
+<b class="fname">mutex_tryenter</b>() can be used as an optimization when acquiring locks in the wrong order. For example, in a setting where the convention is that <span class="define">first_lock</span> must be acquired before <span class="define">second_lock</span>, the following can be used to optimistically lock in reverse order:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+	/* We hold second_lock, but not first_lock. */ 
+	KASSERT(mutex_owned(&amp;second_lock)); 
+ 
+	if (!mutex_tryenter(&amp;first_lock)) { 
+		/* Failed to get it - lock in the correct order. */ 
+		mutex_exit(&amp;second_lock); 
+		mutex_enter(&amp;first_lock); 
+		mutex_enter(&amp;second_lock); 
+ 
+		/* 
+		 * We may need to recheck any conditions the code 
+		 * path depends on, as we released second_lock 
+		 * briefly. 
+		 */ 
+	}</pre>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x434f4445205245464552454e434553">CODE REFERENCES</h1> The core of the mutex implementation is in <i class="file">sys/kern/kern_mutex.c</i>.<p>
+The header file <i class="file">sys/sys/mutex.h</i> describes the public interface, and interfaces that machine-dependent code must provide to support mutexes.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../3/atomic_ops">atomic_ops(3)</a>, <a class="link-man" href="../3/membar_ops">membar_ops(3)</a>, <a class="link-man" href="../8/lockstat">lockstat(8)</a>, <a class="link-man" href="../9/condvar">condvar(9)</a>, <a class="link-man" href="../9/kpreempt">kpreempt(9)</a>, <a class="link-man" href="../9/rwlock">rwlock(9)</a>, <a class="link-man" href="../9/spl">spl(9)</a><p>
+<p>
+<span class="ref"><span class="ref-auth">Jim Mauro</span> and <span class="ref-auth">Richard McDougall</span>, <span class="ref-title">Solaris Internals: Core Kernel Architecture</span>, <i class="ref-issue">Prentice Hall</i>, <span class="ref-date">2001</span>, <span class="ref-opt">ISBN 0-13-022496-0</span>.</span></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The mutex primitives first appeared in <span class="unix">NetBSD&#160;5.0</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+September 4, 2013</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

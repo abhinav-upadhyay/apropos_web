@@ -1,0 +1,197 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+RASOPS(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+RASOPS(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+RASOPS(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">rasops</b>, <b class="name">rasops_init</b>, <b class="name">rasops_reconfig</b> &#8212; <span class="desc">raster display operations</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">dev/wscons/wsdisplayvar.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">dev/rasops/rasops.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">rasops_init</b>(<i class="farg" style="white-space:nowrap;">struct rasops_info *ri</i>, <i class="farg" style="white-space:nowrap;">int wantrows</i>, <i class="farg" style="white-space:nowrap;">int wantcols</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">rasops_reconfig</b>(<i class="farg" style="white-space:nowrap;">struct rasops_info *ri</i>, <i class="farg" style="white-space:nowrap;">int wantrows</i>, <i class="farg" style="white-space:nowrap;">int wantcols</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">rasops</b> subsystem is a set of raster operations for <a class="link-man" href="../9/wscons">wscons(9)</a>.<p>
+The primary data type for using the raster operations is the <span class="emph">rasops_info</span> structure in <i class="file">dev/rasops/rasops.h</i>:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct rasops_info { 
+ 
+	/* 
+	 * These must be filled in by the caller 
+	 */ 
+	int	ri_depth;	/* depth in bits */ 
+	u_char	*ri_bits;	/* ptr to bits */ 
+	int	ri_width;	/* width (pels) */ 
+	int	ri_height;	/* height (pels) */ 
+	int	ri_stride;	/* stride in bytes */ 
+ 
+	/* 
+	 * If you want shadow framebuffer support, point ri_hwbits 
+	 * to the real framebuffer, and ri_bits to the shadow framebuffer 
+	 */ 
+	u_char	*ri_hwbits; 
+ 
+	/* 
+	 * These can optionally be left zeroed out. If you fill ri_font, 
+	 * but aren't using wsfont, set ri_wsfcookie to -1. 
+	 */ 
+	struct	wsdisplay_font *ri_font; 
+	int	ri_wsfcookie;	/* wsfont cookie */ 
+	void	*ri_hw;		/* driver private data */ 
+	int	ri_crow;	/* cursor row */ 
+	int	ri_ccol;	/* cursor column */ 
+	int	ri_flg;		/* various operational flags */ 
+ 
+	/* 
+	 * These are optional and will default if zero. Meaningless 
+	 * on depths other than 15, 16, 24 and 32 bits per pel. On 
+	 * 24 bit displays, ri_{r,g,b}num must be 8. 
+	 */ 
+	u_char	ri_rnum;	/* number of bits for red */ 
+	u_char	ri_gnum;	/* number of bits for green */ 
+	u_char	ri_bnum;	/* number of bits for blue */ 
+	u_char	ri_rpos;	/* which bit red starts at */ 
+	u_char	ri_gpos;	/* which bit green starts at */ 
+	u_char	ri_bpos;	/* which bit blue starts at */ 
+ 
+	/* 
+	 * These are filled in by rasops_init() 
+	 */ 
+	int	ri_emuwidth;	/* width we actually care about */ 
+	int	ri_emuheight;	/* height we actually care about */ 
+	int	ri_emustride;	/* bytes per row we actually care about */ 
+	int	ri_rows;	/* number of rows (characters) */ 
+	int	ri_cols;	/* number of columns (characters) */ 
+	int	ri_delta;	/* row delta in bytes */ 
+	int	ri_pelbytes;	/* bytes per pel (may be zero) */ 
+	int	ri_fontscale;	/* fontheight * fontstride */ 
+	int	ri_xscale;	/* fontwidth * pelbytes */ 
+	int	ri_yscale;	/* fontheight * stride */ 
+	u_char	*ri_origbits;	/* where screen bits actually start */ 
+	int	ri_xorigin;	/* where ri_bits begins (x) */ 
+	int	ri_yorigin;	/* where ri_bits begins (y) */ 
+	int32_t	ri_devcmap[16]; /* color -&gt; framebuffer data */ 
+ 
+	/* 
+	 * The emulops you need to use, and the screen caps for wscons 
+	 */ 
+	struct	wsdisplay_emulops ri_ops; 
+	int	ri_caps; 
+ 
+	/* 
+	 * Callbacks so we can share some code 
+	 */ 
+	void	(*ri_do_cursor)(struct rasops_info *); 
+};</pre>
+<p>
+Valid values for the <span class="emph">ri_flg</span> member are:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">RI_FULLCLEAR</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+<b class="fname">eraserows</b>() hack to clear full screen</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">RI_FORCEMONO</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+monochrome output even if we can do color</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">RI_BSWAP</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+framebuffer endianness doesn't match CPU</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">RI_CURSOR</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+cursor is switched on</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">RI_CLEAR</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+clear display on startup</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">RI_CENTER</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+center onscreen output</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">RI_CURSORCLIP</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+cursor is currently clipped</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">RI_CFGDONE</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+<b class="fname">rasops_reconfig</b>() completed successfully</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">RI_NO_AUTO</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+do not generate box drawing characters for ISO fonts. Use this when it is not safe to allocate memory, for example when setting up an early console.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">RI_ENABLE_ALPHA</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+set this if the caller supports anti-aliased fonts in the given colour depth. Without this flag <b class="fname">rasops_init</b>() will only pick bitmap fonts.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">RI_8BIT_IS_RGB</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+set this if the caller uses an R3G3B2 colour map in 8 bit. <b class="fname">rasops_init</b>() will generate an appropriate ri_devcmap[] but the caller still needs to set up the actual colour map.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x46554e4354494f4e53">FUNCTIONS</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">rasops_init</b>(<i class="farg">ri</i>, <i class="farg">wantrows</i>, <i class="farg">wantcols</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Initialise a <span class="emph">rasops_info</span> descriptor. The arguments <i class="farg">wantrows</i> and <i class="farg">wantcols</i> are the number of rows and columns we'd like. In terms of optimization, fonts that are a multiple of 8 pixels wide work the best.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">rasops_reconfig</b>(<i class="farg">ri</i>, <i class="farg">wantrows</i>, <i class="farg">wantcols</i>)</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Reconfigure a <span class="emph">rasops_info</span> descriptor because parameters have changed in some way. The arguments <i class="farg">wantrows</i> and <i class="farg">wantcols</i> are the number of rows and columns we'd like. Passing zero for either one of them uses the default - normally 80x25 but it can be changed with<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+options RASOPS_DEFAULT_WIDTH=80 
+options RASOPS_DEFAULT_HEIGHT=25</pre>
+If calling <b class="fname">rasops_reconfig</b>() to change the font and ri_wsfcookie &#8805; 0, you must call <b class="fname">wsfont_unlock</b>() on it, and reset it to -1 (or a new, valid cookie).</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x434f4445205245464552454e434553">CODE REFERENCES</h1> The rasops subsystem is implemented within the directory <i class="file">sys/dev/rasops</i>. The <b class="name">rasops</b> module itself is implemented within the file <i class="file">sys/dev/rasops/rasops.c</i>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../9/intro">intro(9)</a>, <a class="link-man" href="../9/wscons">wscons(9)</a>, <a class="link-man" href="../9/wsdisplay">wsdisplay(9)</a>, <a class="link-man" href="../9/wsfont">wsfont(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">rasops</b> subsystem appeared in <span class="unix">NetBSD&#160;1.5</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> The <b class="name">rasops</b> subsystem was written by <span class="author">Andrew Doran</span> &#60;ad@NetBSD.org&#62;.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+January 13, 2012</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

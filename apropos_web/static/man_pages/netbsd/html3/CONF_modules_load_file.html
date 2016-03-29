@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+CONF_modules_load_file(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+CONF_modules_load_file(3)</td>
+<td class="head-vol" align="center">
+OpenSSL</td>
+<td class="head-rtitle" align="right">
+CONF_modules_load_file(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1><br>
+ CONF_modules_load_file, CONF_modules_load &#45; OpenSSL configuration functions<br>
+</div>
+<div class="section">
+<h1>LIBRARY</h1> libcrypto, -lcrypto</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br>
+ #include &lt;openssl/conf.h&gt;<br>
+<br>
+ int CONF_modules_load_file(const char *filename, const char *appname,<br>
+                                        unsigned long flags);<br>
+ int CONF_modules_load(const CONF *cnf, const char *appname,<br>
+                               unsigned long flags);<br>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The function  <i>CONF_modules_load_file()</i> configures OpenSSL using file  <b>filename</b> and application name <b>appname</b>. If <b>filename</b> is NULL the standard OpenSSL configuration file is used. If  <b>appname</b> is NULL the standard OpenSSL application name  <b>openssl_conf</b> is used. The behaviour can be cutomized using  <b>flags</b>.<p>
+<i>CONF_modules_load()</i> is idential to <i>CONF_modules_load_file()</i> except it reads configuration information from  <b>cnf</b>.</div>
+<div class="section">
+<h1>NOTES</h1> The following  <b>flags</b> are currently recognized:<p>
+<b>CONF_MFLAGS_IGNORE_ERRORS</b> if set errors returned by individual configuration modules are ignored. If not set the first module error is considered fatal and no further modules are loaded.<p>
+Normally any modules errors will add error information to the error queue. If  <b>CONF_MFLAGS_SILENT</b> is set no error information is added.<p>
+If <b>CONF_MFLAGS_NO_DSO</b> is set configuration module loading from DSOs is disabled.<p>
+<b>CONF_MFLAGS_IGNORE_MISSING_FILE</b> if set will make <i>CONF_load_modules_file()</i> ignore missing configuration files. Normally a missing configuration file return an error.<p>
+<b>CONF_MFLAGS_DEFAULT_SECTION</b> if set and <b>appname</b> is not NULL will use the default section pointed to by  <b>openssl_conf</b> if <b>appname</b> does not exist.<p>
+Applications should call these functions after loading builtin modules using  <i>OPENSSL_load_builtin_modules()</i>, any ENGINEs for example using  <i>ENGINE_load_builtin_engines()</i>, any algorithms for example  <i>OPENSSL_add_all_algorithms()</i> and (if the application uses libssl)  <i>SSL_library_init()</i>.<p>
+By using <i>CONF_modules_load_file()</i> with appropriate flags an application can customise application configuration to best suit its needs. In some cases the use of a configuration file is optional and its absence is not an error: in this case  <b>CONF_MFLAGS_IGNORE_MISSING_FILE</b> would be set.<p>
+Errors during configuration may also be handled differently by different applications. For example in some cases an error may simply print out a warning message and the application continue. In other cases an application might consider a configuration file error as fatal and exit immediately.<p>
+Applications can use the <i>CONF_modules_load()</i> function if they wish to load a configuration file themselves and have finer control over how errors are treated.</div>
+<div class="section">
+<h1>EXAMPLES</h1> Load a configuration file and print out any errors and exit (missing file considered fatal):<p>
+<br>
+ if (CONF_modules_load_file(NULL, NULL, 0) &lt;= 0) {<br>
+    fprintf(stderr, "FATAL: error loading configuration file&#92;n");<br>
+    ERR_print_errors_fp(stderr);<br>
+    exit(1);<br>
+ }<br>
+<p>
+Load default configuration file using the section indicated by "myapp", tolerate missing files, but exit on other errors:<p>
+<br>
+ if (CONF_modules_load_file(NULL, "myapp",<br>
+                            CONF_MFLAGS_IGNORE_MISSING_FILE) &lt;= 0) {<br>
+    fprintf(stderr, "FATAL: error loading configuration file&#92;n");<br>
+    ERR_print_errors_fp(stderr);<br>
+    exit(1);<br>
+ }<br>
+<p>
+Load custom configuration file and section, only print warnings on error, missing configuration file ignored:<p>
+<br>
+ if (CONF_modules_load_file("/something/app.cnf", "myapp",<br>
+                            CONF_MFLAGS_IGNORE_MISSING_FILE) &lt;= 0) {<br>
+    fprintf(stderr, "WARNING: error loading configuration file&#92;n");<br>
+    ERR_print_errors_fp(stderr);<br>
+ }<br>
+<p>
+Load and parse configuration file manually, custom error handling:<p>
+<br>
+ FILE *fp;<br>
+ CONF *cnf = NULL;<br>
+ long eline;<br>
+ fp = fopen("/somepath/app.cnf", "r");<br>
+ if (fp == NULL) {<br>
+    fprintf(stderr, "Error opening configuration file&#92;n");<br>
+    /* Other missing configuration file behaviour */<br>
+ } else {<br>
+    cnf = NCONF_new(NULL);<br>
+    if (NCONF_load_fp(cnf, fp, &amp;eline) == 0) {<br>
+        fprintf(stderr, "Error on line %ld of configuration file&#92;n", eline);<br>
+        ERR_print_errors_fp(stderr);<br>
+        /* Other malformed configuration file behaviour */<br>
+    } else if (CONF_modules_load(cnf, "appname", 0) &lt;= 0) {<br>
+      fprintf(stderr, "Error configuring application&#92;n");<br>
+      ERR_print_errors_fp(stderr);<br>
+      /* Other configuration error behaviour */<br>
+    }<br>
+    fclose(fp);<br>
+    NCONF_free(cnf);<br>
+  }<br>
+</div>
+<div class="section">
+<h1>RETURN VALUES</h1> These functions return 1 for success and a zero or negative value for failure. If module errors are not ignored the return code will reflect the return value of the failing module (this will always be zero or negative).</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <i>conf</i>(5), <i>OPENSSL_config</i>(3),  <i>CONF_free</i>(3), <i>openssl_err</i>(3)</div>
+<div class="section">
+<h1>HISTORY</h1> CONF_modules_load_file and CONF_modules_load first appeared in OpenSSL 0.9.7.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tr>
+<td class="foot-date">
+2015-03-23</td>
+<td class="foot-os" align="right">
+1.0.1n</td>
+</tr>
+</table>
+</div>
+</body>
+<>
+

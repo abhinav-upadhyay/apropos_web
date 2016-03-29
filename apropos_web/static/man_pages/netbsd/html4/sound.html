@@ -1,0 +1,409 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+AUDIO(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+AUDIO(4)</td>
+<td class="head-vol" align="center">
+Kernel Interfaces Manual</td>
+<td class="head-rtitle" align="right">
+AUDIO(4)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">audio</b> &#8212; <span class="desc">device-independent audio driver layer</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/audioio.h</a>&gt;</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">audio</b> driver provides support for various audio peripherals. It provides a uniform programming interface layer above different underlying audio hardware drivers. The audio layer provides full-duplex operation if the underlying hardware configuration supports it.<p>
+There are four device files available for audio operation: <i class="file">/dev/audio</i>, <i class="file">/dev/sound</i>, <i class="file">/dev/audioctl</i>, and <i class="file">/dev/mixer</i>.<p>
+<i class="file">/dev/audio</i> and <i class="file">/dev/sound</i> are used for recording or playback of digital samples.<p>
+<i class="file">/dev/mixer</i> is used to manipulate volume, recording source, or other audio mixer functions.<p>
+<i class="file">/dev/audioctl</i> accepts the same <a class="link-man" href="../2/ioctl">ioctl(2)</a> operations as <i class="file">/dev/sound</i>, but no other operations.<p>
+In contrast to <i class="file">/dev/sound</i> which has the exclusive open property <i class="file">/dev/audioctl</i> can be opened at any time and can be used to manipulate the audio device while it is in use.</div>
+<div class="section">
+<h1 id="x53414d504c494e472044455649434553">SAMPLING DEVICES</h1> When <i class="file">/dev/audio</i> is opened, it automatically directs the underlying driver to manipulate monaural 8-bit mu-law samples. In addition, if it is opened read-only (write-only) the device is set to half-duplex record (play) mode with recording (playing) unpaused and playing (recording) paused. When <i class="file">/dev/sound</i> is opened, it maintains the previous audio sample mode and record/playback mode. In all other respects <i class="file">/dev/audio</i> and <i class="file">/dev/sound</i> are identical.<p>
+Only one process may hold open a sampling device at a given time (although file descriptors may be shared between processes once the first open completes).<p>
+On a half-duplex device, writes while recording is in progress will be immediately discarded. Similarly, reads while playback is in progress will be filled with silence but delayed to return at the current sampling rate. If both playback and recording are requested on a half-duplex device, playback mode takes precedence and recordings will get silence.<p>
+On a full-duplex device, reads and writes may operate concurrently without interference. If a full-duplex capable audio device is opened for both reading and writing it will start in half-duplex play mode; full-duplex mode has to be set explicitly.<p>
+On either type of device, if the playback mode is paused then silence is played instead of the provided samples, and if recording is paused then the process blocks in <a class="link-man" href="../2/read">read(2)</a> until recording is unpaused.<p>
+If a writing process does not call <a class="link-man" href="../2/write">write(2)</a> frequently enough to provide samples at the pace the hardware consumes them silence is inserted. If the <span class="define">AUMODE_PLAY_ALL</span> mode is not set the writing process must provide enough data via subsequent write calls to &#8220;catch up&#8221; in time to the current audio block before any more process-provided samples will be played. If a reading process does not call <a class="link-man" href="../2/read">read(2)</a> frequently enough, it will simply miss samples.<p>
+The audio device is normally accessed with <a class="link-man" href="../2/read">read(2)</a> or <a class="link-man" href="../2/write">write(2)</a> calls, but it can also be mapped into user memory with <a class="link-man" href="../2/mmap">mmap(2)</a> (when supported by the device). Once the device has been mapped it can no longer be accessed by read or write; all access is by reading and writing to the mapped memory. The device appears as a block of memory of size <b class="var">buffersize</b> (as available via <span class="define">AUDIO_GETINFO</span> or <span class="define">AUDIO_GETBUFINFO</span>). The device driver will continuously move data from this buffer from/to the audio hardware, wrapping around at the end of the buffer. To find out where the hardware is currently accessing data in the buffer the <span class="define">AUDIO_GETIOFFS</span> and <span class="define">AUDIO_GETOOFFS</span> calls can be used. The playing and recording buffers are distinct and must be mapped separately if both are to be used. Only encodings that are not emulated (i.e. where <span class="define">AUDIO_ENCODINGFLAG_EMULATED</span> is not set) work properly for a mapped device.<p>
+The audio device, like most devices, can be used in <b class="var">select</b>, can be set in non-blocking mode and can be set (with a <span class="define">FIOASYNC</span> ioctl) to send a <span class="define">SIGIO</span> when I/O is possible. The mixer device can be set to generate a <span class="define">SIGIO</span> whenever a mixer value is changed.<p>
+The following <a class="link-man" href="../2/ioctl">ioctl(2)</a> commands are supported on the sample devices:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_FLUSH</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command stops all playback and recording, clears all queued buffers, resets error counters, and restarts recording and playback as appropriate for the current sampling mode.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_RERROR (int)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command fetches the count of dropped input samples into its integer argument. There is no information regarding when in the sample stream they were dropped.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_WSEEK (u_long)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command fetches the count of samples that are queued ahead of the first sample in the most recent sample block written into its integer argument.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_DRAIN</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command suspends the calling process until all queued playback samples have been played by the hardware.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_GETDEV (audio_device_t)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command fetches the current hardware device information into the audio_device_t argument.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct audio_device { 
+        char name[MAX_AUDIO_DEV_LEN]; 
+        char version[MAX_AUDIO_DEV_LEN]; 
+        char config[MAX_AUDIO_DEV_LEN]; 
+} audio_device_t;</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_GETFD (int)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The command returns the current setting of the full duplex mode.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_GETENC (audio_encoding_t)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command is used iteratively to fetch sample encoding names and format_ids into the input/output audio_encoding_t argument.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct audio_encoding { 
+	int index;      /* input: nth encoding */ 
+	char name[MAX_AUDIO_DEV_LEN]; /* name of encoding */ 
+	int encoding;   /* value for encoding parameter */ 
+	int precision;  /* value for precision parameter */ 
+	int flags; 
+#define AUDIO_ENCODINGFLAG_EMULATED 1 /* software emulation mode */ 
+} audio_encoding_t;</pre>
+<p>
+To query all the supported encodings, start with an index field of 0 and continue with successive encodings (1, 2, ...) until the command returns an error.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_SETFD (int)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command sets the device into full-duplex operation if its integer argument has a non-zero value, or into half-duplex operation if it contains a zero value. If the device does not support full-duplex operation, attempting to set full-duplex mode returns an error.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_GETPROPS (int)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command gets a bit set of hardware properties. If the hardware has a certain property the corresponding bit is set, otherwise it is not. The properties can have the following values:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_PROP_FULLDUPLEX</span></dt>
+<dd class="list-tag" style="margin-left: 22.00ex;">
+the device admits full duplex operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_PROP_MMAP</span></dt>
+<dd class="list-tag" style="margin-left: 22.00ex;">
+the device can be used with <a class="link-man" href="../2/mmap">mmap(2)</a>.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_PROP_INDEPENDENT</span></dt>
+<dd class="list-tag" style="margin-left: 22.00ex;">
+the device can set the playing and recording encoding parameters independently.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_PROP_PLAYBACK</span></dt>
+<dd class="list-tag" style="margin-left: 22.00ex;">
+the device is capable of audio playback.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_PROP_CAPTURE</span></dt>
+<dd class="list-tag" style="margin-left: 22.00ex;">
+the device is capable of audio capture.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_GETIOFFS (audio_offset_t)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_GETOOFFS (audio_offset_t)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command fetches the current offset in the input(output) buffer where the audio hardware's DMA engine will be putting(getting) data. It mostly useful when the device buffer is available in user space via the <a class="link-man" href="../2/mmap">mmap(2)</a> call. The information is returned in the audio_offset structure.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct audio_offset { 
+	u_int	samples;   /* Total number of bytes transferred */ 
+	u_int	deltablks; /* Blocks transferred since last checked */ 
+	u_int	offset;    /* Physical transfer offset in buffer */ 
+} audio_offset_t;</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_GETINFO (audio_info_t)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_GETBUFINFO (audio_info_t)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_SETINFO (audio_info_t)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set audio information as encoded in the audio_info structure.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct audio_info { 
+	struct	audio_prinfo play;   /* info for play (output) side */ 
+	struct	audio_prinfo record; /* info for record (input) side */ 
+        u_int	monitor_gain;			/* input to output mix */ 
+	/* BSD extensions */ 
+	u_int	blocksize;	/* H/W read/write block size */ 
+	u_int	hiwat;		/* output high water mark */ 
+	u_int	lowat;		/* output low water mark */ 
+	u_int	_ispare1; 
+	u_int	mode;		/* current device mode */ 
+#define AUMODE_PLAY	0x01 
+#define AUMODE_RECORD	0x02 
+#define AUMODE_PLAY_ALL 0x04	/* do not do real-time correction */ 
+} audio_info_t;</pre>
+<p>
+When setting the current state with <span class="define">AUDIO_SETINFO</span>, the audio_info structure should first be initialized with <span class="define">AUDIO_INITINFO</span> (&amp;info) and then the particular values to be changed should be set. This allows the audio driver to only set those things that you wish to change and eliminates the need to query the device with <span class="define">AUDIO_GETINFO</span> or <span class="define">AUDIO_GETBUFINFO</span> first.<p>
+The <b class="var">mode</b> field should be set to <span class="define">AUMODE_PLAY</span>, <span class="define">AUMODE_RECORD</span>, <span class="define">AUMODE_PLAY_ALL</span>, or a bitwise OR combination of the three. Only full-duplex audio devices support simultaneous record and playback.<p>
+<b class="var">hiwat</b> and <b class="var">lowat</b> are used to control write behavior. Writes to the audio devices will queue up blocks until the high-water mark is reached, at which point any more write calls will block until the queue is drained to the low-water mark. <b class="var">hiwat</b> and <b class="var">lowat</b> set those high- and low-water marks (in audio blocks). The default for <b class="var">hiwat</b> is the maximum value and for <b class="var">lowat</b> 75 % of <b class="var">hiwat</b>.<p>
+<b class="var">blocksize</b> sets the current audio blocksize. The generic audio driver layer and the hardware driver have the opportunity to adjust this block size to get it within implementation-required limits. Upon return from an <span class="define">AUDIO_SETINFO</span> call, the actual blocksize set is returned in this field. Normally the <b class="var">blocksize</b> is calculated to correspond to 50ms of sound and it is recalculated when the encoding parameter changes, but if the <b class="var">blocksize</b> is set explicitly this value becomes sticky, i.e., it remains even when the encoding is changed. The stickiness can be cleared by reopening the device or setting the <b class="var">blocksize</b> to 0.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct audio_prinfo { 
+	u_int	sample_rate;	/* sample rate in samples/s */ 
+	u_int	channels;	/* number of channels, usually 1 or 2 */ 
+	u_int	precision;	/* number of bits/sample */ 
+	u_int	encoding;	/* data encoding (AUDIO_ENCODING_* below) */ 
+	u_int	gain;		/* volume level */ 
+	u_int	port;		/* selected I/O port */ 
+	u_long	seek;		/* BSD extension */ 
+	u_int	avail_ports;	/* available I/O ports */ 
+	u_int	buffer_size;	/* total size audio buffer */ 
+	u_int	_ispare[1]; 
+	/* Current state of device: */ 
+	u_int	samples;	/* number of samples */ 
+	u_int	eof;		/* End Of File (zero-size writes) counter */ 
+	u_char	pause;		/* non-zero if paused, zero to resume */ 
+	u_char	error;		/* non-zero if underflow/overflow occurred */ 
+	u_char	waiting;	/* non-zero if another process hangs in open */ 
+	u_char	balance;	/* stereo channel balance */ 
+	u_char	cspare[2]; 
+	u_char	open;		/* non-zero if currently open */ 
+	u_char	active;		/* non-zero if I/O is currently active */ 
+};</pre>
+<p>
+Note:  many hardware audio drivers require identical playback and recording sample rates, sample encodings, and channel counts. The playing information is always set last and will prevail on such hardware. If the hardware can handle different settings the <span class="define">AUDIO_PROP_INDEPENDENT</span> property is set.<p>
+The encoding parameter can have the following values:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_ENCODING_ULAW</span></dt>
+<dd class="list-tag" style="margin-left: 25.00ex;">
+mu-law encoding, 8 bits/sample</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_ENCODING_ALAW</span></dt>
+<dd class="list-tag" style="margin-left: 25.00ex;">
+A-law encoding, 8 bits/sample</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_ENCODING_SLINEAR</span></dt>
+<dd class="list-tag" style="margin-left: 25.00ex;">
+two's complement signed linear encoding with the platform byte order</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_ENCODING_ULINEAR</span></dt>
+<dd class="list-tag" style="margin-left: 25.00ex;">
+unsigned linear encoding with the platform byte order</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_ENCODING_ADPCM</span></dt>
+<dd class="list-tag" style="margin-left: 25.00ex;">
+ADPCM encoding, 8 bits/sample</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_ENCODING_SLINEAR_LE</span></dt>
+<dd class="list-tag" style="margin-left: 25.00ex;">
+two's complement signed linear encoding with little endian byte order</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_ENCODING_SLINEAR_BE</span></dt>
+<dd class="list-tag" style="margin-left: 25.00ex;">
+two's complement signed linear encoding with big endian byte order</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_ENCODING_ULINEAR_LE</span></dt>
+<dd class="list-tag" style="margin-left: 25.00ex;">
+unsigned linear encoding with little endian byte order</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_ENCODING_ULINEAR_BE</span></dt>
+<dd class="list-tag" style="margin-left: 25.00ex;">
+unsigned linear encoding with big endian byte order</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_ENCODING_AC3</span></dt>
+<dd class="list-tag" style="margin-left: 25.00ex;">
+Dolby Digital AC3</dd>
+</dl>
+<p>
+The <b class="var">gain</b>, <b class="var">port</b> and <b class="var">balance</b> settings provide simple shortcuts to the richer mixer interface described below and are not obtained by <span class="define">AUDIO_GETBUFINFO</span>. The gain should be in the range &#91;<span class="define">AUDIO_MIN_GAIN</span>, <span class="define">AUDIO_MAX_GAIN</span>&#93; and the balance in the range &#91;<span class="define">AUDIO_LEFT_BALANCE</span>, <span class="define">AUDIO_RIGHT_BALANCE</span>&#93; with the normal setting at <span class="define">AUDIO_MID_BALANCE</span>.<p>
+The input port should be a combination of:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_MICROPHONE</span></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+to select microphone input.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_LINE_IN</span></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+to select line input.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_CD</span></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+to select CD input.</dd>
+</dl>
+<p>
+The output port should be a combination of:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_SPEAKER</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+to select speaker output.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_HEADPHONE</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+to select headphone output.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">AUDIO_LINE_OUT</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+to select line output.</dd>
+</dl>
+<p>
+The available ports can be found in <b class="var">avail_ports</b> (<span class="define">AUDIO_GETBUFINFO</span> only).<p>
+<b class="var">buffer_size</b> is the total size of the audio buffer. The buffer size divided by the <b class="var">blocksize</b> gives the maximum value for <b class="var">hiwat</b>. Currently the <b class="var">buffer_size</b> can only be read and not set.<p>
+The <b class="var">seek</b> and <b class="var">samples</b> fields are only used by <span class="define">AUDIO_GETINFO</span> and <span class="define">AUDIO_GETBUFINFO</span>. <b class="var">seek</b> represents the count of samples pending; <b class="var">samples</b> represents the total number of bytes recorded or played, less those that were dropped due to inadequate consumption/production rates.<p>
+<b class="var">pause</b> returns the current pause/unpause state for recording or playback. For <span class="define">AUDIO_SETINFO</span>, if the pause value is specified it will either pause or unpause the particular direction.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4d4958455220444556494345">MIXER DEVICE</h1> The mixer device, <i class="file">/dev/mixer</i>, may be manipulated with <a class="link-man" href="../2/ioctl">ioctl(2)</a> but does not support <a class="link-man" href="../2/read">read(2)</a> or <a class="link-man" href="../2/write">write(2)</a>. It supports the following <a class="link-man" href="../2/ioctl">ioctl(2)</a> commands:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_GETDEV (audio_device_t)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command is the same as described above for the sampling devices.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_MIXER_READ (mixer_ctrl_t)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_MIXER_WRITE (mixer_ctrl_t)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+These commands read the current mixer state or set new mixer state for the specified device <b class="var">dev</b>. <b class="var">type</b> identifies which type of value is supplied in the <b class="var">mixer_ctrl_t</b> argument.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define AUDIO_MIXER_CLASS  0 
+#define AUDIO_MIXER_ENUM   1 
+#define AUDIO_MIXER_SET    2 
+#define AUDIO_MIXER_VALUE  3 
+typedef struct mixer_ctrl { 
+	int dev;			/* input: nth device */ 
+	int type; 
+	union { 
+		int ord;		/* enum */ 
+		int mask;		/* set */ 
+		mixer_level_t value;	/* value */ 
+	} un; 
+} mixer_ctrl_t; 
+ 
+#define AUDIO_MIN_GAIN  0 
+#define AUDIO_MAX_GAIN  255 
+typedef struct mixer_level { 
+        int num_channels; 
+        u_char level[8];               /* [num_channels] */ 
+} mixer_level_t; 
+#define AUDIO_MIXER_LEVEL_MONO  0 
+#define AUDIO_MIXER_LEVEL_LEFT  0 
+#define AUDIO_MIXER_LEVEL_RIGHT 1</pre>
+<p>
+For a mixer value, the <b class="var">value</b> field specifies both the number of channels and the values for each channel. If the channel count does not match the current channel count, the attempt to change the setting may fail (depending on the hardware device driver implementation). For an enumeration value, the <b class="var">ord</b> field should be set to one of the possible values as returned by a prior <span class="define">AUDIO_MIXER_DEVINFO</span> command. The type <span class="define">AUDIO_MIXER_CLASS</span> is only used for classifying particular mixer device types and is not used for <span class="define">AUDIO_MIXER_READ</span> or <span class="define">AUDIO_MIXER_WRITE</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">AUDIO_MIXER_DEVINFO (mixer_devinfo_t)</span></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This command is used iteratively to fetch audio mixer device information into the input/output mixer_devinfo_t argument. To query all the supported devices, start with an index field of 0 and continue with successive devices (1, 2, ...) until the command returns an error.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct mixer_devinfo { 
+	int index;		/* input: nth mixer device */ 
+	audio_mixer_name_t label; 
+	int type; 
+	int mixer_class; 
+	int next, prev; 
+#define AUDIO_MIXER_LAST	-1 
+	union { 
+		struct audio_mixer_enum { 
+			int num_mem; 
+			struct { 
+				audio_mixer_name_t label; 
+				int ord; 
+			} member[32]; 
+		} e; 
+		struct audio_mixer_set { 
+			int num_mem; 
+			struct { 
+				audio_mixer_name_t label; 
+				int mask; 
+			} member[32]; 
+		} s; 
+		struct audio_mixer_value { 
+			audio_mixer_name_t units; 
+			int num_channels; 
+			int delta; 
+		} v; 
+	} un; 
+} mixer_devinfo_t;</pre>
+<p>
+The <b class="var">label</b> field identifies the name of this particular mixer control. The <b class="var">index</b> field may be used as the <b class="var">dev</b> field in <span class="define">AUDIO_MIXER_READ</span> and <span class="define">AUDIO_MIXER_WRITE</span> commands. The <b class="var">type</b> field identifies the type of this mixer control. Enumeration types are typically used for on/off style controls (e.g. a mute control) or for input/output device selection (e.g. select recording input source from CD, line in, or microphone). Set types are similar to enumeration types but any combination of the mask bits can be used.<p>
+The <b class="var">mixer_class</b> field identifies what class of control this is. The (arbitrary) value set by the hardware driver may be determined by examining the <b class="var">mixer_class</b> field of the class itself, a mixer of type <span class="define">AUDIO_MIXER_CLASS</span>. For example, a mixer controlling the input gain on the line in circuit would have a <b class="var">mixer_class</b> that matches an input class device with the name &#8220;inputs&#8221; (<span class="define">AudioCinputs</span>), and would have a <b class="var">label</b> of &#8220;line&#8221; (<span class="define">AudioNline</span>). Mixer controls which control audio circuitry for a particular audio source (e.g. line-in, CD in, DAC output) are collected under the input class, while those which control all audio sources (e.g. master volume, equalization controls) are under the output class. Hardware devices capable of recording typically also have a record class, for controls that only affect recording, and also a monitor class.<p>
+The <b class="var">next</b> and <b class="var">prev</b> may be used by the hardware device driver to provide hints for the next and previous devices in a related set (for example, the line in level control would have the line in mute as its &#8220;next&#8221; value). If there is no relevant next or previous value, <span class="define">AUDIO_MIXER_LAST</span> is specified.<p>
+For <span class="define">AUDIO_MIXER_ENUM</span> mixer control types, the enumeration values and their corresponding names are filled in. For example, a mute control would return appropriate values paired with <span class="define">AudioNon</span> and <span class="define">AudioNoff</span>. For <span class="define">AUDIO_MIXER_VALUE</span> and <span class="define">AUDIO_MIXER_SET</span> mixer control types, the channel count is returned; the units name specifies what the level controls (typical values are <span class="define">AudioNvolume</span>, <span class="define">AudioNtreble</span>, <span class="define">AudioNbass</span>).</dd>
+</dl>
+<p>
+By convention, all the mixer devices can be distinguished from other mixer controls because they use a name from one of the <span class="define">AudioC*</span> string values.</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/dev/audio</i></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/dev/audioctl</i></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/dev/sound</i></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/dev/mixer</i></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/audioctl">audioctl(1)</a>, <a class="link-man" href="../1/mixerctl">mixerctl(1)</a>, <a class="link-man" href="../2/ioctl">ioctl(2)</a>, <a class="link-man" href="../3/ossaudio">ossaudio(3)</a>, <a class="link-man" href="../4/midi">midi(4)</a>, <a class="link-man" href="../4/radio">radio(4)</a><div class="subsection">
+<h2 id="x49534120627573">ISA bus</h2> <a class="link-man" href="../4/aria">aria(4)</a>, <a class="link-man" href="../4/ess">ess(4)</a>, <a class="link-man" href="../4/gus">gus(4)</a>, <a class="link-man" href="../4/guspnp">guspnp(4)</a>, <a class="link-man" href="../4/pas">pas(4)</a>, <a class="link-man" href="../4/sb">sb(4)</a>, <a class="link-man" href="../4/wss">wss(4)</a>, <a class="link-man" href="../4/ym">ym(4)</a></div>
+<div class="subsection">
+<h2 id="x50434920627573">PCI bus</h2> <a class="link-man" href="../4/auacer">auacer(4)</a>, <a class="link-man" href="../4/auich">auich(4)</a>, <a class="link-man" href="../4/auixp">auixp(4)</a>, <a class="link-man" href="../4/autri">autri(4)</a>, <a class="link-man" href="../4/auvia">auvia(4)</a>, <a class="link-man" href="../4/azalia">azalia(4)</a>, <a class="link-man" href="../4/clcs">clcs(4)</a>, <a class="link-man" href="../4/clct">clct(4)</a>, <a class="link-man" href="../4/cmpci">cmpci(4)</a>, <a class="link-man" href="../4/eap">eap(4)</a>, <a class="link-man" href="../4/emuxki">emuxki(4)</a>, <a class="link-man" href="../4/esa">esa(4)</a>, <a class="link-man" href="../4/esm">esm(4)</a>, <a class="link-man" href="../4/eso">eso(4)</a>, <a class="link-man" href="../4/fms">fms(4)</a>, <a class="link-man" href="../4/neo">neo(4)</a>, <a class="link-man" href="../4/sv">sv(4)</a>, <a class="link-man" href="../4/yds">yds(4)</a></div>
+<div class="subsection">
+<h2 id="x545552424f6368616e6e656c">TURBOchannel</h2> <a class="link-man" href="../4/bba">bba(4)</a></div>
+<div class="subsection">
+<h2 id="x555342">USB</h2> <a class="link-man" href="../4/uaudio">uaudio(4)</a></div>
+</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> If the device is used in <a class="link-man" href="../2/mmap">mmap(2)</a> it is currently always mapped for writing (playing) due to VM system weirdness.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+September 5, 2011</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

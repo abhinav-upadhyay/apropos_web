@@ -1,0 +1,194 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+PIGZ(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PIGZ(1)</td>
+<td class="head-vol" align="center">
+General Commands Manual</td>
+<td class="head-rtitle" align="right">
+PIGZ(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">pigz</b>, <b class="name">unpigz</b> &#8212; <span class="desc">compress or expand files</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1><table class="synopsis">
+<col style="width: 4.00ex;">
+<col>
+<tbody>
+<tr>
+<td>
+pigz</td>
+<td>
+&#91;<span class="opt"><b class="flag">&#45;0..9cdFfhiKkLlNnqORrTtz</b></span>&#93; &#91;<span class="opt"><b class="flag">&#45;11</b></span>&#93; &#91;<span class="opt"><b class="flag">&#45;b</b> <i class="arg">blocksize</i></span>&#93; &#91;<span class="opt"><b class="flag">&#45;I</b> <i class="arg">iterations</i></span>&#93; &#91;<span class="opt"><b class="flag">&#45;M</b> <i class="arg">maxsplits</i></span>&#93; &#91;<span class="opt"><b class="flag">&#45;p</b> <i class="arg">threads</i></span>&#93; &#91;<span class="opt"><b class="flag">&#45;S</b> <i class="arg">suffix</i></span>&#93; &#91;<span class="opt"><i class="arg">file ...</i></span>&#93;</td>
+</tr>
+</tbody>
+</table>
+<br>
+<table class="synopsis">
+<col style="width: 4.00ex;">
+<col>
+<tbody>
+<tr>
+<td>
+unpigz</td>
+<td>
+&#91;<span class="opt"><b class="flag">&#45;cfhiKkLlNnqRrTtz</b></span>&#93; &#91;<span class="opt"><b class="flag">&#45;b</b> <i class="arg">blocksize</i></span>&#93; &#91;<span class="opt"><b class="flag">&#45;p</b> <i class="arg">threads</i></span>&#93; &#91;<span class="opt"><b class="flag">&#45;S</b> <i class="arg">suffix</i></span>&#93; &#91;<span class="opt"><i class="arg">file ...</i></span>&#93;</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="name">pigz</b> compresses using threads to make use of multiple processors and cores. The input is broken up into 128 KB chunks with each compressed in parallel. The individual check value for each chunk is also calculated in parallel. The compressed data is written in order to the output, and a combined check value is calculated from the individual check values.<p>
+The compressed data format generated is in the gzip, zlib, or single-entry zip format using the deflate compression method. The compression produces partial raw deflate streams which are concatenated by a single write thread and wrapped with the appropriate header and trailer, where the trailer contains the combined check value.<p>
+Each partial raw deflate stream is terminated by an empty stored block (using the <span class="define">Z_SYNC_FLUSH</span> option of <a class="link-man" href="../3/zlib">zlib(3)</a>), in order to end that partial bit stream at a byte boundary. That allows the partial streams to be concatenated simply as sequences of bytes. This adds a very small four to five byte overhead to the output for each input chunk.<p>
+The default input block size is 128K, but can be changed with the <b class="flag">&#45;b</b> option. The number of compress threads is set by default to the number of online processors, which can be changed using the <b class="flag">&#45;p</b> option. Specifying <b class="flag">&#45;p</b> <i class="arg">1</i> avoids the use of threads entirely.<p>
+The input blocks, while compressed independently, have the last 32K of the previous block loaded as a preset dictionary to preserve the compression effectiveness of deflating in a single thread. This can be turned off using the <b class="flag">&#45;i</b> or <b class="flag">&#45;</b><b class="flag">&#45;independent</b> option, so that the blocks can be decompressed independently for partial error recovery or for random access.<p>
+Decompression can't be parallelized, at least not without specially prepared deflate streams for that purpose. As a result, <b class="name">pigz</b> uses a single thread (the main thread) for decompression, but will create three other threads for reading, writing, and check calculation, which can speed up decompression under some circumstances. Parallel decompression can be turned off by specifying one process (<b class="flag">&#45;dp</b> <i class="arg">1</i> or <b class="flag">&#45;tp</b> <i class="arg">1</i>).<p>
+Compressed files can be restored to their original form using <b class="name">pigz</b> <b class="flag">&#45;d</b> or <b class="name">unpigz</b>.</div>
+<div class="section">
+<h1 id="x4f5054494f4e53">OPTIONS</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;#,</b> <b class="flag">&#45;</b><b class="flag">&#45;fast,</b> <b class="flag">&#45;</b><b class="flag">&#45;best</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Regulate the speed of compression using the specified digit <i class="arg">#</i>, where <b class="flag">&#45;1</b> or <b class="flag">&#45;</b><b class="flag">&#45;fast</b> indicates the fastest compression method (less compression) and <b class="flag">&#45;9</b> or <b class="flag">&#45;</b><b class="flag">&#45;best</b> indicates the slowest compression method (best compression). <b class="flag">&#45;0</b> is no compression. <b class="flag">&#45;11</b> gives a few percent better compression at a severe cost in execution time. The default is <b class="flag">&#45;6</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;b,</b> <b class="flag">&#45;</b><b class="flag">&#45;blocksize</b> <i class="arg">mmm</i></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Set compression block size to <i class="arg">mmm</i> K (default 128KiB).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;c,</b> <b class="flag">&#45;</b><b class="flag">&#45;stdout,</b> <b class="flag">&#45;</b><b class="flag">&#45;to-stdout</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Write all processed output to stdout (won't delete).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;d,</b> <b class="flag">&#45;</b><b class="flag">&#45;decompress,</b> <b class="flag">&#45;</b><b class="flag">&#45;uncompress</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Decompress the compressed input.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;F,</b> <b class="flag">&#45;</b><b class="flag">&#45;first</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+If compressing at level 11, do iterations first, before block split (default is last).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;f,</b> <b class="flag">&#45;</b><b class="flag">&#45;force</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Force overwrite, compress .gz, links, and to terminal.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;h,</b> <b class="flag">&#45;</b><b class="flag">&#45;help</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Display a help screen and quit.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;I,</b> <b class="flag">&#45;</b><b class="flag">&#45;iterations</b> <i class="arg">n</i></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+If compressing at level 11, number of iterations for optimization (default 15).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;i,</b> <b class="flag">&#45;</b><b class="flag">&#45;independent</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Compress blocks independently for damage recovery.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;K,</b> <b class="flag">&#45;</b><b class="flag">&#45;zip</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Compress to PKWare zip (.zip) single entry format.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;k,</b> <b class="flag">&#45;</b><b class="flag">&#45;keep</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Do not delete original file after processing.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;L,</b> <b class="flag">&#45;</b><b class="flag">&#45;license</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Display the <b class="name">pigz</b> license and quit.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;l,</b> <b class="flag">&#45;</b><b class="flag">&#45;list</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+List the contents of the compressed input.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;M,</b> <b class="flag">&#45;</b><b class="flag">&#45;maxsplits</b> <i class="arg">n</i></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+If compressing at level 11, maximum number of split blocks (default 15).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;N,</b> <b class="flag">&#45;</b><b class="flag">&#45;name</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Store/restore file name and mod time in/from header.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;n,</b> <b class="flag">&#45;</b><b class="flag">&#45;no-name</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Do not store or restore file name in/from header.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;O,</b> <b class="flag">&#45;</b><b class="flag">&#45;oneblock</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+If compressing at level 11, do not split into smaller blocks (default is block splitting).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;p,</b> <b class="flag">&#45;</b><b class="flag">&#45;processes</b> <i class="arg">n</i></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Allow up to n processes (default is the number of online processors)</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;q,</b> <b class="flag">&#45;</b><b class="flag">&#45;quiet,</b> <b class="flag">&#45;</b><b class="flag">&#45;silent</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Print no messages, even on error.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;R,</b> <b class="flag">&#45;</b><b class="flag">&#45;rsyncable</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Input-determined block locations for rsync.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;r,</b> <b class="flag">&#45;</b><b class="flag">&#45;recursive</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Process the contents of all subdirectories.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;S,</b> <b class="flag">&#45;</b><b class="flag">&#45;suffix</b> <i class="arg">.sss</i></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Use suffix <i class="arg">.sss</i> instead of <i class="file">.gz</i> (for compression).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;T,</b> <b class="flag">&#45;</b><b class="flag">&#45;no-time</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Do not store or restore mod time in/from header.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;t,</b> <b class="flag">&#45;</b><b class="flag">&#45;test</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Test the integrity of the compressed input.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;V,</b> <b class="flag">&#45;</b><b class="flag">&#45;version</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Show the version of pigz.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;v,</b> <b class="flag">&#45;</b><b class="flag">&#45;verbose</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Provide more verbose output.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;z,</b> <b class="flag">&#45;</b><b class="flag">&#45;zlib</b></dt>
+<dd class="list-tag" style="margin-left: 19.00ex;">
+Compress to zlib (<i class="file">.zz</i>) instead of gzip format.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x434f50595249474854204e4f54494345">COPYRIGHT NOTICE</h1> This software is provided 'as-is', without any express or implied warranty. In no event will the author be held liable for any damages arising from the use of this software.<p>
+Copyright (C) 2007, 2008, 2009, 2010 <span class="author">Mark Adler</span> &#60;<a class="link-mail" href="mailto:madler@alumni.caltech.edu">madler@alumni.caltech.edu</a>&#62;</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+June 15, 2014</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+INIT(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+INIT(8)</td>
+<td class="head-vol" align="center">
+System Manager's Manual</td>
+<td class="head-rtitle" align="right">
+INIT(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">init</b> &#8212; <span class="desc">process control initialization</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1><table class="synopsis">
+<col style="width: 4.00ex;">
+<col>
+<tbody>
+<tr>
+<td>
+init</td>
+<td>
+&#91;<span class="opt"><b class="flag">&#45;s</b></span>&#93;</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">init</b> program is the last stage of the boot process. It normally begins multi-user operation.<p>
+<b class="name">init</b> is executed automatically by the kernel, after the kernel has initialised all devices and mounted the root file system. The kernel may try multiple possible paths for <b class="name">init</b>, including <i class="file">/sbin/init</i>, <i class="file">/sbin/oinit</i>, <i class="file">/sbin/init.bak</i>, and <i class="file">/rescue/init</i>.<p>
+The following table describes the state machine used by <b class="name">init</b>:<ol style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-enum">
+<li class="list-enum" style="margin-top: 1.00em;">
+Single user shell. If the kernel is booted in single user mode (see <a class="link-man" href="../9/boothowto">boothowto(9)</a>), then the kernel will pass the <b class="flag">&#45;s</b> option to <b class="name">init</b> to prevent the system from going multi-user and to instead execute a single user shell without starting the normal daemons. If the kernel is in a secure mode, <b class="name">init</b> will downgrade it to securelevel 0 (insecure mode). The system is then quiescent for maintenance work and may later be made to go to state 2 (multi-user) by exiting the single-user shell (with ^D).</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Multi-user boot (default operation). Executes <i class="file">/etc/rc</i> (see <a class="link-man" href="../8/rc">rc(8)</a>). If this was the first state entered (as opposed to entering here after state 1), then <i class="file">/etc/rc</i> will be invoked with its first argument being &#8216;autoboot&#8217;. If <i class="file">/etc/rc</i> exits with a non-zero (error) exit code, commence single user operation by giving the super-user a shell on the console by going to state 1 (single user). Otherwise, proceed to state 3.<p>
+If value of the &#8220;init.root&#8221; sysctl node is not equal to <i class="file">/</i> at this point, the <i class="file">/etc/rc</i> process will be run inside a <a class="link-man" href="../2/chroot">chroot(2)</a> indicated by sysctl with the same error handling as above.<p>
+If the administrator has not set the security level to &#45;1 to indicate that the kernel should not run multiuser in secure mode, and the <i class="file">/etc/rc</i> script has not set a higher level of security than level 1, then <b class="name">init</b> will put the kernel into securelevel mode 1. See <a class="link-man" href="../5/rc.conf">rc.conf(5)</a> and <a class="link-man" href="../9/secmodel_securelevel">secmodel_securelevel(9)</a> for more information.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Set up ttys as specified in <a class="link-man" href="../5/ttys">ttys(5)</a>. See below for more information. On completion, continue to state 4. If we did chroot in state 2, each <a class="link-man" href="../8/getty">getty(8)</a> process will be run in the same <a class="link-man" href="../2/chroot">chroot(2)</a> path as in 2 (that is, the value of &#8220;init.root&#8221; sysctl is not re-read).</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Multi-user operation. Depending upon the signal received, change state appropriately; on <span class="define">SIGTERM</span>, go to state 7; on <span class="define">SIGHUP</span>, go to state 5; on <span class="define">SIGTSTP</span>, go to state 6.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Clean-up mode; re-read <a class="link-man" href="../5/ttys">ttys(5)</a>, killing off the controlling processes on lines that are now &#8216;off&#8217;, and starting processes that are newly &#8216;on&#8217;. On completion, go to state 4.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+&#8216;Boring&#8217; mode; no new sessions. Signals as per state 4.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Shutdown mode. Send <span class="define">SIGHUP</span> to all controlling processes, reap the processes for 30 seconds, and then go to state 1 (single user); warning if not all the processes died.</li>
+</ol>
+<p>
+If the &#8216;console&#8217; entry in the <a class="link-man" href="../5/ttys">ttys(5)</a> file is marked &#8220;insecure&#8221;, then <b class="name">init</b> will require that the superuser password be entered before the system will start a single-user shell. The password check is skipped if the &#8216;console&#8217; is marked as &#8220;secure&#8221;.<p>
+It should be noted that while <b class="name">init</b> has the ability to start multi-user operation inside a <a class="link-man" href="../2/chroot">chroot(2)</a> environment, the <b class="name">init</b> process itself will always run in the &#8220;original root directory&#8221;. This also implies that single-user mode is always started in the original root, giving the possibility to create multi-user sessions in different root directories over time. The &#8220;init.root&#8221; sysctl node is fabricated by <b class="name">init</b> at startup and re-created any time it's found to be missing. Type of the node is string capable of holding full pathname, and is only accessible by the superuser (unless explicitly destroyed and re-created with different specification).<p>
+In multi-user operation, <b class="name">init</b> maintains processes for the terminal ports found in the file <a class="link-man" href="../5/ttys">ttys(5)</a>. <b class="name">init</b> reads this file, and executes the command found in the second field. This command is usually <a class="link-man" href="../8/getty">getty(8)</a>; it opens and initializes the tty line and executes the <a class="link-man" href="../1/login">login(1)</a> program. The <a class="link-man" href="../1/login">login(1)</a> program, when a valid user logs in, executes a shell for that user. When this shell dies, either because the user logged out or an abnormal termination occurred (a signal), the <b class="name">init</b> program wakes up, deletes the user from the <a class="link-man" href="../5/utmp">utmp(5)</a> and <a class="link-man" href="../5/utmpx">utmpx(5)</a> files of current users and records the logout in the <a class="link-man" href="../5/wtmp">wtmp(5)</a> and <a class="link-man" href="../5/wtmpx">wtmpx(5)</a> files. The cycle is then restarted by <b class="name">init</b> executing a new <a class="link-man" href="../8/getty">getty(8)</a> for the line.<p>
+Line status (on, off, secure, getty, or window information) may be changed in the <a class="link-man" href="../5/ttys">ttys(5)</a> file without a reboot by sending the signal <span class="define">SIGHUP</span> to <b class="name">init</b> with the command &#8220;<code class="lit">kill &#45;s HUP 1</code>&#8221;. This is referenced in the table above as state 5. On receipt of this signal, <b class="name">init</b> re-reads the <a class="link-man" href="../5/ttys">ttys(5)</a> file. When a line is turned off in <a class="link-man" href="../5/ttys">ttys(5)</a>, <b class="name">init</b> will send a <span class="define">SIGHUP</span> signal to the controlling process for the session associated with the line. For any lines that were previously turned off in the <a class="link-man" href="../5/ttys">ttys(5)</a> file and are now on, <b class="name">init</b> executes a new <a class="link-man" href="../8/getty">getty(8)</a> to enable a new login. If the getty or window field for a line is changed, the change takes effect at the end of the current login session (e.g., the next time <b class="name">init</b> starts a process on the line). If a line is commented out or deleted from <a class="link-man" href="../5/ttys">ttys(5)</a>, <b class="name">init</b> will not do anything at all to that line. However, it will complain that the relationship between lines in the <a class="link-man" href="../5/ttys">ttys(5)</a> file and records in the <a class="link-man" href="../5/utmp">utmp(5)</a> file is out of sync, so this practice is not recommended.<p>
+<b class="name">init</b> will terminate multi-user operations and resume single-user mode if sent a terminate (<span class="define">TERM</span>) signal, for example, &#8220;<code class="lit">kill &#45;s TERM 1</code>&#8221;. If there are processes outstanding that are deadlocked (because of hardware or software failure), <b class="name">init</b> will not wait for them all to die (which might take forever), but will time out after 30 seconds and print a warning message.<p>
+<b class="name">init</b> will cease creating new <a class="link-man" href="../8/getty">getty(8)</a>'s and allow the system to slowly die away, if it is sent a terminal stop (<span class="define">TSTP</span>) signal, i.e. &#8220;<code class="lit">kill &#45;s TSTP 1</code>&#8221;. A later hangup will resume full multi-user operations, or a terminate will start a single user shell. This hook is used by <a class="link-man" href="../8/reboot">reboot(8)</a> and <a class="link-man" href="../8/halt">halt(8)</a>.<p>
+The role of <b class="name">init</b> is so critical that if it dies, the system will reboot itself automatically. If, at bootstrap time, the <b class="name">init</b> process cannot be located, or exits during its initialisation, the system will panic with the message &#8220;panic: init died (signal %d, exit %d)&#8221;.<p>
+If <i class="file">/dev/console</i> does not exist, <b class="name">init</b> will cd to <i class="file">/dev</i> and run &#8220;<code class="lit">MAKEDEV -MM init</code>&#8221;. <a class="link-man" href="../8/MAKEDEV">MAKEDEV(8)</a> will use <a class="link-man" href="../8/mount_tmpfs">mount_tmpfs(8)</a> or <a class="link-man" href="../8/mount_mfs">mount_mfs(8)</a> to create a memory file system mounted over <i class="file">/dev</i> that contains the standard devices considered necessary to boot the system.</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/dev/console</i></dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+System console device.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/dev/tty*</i></dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Terminal ports found in <a class="link-man" href="../5/ttys">ttys(5)</a>.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/var/run/utmp{,x}</i></dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Record of current users on the system.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/var/log/wtmp{,x}</i></dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Record of all logins and logouts.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/ttys</i></dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The terminal initialization information file.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/rc</i></dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+System startup commands.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x444941474e4f5354494353">DIAGNOSTICS</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-diag">
+<dt class="list-diag" style="margin-top: 1.00em;">
+<b class="diag">getty repeating too quickly on port %s, sleeping</b></dt>
+<dd class="list-diag">
+A process being started to service a line is exiting quickly each time it is started. This is often caused by a ringing or noisy terminal line. <span class="emph">Init will sleep for 10 seconds</span>, <span class="emph">then continue trying to start the process</span>.</dd>
+<dt class="list-diag" style="margin-top: 1.00em;">
+<b class="diag">some processes would not die; ps axl advised.</b></dt>
+<dd class="list-diag">
+A process is hung and could not be killed when the system was shutting down. This condition is usually caused by a process that is stuck in a device driver because of a persistent device error condition.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/config">config(1)</a>, <a class="link-man" href="../1/kill">kill(1)</a>, <a class="link-man" href="../1/login">login(1)</a>, <a class="link-man" href="../1/sh">sh(1)</a>, <a class="link-man" href="../4/options">options(4)</a>, <a class="link-man" href="../5/ttys">ttys(5)</a>, <a class="link-man" href="../8/getty">getty(8)</a>, <a class="link-man" href="../8/halt">halt(8)</a>, <a class="link-man" href="../8/MAKEDEV">MAKEDEV(8)</a>, <a class="link-man" href="../8/MAKEDEV.local">MAKEDEV.local(8)</a>, <a class="link-man" href="../8/mount_mfs">mount_mfs(8)</a>, <a class="link-man" href="../8/mount_tmpfs">mount_tmpfs(8)</a>, <a class="link-man" href="../8/rc">rc(8)</a>, <a class="link-man" href="../8/reboot">reboot(8)</a>, <a class="link-man" href="../8/rescue">rescue(8)</a>, <a class="link-man" href="../8/shutdown">shutdown(8)</a>, <a class="link-man" href="../8/sysctl">sysctl(8)</a>, <a class="link-man" href="../9/secmodel_bsd44">secmodel_bsd44(9)</a>, <a class="link-man" href="../9/secmodel_securelevel">secmodel_securelevel(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> A <b class="name">init</b> command appeared in Version&#160;6 AT&amp;T UNIX.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+October 2, 2013</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

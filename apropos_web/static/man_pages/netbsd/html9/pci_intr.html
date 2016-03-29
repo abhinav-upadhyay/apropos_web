@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+PCI_INTR(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PCI_INTR(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+PCI_INTR(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">pci_intr</b>, <b class="name">pci_intr_map</b>, <b class="name">pci_intr_string</b>, <b class="name">pci_intr_establish</b>, <b class="name">pci_intr_disestablish</b> &#8212; <span class="desc">PCI bus interrupt manipulation functions</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">dev/pci/pcivar.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">pci_intr_map</b>(<i class="farg" style="white-space:nowrap;">const struct pci_attach_args *pa</i>, <i class="farg" style="white-space:nowrap;">pci_intr_handle_t *ih</i>);<p>
+<i class="ftype">const char *</i><br>
+<b class="fname">pci_intr_string</b>(<i class="farg" style="white-space:nowrap;">pci_chipset_tag_t pc</i>, <i class="farg" style="white-space:nowrap;">pci_intr_handle_t ih</i>, <i class="farg" style="white-space:nowrap;">char *buf</i>, <i class="farg" style="white-space:nowrap;">size_t len</i>);<p>
+<i class="ftype">void *</i><br>
+<b class="fname">pci_intr_establish</b>(<i class="farg" style="white-space:nowrap;">pci_chipset_tag_t pc</i>, <i class="farg" style="white-space:nowrap;">pci_intr_handle_t ih</i>, <i class="farg" style="white-space:nowrap;">int ipl</i>, <i class="farg" style="white-space:nowrap;">int (*intrhand)(void *)</i>, <i class="farg" style="white-space:nowrap;">void *intrarg</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">pci_intr_disestablish</b>(<i class="farg" style="white-space:nowrap;">pci_chipset_tag_t pc</i>, <i class="farg" style="white-space:nowrap;">void *ih</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">pci_intr</b> functions exist to allow device drivers machine-independent access to PCI bus interrupts. The functions described in this page are typically declared in a port's <b class="includes">&lt;<a class="link-includes">machine/pci_machdep.h</a>&gt;</b> header file; however, drivers should generally include <b class="includes">&lt;<a class="link-includes">dev/pci/pcivar.h</a>&gt;</b> to get other PCI-specific declarations as well.<p>
+Each driver has an <b class="fname">attach</b>() function which has a bus-specific <i class="ftype">attach_args</i> structure. Each driver for a PCI device is passed a pointer to an object of type <i class="ftype">struct pci_attach_args</i> which contains, among other things, information about the location of the device in the PCI bus topology sufficient to allow interrupts from the device to be handled.<p>
+If a driver wishes to establish an interrupt handler for the device, it should pass the <i class="ftype">struct pci_attach_args *</i> to the <b class="fname">pci_intr_map</b>() function, which returns zero on success, and nonzero on failure. The function sets the <i class="ftype">pci_intr_handle_t</i> pointed at by its second argument to a machine-dependent value which identifies a particular interrupt source.<p>
+If the driver wishes to refer to the interrupt source in an attach or error message, it should use the value returned by <b class="fname">pci_intr_string</b>(). The buffer passed to <b class="fname">pci_intr_string</b>() should be at least <span class="define">PCI_INTRSTR_LEN</span> bytes.<p>
+Subsequently, when the driver is prepared to receive interrupts, it should call <b class="fname">pci_intr_establish</b>() to actually establish the handler; when the device interrupts, <i class="farg">intrhand</i> will be called with a single argument <i class="farg">intrarg</i>, and will run at the interrupt priority level <i class="farg">ipl</i>.<p>
+The return value of <b class="fname">pci_intr_establish</b>() may be saved and passed to <b class="fname">pci_intr_disestablish</b>() to disable the interrupt handler when the driver is no longer interested in interrupts from the device.<div class="subsection">
+<h2 id="x504f5254494e47">PORTING</h2> A port's implementation of <b class="fname">pci_intr_map</b>() may use the following members of <i class="ftype">struct pci_attach_args</i> to determine how the device's interrupts are routed.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+	pci_chipset_tag_t pa_pc; 
+	pcitag_t pa_tag; 
+	pcitag_t pa_intrtag; /* intr. appears to come from here */ 
+	pci_intr_pin_t pa_intrpin; /* intr. appears on this pin */ 
+	pci_intr_line_t pa_intrline; /* intr. routing information */ 
+	pci_intr_pin_t pa_rawintrpin; /* unswizzled pin */</pre>
+<p>
+PCI-PCI bridges swizzle (permute) interrupt wiring. Depending on implementation details, it may be more convenient to use either original or the swizzled interrupt parameters. The original device tag and interrupt pin can be found in <i class="ftype">pa_tag</i> and <i class="ftype">pa_rawintrpin</i> respectively, while the swizzled tag and pin can be found in <i class="ftype">pa_intrtag</i> and <i class="ftype">pa_intrpin</i>.<p>
+When a device is attached to a primary bus, both pairs of fields contain the same values. When a device is found behind one or more pci-pci bridges, <i class="ftype">pa_intrpin</i> contains the &#8220;swizzled&#8221; interrupt pin number, while <i class="ftype">pa_rawintrpin</i> contains the original interrupt pin; <i class="ftype">pa_tag</i> contains the PCI tag of the device itself, and <i class="ftype">pa_intrtag</i> contains the PCI tag of the uppermost bridge device.</div>
+</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+February 25, 2015</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

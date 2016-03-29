@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+ACCEPT_FILTER(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+ACCEPT_FILTER(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+ACCEPT_FILTER(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">accept_filter</b>, <b class="name">accept_filt_add</b>, <b class="name">accept_filt_del</b>, <b class="name">accept_filt_generic_mod_event</b>, <b class="name">accept_filt_get</b> &#8212; <span class="desc">filter incoming connections</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="macro">#define ACCEPT_FILTER_MOD</b><p>
+<b class="includes">#include &lt;<a class="link-includes">sys/param.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/kernel.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/sysctl.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/signalvar.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/socketvar.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">netinet/accept_filter.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">accept_filt_add</b>(<i class="farg" style="white-space:nowrap;">struct accept_filter *filt</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">accept_filt_del</b>(<i class="farg" style="white-space:nowrap;">char *name</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">accept_filt_generic_mod_event</b>(<i class="farg" style="white-space:nowrap;">module_t mod</i>, <i class="farg" style="white-space:nowrap;">int event</i>, <i class="farg" style="white-space:nowrap;">void *data</i>);<p>
+<i class="ftype">struct accept_filter *</i><br>
+<b class="fname">accept_filt_get</b>(<i class="farg" style="white-space:nowrap;">char *name</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> Accept filters allow an application to request that the kernel pre-process incoming connections. This manual page describes the kernel interface for accept filters. User applications request accept filters via the <a class="link-man" href="../2/setsockopt">setsockopt(2)</a> system call, passing in an <i class="farg">optname</i> of <span class="define">SO_ACCEPTFILTER</span>.</div>
+<div class="section">
+<h1 id="x494d504c454d454e544154494f4e204e4f544553">IMPLEMENTATION NOTES</h1> A module that wants to be an accept filter must provide a <span class="type">struct accept_filter</span> to the system:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct accept_filter { 
+	char	accf_name[16]; 
+	void	(*accf_callback)(struct socket *so, void *arg, int waitflag); 
+	void *	(*accf_create)(struct socket *so, char *arg); 
+	void	(*accf_destroy)(struct socket *so); 
+	SLIST_ENTRY(accept_filter) accf_next;	/* next on the list */ 
+};</pre>
+<p>
+The module should register it with the function <b class="fname">accept_filt_add</b>(), passing a pointer to a <span class="type">struct accept_filter</span>, allocated with <a class="link-man" href="../9/malloc">malloc(9)</a>.<p>
+The accept filters currently provided with <span class="unix">NetBSD</span> (<a class="link-man" href="../9/accf_data">accf_data(9)</a> and <a class="link-man" href="../9/accf_http">accf_http(9)</a>) are implemented as pseudo-devices, but an accept filter may use any supported means of initializing and registering itself at system startup or later, including the module framework if supported by the running kernel.<p>
+The fields of <span class="type">struct accept_filter</span> are as follows:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">accf_name</b></dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Name of the filter; this is how it will be accessed from userland.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">accf_callback</b></dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The callback that the kernel will do once the connection is established. It is the same as a socket upcall and will be called when the connection is established and whenever new data arrives on the socket, unless the callback modifies the socket's flags.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">accf_create</b></dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Called whenever a <a class="link-man" href="../2/setsockopt">setsockopt(2)</a> installs the filter onto a listening socket.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">accf_destroy</b></dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Called whenever the user removes the accept filter on the socket.</dd>
+</dl>
+<p>
+The <b class="fname">accept_filt_del</b>() function passed the same string used in <b class="var">accept_filter.accf_name</b> during registration with <b class="fname">accept_filt_add</b>(), the kernel will then disallow and further userland use of the filter.<p>
+The <b class="fname">accept_filt_get</b>() function is used internally to locate which accept filter to use via the <a class="link-man" href="../2/setsockopt">setsockopt(2)</a> system call.<p>
+The <b class="fname">accept_filt_generic_mod_event</b>() function can be used by accept filters which are loadable kernel modules to add and delete themselves.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../2/setsockopt">setsockopt(2)</a>, <a class="link-man" href="../9/accf_data">accf_data(9)</a>, <a class="link-man" href="../9/accf_http">accf_http(9)</a>, <a class="link-man" href="../9/malloc">malloc(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The accept filter mechanism was introduced in <span class="unix">FreeBSD&#160;4.0</span>. It was ported to <span class="unix">NetBSD</span> by Coyote Point Systems, Inc. and appeared in <span class="unix">NetBSD&#160;5.0</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> This manual page was written by <span class="author"></span><span class="author">Alfred Perlstein</span>, <span class="author">Sheldon Hearn</span>, and <span class="author">Jeroen Ruigrok van der Werven</span>.<p>
+The accept filter concept was pioneered by <span class="author">David Filo</span> at Yahoo! and refined to be a loadable module system by <span class="author">Alfred Perlstein</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+November 12, 2008</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

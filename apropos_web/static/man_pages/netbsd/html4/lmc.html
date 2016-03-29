@@ -1,0 +1,431 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+LMC(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+LMC(4)</td>
+<td class="head-vol" align="center">
+Kernel Interfaces Manual</td>
+<td class="head-rtitle" align="right">
+LMC(4)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">lmc</b> &#8212; <span class="desc">device driver for LMC (and some SBE) wide-area network interface cards</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> This driver is built into the GENERIC kernel so it should "just work".<p>
+The driver can be built into a kernel by adding the following to <i class="file">/sys/arch/ARCH/conf/YOURKERNEL</i>:<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="config">lmc*		at pci?</b> 
+<br>
+<b class="config">options	ALTQ</b> 
+<br>
+<b class="config">options	ALTQ_HFSC # for altq example</b> 
+<br>
+<b class="config">pseudo-device sppp</b> 
+<br>
+<b class="config">pseudo-device bpfilter</b></pre>
+<p>
+The driver can send and receive raw IP packets even if SPPP is not configured into the kernel.</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> This is an open-source Unix device driver for PCI-bus wide-area network interface cards. It sends and receives packets in HDLC frames over synchronous circuits. A computer plus <span class="unix">UNIX</span> plus some LMC cards makes an <span class="emph">open</span> wide-area network router.<p>
+The <b class="name">lmc</b> driver works with <span class="unix">FreeBSD</span>, <span class="unix">NetBSD</span>, <span class="unix">OpenBSD</span>, BSD/OS, and Linux OSs. It has been tested on i386 (SMP 32-bit little-end), PowerPC (32-bit big-end), Alpha (64-bit little-end), and Sparc (64-bit big-end) architectures.<p>
+The <b class="name">lmc</b> driver works with the following cards:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">LMC5200</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+HSSI&#8212;High Speed Serial Interface,<pre style="margin-left: 0.00ex;" class="lit display">
+EIA612/613, 50-pin connector, 
+0 to 52 Mb/s, DTE only.</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">LMC5245</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+T3, 2xBNC conns, 75 ohm<pre style="margin-left: 0.00ex;" class="lit display">
+C-Parity or M13 Framing, 
+DSX-3 up to 910 ft.</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">LMC1000</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+SSI&#8212;Synchronous Serial Interface,<pre style="margin-left: 0.00ex;" class="lit display">
+V.35, X.21, EIA449, EIA530(A), EIA232, 
+0 to 10 Mb/s, DTE or DCE.</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">LMC1200</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+T1/E1, RJ45 conn, 100 or 120 ohms,<pre style="margin-left: 0.00ex;" class="lit display">
+T1-B8ZS-ESF, T1-AMI-SF, E1-HDB3-many, 
+DSX-1 up to 1500 ft; CSU up to 6 Kft.</pre>
+</dd>
+</dl>
+<p>
+LMC cards contain a high-performance <span class="symb">PCI</span> interface, an <span class="symb">HDLC</span> function and either integrated <span class="symb">modems</span> (T1, T3) or <span class="symb">modem</span> interfaces (HSSI and SSI).<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">PCI</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+The PCI interface is a DEC 21140A Tulip Fast Ethernet chip. This chip has an efficient PCI implementation with scatter/gather DMA, and can run at 100 Mb/s full duplex (twice as fast as needed here).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">HDLC</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+The HDLC functions (ISO-3309: flags, bit-stuffing, CRC) are implemented in a Field Programmable Gate Array (FPGA) which talks to the Ethernet chip through a Media Independent Interface (MII). The hardware in the FPGA translates between Ethernet packets and HDLC frames on-the-fly; think of it as a WAN PHY chip for Ethernet.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">Modem</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+The modem chips are the main differences between cards. HSSI cards use ECL10K chips to implement the EIA-612/613 interface. T3 cards use a TranSwitch TXC-03401 framer chip. SSI cards use Linear Technology LTC1343 modem interface chips. T1 cards use a BrookTree/Conexant/Mindspeed Bt8370 framer and line interface chip.</dd>
+</dl>
+<p>
+Line protocol stacks exist above device drivers and below internet protocol stacks. They typically encapsulate packets in HDLC frames and deal with higher-level issues like protocol multiplexing and security. The driver is compatible with several line protocol stacks:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">SPPP</span></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+<a class="link-man" href="../4/sppp">sppp(4)</a> implements Synchronous-PPP and Cisco-HDLC in the kernel.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">RawIP</span></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+The null line protocol, built into the driver, sends and receives raw IPv4 and IPv6 packets in HDLC frames with no extra bytes of overhead and no state at the end points.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1><div class="subsection">
+<h2 id="x6966636f6e66696720616e64206c6d63636f6e666967">ifconfig and lmcconfig</h2> The program <a class="link-man" href="../8/lmcconfig">lmcconfig(8)</a> manipulates interface parameters beyond the scope of <a class="link-man" href="../8/ifconfig">ifconfig(8)</a>. <b class="cmd">lmcconfig</b> has many flags and options, but in normal operation only a few are needed.<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">lmcconfig lmc0</b></pre>
+displays interface configuration and status.<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">lmcconfig lmc0 -X 1</b></pre>
+selects the built-in RawIP line protocol stack.<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">lmcconfig lmc0 -X 2 -x 2</b></pre>
+selects the SPPP stack and the PPP protocol.<p>
+Some configuration options are available through <b class="cmd">ifconfig</b> as well as <b class="cmd">lmcconfig</b>.<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">ifconfig -m lmc0</b></pre>
+lists the available media options.<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">ifconfig lmc0 mediaopt loopback</b></pre>
+loops the interface transmitter to the receiver for testing. This loopback uses a path present in every card type. <b class="cmd">lmcconfig</b> can select card-specific loopbacks, such as outbound payload loopback.<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">ifconfig lmc0 debug</b></pre>
+enables debugging output from the device driver and from the line protocol stack above it.<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">lmcconfig lmc0 -D</b></pre>
+enables debugging output from the device driver.<p>
+Debugging messages that appear on the console are also written to file <i class="file">/var/log/messages</i>. <span class="emph">Caution</span>: when things go very wrong, a torrent of debugging messages can swamp the console and bring a machine to its knees.</div>
+<div class="subsection">
+<h2 id="x4f7065726174696f6e">Operation</h2> Configure a PPP link using SPPP with<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">lmcconfig lmc0 -X 2 -x 2</b> 
+<b class="cmd">ifconfig lmc0 10.0.0.1 10.0.0.2</b></pre>
+<p>
+Configure a Cisco-HDLC link using SPPP with<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">lmcconfig lmc0 -X 2 -x 3</b> 
+<b class="cmd">ifconfig lmc0 10.0.0.1 10.0.0.2</b></pre>
+<p>
+Configure a RAWIP link with<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">lmcconfig lmc0 -X 1</b> 
+<b class="cmd">ifconfig lmc0 10.0.0.1 10.0.0.2</b></pre>
+</div>
+</div>
+<div class="section">
+<h1 id="x54455354494e47">TESTING</h1><div class="subsection">
+<h2 id="x54657374696e672077697468204c6f6f706261636b73">Testing with Loopbacks</h2> Testing with loopbacks requires only one card and can test everything on that card. Packets can be looped back at many points: in the PCI chip, in the modem chips, through a loopback plug, in the local external equipment, or at the far end of a circuit.<p>
+All cards can be looped through the PCI chip. Cards with internal modems can be looped through the modem framer and the modem line interface. Cards for external modems can be looped through the driver/receiver chips. See <a class="link-man" href="../8/lmcconfig">lmcconfig(8)</a> for details.<p>
+Configure the card with<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">ifconfig lmc0 10.0.0.1 10.0.0.1</b></pre>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">HSSI</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Loopback plugs can be ordered from SBE (and others). Transmit clock is normally supplied by the external modem. When an HSSI card is operated with a loopback plug, the PCI bus clock must be used as the transmit clock, typically 33 MHz. When testing an HSSI card with a loopback plug, configure it with<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">lmcconfig lmc0 -a 2</b></pre>
+&#8220;<b class="flag">&#45;a</b> <code class="lit">2</code>&#8221; selects the PCI bus clock as the transmit clock.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">T3</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Connect the two BNC jacks with a short coax cable.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">SSI</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Loopback plugs can be ordered from SBE (only). Transmit clock is normally supplied by the external modem. When an SSI card is operated with a loopback plug, the on-board clock synthesizer must be used. When testing an SSI card with a loopback plug, configure it with<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">lmcconfig lmc0 -E -f 10000000</b></pre>
+<div style="margin-left: 0.00ex;" class="display">
+&#8220;<b class="flag">&#45;E</b>&#8221; puts the card in DCE mode to source a transmit clock. &#8220;<b class="flag">&#45;f</b> <code class="lit">10000000</code>&#8221; sets the internal clock source to 10 Mb/s.</div>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">T1/E1</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+A loopback plug is a modular plug with two wires connecting pin 1 to pin 4 and pin 2 to pin 5.</dd>
+</dl>
+<p>
+One can also test by connecting to a local modem (HSSI and SSI) or NI (T1 and T3) configured to loop back. Cards can generate signals to loopback remote equipment so that complete circuits can be tested; see <a class="link-man" href="../8/lmcconfig">lmcconfig(8)</a> for details.</div>
+<div class="subsection">
+<h2 id="x54657374696e6720776974682061204d6f64656d">Testing with a Modem</h2> Testing with a modem requires two cards of different types. The cards can be in the same machine or different machines.<p>
+Configure the two cards with<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">ifconfig lmc0 10.0.0.1 10.0.0.2</b> 
+<b class="cmd">ifconfig lmc1 10.0.0.2 10.0.0.1</b></pre>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">T3/HSSI</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+If you have a T3 modem with an HSSI interface (made by Digital Link, Larscom, Kentrox etc.) then use an HSSI card and a T3 card. The coax cables between the card and the modem must &#8220;cross over&#8221; (see below).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">T1/V.35</span></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+If you have a T1 (or E1) modem with a V.35, X.21 or EIA530 interface, then use an SSI card and a T1 card. Use a T1 null modem cable (see below) between the external modem and the T1 card.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x54657374696e6720776974682061204e756c6c204d6f64656d204361626c65">Testing with a Null Modem Cable</h2> Testing with a null modem cable requires two cards of the same type. The cards can be in the same machine or different machines.<p>
+Configure the two cards with<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">ifconfig lmc0 10.0.0.1 10.0.0.2</b> 
+<b class="cmd">ifconfig lmc1 10.0.0.2 10.0.0.1</b></pre>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">HSSI</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Three-meter HSSI null-modem cables can be ordered from SBE. In a pinch, a 50-pin SCSI-II cable up to a few meters will work as a straight HSSI cable (not a null modem cable). Longer cables should be purpose-built HSSI cables because the cable impedance is different. Transmit clock is normally supplied by the external modem. When an HSSI card is connected by a null modem cable, the PCI bus clock can be used as the transmit clock, typically 33 MHz. When testing an HSSI card with a null modem cable, configure it with<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">lmcconfig lmc0 -a 2</b></pre>
+&#8220;<b class="flag">&#45;a</b> <code class="lit">2</code>&#8221; selects the PCI bus clock as the transmit clock.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">T3</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+T3 null modem cables are just 75-ohm coax cables with BNC connectors. TX OUT on one card should be connected to RX IN on the other card. In a pinch, 50-ohm thin Ethernet cables <span class="emph">usually</span> work up to a few meters, but they will <span class="emph">not</span> work for longer runs&#8212;75-ohm coax is <span class="emph">required</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">SSI</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Three-meter SSI null modem cables can be ordered from SBE. An SSI null modem cable reports a cable type of V.36/EIA449. Transmit clock is normally supplied by the external modem. When an SSI card is connected by a null modem cable, an on-board clock synthesizer is used. When testing an SSI card with a null modem cable, configure it with<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">lmcconfig lmc0 -E -f 10000000</b></pre>
+<div style="margin-left: 0.00ex;" class="display">
+&#8220;<b class="flag">&#45;E</b>&#8221; puts the card in DCE mode to source a transmit clock. &#8220;<b class="flag">&#45;f</b> <code class="lit">10000000</code>&#8221; sets the internal clock source to 10 Mb/s.</div>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">T1/E1</span></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+A T1 null modem cable has two twisted pairs that connect pins 1 and 2 on one plug to pins 4 and 5 on the other plug. Looking into the cable entry hole of a plug, with the locking tab oriented down, pin 1 is on the left. A twisted pair Ethernet cable makes an excellent straight T1 cable. Alas, Ethernet cross-over cables do not work as T1 null modem cables.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1 id="x4f5045524154494e47204e4f544553">OPERATING NOTES</h1><div class="subsection">
+<h2 id="x4c454473">LEDs</h2> HSSI and SSI cards should be operational if all three green LEDs are on (the upper-left one should be blinking) and the red LED is off.<table style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-col">
+<col style="width: 6.00ex;">
+<col style="min-width: 11.00ex;">
+<tbody>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 0.00em;">
+RED&#8194;</td>
+<td class="list-col" style="margin-top: 0.00em;">
+upper-right</td>
+<td class="list-col" style="margin-top: 0.00em;">
+No Transmit clock</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 0.00em;">
+GREEN</td>
+<td class="list-col" style="margin-top: 0.00em;">
+upper-left</td>
+<td class="list-col" style="margin-top: 0.00em;">
+Device driver is alive if blinking</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 0.00em;">
+GREEN</td>
+<td class="list-col" style="margin-top: 0.00em;">
+lower-right</td>
+<td class="list-col" style="margin-top: 0.00em;">
+Modem signals are good</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 0.00em;">
+GREEN</td>
+<td class="list-col" style="margin-top: 0.00em;">
+lower-left</td>
+<td class="list-col" style="margin-top: 0.00em;">
+Cable is plugged in (SSI only)</td>
+</tr>
+</tbody>
+</table>
+<p>
+T1/E1 and T3 cards should be operational if the upper-left green LED is blinking and all other LEDs are off. For the T3 card, if other LEDs are on or blinking, try swapping the coax cables!<table style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-col">
+<col style="width: 6.00ex;">
+<col style="min-width: 11.00ex;">
+<tbody>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 0.00em;">
+RED&#8194;</td>
+<td class="list-col" style="margin-top: 0.00em;">
+upper-right</td>
+<td class="list-col" style="margin-top: 0.00em;">
+Received signal is wrong</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 0.00em;">
+GREEN</td>
+<td class="list-col" style="margin-top: 0.00em;">
+upper-left</td>
+<td class="list-col" style="margin-top: 0.00em;">
+Device driver is alive if blinking</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 0.00em;">
+BLUE</td>
+<td class="list-col" style="margin-top: 0.00em;">
+lower-right</td>
+<td class="list-col" style="margin-top: 0.00em;">
+Alarm Information Signal (AIS)</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 0.00em;">
+YELLOW</td>
+<td class="list-col" style="margin-top: 0.00em;">
+lower-left</td>
+<td class="list-col" style="margin-top: 0.00em;">
+Remote Alarm Indication (RAI)</td>
+</tr>
+</tbody>
+</table>
+<p>
+<table style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-col">
+<col style="min-width: 6.00ex;">
+<tbody>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 0.00em;">
+RED&#8194;</td>
+<td class="list-col" style="margin-top: 0.00em;">
+blinks if an outward loopback is active.</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 0.00em;">
+GREEN</td>
+<td class="list-col" style="margin-top: 0.00em;">
+blinks if the device driver is alive.</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 0.00em;">
+BLUE</td>
+<td class="list-col" style="margin-top: 0.00em;">
+blinks if sending AIS, on solid if receiving AIS.</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 0.00em;">
+YELLOW</td>
+<td class="list-col" style="margin-top: 0.00em;">
+blinks if sending RAI, on solid if receiving RAI.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="subsection">
+<h2 id="x5061636b6574204c656e67746873">Packet Lengths</h2><pre style="margin-left: 0.00ex;" class="lit display">
+Maximum transmit and receive packet length is unlimited. 
+Minimum transmit and receive packet length is one byte.</pre>
+<p>
+Cleaning up after one packet and setting up for the next packet involves making several DMA references. This can take longer than the duration of a short packet, causing the adapter to fall behind. For typical PCI bus traffic levels and memory system latencies, back-to-back packets longer than about 20 bytes will always work (53 byte cells work), but a burst of several hundred back-to-back packets shorter than 20 bytes will cause packets to be dropped. This usually is not a problem since an IPv4 packet header is at least 20 bytes long.<p>
+The device driver imposes no constraints on packet size. Most operating systems set the default Maximum Transmission Unit (MTU) to 1500 bytes; the legal range is usually (72..65535). This can be changed with<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">ifconfig lmc0 mtu 2000</b></pre>
+SPPP enforces an MTU of 1500 bytes for PPP and Cisco-HDLC. RAWIP sets the default MTU to 4032 bytes, but allows it to be changed to anything.</div>
+<div class="subsection">
+<h2 id="x414c54513a20416c7465726e617465204f7574707574205175657565204469736369706c696e6573">ALTQ: Alternate Output Queue Disciplines</h2> The driver has hooks for <a class="link-man" href="../9/altq">altq(9)</a>, the Alternate Queueing package. To see ALTQ in action, use your favorite traffic generation program to generate three flows sending down one T3 circuit. Without ALTQ, the speeds of the three connections will vary chaotically. Enable ALTQ and two of the connections will run at about 20 Mb/s and the third will run at about 2 Mb/s.<p>
+Enable <a class="link-man" href="../8/altqd">altqd(8)</a> and add the following lines to <i class="file">/etc/altq.conf</i>:<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">interface lmc0 bandwidth 44M hfsc</b> 
+<b class="cmd">class hfsc lmc0 a root pshare 48</b> 
+<b class="cmd">filter lmc0 a 10.0.0.2 12345 10.0.0.1 0 6</b> 
+<b class="cmd">filter lmc0 a 10.0.0.1 0 10.0.0.2 12345 6</b> 
+<b class="cmd">class hfsc lmc0 b root pshare 48</b> 
+<b class="cmd">filter lmc0 b 10.0.0.2 12346 10.0.0.1 0 6</b> 
+<b class="cmd">filter lmc0 b 10.0.0.1 0 10.0.0.2 12346 6</b> 
+<b class="cmd">class hfsc lmc0 c root pshare 4 default</b> 
+<b class="cmd">filter lmc0 c 10.0.0.2 12347 10.0.0.1 0 6</b> 
+<b class="cmd">filter lmc0 c 10.0.0.1 0 10.0.0.2 12347 6</b></pre>
+<p>
+The example above requires the <a class="link-man" href="../4/altq">altq(4)</a> Hierarchical Fair Service Curve queue discipline to be configured in <i class="file">conf/YOURKERNEL</i>:<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">options ALTQ</b> 
+<b class="cmd">options ALTQ_HFSC</b>.</pre>
+</div>
+<div class="subsection">
+<h2 id="x4250463a204265726b656c6579205061636b65742046696c746572">BPF: Berkeley Packet Filter</h2> The driver has hooks for <a class="link-man" href="../4/bpf">bpf(4)</a>, the Berkeley Packet Filter, a protocol-independent raw interface to data link layers.<p>
+To test the BPF kernel interface, bring up a link between two machines, then run <a class="link-man" href="../8/ping">ping(8)</a> and <a class="link-man" href="../8/tcpdump">tcpdump(8)</a>:<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">ping 10.0.0.1</b></pre>
+and in a different window:<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">tcpdump -i lmc0</b></pre>
+The output from tcpdump should look like this:<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">03:54:35.979965 10.0.0.2 &gt; 10.0.0.1: icmp: echo request</b> 
+<b class="cmd">03:54:35.981423 10.0.0.1 &gt; 10.0.0.2: icmp: echo reply</b></pre>
+Line protocol control packets may appear among the ping packets occasionally.<p>
+The kernel must be configured with<pre style="margin-left: 5.00ex;" class="lit display">
+<b class="cmd">options bpfilter</b></pre>
+</div>
+<div class="subsection">
+<h2 id="x534e4d503a2053696d706c65204e6574776f726b204d616e6167656d656e742050726f746f636f6c">SNMP: Simple Network Management Protocol</h2> The driver is aware of what is required to be a Network Interface Object managed by an Agent of the Simple Network Management Protocol. The driver exports SNMP-formatted configuration and status information sufficient for an SNMP Agent to create MIBs for:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+RFC-2233</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+<span class="ref-title">Interfaces group</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+RFC-2496</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+<span class="ref-title">DS3 interfaces</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+RFC-2495</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+<span class="ref-title">DS1/E1 interfaces</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+RFC-1659</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+<span class="ref-title">RS232-like interfaces</span></dd>
+</dl>
+<p>
+An SNMP Agent is a user program, not a kernel function. Agents can retrieve configuration and status information by using <a class="link-man" href="../2/ioctl">ioctl(2)</a> system calls. User programs should poll <b class="var">sc-&gt;cfg.ticks</b> which increments once per second after the SNMP state has been updated.</div>
+<div class="subsection">
+<h2 id="x4531204672616d696e67">E1 Framing</h2> Phone companies usually insist that customers put a <span class="emph">Frame Alignment Signal</span> (FAS) in time slot 0. A Cyclic Redundancy Checksum (CRC) can also ride in time slot 0. <span class="emph">Channel Associated Signalling</span> (CAS) uses Time Slot 16. In telco-speak <span class="emph">signalling</span> is on/off hook, ringing, busy, etc. Signalling is not needed here and consumes 64 Kb/s. Only use E1-CAS formats if the other end insists on it! Use E1-FAS+CRC framing format on a public circuit. Depending on the equipment installed in a private circuit, it may be possible to use all 32 time slots for data (E1-NONE).</div>
+<div class="subsection">
+<h2 id="x5433204672616d696e67">T3 Framing</h2> M13 is a technique for multiplexing 28 T1s into a T3. Muxes use the C-bits for speed-matching the tributaries. Muxing is not needed here and usurps the FEBE and FEAC bits. Only use T3-M13 format if the other end insists on it! Use T3-CParity framing format if possible. Loop Timing, Fractional T3, and HDLC packets in the Facility Data Link are <span class="emph">not</span> supported.</div>
+<div class="subsection">
+<h2 id="x54312026205433204672616d65204f766572686561642046756e6374696f6e73">T1 &amp; T3 Frame Overhead Functions</h2><pre style="margin-left: 0.00ex;" class="lit display">
+Performance Report Messages (PRMs) are enabled in T1-ESF. 
+Bit Oriented Protocol (BOP) messages are enabled in T1-ESF. 
+In-band loopback control (framed or not) is enabled in T1-SF. 
+Far End Alarm and Control (FEAC) msgs are enabled in T3-CPar. 
+Far End Block Error (FEBE) reports are enabled in T3-CPar. 
+Remote Alarm Indication (RAI) is enabled in T3-Any. 
+Loopbacks initiated remotely time out after 300 seconds.</pre>
+</div>
+<div class="subsection">
+<h2 id="x54312f453120274672616374696f6e616c27203634206b622f732054696d6520536c6f7473">T1/E1 'Fractional' 64 kb/s Time Slots</h2> T1 uses time slots 24..1; E1 uses time slots 31..0. E1 uses TS0 for FAS overhead and TS16 for CAS overhead. E1-NONE has <span class="emph">no</span> overhead, so all 32 TSs are available for data. Enable/disable time slots by setting 32 1s/0s in a config param. Enabling an E1 overhead time slot, or enabling TS0 or TS25-TS31 for T1, is ignored by the driver, which knows better. The default TS param, 0xFFFFFFFF, enables the maximum number of time slots for whatever frame format is selected. 56 Kb/s time slots are <span class="emph">not</span> supported.</div>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../2/ioctl">ioctl(2)</a>, <a class="link-man" href="../4/bpf">bpf(4)</a>, <a class="link-man" href="../4/de">de(4)</a>, <a class="link-man" href="../4/sppp">sppp(4)</a>, <a class="link-man" href="../5/altq.conf">altq.conf(5)</a>, <a class="link-man" href="../8/altqd">altqd(8)</a>, <a class="link-man" href="../8/ifconfig">ifconfig(8)</a>, <a class="link-man" href="../8/init">init(8)</a>, <a class="link-man" href="../8/lmcconfig">lmcconfig(8)</a>, <a class="link-man" href="../8/modload">modload(8)</a>, <a class="link-man" href="../8/ping">ping(8)</a>, <a class="link-man" href="../8/tcpdump">tcpdump(8)</a>, <a class="link-man" href="../9/altq">altq(9)</a>, <a class="link-man" href="../9/ifnet">ifnet(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> <span class="author">Ron Crane</span> had the idea to use a Fast Ethernet chip as a PCI interface and add an Ethernet-to-HDLC gate array to make a WAN card. <span class="author">David Boggs</span> designed the Ethernet-to-HDLC gate array and PC cards. We did this at our company, LAN Media Corporation (LMC). SBE Corporation acquired LMC and continues to make the cards.<p>
+Since the cards use Tulip Ethernet chips, we started with <span class="author">Matt Thomas</span>' ubiquitous <a class="link-man" href="../4/de">de(4)</a> driver. <span class="author">Michael Graff</span> stripped out the Ethernet stuff and added HSSI stuff. <span class="author">Basil Gunn</span> ported it to Solaris (lost) and <span class="author">Rob Braun</span> ported it to Linux. <span class="author">Andrew Stanley-Jones</span> added support for three more cards. <span class="author">David Boggs</span> rewrote everything and now feels responsible for it.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <span class="author">David Boggs</span> &#60;<a class="link-mail" href="mailto:boggs@boggs.palo-alto.ca.us">boggs@boggs.palo-alto.ca.us</a>&#62;</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+April 11, 2006</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+MPOOL(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+MPOOL(3)</td>
+<td class="head-vol" align="center">
+Library Functions Manual</td>
+<td class="head-rtitle" align="right">
+MPOOL(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">mpool</b>, <b class="name">mpool_open</b>, <b class="name">mpool_filter</b>, <b class="name">mpool_new</b>, <b class="name">mpool_get</b>, <b class="name">mpool_put</b>, <b class="name">mpool_sync</b>, <b class="name">mpool_close</b> &#8212; <span class="desc">shared memory buffer pool</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">db.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">mpool.h</a>&gt;</b><p>
+<i class="ftype">MPOOL *</i><br>
+<b class="fname">mpool_open</b>(<i class="farg" style="white-space:nowrap;">DBT *key</i>, <i class="farg" style="white-space:nowrap;">int fd</i>, <i class="farg" style="white-space:nowrap;">pgno_t pagesize</i>, <i class="farg" style="white-space:nowrap;">pgno_t maxcache</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">mpool_filter</b>(<i class="farg" style="white-space:nowrap;">MPOOL *mp</i>, <i class="farg" style="white-space:nowrap;">void (*pgin)(void *, pgno_t, void *)</i>, <i class="farg" style="white-space:nowrap;">void (*pgout)(void *, pgno_t, void *)</i>, <i class="farg" style="white-space:nowrap;">void *pgcookie</i>);<p>
+<i class="ftype">void *</i><br>
+<b class="fname">mpool_new</b>(<i class="farg" style="white-space:nowrap;">MPOOL *mp</i>, <i class="farg" style="white-space:nowrap;">pgno_t *pgnoaddr</i>);<p>
+<i class="ftype">void *</i><br>
+<b class="fname">mpool_get</b>(<i class="farg" style="white-space:nowrap;">MPOOL *mp</i>, <i class="farg" style="white-space:nowrap;">pgno_t pgno</i>, <i class="farg" style="white-space:nowrap;">u_int flags</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">mpool_put</b>(<i class="farg" style="white-space:nowrap;">MPOOL *mp</i>, <i class="farg" style="white-space:nowrap;">void *pgaddr</i>, <i class="farg" style="white-space:nowrap;">u_int flags</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">mpool_sync</b>(<i class="farg" style="white-space:nowrap;">MPOOL *mp</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">mpool_close</b>(<i class="farg" style="white-space:nowrap;">MPOOL *mp</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="name">mpool</b> is the library interface intended to provide page oriented buffer management of files. The buffers may be shared between processes.<p>
+The function <b class="fname">mpool_open</b>() initializes a memory pool. The <i class="farg">key</i> argument is the byte string used to negotiate between multiple processes wishing to share buffers. If the file buffers are mapped in shared memory, all processes using the same key will share the buffers. If <i class="farg">key</i> is <span class="define">NULL</span>, the buffers are mapped into private memory. The <i class="farg">fd</i> argument is a file descriptor for the underlying file, which must be seekable. If <i class="farg">key</i> is non-<span class="define">NULL</span> and matches a file already being mapped, the <i class="farg">fd</i> argument is ignored.<p>
+The <i class="farg">pagesize</i> argument is the size, in bytes, of the pages into which the file is broken up. The <i class="farg">maxcache</i> argument is the maximum number of pages from the underlying file to cache at any one time. This value is not relative to the number of processes which share a file's buffers, but will be the largest value specified by any of the processes sharing the file.<p>
+The <b class="fname">mpool_filter</b>() function is intended to make transparent input and output processing of the pages possible. If the <i class="farg">pgin</i> function is specified, it is called each time a buffer is read into the memory pool from the backing file. If the <i class="farg">pgout</i> function is specified, it is called each time a buffer is written into the backing file. Both functions are are called with the <i class="farg">pgcookie</i> pointer, the page number and a pointer to the page to being read or written.<p>
+The function <b class="fname">mpool_new</b>() takes an MPOOL pointer and an address as arguments. If a new page can be allocated, a pointer to the page is returned and the page number is stored into the <i class="farg">pgnoaddr</i> address. Otherwise, <span class="define">NULL</span> is returned and errno is set.<p>
+The function <b class="fname">mpool_get</b>() takes a MPOOL pointer and a page number as arguments. If the page exists, a pointer to the page is returned. Otherwise, <span class="define">NULL</span> is returned and errno is set. The flags parameter is not currently used.<p>
+The function <b class="fname">mpool_put</b>() unpins the page referenced by <i class="farg">pgaddr</i>. <i class="farg">pgaddr</i> must be an address previously returned by <b class="fname">mpool_get</b>() or <b class="fname">mpool_new</b>(). The flag value is specified by or'ing any of the following values:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">MPOOL_DIRTY</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The page has been modified and needs to be written to the backing file.</dd>
+</dl>
+<p>
+<b class="fname">mpool_put</b>() returns 0 on success and &#45;1 if an error occurs.<p>
+The function <b class="fname">mpool_sync</b>() writes all modified pages associated with the MPOOL pointer to the backing file. <b class="fname">mpool_sync</b>() returns 0 on success and &#45;1 if an error occurs.<p>
+The <b class="fname">mpool_close</b>() function frees up any allocated memory associated with the memory pool cookie. Modified pages are <span class="emph">not</span> written to the backing file. <b class="fname">mpool_close</b>() returns 0 on success and &#45;1 if an error occurs.</div>
+<div class="section">
+<h1 id="x4552524f5253">ERRORS</h1> The <b class="fname">mpool_open</b>() function may fail and set <b class="var">errno</b> for any of the errors specified for the library routine <a class="link-man" href="../3/malloc">malloc(3)</a>.<p>
+The <b class="fname">mpool_get</b>() function may fail and set <b class="var">errno</b> for the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="errno">EINVAL</span></dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The requested record doesn't exist.</dd>
+</dl>
+<p>
+The <b class="fname">mpool_new</b>() and <b class="fname">mpool_get</b>() functions may fail and set <b class="var">errno</b> for any of the errors specified for the library routines <a class="link-man" href="../2/read">read(2)</a>, <a class="link-man" href="../2/write">write(2)</a>, and <a class="link-man" href="../3/malloc">malloc(3)</a>.<p>
+The <b class="fname">mpool_sync</b>() function may fail and set <b class="var">errno</b> for any of the errors specified for the library routine <a class="link-man" href="../2/write">write(2)</a>.<p>
+The <b class="fname">mpool_close</b>() function may fail and set <b class="var">errno</b> for any of the errors specified for the library routine <a class="link-man" href="../3/free">free(3)</a>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../3/btree">btree(3)</a>, <a class="link-man" href="../3/dbopen">dbopen(3)</a>, <a class="link-man" href="../3/hash">hash(3)</a>, <a class="link-man" href="../3/recno">recno(3)</a></div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+December 16, 2010</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

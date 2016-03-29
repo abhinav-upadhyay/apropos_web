@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+AIBS(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+AIBS(4)</td>
+<td class="head-vol" align="center">
+Kernel Interfaces Manual</td>
+<td class="head-rtitle" align="right">
+AIBS(4)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">aibs</b> &#8212; <span class="desc">ASUSTeK AI Booster voltage, temperature, and fan sensor</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">aibs* at acpi?</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">aibs</b> driver provides support for voltage, temperature, and fan sensors available as an ACPI device on ASUSTeK motherboards. The number of sensors of each type, as well as the description of each sensor, varies according to the motherboard.<p>
+The driver supports an arbitrary set of sensors, provides descriptions regarding what each sensor is used for, and reports whether each sensor is within the specifications as defined by the motherboard manufacturer through ACPI.<p>
+The <b class="name">aibs</b> driver supports <a class="link-man" href="../4/envsys">envsys(4)</a> sensor states as follows:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 1.00em;">
+Voltage sensors can have a state of &#8216;valid&#8217;, &#8216;critunder&#8217;, or &#8216;critover&#8217;; temperature sensors can have a state of &#8216;valid&#8217;, &#8216;warnover&#8217;, &#8216;critover&#8217;, or &#8216;invalid&#8217;; and fan sensors can have a state of &#8216;valid&#8217;, &#8216;warnunder&#8217;, or &#8216;warnover&#8217;.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+Temperature sensors that have a reading of 0 are marked &#8216;invalid&#8217;, whereas all other sensors are always assumed valid.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+Voltage sensors have a lower and an upper limit, &#8216;critunder&#8217; and &#8216;critover&#8217;, temperature sensors have two upper limits, &#8216;warnover&#8217; and &#8216;critover&#8217;, whereas fan sensors may either have only the lower limit &#8216;warnunder&#8217;, or, depending on the vendor's ACPI implementation, one lower and one upper limit, &#8216;warnunder&#8217; and &#8216;warnover&#8217;.</li>
+</ul>
+<p>
+Sensor values and limits are made available through the <a class="link-man" href="../4/envsys">envsys(4)</a> interface, and can be monitored with <a class="link-man" href="../8/envstat">envstat(8)</a>. For example, on an ASUS V3-P5G965 barebone:<p>
+<pre style="margin-left: 2.00ex;" class="lit display">
+$ envstat -d aibs0 
+                     Current  CritMax  WarnMax  WarnMin  CritMin Unit 
+    Vcore Voltage:     1.152    1.600                      0.850    V 
+     +3.3 Voltage:     3.312    3.630                      2.970    V 
+       +5 Voltage:     5.017    5.500                      4.500    V 
+      +12 Voltage:    12.302   13.800                     10.200    V 
+  CPU Temperature:    27.000   95.000   80.000                   degC 
+   MB Temperature:    58.000   95.000   60.000                   degC 
+    CPU FAN Speed:       878              7200      600           RPM 
+CHASSIS FAN Speed:         0              7200      700           RPM</pre>
+<p>
+Generally, sensors provided by the <b class="name">aibs</b> driver may also be supported by a variety of other drivers, such as <a class="link-man" href="../4/lm">lm(4)</a> or <a class="link-man" href="../4/itesio">itesio(4)</a>. The precise collection of <b class="name">aibs</b> sensors is comprised of the sensors specifically utilised in the motherboard design, which may be supported through a combination of one or more physical hardware monitoring chips.<p>
+The <b class="name">aibs</b> driver, however, provides the following advantages when compared to the native hardware monitoring drivers:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 1.00em;">
+Sensor values from <b class="name">aibs</b> are expected to be more reliable. For example, voltage sensors in many hardware monitoring chips can only sense voltage from 0 to 2 or 4 volts, and the excessive voltage is removed by the resistors, which may vary with the motherboard and with the voltage that is being sensed. In <b class="name">aibs</b>, the required resistor factors are provided by the motherboard manufacturer through ACPI; in the native drivers, the resistor factors are encoded into the driver based on the chip manufacturer's recommendations. In essence, sensor values from <b class="name">aibs</b> are very likely to be identical to the readings from the Hardware Monitor screen in the BIOS.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+Sensor descriptions from <b class="name">aibs</b> are more likely to match the markings on the motherboard.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+Sensor states are supported by <b class="name">aibs</b>. The state is reported based on the acceptable range of values for each individual sensor as suggested by the motherboard manufacturer. For example, the threshold for the CPU temperature sensor is likely to be significantly higher than that for the chassis temperature sensor.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+Support for newer chips in <b class="name">aibs</b>. Newer chips may miss a native driver, but should be supported through <b class="name">aibs</b> regardless.</li>
+</ul>
+<p>
+As a result, sensor readings from the actual native hardware monitoring drivers are redundant when <b class="name">aibs</b> is present, and may be ignored as appropriate. Whereas on some supported operating systems the native drivers may have to be specifically disabled should their presence be judged unnecessary, on others the drivers like <a class="link-man" href="../4/lm">lm(4)</a> are not probed provided that <a class="link-man" href="../4/acpi">acpi(4)</a> is configured and the system potentially supports the hardware monitoring chip through ACPI.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../4/acpi">acpi(4)</a>, <a class="link-man" href="../4/envsys">envsys(4)</a>, <a class="link-man" href="../8/envstat">envstat(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">aibs</b> driver first appeared in <span class="unix">OpenBSD&#160;4.7</span>, DragonFly 2.4.1 and <span class="unix">NetBSD&#160;6.0</span>. An earlier version of the driver, named <b class="name">aiboost</b>, first appeared in <span class="unix">FreeBSD&#160;7.0</span> and <span class="unix">NetBSD&#160;5.0</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <span class="author"></span>The <b class="name">aibs</b> driver was written for <span class="unix">OpenBSD</span>, DragonFly BSD, and <span class="unix">NetBSD</span> by <span class="author">Constantine A. Murenin</span> &#60;<a class="link-ext" href="http://cnst.su/">http://cnst.su/</a>&#62;, Raouf Boutaba Research Group, David R. Cheriton School of Computer Science, University of Waterloo. <span class="author">Jukka Ruohonen</span> &#60;jruohonen@iki.fi&#62; later reworked and adjusted the driver to support new ASUSTeK motherboards. The earlier version of the driver, <b class="name">aiboost</b>, was written for <span class="unix">FreeBSD</span> by <span class="author">Takanori Watanabe</span> and adapted to <span class="unix">NetBSD</span> by <span class="author">Juan Romero Pardines</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+June 12, 2011</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

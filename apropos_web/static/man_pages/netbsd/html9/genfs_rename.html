@@ -1,0 +1,394 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+GENFS_RENAME(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+GENFS_RENAME(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+GENFS_RENAME(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">genfs_rename</b>, <b class="name">genfs_insane_rename</b>, <b class="name">genfs_sane_rename</b> &#8212; <span class="desc">generic framework for implementing <a class="link-man" href="../9/VOP_RENAME">VOP_RENAME(9)</a></span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <i class="ftype">int</i><br>
+<b class="fname">genfs_insane_rename</b>(<i class="farg">struct vop_rename_args *v</i>, <i class="farg">int (*sane_rename)(struct vnode *fdvp, struct componentname *fcnp, struct vnode *tdvp, struct componentname *tcnp, kauth_cred_t, bool)</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">genfs_sane_rename</b>(<i class="farg">const struct genfs_rename_ops *gro</i>, <i class="farg">struct vnode *fdvp</i>, <i class="farg">struct componentname *fcnp</i>, <i class="farg">void *fde</i>, <i class="farg">struct vnode *tdvp</i>, <i class="farg">struct componentname *tcnp</i>, <i class="farg">void *tde</i>, <i class="farg">kauth_cred_t cred</i>, <i class="farg">bool posixly_correct</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">genfs_rename_knote</b>(<i class="farg">struct vnode *fdvp</i>, <i class="farg">struct vnode *fvp</i>, <i class="farg">struct vnode *tdvp</i>, <i class="farg">struct vnode *tvp</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">genfs_rename_cache_purge</b>(<i class="farg">struct vnode *fdvp</i>, <i class="farg">struct vnode *fvp</i>, <i class="farg">struct vnode *tdvp</i>, <i class="farg">struct vnode *tvp</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">genfs_ufslike_rename_check_possible</b>(<i class="farg">unsigned long fdflags</i>, <i class="farg">unsigned long fflags</i>, <i class="farg">unsigned long tdflags</i>, <i class="farg">unsigned long tflags</i>, <i class="farg">bool clobber</i>, <i class="farg">unsigned long immutable</i>, <i class="farg">unsigned long append</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">genfs_ufslike_rename_check_permitted</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">struct vnode *fdvp</i>, <i class="farg">mode_t fdmode</i>, <i class="farg">uid_t fduid</i>, <i class="farg">struct vnode *fvp</i>, <i class="farg">uid_t fuid</i>, <i class="farg">struct vnode *tdvp</i>, <i class="farg">mode_t tdmode</i>, <i class="farg">uid_t tduid</i>, <i class="farg">struct vnode *tvp</i>, <i class="farg">uid_t tuid</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">genfs_ufslike_remove_check_possible</b>(<i class="farg">unsigned long dflags</i>, <i class="farg">unsigned long flags</i>, <i class="farg">unsigned long immutable</i>, <i class="farg">unsigned long append</i>);<p>
+<i class="ftype">int</i><br>
+<b class="fname">genfs_ufslike_remove_check_permitted</b>(<i class="farg">kauth_cred_t cred</i>, <i class="farg">struct vnode *dvp</i>, <i class="farg">mode_t dmode</i>, <i class="farg">uid_t duid</i>, <i class="farg">struct vnode *vp</i>, <i class="farg">uid_t uid</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">genfs_rename</b> functions provide a file-system-independent framework for implementing <a class="link-man" href="../9/VOP_RENAME">VOP_RENAME(9)</a> with correct locking and error-checking.<p>
+Implementing rename is nontrivial. If you are doing it for a new file system, you should consider starting from <b class="fname">tmpfs_rename</b>() as implemented in <i class="file">sys/fs/tmpfs/tmpfs_rename.c</i> and adapting it to your file system's physical operations.<p>
+Because there are so many moving parts to a rename operation, <b class="name">genfs_rename</b> uses the following naming conventions:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">mp</i> (mount point)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+mount point of the file system in question</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">fdvp</i> (from directory vnode pointer)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+directory from which we are removing an entry</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">fcnp</i> (from componentname pointer)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+name of entry to remove from <i class="farg">fdvp</i></dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">fde</i> (from directory entry)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+fs-specific data about the entry in <i class="farg">fdvp</i></dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">fvp</i> (from vnode pointer)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+file at the entry named <i class="farg">fcnp</i> in <i class="farg">fdvp</i></dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">tdvp</i> (to directory vnode pointer)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+directory to which we are adding an entry</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">tcnp</i> (to componentname pointer)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+name of entry to add to <i class="farg">tdvp</i></dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">tde</i> (to directory entry)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+fs-specific data about the entry in <i class="farg">tdvp</i></dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">tvp</i> (to vnode pointer)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+file previously at the entry named <i class="farg">tcnp</i> in <i class="farg">tdvp</i>, to be replaced, if any, or <span class="define">NULL</span> if there was no entry before</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">vp</i> (vnode pointer)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+any file</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">dvp</i> (directory vnode pointer)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+any directory with an entry for <i class="farg">vp</i></dd>
+</dl>
+<p>
+A file system mumblefs should implement various file-system-dependent parts of the rename operation in a <span class="type">struct genfs_rename_ops</span>, and use <b class="name">genfs_rename</b> to implement <b class="fname">mumblefs_rename</b>() for <a class="link-man" href="../9/VOP_RENAME">VOP_RENAME(9)</a> as follows:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+static const struct genfs_rename_ops mumblefs_genfs_rename_ops; 
+ 
+static int 
+mumblefs_sane_rename( 
+    struct vnode *fdvp, struct componentname *fcnp, 
+    struct vnode *tdvp, struct componentname *tcnp, 
+    kauth_cred_t cred, bool posixly_correct) 
+{ 
+	struct mumblefs_lookup_results fulr, tulr; 
+ 
+	return genfs_sane_rename(&amp;mumblefs_genfs_rename_ops, 
+	    fdvp, fcnp, &amp;fulr, tdvp, tcnp, &amp;tulr, 
+	    cred, posixly_correct); 
+} 
+ 
+int 
+mumblefs_rename(void *v) 
+{ 
+ 
+	return genfs_insane_rename(v, &amp;mumblefs_sane_rename); 
+}</pre>
+<p>
+The split between <b class="fname">mumblefs_rename</b>() and <b class="fname">mumblefs_sane_rename</b>() is designed to enable us to easily change the <a class="link-man" href="../9/VOP_RENAME">VOP_RENAME(9)</a> interface, which is currently designed for a broken (hence &#8216;insane&#8217;) locking scheme, to a more sensible locking scheme once all the file systems have their rename operations split up thus.<p>
+The <span class="type">struct mumblefs_lookup_results</span> structure is storage for information about directory entries which needs to pass from the lookups of the children (see the <i class="farg">gro_lookup</i> member of <span class="type">struct genfs_rename_ops</span>) to the physical on-disk rename or remove operations (see the <i class="farg">gro_rename</i> and <i class="farg">gro_remove</i> members of <span class="type">struct genfs_rename_ops</span>).<p>
+Callers must implement the following operations as members in a <span class="type">struct genfs_rename_ops</span> structure passed to <b class="name">genfs_rename</b>:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">(*gro_genealogy)</b>(<i class="farg">struct mount *mp</i>, <i class="farg">kauth_cred_t cred</i>, <i class="farg">struct vnode *fdvp</i>, <i class="farg">struct vnode *tdvp</i>, <i class="farg">struct vnode **intermediate_node_ret</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Walk up the directory tree from the directory vnode <i class="farg">tdvp</i> until hitting either <i class="farg">fdvp</i> or the root. If <i class="farg">fdvp</i> is hit, store the child of <i class="farg">fdvp</i> through which the path from <i class="farg">tdvp</i> passed in <i class="farg">*intermediate_node_ret</i>, referenced but unlocked. If <i class="farg">fdvp</i> is not hit, store <span class="define">NULL</span> in <i class="farg">*intermediate_node_ret</i>. Return zero on success or error on failure. (Failure means file-system-specific failures, not hitting or missing <i class="farg">fdvp</i>.)<p>
+<i class="farg">fdvp</i> and <i class="farg">tdvp</i> are guaranteed to be distinct, nonnull, referenced, and unlocked. Since no locks are held on entry except for the file-system-wide rename lock, <i class="farg">gro_genealogy</i> may take any locks it pleases.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">(*gro_lock_directory)</b>(<i class="farg">struct mount *mp</i>, <i class="farg">struct vnode *vp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Lock the directory vnode <i class="farg">vp</i>, but fail if it has been rmdired already. Return zero on success or error on failure.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">(*gro_lookup)</b>(<i class="farg">struct mount *mp</i>, <i class="farg">struct vnode *dvp</i>, <i class="farg">struct componentname *cnp</i>, <i class="farg">void *de</i>, <i class="farg">struct vnode **vpp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Look up the entry in <i class="farg">dvp</i> for <i class="farg">cnp</i>, storing the vnode in <i class="farg">*vpp</i> and using <i class="farg">de</i>, one of the pointers passed to <b class="name">genfs_sane_rename</b>, to store information about the directory entry as needed by the file system's <i class="farg">gro_rename</i> operation, and return zero. If there is no such entry, return error.<p>
+<i class="farg">dvp</i> is guaranteed to be locked, and the vnode returned in <i class="farg">*vpp</i> must be unlocked. However, <i class="farg">gro_lookup</i> may temporarily lock the vnode without causing deadlock.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">bool</i> <b class="fname">(*gro_directory_empty_p)</b>(<i class="farg">struct mount *mp</i>, <i class="farg">kauth_cred_t cred</i>, <i class="farg">struct vnode *vp</i>, <i class="farg">struct vnode *dvp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Return true if the directory vnode <i class="farg">vp</i> is empty. The argument <i class="farg">dvp</i> is the parent of <i class="farg">vp</i>, as required for this check by some file systems.<p>
+<i class="farg">dvp</i> and <i class="farg">vp</i> are guaranteed to be distinct, nonnull, referenced, and locked.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">(*gro_rename_check_possible)</b>(<i class="farg">struct mount *mp</i>, <i class="farg">struct vnode *fdvp</i>, <i class="farg">struct vnode *fvp</i>, <i class="farg">struct vnode *tdvp</i>, <i class="farg">struct vnode *tvp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Return zero if the file system might allow the rename independent of credentials, or error if not. This should check, for example, any immutability flags in the vnodes in question, and should use <b class="fname">genfs_ufslike_rename_check_possible</b>() for file systems similar to UFS/FFS.<p>
+<i class="farg">fdvp</i> and <i class="farg">tdvp</i> may be the same; every other pair of vnodes is guaranteed to be distinct. <i class="farg">tvp</i> may be <span class="define">NULL</span>; every other vnode is guaranteed to be nonnull. All three or four vnodes are guaranteed to be referenced and locked.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">(*gro_rename_check_permitted)</b>(<i class="farg">struct mount *mp</i>, <i class="farg">kauth_cred_t cred</i>, <i class="farg">struct vnode *fdvp</i>, <i class="farg">struct vnode *fvp</i>, <i class="farg">struct vnode *tdvp</i>, <i class="farg">struct vnode *tvp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Return zero if the file system allows the rename given the credentials <i class="farg">cred</i>, or error if not. This should check, for example, the ownership and permissions bits of the vnodes in question, and should use <b class="fname">genfs_ufslike_rename_check_permitted</b>() for file systems similar to UFS/FFS.<p>
+<i class="farg">fdvp</i> and <i class="farg">tdvp</i> may be the same; every other pair of vnodes is guaranteed to be distinct. <i class="farg">tvp</i> may be <span class="define">NULL</span>; every other vnode is guaranteed to be nonnull. All three or four vnodes are guaranteed to be referenced and locked.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">(*gro_rename)</b>(<i class="farg">struct mount *mp</i>, <i class="farg">kauth_cred_t cred</i>, <i class="farg">struct vnode *fdvp</i>, <i class="farg">struct componentname *fcnp</i>, <i class="farg">void *fde</i>, <i class="farg">struct vnode *fvp</i>, <i class="farg">struct vnode *tdvp</i>, <i class="farg">struct componentname *tcnp</i>, <i class="farg">void *tde</i>, <i class="farg">struct vnode *tvp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Perform the physical file system rename operation, report any knotes, and purge the namecache entries. Return zero on success or error on failure. All file-system-independent error cases have been handled already.<p>
+File systems using <a class="link-man" href="../9/fstrans">fstrans(9)</a> should use <a class="link-man" href="../9/fstrans_start">fstrans_start(9)</a> and <a class="link-man" href="../9/fstrans_done">fstrans_done(9)</a> here. <i class="farg">fde</i> and <i class="farg">tde</i> are the pointers that were supplied to <b class="fname">genfs_sane_rename</b>() and got passed to the <i class="farg">gro_lookup</i> operation to find information about directory entries.<p>
+This may use <b class="fname">genfs_rename_knote</b>() to report any knotes, if the various file-system-dependent routines it uses to edit links don't do that already. This should use <b class="fname">genfs_rename_cache_purge</b>() to purge the namecache.<p>
+<i class="farg">fdvp</i> and <i class="farg">tdvp</i> may be the same; every other pair of vnodes is guaranteed to be distinct. <i class="farg">tvp</i> may be null; every other vnode is guaranteed to be nonnull. All three or four vnodes are guaranteed to be referenced and locked.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">(*gro_remove_check_possible)</b>(<i class="farg">struct mount *mp</i>, <i class="farg">struct vnode *dvp</i>, <i class="farg">struct vnode *vp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Return zero if the file system might allow removing an entry in <i class="farg">dvp</i> for <i class="farg">vp</i> independent of credentials, or error if not. This should use <b class="fname">genfs_ufslike_remove_check_possible</b>() for file systems similar to UFS/FFS.<p>
+<i class="farg">dvp</i> and <i class="farg">vp</i> are guaranteed to be distinct, nonnull, referenced, and locked.<p>
+This, and <i class="farg">gro_remove_check_permitted</i> below, are for renames that reduce to a remove; that is, renaming one entry to another when both entries refer to the same file. For reasons of locking insanity, <b class="name">genfs_rename</b> cannot simply call <a class="link-man" href="../9/VOP_REMOVE">VOP_REMOVE(9)</a> instead.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">(*gro_remove_check_permitted)</b>(<i class="farg">struct mount *mp</i>, <i class="farg">kauth_cred_t cred</i>, <i class="farg">struct vnode *dvp</i>, <i class="farg">struct vnode *vp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Return zero if the file system allows removing an entry in <i class="farg">dvp</i> for <i class="farg">vp</i> given the credentials <i class="farg">cred</i>, or error if not. This should use <b class="fname">genfs_ufslike_remove_check_permitted</b>() for file systems similar to UFS/FFS.<p>
+<i class="farg">dvp</i> and <i class="farg">vp</i> are guaranteed to be distinct, nonnull, referenced, and locked.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="ftype">int</i> <b class="fname">(*gro_remove)</b>(<i class="farg">struct mount *mp</i>, <i class="farg">kauth_cred_t cred</i>, <i class="farg">struct vnode *dvp</i>, <i class="farg">struct componentname *cnp</i>, <i class="farg">void *de</i>, <i class="farg">struct vnode *vp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+For a rename that is effectively a remove, perform the physical file system remove operation, report any knotes, and purge the namecache entries. Return zero on success or error on failure. All file-system-independent error cases have been handled already.<p>
+File systems using <a class="link-man" href="../9/fstrans">fstrans(9)</a> should use <a class="link-man" href="../9/fstrans_start">fstrans_start(9)</a> and <a class="link-man" href="../9/fstrans_done">fstrans_done(9)</a> here. <i class="farg">de</i> is one of the pointers that were supplied to <b class="fname">genfs_sane_rename</b>() and got passed to the <i class="farg">gro_lookup</i> operation to find information about directory entries.<p>
+This should signal a <span class="define">NOTE_WRITE</span> knote for <i class="farg">dvp</i>, and either a <span class="define">NOTE_DELETE</span> or a <span class="define">NOTE_LINK</span> knote for <i class="farg">vp</i>, depending on whether this removed the last link to it or not.<p>
+<i class="farg">dvp</i> and <i class="farg">vp</i> are guaranteed to be distinct, nonnull, referenced, and locked.</dd>
+</dl>
+<p>
+The following utilities are provided for implementing the <span class="type">struct genfs_rename_ops</span> operations:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">genfs_rename_knote</b>(<i class="farg">fdvp</i>, <i class="farg">fvp</i>, <i class="farg">tdvp</i>, <i class="farg">tvp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Signal all the knotes relevant for the rename operation.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">genfs_rename_cache_purge</b>(<i class="farg">fdvp</i>, <i class="farg">fvp</i>, <i class="farg">tdvp</i>, <i class="farg">tvp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Purge any namecache entries that the rename operation invalidates.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">genfs_ufslike_rename_check_possible</b>(<i class="farg">fdflags</i>, <i class="farg">fflags</i>, <i class="farg">tdflags</i>, <i class="farg">tflags</i>, <i class="farg">clobber</i>, <i class="farg">immutable</i>, <i class="farg">append</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Check whether the UFS/FFS-like flags of the files involved a rename allow it. Return zero if allowed or error if not.<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">fdflags</i></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+flags of source directory</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">fflags</i></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+flags of source file</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">tdflags</i></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+flags of target directory</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">tflags</i></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+flags of target file, if there is one and <i class="farg">clobber</i> is true, or ignored otherwise</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">clobber</i></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+true if there is a target file whose entry will be clobbered or false if not</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">immutable</i></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+bit mask for the file system's immutable bit, like the UFS/FFS <span class="define">IMMUTABLE</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">append</i></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+bit mask for the file system's append-only bit, like the UFS/FFS <span class="define">APPEND</span></dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">genfs_ufslike_rename_check_permitted</b>(<i class="farg">cred</i>, <i class="farg">fdvp</i>, <i class="farg">fdmode</i>, <i class="farg">fduid</i>, <i class="farg">fvp</i>, <i class="farg">fuid</i>, <i class="farg">tdvp</i>, <i class="farg">tdmode</i>, <i class="farg">tduid</i>, <i class="farg">tvp</i>, <i class="farg">tuid</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Check whether the credentials <i class="farg">cred</i> are permitted by the file ownership and permissions bits to perform a rename. Return zero if permitted or error if not.<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">cred</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+caller's credentials</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">fdvp</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+source directory</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">fdmode</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+file permissions bits of <i class="farg">fdvp</i></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">fduid</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+uid of the owner of <i class="farg">fdvp</i></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">fvp</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+source file</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">fuid</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+uid of owner of <i class="farg">fvp</i></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">tdvp</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+target directory</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">tdmode</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+file permissions bits of <i class="farg">tdvp</i></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">tduid</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+uid of owner of <i class="farg">tdvp</i></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">tvp</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+target file, if there is one, or <span class="define">NULL</span> if not</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">tuid</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+uid of owner of <i class="farg">tvp</i>, if there is a target file, or ignored otherwise</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">genfs_ufslike_remove_check_possible</b>(<i class="farg">dflags</i>, <i class="farg">flags</i>, <i class="farg">immutable</i>, <i class="farg">append</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Check whether the UFS/FFS-like flags of the files involved a remove allow it. Return zero if allowed or error if not.<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">dflags</i></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+flags of the directory</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">flags</i></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+flags of the file in the directory</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">immutable</i></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+bit mask for the file system's immutable bit, like the UFS/FFS <span class="define">IMMUTABLE</span></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">append</i></dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+bit mask for the file system's append-only bit, like the UFS/FFS <span class="define">APPEND</span></dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">genfs_ufslike_remove_check_permitted</b>(<i class="farg">cred</i>, <i class="farg">dvp</i>, <i class="farg">dmode</i>, <i class="farg">duid</i>, <i class="farg">vp</i>, <i class="farg">uid</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Check whether the credentials <i class="farg">cred</i> are permitted by the file ownership and permissions bits to perform a remove. Return zero if permitted or error if not.<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">cred</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+caller's credentials</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">dvp</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+directory</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">dmode</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+file permissions bits of <i class="farg">dvp</i></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">duid</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+uid of owner of <i class="farg">dvp</i></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">vp</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+file in <i class="farg">dvp</i></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="farg">uid</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+uid of owner of <i class="farg">vp</i></dd>
+</dl>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4e4f544553">NOTES</h1> Because there are so many cases of rename, it cannot be assumed a priori that any pairs of <i class="farg">fdvp</i>, <i class="farg">fvp</i>, <i class="farg">tdvp</i>, or <i class="farg">fvp</i> are distinct:<table style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-col">
+<col style="width: 11.00ex;">
+<col style="min-width: 20.00ex;">
+<tbody>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">fdvp = fvp</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">rename(&#34;a/.&#34;, &#34;b&#34;)</code></td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">fdvp = tdvp</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">rename(&#34;a/b&#34;, &#34;a/c&#34;)</code></td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">fdvp = tvp</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">rename(&#34;a/b&#34;, &#34;a&#34;)</code></td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">fvp = tdvp</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">rename(&#34;a&#34;, &#34;a/b&#34;)</code></td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">fvp = tvp</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">rename(&#34;a&#34;, &#34;a&#34;)</code></td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">tdvp = tvp</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">rename(&#34;a&#34;, &#34;b/.&#34;)</code></td>
+</tr>
+</tbody>
+</table>
+<p>
+Handling all these cases correctly, and getting the locking correct and deadlock-free, is very tricky, which is why <b class="name">genfs_rename</b> exists. The interface to <b class="name">genfs_rename</b> is very complicated because it must fit the insane <a class="link-man" href="../9/VOP_RENAME">VOP_RENAME(9)</a> and <a class="link-man" href="../9/VOP_LOOKUP">VOP_LOOKUP(9)</a> protocols until we can fix them, and because it must accomodate a variety of crufty file systems.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../9/genfs">genfs(9)</a>, <a class="link-man" href="../9/vfs">vfs(9)</a>, <a class="link-man" href="../9/vnodeops">vnodeops(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> <b class="name">genfs_rename</b> was designed and implemented by <span class="author">Taylor R. Campbell</span> &#60;<a class="link-mail" href="mailto:riastradh@NetBSD.org">riastradh@NetBSD.org</a>&#62; after many discussions with <span class="author">David Holland</span> &#60;<a class="link-mail" href="mailto:dholland@NetBSD.org">dholland@NetBSD.org</a>&#62;, and first appeared in <span class="unix">NetBSD&#160;6.0</span>.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+May 1, 2013</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

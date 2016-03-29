@@ -1,0 +1,278 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+ROUTED(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+ROUTED(8)</td>
+<td class="head-vol" align="center">
+System Manager's Manual</td>
+<td class="head-rtitle" align="right">
+ROUTED(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">routed</b>, <b class="name">rdisc</b> &#8212; <span class="desc">network RIP and router discovery routing daemon</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1><table class="synopsis">
+<col style="width: 6.00ex;">
+<col>
+<tbody>
+<tr>
+<td>
+routed</td>
+<td>
+&#91;<span class="opt"><b class="flag">&#45;sqdghmAtv</b></span>&#93; &#91;<span class="opt"><b class="flag">&#45;T</b> <i class="arg">tracefile</i></span>&#93; &#91;<span class="opt"><b class="flag">&#45;F</b> <i class="arg">net</i>&#91;<span class="opt">/mask&#91;<span class="opt">,metric</span>&#93;</span>&#93;</span>&#93; &#91;<span class="opt"><b class="flag">&#45;P</b> <i class="arg">parms</i></span>&#93;</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="name">routed</b> is a daemon invoked at boot time to manage the network routing tables. It uses Routing Information Protocol, RIPv1 (RFC 1058), RIPv2 (RFC 1723), and Internet Router Discovery Protocol (RFC 1256) to maintain the kernel routing table. The RIPv1 protocol is based on the reference <span class="unix">4.3BSD</span> daemon.<p>
+It listens on the <a class="link-man" href="../4/udp">udp(4)</a> socket for the <a class="link-man" href="../8/route">route(8)</a> service (see <a class="link-man" href="../5/services">services(5)</a>) for Routing Information Protocol packets. It also sends and receives multicast Router Discovery ICMP messages. If the host is a router, <b class="name">routed</b> periodically supplies copies of its routing tables to any directly connected hosts and networks. It also advertises or solicits default routes using Router Discovery ICMP messages.<p>
+When started (or when a network interface is later turned on), <b class="name">routed</b> uses an AF_ROUTE address family facility to find those directly connected interfaces configured into the system and marked "up". It adds necessary routes for the interfaces to the kernel routing table. Soon after being first started, and provided there is at least one interface on which RIP has not been disabled, <b class="name">routed</b> deletes all pre-existing non-static routes in kernel table. Static routes in the kernel table are preserved and included in RIP responses if they have a valid RIP metric (see <a class="link-man" href="../8/route">route(8)</a>).<p>
+If more than one interface is present (not counting the loopback interface), it is assumed that the host should forward packets among the connected networks. After transmitting a RIP <span class="emph">request</span> and Router Discovery Advertisements or Solicitations on a new interface, the daemon enters a loop, listening for RIP request and response and Router Discovery packets from other hosts.<p>
+When a <span class="emph">request</span> packet is received, <b class="name">routed</b> formulates a reply based on the information maintained in its internal tables. The <span class="emph">response</span> packet generated contains a list of known routes, each marked with a "hop count" metric (a count of 16 or greater is considered "infinite"). The advertised metric for a route reflects the metrics associated with interfaces (see <a class="link-man" href="../8/ifconfig">ifconfig(8)</a>) through which it is received and sent, so setting the metric on an interface is an effective way to steer traffic. See also <b class="flag">adj_inmetric</b> and <b class="flag">adj_outmetric</b> parameters below.<p>
+Responses do not include routes with a first hop on the requesting network to implement in part <span class="emph">split-horizon</span>. Requests from query programs such as <a class="link-man" href="../8/rtquery">rtquery(8)</a> are answered with the complete table.<p>
+The routing table maintained by the daemon includes space for several gateways for each destination to speed recovery from a failing router. RIP <span class="emph">response</span> packets received are used to update the routing tables provided they are from one of the several currently recognized gateways or advertise a better metric than at least one of the existing gateways.<p>
+When an update is applied, <b class="name">routed</b> records the change in its own tables and updates the kernel routing table if the best route to the destination changes. The change in the kernel routing table is reflected in the next batch of <span class="emph">response</span> packets sent. If the next response is not scheduled for a while, a <span class="emph">flash update</span> response containing only recently changed routes is sent.<p>
+In addition to processing incoming packets, <b class="name">routed</b> also periodically checks the routing table entries. If an entry has not been updated for 3 minutes, the entry's metric is set to infinity and marked for deletion. Deletions are delayed until the route has been advertised with an infinite metric to ensure the invalidation is propagated throughout the local internet. This is a form of <span class="emph">poison reverse</span>.<p>
+Routes in the kernel table that are added or changed as a result of ICMP Redirect messages are deleted after a while to minimize <span class="emph">black-holes</span>. When a TCP connection suffers a timeout, the kernel tells <b class="name">routed</b>, which deletes all redirected routes through the gateway involved, advances the age of all RIP routes through the gateway to allow an alternate to be chosen, and advances of the age of any relevant Router Discovery Protocol default routes.<p>
+Hosts acting as internetwork routers gratuitously supply their routing tables every 30 seconds to all directly connected hosts and networks. These RIP responses are sent to the broadcast address on nets that support broadcasting, to the destination address on point-to-point links, and to the router's own address on other networks. If RIPv2 is enabled, multicast packets are sent on interfaces that support multicasting.<p>
+If no response is received on a remote interface, if there are errors while sending responses, or if there are more errors than input or output (see <a class="link-man" href="../1/netstat">netstat(1)</a>), then the cable or some other part of the interface is assumed to be disconnected or broken, and routes are adjusted appropriately.<p>
+The <span class="emph">Internet Router Discovery Protocol</span> is handled similarly. When the daemon is supplying RIP routes, it also listens for Router Discovery Solicitations and sends Advertisements. When it is quiet and listening to other RIP routers, it sends Solicitations and listens for Advertisements. If it receives a good Advertisement and it is not multi-homed, it stops listening for broadcast or multicast RIP responses. It tracks several advertising routers to speed recovery when the currently chosen router dies. If all discovered routers disappear, the daemon resumes listening to RIP responses. It continues listening to RIP while using Router Discovery if multi-homed to ensure all interfaces are used.<p>
+The Router Discovery standard requires that advertisements have a default "lifetime" of 30 minutes. That means should something happen, a client can be without a good route for 30 minutes. It is a good idea to reduce the default to 45 seconds using <b class="flag">&#45;P</b> <b class="flag">rdisc_interval=45</b> on the command line or <b class="flag">rdisc_interval=45</b> in the <i class="file">/etc/gateways</i> file.<p>
+While using Router Discovery (which happens by default when the system has a single network interface and a Router Discover Advertisement is received), there is a single default route and a variable number of redirected host routes in the kernel table. On a host with more than one network interface, this default route will be via only one of the interfaces. Thus, multi-homed hosts running with <b class="flag">&#45;q</b> might need <b class="flag">no_rdisc</b> described below.<p>
+See the <b class="flag">pm_rdisc</b> facility described below to support "legacy" systems that can handle neither RIPv2 nor Router Discovery.<p>
+By default, neither Router Discovery advertisements nor solicitations are sent over point to point links (e.g. PPP). The netmask associated with point-to-point links (such as SLIP or PPP, with the IFF_POINTOPOINT flag) is used by <b class="name">routed</b> to infer the netmask used by the remote system when RIPv1 is used.<p>
+The following options are available:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;s</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+force <b class="name">routed</b> to supply routing information. This is the default if multiple network interfaces are present on which RIP or Router Discovery have not been disabled, and if the sysctl net.inet.ip.forwarding=1.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;q</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+is the opposite of the <b class="flag">&#45;s</b> option. This is the default when only one interface is present. With this explicit option, the daemon is always in "quiet-mode" for RIP and does not supply routing information to other computers.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;d</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+do not run in the background. This option is meant for interactive use.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;g</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+used on internetwork routers to offer a route to the "default" destination. It is equivalent to <b class="flag">&#45;F</b> <b class="flag">0/0,1</b> and is present mostly for historical reasons. A better choice is <b class="flag">&#45;P</b> <b class="flag">pm_rdisc</b> on the command line or <b class="flag">pm_rdisc</b> in the <i class="file">/etc/gateways</i> file. since a larger metric will be used, reducing the spread of the potentially dangerous default route. This is typically used on a gateway to the Internet, or on a gateway that uses another routing protocol whose routes are not reported to other local routers. Notice that because a metric of 1 is used, this feature is dangerous. It is more commonly accidentally used to create chaos with a routing loop than to solve problems.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;h</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+cause host or point-to-point routes to not be advertised, provided there is a network route going the same direction. That is a limited kind of aggregation. This option is useful on gateways to Ethernets that have other gateway machines connected with point-to-point links such as SLIP.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;m</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+cause the machine to advertise a host or point-to-point route to its primary interface. It is useful on multi-homed machines such as NFS servers. This option should not be used except when the cost of the host routes it generates is justified by the popularity of the server. It is effective only when the machine is supplying routing information, because there is more than one interface. The <b class="flag">&#45;m</b> option overrides the <b class="flag">&#45;q</b> option to the limited extent of advertising the host route.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;A</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+do not ignore RIPv2 authentication if we do not care about RIPv2 authentication. This option is required for conformance with RFC 1723. However, it makes no sense and breaks using RIP as a discovery protocol to ignore all RIPv2 packets that carry authentication when this machine does not care about authentication.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;t</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+increase the debugging level, which causes more information to be logged on the tracefile specified with <b class="flag">&#45;T</b> or standard out. The debugging level can be increased or decreased with the <span class="emph">SIGUSR1</span> or <span class="emph">SIGUSR2</span> signals or with the <a class="link-man" href="../8/rtquery">rtquery(8)</a> command.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;T</b> <i class="arg">tracefile</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+increases the debugging level to at least 1 and causes debugging information to be appended to the trace file. Note that because of security concerns, it is wisest to not run <b class="name">routed</b> routinely with tracing directed to a file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;v</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+displays and logs the version of daemon.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;F</b> <i class="arg">net[/mask][,metric]</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+minimize routes in transmissions via interfaces with addresses that match <span class="emph">net/mask</span>, and synthesizes a default route to this machine with the <span class="emph">metric</span>. The intent is to reduce RIP traffic on slow, point-to-point links such as PPP links by replacing many large UDP packets of RIP information with a single, small packet containing a "fake" default route. If <span class="emph">metric</span> is absent, a value of 14 is assumed to limit the spread of the "fake" default route. This is a dangerous feature that when used carelessly can cause routing loops. Notice also that more than one interface can match the specified network number and mask. See also <b class="flag">&#45;g</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">&#45;P</b> <i class="arg">parms</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+is equivalent to adding the parameter line <span class="emph">parms</span> to the <i class="file">/etc/gateways</i> file.</dd>
+</dl>
+<p>
+Any other argument supplied is interpreted as the name of a file in which the actions of <b class="name">routed</b> should be logged. It is better to use <b class="flag">&#45;T</b> instead of appending the name of the trace file to the command.<p>
+<b class="name">routed</b> also supports the notion of "distant" <span class="emph">passive</span> or <span class="emph">active</span> gateways. When <b class="name">routed</b> is started, it reads the file <i class="file">/etc/gateways</i> to find such distant gateways which may not be located using only information from a routing socket, to discover if some of the local gateways are <span class="emph">passive</span>, and to obtain other parameters. Gateways specified in this manner should be marked passive if they are not expected to exchange routing information, while gateways marked active should be willing to exchange RIP packets. Routes through <span class="emph">passive</span> gateways are installed in the kernel's routing tables once upon startup and are not included in transmitted RIP responses.<p>
+Distant active gateways are treated like network interfaces. RIP responses are sent to the distant <span class="emph">active</span> gateway. If no responses are received, the associated route is deleted from the kernel table and RIP responses advertised via other interfaces. If the distant gateway resumes sending RIP responses, the associated route is restored.<p>
+Such gateways can be useful on media that do not support broadcasts or multicasts but otherwise act like classic shared media like Ethernets such as some ATM networks. One can list all RIP routers reachable on the HIPPI or ATM network in <i class="file">/etc/gateways</i> with a series of "host" lines. Note that it is usually desirable to use RIPv2 in such situations to avoid generating lists of inferred host routes.<p>
+Gateways marked <span class="emph">external</span> are also passive, but are not placed in the kernel routing table nor are they included in routing updates. The function of external entries is to indicate that another routing process will install such a route if necessary, and that other routes to that destination should not be installed by <b class="name">routed</b>. Such entries are only required when both routers may learn of routes to the same destination.<p>
+The <i class="file">/etc/gateways</i> file is comprised of a series of lines, each in one of the following two formats or consist of parameters described later. Blank lines and lines starting with '#' are comments.<p>
+<div style="margin-left: 0.00ex;" class="display">
+<b class="flag">net</b> <i class="arg">Nname[/mask]</i> <b class="flag">gateway</b> <i class="arg">Gname</i> <b class="flag">metric</b> <i class="arg">value</i> &lt;<b class="flag">passive</b> | <b class="flag">active</b> | <b class="flag">extern</b>&gt;</div>
+<p>
+<div style="margin-left: 0.00ex;" class="display">
+<b class="flag">host</b> <i class="arg">Hname</i> <b class="flag">gateway</b> <i class="arg">Gname</i> <b class="flag">metric</b> <i class="arg">value</i> &lt;<b class="flag">passive</b> | <b class="flag">active</b> | <b class="flag">extern</b>&gt;</div>
+<p>
+<i class="arg">Nname</i> or <i class="arg">Hname</i> is the name of the destination network or host. It may be a symbolic network name or an Internet address specified in "dot" notation (see <a class="link-man" href="../3/inet">inet(3)</a>). (If it is a name, then it must either be defined in <i class="file">/etc/networks</i> or <i class="file">/etc/hosts</i>, or <a class="link-man" href="../8/named">named(8)</a>, must have been started before <b class="name">routed</b>.)<p>
+<i class="arg">Mask</i> is an optional number between 1 and 32 indicating the netmask associated with <i class="arg">Nname</i>.<p>
+<i class="arg">Gname</i> is the name or address of the gateway to which RIP responses should be forwarded.<p>
+<i class="arg">Value</i> is the hop count to the destination host or network. <i class="arg"> Host hname </i> is equivalent to <i class="arg"> net  nname/32 </i>.<p>
+One of the keywords <b class="flag">passive</b>, <b class="flag">active</b> or <b class="flag">external</b> must be present to indicate whether the gateway should be treated as <b class="flag">passive</b> or <b class="flag">active</b> (as described above), or whether the gateway is <b class="flag">external</b> to the scope of the RIP protocol.<p>
+As can be seen when debugging is turned on with <b class="flag">&#45;t</b>, such lines create pseudo-interfaces. To set parameters for remote or external interfaces, a line starting with <b class="flag">if=alias(Hname)</b>, <b class="flag">if=remote(Hname)</b>, etc. should be used.<div class="subsection">
+<h2 id="x506172616d6574657273">Parameters</h2> Lines that start with neither "net" nor "host" must consist of one or more of the following parameter settings, separated by commas or blanks:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">if</b>=<i class="arg">ifname</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+indicates that the other parameters on the line apply to the interface name <i class="arg">ifname</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">subnet</b>=<i class="arg">nname[/mask][,metric]</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+advertises a route to network <i class="arg">nname</i> with mask <i class="arg">mask</i> and the supplied metric (default 1). This is useful for filling "holes" in CIDR allocations. This parameter must appear by itself on a line. The network number must specify a full, 32-bit value, as in 192.0.2.0 instead of 192.0.2.<p>
+Do not use this feature unless necessary. It is dangerous.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">ripv1_mask</b>=<i class="arg">nname/mask1,mask2</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+specifies that netmask of the network of which <b class="flag">nname/mask1</b> is a subnet should be <b class="flag">mask2</b>. For example <b class="flag">ripv1_mask</b>=<i class="arg">192.0.2.16/28,27</i> marks 192.0.2.16/28 as a subnet of 192.0.2.0/27 instead of 192.0.2.0/24. It is better to turn on RIPv2 instead of using this facility, for example with <b class="flag">ripv2_out</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">passwd</b>=<i class="arg">XXX[|KeyID[start|stop]]</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+specifies a RIPv2 cleartext password that will be included on all RIPv2 responses sent, and checked on all RIPv2 responses received. Any blanks, tab characters, commas, or '#', '|', or NULL characters in the password must be escaped with a backslash (\). The common escape sequences \n, \r, \t, \b, and \xxx have their usual meanings. The <b class="flag">KeyID</b> must be unique but is ignored for cleartext passwords. If present, <b class="flag">start</b> and <b class="flag">stop</b> are timestamps in the form year/month/day@hour:minute. They specify when the password is valid. The valid password with the most future is used on output packets, unless all passwords have expired, in which case the password that expired most recently is used, or unless no passwords are valid yet, in which case no password is output. Incoming packets can carry any password that is valid, will be valid within the next 24 hours, or that was valid within the preceding 24 hours. To protect the secrets, the passwd settings are valid only in the <span class="emph">/etc/gateways</span> file and only when that file is readable only by UID 0.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">md5_passwd</b>=<i class="arg">XXX|KeyID[start|stop]</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+specifies a RIPv2 MD5 password. Except that a <b class="flag">KeyID</b> is required, this keyword is similar to <b class="flag">passwd</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">no_ag</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+turns off aggregation of subnets in RIPv1 and RIPv2 responses.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">no_super_ag</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+turns off aggregation of networks into supernets in RIPv2 responses.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">passive</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+marks the interface to not be advertised in updates sent via other interfaces, and turns off all RIP and router discovery through the interface.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">no_rip</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+disables all RIP processing on the specified interface. If no interfaces are allowed to process RIP packets, <b class="name">routed</b> acts purely as a router discovery daemon.<p>
+Note that turning off RIP without explicitly turning on router discovery advertisements with <b class="flag">rdisc_adv</b> or <b class="flag">&#45;s</b> causes <b class="name">routed</b> to act as a client router discovery daemon, not advertising.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">no_rip_mcast</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+causes RIPv2 packets to be broadcast instead of multicast.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">no_ripv1_in</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+causes RIPv1 received responses to be ignored.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">no_ripv2_in</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+causes RIPv2 received responses to be ignored.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">ripv2_out</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+turns on RIPv2 output and causes RIPv2 advertisements to be multicast when possible.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">ripv2</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+is equivalent to <b class="flag">no_ripv1_in</b> and <b class="flag">no_ripv1_out</b>. This enables RIPv2.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">no_rdisc</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+disables the Internet Router Discovery Protocol.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">no_solicit</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+disables the transmission of Router Discovery Solicitations.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">send_solicit</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+specifies that Router Discovery solicitations should be sent, even on point-to-point links, which by default only listen to Router Discovery messages.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">no_rdisc_adv</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+disables the transmission of Router Discovery Advertisements.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">rdisc_adv</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+specifies that Router Discovery Advertisements should be sent, even on point-to-point links, which by default only listen to Router Discovery messages.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">bcast_rdisc</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+specifies that Router Discovery packets should be broadcast instead of multicast.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">rdisc_pref</b>=<i class="arg">N</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+sets the preference in Router Discovery Advertisements to the optionally signed integer <i class="arg">N</i>. The default preference is 0. Default routes with larger preferences are preferred by clients.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">rdisc_interval</b>=<i class="arg">N</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+sets the nominal interval with which Router Discovery Advertisements are transmitted to N seconds and their lifetime to 3*N.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">fake_default</b>=<i class="arg">metric</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+has an identical effect to <b class="flag">&#45;F</b> <i class="arg">net[/mask][=metric]</i> with the network and mask coming from the specified interface.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">pm_rdisc</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+is similar to <b class="flag">fake_default</b>. When RIPv2 routes are multicast, so that RIPv1 listeners cannot receive them, this feature causes a RIPv1 default route to be broadcast to RIPv1 listeners. Unless modified with <b class="flag">fake_default</b>, the default route is broadcast with a metric of 14. That serves as a "poor man's router discovery" protocol.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">adj_inmetric</b>=<i class="arg">delta</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+adjusts the hop count or metric of received RIP routes by <i class="arg">delta</i>. The metric of every received RIP route is increased by the sum of two values associated with the interface. One is the adj_inmetric value and the other is the interface metric set with <a class="link-man" href="../8/ifconfig">ifconfig(8)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">adj_outmetric</b>=<i class="arg">delta</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+adjusts the hop count or metric of advertised RIP routes by <i class="arg">delta</i>. The metric of every received RIP route is increased by the metric associated with the interface by which it was received, or by 1 if the interface does not have a non-zero metric. The metric of the received route is then increased by the adj_outmetric associated with the interface. Every advertised route is increased by a total of four values, the metric set for the interface by which it was received with <a class="link-man" href="../8/ifconfig">ifconfig(8)</a>, the <b class="flag">adj_inmetric</b> <i class="arg">delta</i> of the receiving interface, the metric set for the interface by which it is transmitted with <a class="link-man" href="../8/ifconfig">ifconfig(8)</a>, and the <b class="flag">adj_outmetric</b> <i class="arg">delta</i> of the transmitting interface.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">trust_gateway</b>=<i class="arg">rname[|net1/mask1|net2/mask2|...]</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+causes RIP packets from router <i class="arg">rname</i> and other routers named in other <b class="flag">trust_gateway</b> keywords to be accepted, and packets from other routers to be ignored. If networks are specified, then routes to other networks will be ignored from that router.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">redirect_ok</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+allows the kernel to listen ICMP Redirect messages when the system is acting as a router and forwarding packets. Otherwise, ICMP Redirect messages are overridden and deleted when the system is acting as a router.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/gateways</i></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+for distant gateways</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../4/icmp">icmp(4)</a>, <a class="link-man" href="../4/udp">udp(4)</a>, <a class="link-man" href="../8/rtquery">rtquery(8)</a><p>
+<span class="ref"><span class="ref-title">Internet Transport Protocols</span>, <span class="ref-rep">XSIS 028112</span>, <span class="ref-corp">Xerox System Integration Standard</span>.</span></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">routed</b> command appeared in <span class="unix">4.2BSD</span>.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> It does not always detect unidirectional failures in network interfaces, for example, when the output side fails.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+May 17, 2004</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

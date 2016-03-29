@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+MQ(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+MQ(3)</td>
+<td class="head-vol" align="center">
+Library Functions Manual</td>
+<td class="head-rtitle" align="right">
+MQ(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">mq</b>, <b class="name">mqueue</b> &#8212; <span class="desc">POSIX message queues (REALTIME)</span></div>
+<div class="section">
+<h1 id="x4c494252415259">LIBRARY</h1> <span class="lib">POSIX Real&#45;time Library (librt, &#45;lrt)</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">mqueue.h</a>&gt;</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The IEEE Std 1003.1-2001 (&#8220;POSIX.1&#8221;) standard defines and <span class="unix">NetBSD</span> implements an interprocess communication (IPC) interface known as POSIX message queues. Although the basic functionality is similar, <b class="name">mq</b> is distinct from the older AT&amp;T System&#160;V UNIX message queues (see for example <a class="link-man" href="../1/ipcs">ipcs(1)</a> or <a class="link-man" href="../2/msgget">msgget(2)</a>).<div class="subsection">
+<h2 id="x526174696f6e616c65">Rationale</h2> The rationale behind <b class="name">mq</b> is to provide an efficient, priority-driven asynchronous IPC mechanism. When the AT&amp;T System&#160;V UNIX message queues were first implemented, the reasoning was similar: the only form of IPC was half-duplex pipes and message queues were seen to overcome the performance limitations with these.<p>
+But arguably in modern systems there is little difference between the efficiency of the System V message queues, pipes, and UNIX domain sockets (if anything, the AT&amp;T System&#160;V UNIX message queues tend to be slower than the rest). The fundamental performance bottleneck is however still there with <b class="name">mq</b> as well: data must be first copied from the sender to the kernel and then from the kernel to the receiver. The bigger the message, the higher the overhead.<p>
+For realtime applications, <b class="name">mq</b> offers some advantages:<ol style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 2.00ex;" class="list list-enum">
+<li class="list-enum" style="margin-top: 1.00em;">
+Unlike the predecessors, <b class="name">mq</b> provides an asynchronous notification mechanism.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Messages are prioritized. The queue always remains sorted such that the oldest message of the highest priority is always received first, regardless of the number of messages in the queue.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+By default, the functions to send and receive messages are blocking calls. It is however possible to use non-blocking variants with <b class="name">mq</b>. Furthermore, it is possible to specify timeouts to avoid non-deterministic blocking.</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Resource limits can be enforced -- or perhaps more importantly, the availability of resources can be ensured as the internal data structures are preallocated.</li>
+</ol>
+</div>
+<div class="subsection">
+<h2 id="x44657363726970746f727320616e64204e616d696e67">Descriptors and Naming</h2> Comparable to pipes and FIFOs (a.k.a. named pipes), all POSIX message queue operations are performed by using a descriptor. The used type is <span class="type">mqd_t</span>, an abbreviation from a &#8220;message queue descriptor&#8221;. In the <span class="unix">NetBSD</span> implementation this is actually an ordinary file descriptor. This means that it is possible, but not portable, to monitor a message queue descriptor by using <a class="link-man" href="../2/poll">poll(2)</a> or <a class="link-man" href="../2/select">select(2)</a>.<p>
+Message queues are named by character strings that represent (absolute) pathnames. The used interface is analogous to the conventional file concepts. But unlike FIFOs and pipes, neither POSIX nor System V message queues are accessed by using <a class="link-man" href="../2/open">open(2)</a>, <a class="link-man" href="../2/read">read(2)</a>, or <a class="link-man" href="../2/write">write(2)</a>. Instead, equivalents such as <b class="fname">mq_open</b>(), <b class="fname">mq_close</b>(), and <b class="fname">mq_unlink</b>() are used.<p>
+The standard does not specify whether POSIX message queues are exposed at the file system level. It can be argued that <b class="name">mq</b> inherited an old problem with the System V message queues. Even if an implementation would have support for it, it is not portable to view message queues by <a class="link-man" href="../1/ls">ls(1)</a>, remove these with <a class="link-man" href="../1/rm">rm(1)</a>, or adjust the permissions with <a class="link-man" href="../1/chmod">chmod(1)</a>.</div>
+<div class="subsection">
+<h2 id="x50726f636573736573">Processes</h2> When a new process is created or the program is terminated, message queues behave like files. More specifically, when <a class="link-man" href="../2/fork">fork(2)</a> is called, files and message queues are inherited, and when the program terminates by calling <a class="link-man" href="../3/exit">exit(3)</a> or <a class="link-man" href="../2/_exit">_exit(2)</a>, both file descriptors and message queues are closed. However, the <a class="link-man" href="../3/exec">exec(3)</a> family of functions behave somewhat differently for message queues and files: all message queues are closed when a process calls one of the <b class="fname">exec</b>() functions. In this respect POSIX message queues are closer to FIFOs than normal pipes.</div>
+<div class="subsection">
+<h2 id="x41747472696275746573">Attributes</h2> All message queues have an attribute associated with them. This is represented by the <b class="var">mq_attr</b> structure:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct mq_attr { 
+	long	mq_flags; 
+	long	mq_maxmsg; 
+	long	mq_msgsize; 
+	long	mq_curmsgs; 
+};</pre>
+<p>
+The members in the structure are: flags set for the message queue (<b class="var">mq_flags</b>), the maximum number of messages in the queue (<b class="var">mq_maxmsg</b>), the maximum size of each message (<b class="var">mq_msgsize</b>), and the number of queued messages (<b class="var">mq_curmsgs</b>).<p>
+The overall resource requirements for a particular message queue are given by <b class="var">mq_maxmsg</b> and <b class="var">mq_msgsize</b>. These two can be specified when the queue is created by a call to <b class="fname">mq_open</b>(). The constraints are enforced through the lifetime of the queue: an error is returned if a message larger than <b class="var">mq_msgsize</b> is sent, and if the message queue is already full, as determined by <b class="var">mq_maxmsg</b>, the call to queue a message will either block or error out.<p>
+Although there are two functions, <b class="fname">mq_getattr</b>() and <b class="fname">mq_setattr</b>(), to retrieve and set attributes, resource limits cannot be changed once the queue has been created. In <span class="unix">NetBSD</span> the super user may however control the global resource limits by using few <a class="link-man" href="../7/sysctl">sysctl(7)</a> variables.</div>
+<div class="subsection">
+<h2 id="x4173796e6368726f6e6f7573204e6f74696669636174696f6e">Asynchronous Notification</h2> Instead of blocking in the functions that receive messages, <b class="name">mq</b> offers an asynchronous mechanism for a process to receive notifications that messages are available in the message queue. The function <b class="fname">mq_notify</b>() is used to register for notification. Either a signal or a thread can be used as the type of notification; see <a class="link-man" href="../3/sigevent">sigevent(3)</a> for details.<p>
+Bear in mind that no notification is sent for an arrival of a message to a non-empty message queue. In other words, <b class="fname">mq_notify</b>() does not by itself ensure that a process will be notified every time a message arrives. Thus, after having called <b class="fname">mq_notify</b>(), an application may need to repeatedly call <b class="fname">mq_receive</b>() until the queue is empty. This requires that the message queue was created with the <span class="define">O_NONBLOCK</span> flag; otherwise <b class="fname">mq_receive</b>() blocks until a message is again queued or the call is interrupted by a signal. This may be a limitation for some realtime applications.</div>
+<div class="subsection">
+<h2 id="x5072696f726974696573">Priorities</h2> Each message has a priority, ranging from 0 to the implementation-defined <span class="define">MQ_PRIO_MAX</span>. The POSIX standard enforces the minimum value of the maximum priority to be 32. All messages are inserted into a message queue according to the specified priority. High priority messages are sent before low priority messages. If the used priority is constant, <b class="name">mq</b> follows the FIFO (First In, First Out) principle.<p>
+The basic rule of thumb with realtime prioritization is that low priority tasks should never unnecessarily delay high priority tasks. Priority inheritance is not however part of the provided API; the receiver process may run at low priority even when receiving high priority messages. To address this limitation and other potential realtime problems, the user may consider other functions from the <span class="lib">POSIX Real&#45;time Library (librt, &#45;lrt)</span>. The process scheduling interface described in <a class="link-man" href="../3/sched">sched(3)</a> can be mentioned as an example.</div>
+</div>
+<div class="section">
+<h1 id="x46554e4354494f4e53">FUNCTIONS</h1> The following functions are available in the API.<table style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-col">
+<col style="width: 16.00ex;">
+<col style="min-width: 3.00ex;">
+<tbody>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<span class="symb">Function</span></td>
+<td class="list-col" style="margin-top: 1.00em;">
+<span class="symb">Description</span></td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<a class="link-man" href="../3/mq_open">mq_open(3)</a></td>
+<td class="list-col" style="margin-top: 1.00em;">
+open a message queue</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<a class="link-man" href="../3/mq_close">mq_close(3)</a></td>
+<td class="list-col" style="margin-top: 1.00em;">
+close a message queue</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<a class="link-man" href="../3/mq_unlink">mq_unlink(3)</a></td>
+<td class="list-col" style="margin-top: 1.00em;">
+remove a message queue</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<a class="link-man" href="../3/mq_send">mq_send(3)</a></td>
+<td class="list-col" style="margin-top: 1.00em;">
+send a message</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<a class="link-man" href="../3/mq_receive">mq_receive(3)</a></td>
+<td class="list-col" style="margin-top: 1.00em;">
+receive a message</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<a class="link-man" href="../3/mq_timedsend">mq_timedsend(3)</a></td>
+<td class="list-col" style="margin-top: 1.00em;">
+send a message with a timeout</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<a class="link-man" href="../3/mq_timedreceive">mq_timedreceive(3)</a></td>
+<td class="list-col" style="margin-top: 1.00em;">
+receive a message with a timeout</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<a class="link-man" href="../3/mq_getattr">mq_getattr(3)</a></td>
+<td class="list-col" style="margin-top: 1.00em;">
+get message queue attributes</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<a class="link-man" href="../3/mq_setattr">mq_setattr(3)</a></td>
+<td class="list-col" style="margin-top: 1.00em;">
+set message queue attributes</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<a class="link-man" href="../3/mq_notify">mq_notify(3)</a></td>
+<td class="list-col" style="margin-top: 1.00em;">
+register asynchronous notify</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section">
+<h1 id="x434f4d5041544942494c495459">COMPATIBILITY</h1> Despite of some early fears, the POSIX message queue implementations are fairly compatible with each other. Nevertheless, few points can be noted for portable applications.<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 1.00em;">
+It is not portable to use functions external to the API with message queue descriptors.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+The standard leaves the rules loose with respect to the message queue names. Only the interpretation of the first slash character is consistent; the following slash characters may or may not follow the conventional construction rules for a pathname.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+The length limits for a message queue name are implementation-defined. These may or may not follow the conventional pathname limits <span class="define">PATH_MAX</span> and <span class="define">NAME_MAX</span>.</li>
+</ul>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <span class="ref"><span class="ref-auth">Bill O. Gallmeister</span>, <span class="ref-title">POSIX.4: Programming for the Real World</span>, <i class="ref-issue">O'Reilly and Associates</i>, <span class="ref-date">1995</span>.</span><p>
+<span class="ref"><span class="ref-auth">Richard W. Stevens</span>, <span class="ref-title">UNIX Network Programming, Volume 2: Interprocess Communications</span>, <i class="ref-issue">Prentice Hall</i>, <span class="ref-vol">Second Edition</span>, <span class="ref-date">1998</span>.</span></div>
+<div class="section">
+<h1 id="x5354414e4441524453">STANDARDS</h1> The POSIX message queue implementation is expected to conform to IEEE Std 1003.1-2001 (&#8220;POSIX.1&#8221;).</div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The POSIX message queue API first appeared in <span class="unix">NetBSD&#160;5.0</span>.</div>
+<div class="section">
+<h1 id="x43415645415453">CAVEATS</h1> User should be careful to unlink message queues at the program termination. Otherwise it is possible to leave them lying around.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+July 28, 2010</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

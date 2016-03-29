@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+TUN(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+TUN(4)</td>
+<td class="head-vol" align="center">
+Kernel Interfaces Manual</td>
+<td class="head-rtitle" align="right">
+TUN(4)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">tun</b> &#8212; <span class="desc">tunnel software network interface</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">pseudo-device tun</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">tun</b> interface is a software loopback mechanism that can be loosely described as the network interface analog of the <a class="link-man" href="../4/pty">pty(4)</a>, that is, <b class="name">tun</b> does for network interfaces what the <b class="name">pty</b> driver does for terminals.<p>
+The <b class="name">tun</b> driver, like the <b class="name">pty</b> driver, provides two interfaces: an interface like the usual facility it is simulating (a network interface in the case of <b class="name">tun</b>, or a terminal for <b class="name">pty</b>), and a character-special device &#8220;control&#8221; interface.<p>
+To use a <b class="name">tun</b> device, the administrator must first create the interface. This can be done by using the <a class="link-man" href="../8/ifconfig">ifconfig(8)</a> <b class="flag">create</b> command, or via the <span class="define">SIOCIFCREATE</span> ioctl. An <b class="fname">open</b>() call on <i class="file">/dev/tun</i><span class="symb">N</span>, will also create a network interface with the same unit number of that device if it doesn't exist yet.<p>
+The network interfaces should be named <span class="symb">tun</span><i class="arg">0</i>, <span class="symb">tun</span><i class="arg">1</i>, etc. Each interface supports the usual network-interface <a class="link-man" href="../2/ioctl">ioctl(2)</a>s, such as <span class="define">SIOCSIFADDR</span> and <span class="define">SIOCSIFNETMASK</span>, and thus can be used with <a class="link-man" href="../8/ifconfig">ifconfig(8)</a> like any other interface. At boot time, they are <span class="define">POINTOPOINT</span> interfaces, but this can be changed; see the description of the control device, below. When the system chooses to transmit a packet on the network interface, the packet can be read from the control device (it appears there as &#8220;output&#8221;); writing a packet to the control device generates an input packet on the network interface, as if the (non-existent) hardware had just received it.<p>
+The tunnel device, normally <i class="file">/dev/tun</i><span class="symb">N</span>, is exclusive-open (it cannot be opened if it is already open) and is restricted to the super-user (regardless of file system permissions). A <b class="fname">read</b>() call will return an error (<span class="errno">EHOSTDOWN</span>) if the interface is not &#8220;ready&#8221; (which means that the interface address has not been set). Once the interface is ready, <b class="fname">read</b>() will return a packet if one is available; if not, it will either block until one is or return <span class="errno">EAGAIN</span>, depending on whether non-blocking I/O has been enabled. If the packet is longer than is allowed for in the buffer passed to <b class="fname">read</b>(), the extra data will be silently dropped.<p>
+Packets can be optionally prepended with the destination address as presented to the network interface output routine (&#8216;<code class="lit">tunoutput</code>&#8217;). The destination address is in &#8216;<code class="lit">struct sockaddr</code>&#8217; format. The actual length of the prepended address is in the member &#8216;<code class="lit">sa_len</code>&#8217;. The packet data follows immediately. A <a class="link-man" href="../2/write">write(2)</a> call passes a packet in to be &#8220;received&#8221; on the pseudo-interface. Each <b class="fname">write</b>() call supplies exactly one packet; the packet length is taken from the amount of data provided to <b class="fname">write</b>(). Writes will not block; if the packet cannot be accepted for a transient reason (e.g., no buffer space available), it is silently dropped; if the reason is not transient (e.g., packet too large), an error is returned. If &#8220;link-layer mode&#8221; is on (see <span class="define">TUNSLMODE</span> below), the actual packet data must be preceded by a &#8216;<code class="lit">struct sockaddr</code>&#8217;. The driver currently only inspects the &#8216;<code class="lit">sa_family</code>&#8217; field. The following <a class="link-man" href="../2/ioctl">ioctl(2)</a> calls are supported (defined in &#60;<i class="file">net/if_tun.h</i>&#62;):<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TUNSDEBUG</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The argument should be a pointer to an <b class="var">int</b>; this sets the internal debugging variable to that value. What, if anything, this variable controls is not documented here; see the source code.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TUNGDEBUG</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The argument should be a pointer to an <b class="var">int</b>; this stores the internal debugging variable's value into it.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TUNSIFMODE</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The argument should be a pointer to an <b class="var">int</b>; its value must be either <span class="define">IFF_POINTOPOINT</span> or <span class="define">IFF_BROADCAST</span> (optionally <span class="define">IFF_MULTICAST</span> may be or'ed into the value). The type of the corresponding <span class="emph">tun</span><span class="symb">n</span> interface is set to the supplied type. If the value is anything else, an <span class="errno">EINVAL</span> error occurs. The interface must be down at the time; if it is up, an <span class="errno">EBUSY</span> error occurs.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TUNSLMODE</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The argument should be a pointer to an <b class="var">int</b>; a non-zero value turns off &#8220;multi-af&#8221; mode and turns on &#8220;link-layer&#8221; mode, causing packets read from the tunnel device to be prepended with network destination address.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TUNGIFHEAD</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The argument should be a pointer to an <b class="var">int</b>; the ioctl sets the value to one if the device is in &#8220;multi-af&#8221; mode, and zero otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TUNSIFHEAD</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The argument should be a pointer to an <b class="var">int</b>; a non-zero value turns off &#8220;link-layer&#8221; mode, and enables &#8220;multi-af&#8221; mode, where every packet is preceded with a four byte address family.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">FIONBIO</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Turn non-blocking I/O for reads off or on, according as the argument <b class="var">int</b>'s value is or isn't zero (Writes are always nonblocking).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">FIOASYNC</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Turn asynchronous I/O for reads (i.e., generation of <span class="define">SIGIO</span> when data is available to be read) off or on, according as the argument <b class="var">int</b>'s value is or isn't zero.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">FIONREAD</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+If any packets are queued to be read, store the size of the first one into the argument <b class="var">int</b>; otherwise, store zero.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSPGRP</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Set the process group to receive <span class="define">SIGIO</span> signals, when asynchronous I/O is enabled, to the argument <b class="var">int</b> value.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCGPGRP</span></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Retrieve the process group value for <span class="define">SIGIO</span> signals into the argument <b class="var">int</b> value.</dd>
+</dl>
+<p>
+The control device also supports <a class="link-man" href="../2/select">select(2)</a> for read; selecting for write is pointless, and always succeeds, since writes are always non-blocking.<p>
+On the last close of the data device, by default, the interface is brought down (as if with &#8220;ifconfig tun<span class="symb">n</span> down&#8221;). All queued packets are thrown away. If the interface is up when the data device is not open output packets are always thrown away rather than letting them pile up.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../4/inet">inet(4)</a>, <a class="link-man" href="../4/intro">intro(4)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> <span class="author"></span>IPv6 support comes mostly from <span class="unix">FreeBSD</span> and was added in <span class="unix">NetBSD&#160;4.0</span> by <span class="author">Rui Paulo</span> &#60;rpaulo@NetBSD.org&#62;.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+April 8, 2006</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

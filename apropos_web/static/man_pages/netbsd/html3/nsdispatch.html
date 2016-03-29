@@ -1,0 +1,552 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+NSDISPATCH(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+NSDISPATCH(3)</td>
+<td class="head-vol" align="center">
+Library Functions Manual</td>
+<td class="head-rtitle" align="right">
+NSDISPATCH(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">nsdispatch</b> &#8212; <span class="desc">name-service switch dispatcher routine</span></div>
+<div class="section">
+<h1 id="x4c494252415259">LIBRARY</h1> <span class="lib">Standard C Library (libc, &#45;lc)</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">nsswitch.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">nsdispatch</b>(<i class="farg">void *nsdrv</i>, <i class="farg">const ns_dtab dtab[]</i>, <i class="farg">const char *database</i>, <i class="farg">const char *name</i>, <i class="farg">const ns_src defaults[]</i>, <i class="farg">...</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="fname">nsdispatch</b>() function invokes the callback functions specified in <i class="farg">dtab</i> in the order given in <i class="file">/etc/nsswitch.conf</i> for the database <i class="farg">database</i> until the action criteria for a source of that database is fulfilled.<p>
+<i class="farg">nsdrv</i> is passed to each callback function to use as necessary (to pass back to the caller of <b class="fname">nsdispatch</b>()).<p>
+<i class="farg">dtab</i> is an array of <i class="farg">ns_dtab</i> structures, which have the following format:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-item">
+<li class="list-item" style="margin-top: 1.00em;">
+<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct { 
+	const char *src; 
+	nss_method cb; 
+	void *cb_data; 
+} ns_dtab;</pre>
+</li>
+<li class="list-item" style="margin-top: 1.00em;">
+The <i class="farg">dtab</i> array should consist of one entry for each source type that has a static implementation, with <i class="farg">src</i> as the name of the source, <i class="farg">cb</i> as a callback function which handles that source, and <i class="farg">cb_data</i> as a pointer to arbitrary data to be passed to the callback function. The last entry in <i class="farg">dtab</i> should contain <span class="define">NULL</span> values for <i class="farg">src</i>, <i class="farg">cb</i>, and <i class="farg">cb_data</i>.</li>
+<li class="list-item" style="margin-top: 1.00em;">
+The callback function signature is described by the typedef:<p>
+<div style="margin-left: 5.00ex;" class="display">
+<i class="ftype">typedef int</i> <b class="fname">(*nss_method)</b>(<i class="farg">void *cbrv</i>, <i class="farg">void *cbdata</i>, <i class="farg">va_list ap</i>);;<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">cbrv</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The <i class="farg">nsdrv</i> that <b class="fname">nsdispatch</b>() was invoked with.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">cbdata</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The <i class="farg">cb_data</i> member of the array entry for the source that this callback function implements in the <i class="farg">dtab</i> argument of <b class="fname">nsdispatch</b>().</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">ap</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The <i class="farg">...</i> arguments to <b class="fname">nsdispatch</b>(), converted to a <i class="ftype">va_list</i>.</dd>
+</dl>
+</div>
+</li>
+</ul>
+<p>
+<i class="farg">database</i> and <i class="farg">name</i> are used to select methods from optional per-source dynamically-loaded modules. <i class="farg">name</i> is usually the name of the function calling <b class="fname">nsdispatch</b>(). Note that the callback functions provided by <i class="farg">dtab</i> take priority over those implemented in dynamically-loaded modules in the event of a conflict.<p>
+<i class="farg">defaults</i> contains a list of default sources to try in the case of a missing or corrupt <a class="link-man" href="../5/nsswitch.conf">nsswitch.conf(5)</a>, or if there isn't a relevant entry for <i class="farg">database</i>. It is an array of <i class="farg">ns_src</i> structures, which have the following format:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-item">
+<li class="list-item" style="margin-top: 1.00em;">
+<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct { 
+	const char *src; 
+	uint32_t flags; 
+} ns_src;</pre>
+</li>
+<li class="list-item" style="margin-top: 1.00em;">
+The <i class="farg">defaults</i> array should consist of one entry for each source to consult by default indicated by <i class="farg">src</i>, and <i class="farg">flags</i> set to the desired behavior (usually <span class="define">NS_SUCCESS</span>; refer to <i class="link-sec"><a class="link-sec" href="#x43616c6c6261636b2066756e6374696f6e2072657475726e2076616c756573">Callback function return values</a></i> for more information). The last entry in <i class="farg">defaults</i> should have <i class="farg">src</i> set to <span class="define">NULL</span> and <i class="farg">flags</i> set to 0.</li>
+<li class="list-item" style="margin-top: 1.00em;">
+Some invokers of <b class="fname">nsdispatch</b>() (such as <a class="link-man" href="../3/setgrent">setgrent(3)</a>) need to force all callback functions to be invoked, irrespective of the action criteria listed in <a class="link-man" href="../5/nsswitch.conf">nsswitch.conf(5)</a>. This can be achieved by adding <span class="define">NS_FORCEALL</span> to <i class="farg">defaults[0].flags</i> before invoking <b class="fname">nsdispatch</b>(). The return value of <b class="fname">nsdispatch</b>() will be the result of the final callback function invoked.</li>
+<li class="list-item" style="margin-top: 1.00em;">
+For convenience, a global variable defined as:<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">extern const ns_src __nsdefaultsrc[];</code></div>
+</blockquote>
+exists which contains a single default entry for &#8216;files&#8217; for use by callers which don't require complicated default rules.</li>
+</ul>
+<p>
+<i class="farg">...</i> are optional extra arguments, which are passed to the appropriate callback function as a <a class="link-man" href="../3/stdarg">stdarg(3)</a> variable argument list of the type <i class="farg">va_list</i>.<p>
+<b class="name">nsdispatch</b> returns the value of the callback function that caused the dispatcher to finish, or <span class="define">NS_NOTFOUND</span> otherwise.<div class="subsection">
+<h2 id="x44796e616d6963616c6c791e6c6f61646564206d6f64756c6520696e74657266616365">Dynamically-loaded module interface</h2> The <b class="fname">nsdispatch</b>() function loads callback functions from the run-time link-editor's search path using the following naming convention:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-item">
+<li class="list-item" style="margin-top: 1.00em;">
+<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+nss_&lt;source&gt;.so.&lt;version&gt;</pre>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#60;source&#62;</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+The source that the module implements.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#60;version&#62;</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+The <b class="name">nsdispatch</b> module interface version, which is defined by the integer <span class="define">NSS_MODULE_INTERFACE_VERSION</span>, which has the value 0.</dd>
+</dl>
+</li>
+</ul>
+<p>
+When a module is loaded, <b class="fname">nsdispatch</b>() looks for and calls the following function in the module:<p>
+<div style="margin-left: 5.00ex;" class="display">
+<i class="ftype">ns_mtab *</i> <b class="fname">nss_module_register</b>(<i class="farg">const char *source</i>, <i class="farg">u_int *nelems</i>, <i class="farg">nss_module_unregister_fn *unreg</i>);;<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">source</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The name of the source that the module implements, as used by <b class="fname">nsdispatch</b>() to construct the module's name.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">nelems</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+A pointer to an unsigned integer that <b class="fname">nss_module_register</b>() should set to the number of elements in the <i class="ftype">ns_mtab</i> array returned by <b class="fname">nss_module_register</b>(), or <span class="define">0</span> if there was a failure.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">unreg</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+A pointer to a function pointer that <b class="fname">nss_module_register</b>() can optionally set to an unregister function to be invoked when the module is unloaded, or <span class="define">NULL</span> if there isn't one.</dd>
+</dl>
+</div>
+<p>
+The unregister function signature is described by the typedef:<p>
+<div style="margin-left: 5.00ex;" class="display">
+<i class="ftype">typedef void</i> <b class="fname">(*nss_module_unregister_fn)</b>(<i class="farg">ns_mtab *mtab</i>, <i class="farg">u_int nelems</i>);;<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">mtab</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The array of <i class="ftype">ns_mtab</i> structures returned by <b class="fname">nss_module_register</b>().</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">nelems</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The <i class="farg">*nelems</i> value set by <b class="fname">nss_module_register</b>().</dd>
+</dl>
+</div>
+<p>
+<b class="fname">nss_module_register</b>() returns an array of <i class="ftype">ns_mtab</i> structures (with <i class="farg">*nelems</i> entries), or <span class="define">NULL</span> if there was a failure. The <i class="ftype">ns_mtab</i> structures have the following format:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-item">
+<li class="list-item" style="margin-top: 1.00em;">
+<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+typedef struct { 
+	const char *database; 
+	const char *name; 
+	nss_method method; 
+	void *mdata; 
+} ns_mtab;</pre>
+</li>
+<li class="list-item" style="margin-top: 1.00em;">
+The <i class="farg">mtab</i> array should consist of one entry for each callback function (method) that is implemented, with <i class="farg">database</i> as the name of the database, <i class="farg">name</i> as the name of the callback function, <i class="farg">method</i> as the <i class="ftype">nss_method</i> callback function that implements the method, and <i class="farg">mdata</i> as a pointer to arbitrary data to be passed to the callback function as its <i class="farg">cbdata</i> argument.</li>
+</ul>
+</div>
+<div class="subsection">
+<h2 id="x56616c696420736f75726365207479706573">Valid source types</h2> While there is support for arbitrary sources, the following #defines for commonly implemented sources are provided:<table style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-col">
+<col style="width: 12.00ex;">
+<col style="min-width: 6.00ex;">
+<tbody>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<span class="symb">#define</span></td>
+<td class="list-col" style="margin-top: 1.00em;">
+Value</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NSSRC_FILES</td>
+<td class="list-col" style="margin-top: 1.00em;">
+files</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NSSRC_DNS</td>
+<td class="list-col" style="margin-top: 1.00em;">
+dns</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NSSRC_NIS</td>
+<td class="list-col" style="margin-top: 1.00em;">
+nis</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NSSRC_COMPAT</td>
+<td class="list-col" style="margin-top: 1.00em;">
+compat</td>
+</tr>
+</tbody>
+</table>
+<p>
+Refer to <a class="link-man" href="../5/nsswitch.conf">nsswitch.conf(5)</a> for a complete description of what each source type is.</div>
+<div class="subsection">
+<h2 id="x56616c6964206461746162617365207479706573">Valid database types</h2> While there is support for arbitrary databases, the following #defines for currently implemented system databases are provided:<table style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-col">
+<col style="width: 18.00ex;">
+<col style="min-width: 13.00ex;">
+<tbody>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<span class="symb">#define</span></td>
+<td class="list-col" style="margin-top: 1.00em;">
+Value</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NSDB_HOSTS</td>
+<td class="list-col" style="margin-top: 1.00em;">
+hosts</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NSDB_GROUP</td>
+<td class="list-col" style="margin-top: 1.00em;">
+group</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NSDB_GROUP_COMPAT</td>
+<td class="list-col" style="margin-top: 1.00em;">
+group_compat</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NSDB_NETGROUP</td>
+<td class="list-col" style="margin-top: 1.00em;">
+netgroup</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NSDB_NETWORKS</td>
+<td class="list-col" style="margin-top: 1.00em;">
+networks</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NSDB_PASSWD</td>
+<td class="list-col" style="margin-top: 1.00em;">
+passwd</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NSDB_PASSWD_COMPAT</td>
+<td class="list-col" style="margin-top: 1.00em;">
+passwd_compat</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NSDB_SHELLS</td>
+<td class="list-col" style="margin-top: 1.00em;">
+shells</td>
+</tr>
+</tbody>
+</table>
+<p>
+Refer to <a class="link-man" href="../5/nsswitch.conf">nsswitch.conf(5)</a> for a complete description of what each database is.</div>
+<div class="subsection">
+<h2 id="x43616c6c6261636b2066756e6374696f6e2072657475726e2076616c756573">Callback function return values</h2> The callback functions should return one of the following values depending upon status of the lookup:<table style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-col">
+<col style="min-width: 11.00ex;">
+<tbody>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<span class="symb">Return value</span></td>
+<td class="list-col" style="margin-top: 1.00em;">
+Status code</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NS_SUCCESS</td>
+<td class="list-col" style="margin-top: 1.00em;">
+The requested entry was found.</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NS_NOTFOUND</td>
+<td class="list-col" style="margin-top: 1.00em;">
+The entry is not present at this source.</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NS_TRYAGAIN</td>
+<td class="list-col" style="margin-top: 1.00em;">
+The source is busy, and may respond to retries.</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+NS_UNAVAIL</td>
+<td class="list-col" style="margin-top: 1.00em;">
+The source is not responding, or entry is corrupt.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section">
+<h1 id="x43414c4c4241434b2046554e4354494f4e2041504920464f52205354414e4441524420444154414241534553">CALLBACK FUNCTION API FOR STANDARD DATABASES</h1> The organization of the <i class="farg">ap</i> argument for an <b class="fname">nss_method</b>() callback function for a standard method in a standard database is:<ol style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-enum">
+<li class="list-enum" style="margin-top: 0.00em;">
+Pointer to return value of the standard function.</li>
+<li class="list-enum" style="margin-top: 0.00em;">
+First argument of the standard function.</li>
+<li class="list-enum" style="margin-top: 0.00em;">
+(etc.)</li>
+</ol>
+<p>
+For example, given the standard function <a class="link-man" href="../3/getgrnam">getgrnam(3)</a>:<div style="margin-left: 5.00ex;" class="display">
+<i class="ftype">struct group *</i> <b class="fname">getgrnam</b>(<i class="farg">const char *name</i>)</div>
+the <i class="farg">ap</i> organization used by the callback functions is:<ol style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-enum">
+<li class="list-enum" style="margin-top: 0.00em;">
+<i class="ftype">struct group **</i></li>
+<li class="list-enum" style="margin-top: 0.00em;">
+<i class="ftype">const char *</i></li>
+</ol>
+<p>
+<span class="symb">NOTE:</span> Not all standard databases are using this calling convention yet; those that aren't are noted below. These will be changed in the future.<p>
+The callback function names and <i class="ftype">va_list</i> organization for various standard database callback functions are:<div class="subsection">
+<h2 id="x4d6574686f647320666f7220686f737473206461746162617365">Methods for hosts database</h2><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getaddrinfo</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">char *name</i>, <i class="ftype">const struct addrinfo *pai</i><p>
+Returns <i class="ftype">struct addrinfo *</i> via <i class="ftype">void *cbrv</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">gethostbyaddr</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">unsigned char *addr</i>, <i class="ftype">int addrlen</i>, <i class="ftype">int af</i><p>
+Returns <i class="ftype">struct getnamaddr *</i> via <i class="ftype">void *cbrv</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">gethostbyname</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">char *name</i>, <i class="ftype">int namelen</i>, <i class="ftype">int af</i><p>
+Returns <i class="ftype">struct getnamaddr *</i> via <i class="ftype">void *cbrv</i>.</dd>
+</dl>
+<p>
+The <i class="ftype">struct getnamaddr</i> is defined internally in libc as:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct getnamaddr { 
+        struct hostent *hp; 
+        char *buf; 
+        size_t buflen; 
+        int *he; 
+};</pre>
+</div>
+<div class="subsection">
+<h2 id="x4d6574686f647320666f722067726f757020616e642067726f75705f636f6d70617420646174616261736573">Methods for group and group_compat databases</h2><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">endgrent</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Empty <i class="farg">ap</i>.<p>
+All methods for all sources are invoked for this method name.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getgrent</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">struct group **retval</i><p>
+<i class="farg">*retval</i> should be set to a pointer to an internal static <i class="ftype">struct group</i> on success, <span class="define">NULL</span> otherwise.<p>
+<a class="link-man" href="../3/getgrent">getgrent(3)</a> returns <i class="farg">*retval</i> if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span>, <span class="define">NULL</span> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getgrent_r</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">int *retval</i>, <i class="ftype">struct group *grp</i>, <i class="ftype">char *buffer</i>, <i class="ftype">size_t buflen</i>, <i class="ftype">struct group **result</i><p>
+<i class="farg">*retval</i> should be set to an appropriate <a class="link-man" href="../2/errno">errno(2)</a> on failure.<p>
+<a class="link-man" href="../3/getgrent_r">getgrent_r(3)</a> returns 0 if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span> or <span class="define">NS_NOTFOUND</span>, and <i class="farg">*retval</i> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getgrgid</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">struct group **retval</i>, <i class="ftype">gid_t gid</i><p>
+<i class="farg">*retval</i> should be set to a pointer to an internal static <i class="ftype">struct group</i> on success, <span class="define">NULL</span> otherwise.<p>
+<a class="link-man" href="../3/getgrgid">getgrgid(3)</a> returns <i class="farg">*retval</i> if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span>, <span class="define">NULL</span> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getgrgid_r</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">int *retval</i>, <i class="ftype">gid_t gid</i>, <i class="ftype">struct group *grp</i>, <i class="ftype">char *buffer</i>, <i class="ftype">size_t buflen</i>, <i class="ftype">struct group **result</i><p>
+<i class="farg">*retval</i> should be set to an appropriate <a class="link-man" href="../2/errno">errno(2)</a> on failure.<p>
+<a class="link-man" href="../3/getgrgid_r">getgrgid_r(3)</a> returns 0 if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span> or <span class="define">NS_NOTFOUND</span>, and <i class="farg">*retval</i> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getgrnam</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">struct group **retval</i>, <i class="ftype">const char *name</i><p>
+<i class="farg">*retval</i> should be set to a pointer to an internal static <i class="ftype">struct group</i> on success, <span class="define">NULL</span> otherwise.<p>
+<a class="link-man" href="../3/getgrnam">getgrnam(3)</a> returns <i class="farg">*retval</i> if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span>, <span class="define">NULL</span> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getgrnam_r</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">int *retval</i>, <i class="ftype">const char *name</i>, <i class="ftype">struct group *grp</i>, <i class="ftype">char *buffer</i>, <i class="ftype">size_t buflen</i>, <i class="ftype">struct group **result</i><p>
+<i class="farg">*retval</i> should be set to an appropriate <a class="link-man" href="../2/errno">errno(2)</a> on failure.<p>
+<a class="link-man" href="../3/getgrnam_r">getgrnam_r(3)</a> returns 0 if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span> or <span class="define">NS_NOTFOUND</span>, and <i class="farg">*retval</i> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getgroupmembership</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">int *retval</i>, <i class="ftype">const char *name</i>, <i class="ftype">gid_t basegid</i>, <i class="ftype">gid_t *groups</i>, <i class="ftype">int maxgrp</i>, <i class="ftype">int *groupc</i><p>
+<i class="farg">retval</i> is unused.<p>
+Lookups for <span class="symb">group_compat</span> are also stopped if <span class="define">NS_SUCCESS</span> was returned to prevent multiple &#8220;+:&#8221; compat entries from being expanded.<p>
+<a class="link-man" href="../3/getgroupmembership">getgroupmembership(3)</a> returns is -1 if <i class="farg">*groupc</i> is greater than to <i class="farg">maxgrp</i>, and 0 otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">setgroupent</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">int *retval</i>, <i class="ftype">int stayopen</i><p>
+<i class="farg">retval</i> should be set to 0 on failure and 1 on success.<p>
+All methods for all sources are invoked for this method name.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">setgrent</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Empty <i class="farg">ap</i>.<p>
+All methods for all sources are invoked for this method name.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x4d6574686f647320666f72206e657467726f7570206461746162617365">Methods for netgroup database</h2> <span class="symb">NOTE:</span> The method APIs for this database will be changing in the near future.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">endnetgrent</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Empty <i class="farg">ap</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">lookup</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">char *name</i>, <i class="ftype">char **line</i>, <i class="ftype">int bywhat</i><p>
+Find the given <i class="farg">name</i> and return its value in <i class="farg">line</i>. <i class="farg">bywhat</i> is one of <span class="define">_NG_KEYBYNAME</span>, <span class="define">_NG_KEYBYUSER</span>, or <span class="define">_NG_KEYBYHOST</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getnetgrent</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">int *retval</i>, <i class="ftype">const char **host</i>, <i class="ftype">const char **user</i>, <i class="ftype">const char **domain</i><p>
+<i class="farg">*retval</i> should be set to 0 for no more netgroup members and 1 otherwise.<p>
+<a class="link-man" href="../3/getnetgrent">getnetgrent(3)</a> returns <i class="farg">*retval</i> if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span>, 0 otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">innetgr</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">int *retval</i>, <i class="ftype">const char *grp</i>, <i class="ftype">const char *host</i>, <i class="ftype">const char *user</i>, <i class="ftype">const char *domain</i><p>
+<i class="farg">*retval</i> should be set to 1 for a successful match and 0 otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">setnetgrent</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">const char *netgroup</i></dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x4d6574686f647320666f72206e6574776f726b73206461746162617365">Methods for networks database</h2><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getnetbyaddr</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">struct netent **retval</i>, <i class="ftype">uint32_t net</i>, <i class="ftype">int type</i><p>
+<i class="farg">*retval</i> should be set to a pointer to an internal static <i class="ftype">struct netent</i> on success, <span class="define">NULL</span> otherwise.<p>
+<a class="link-man" href="../3/getnetbyaddr">getnetbyaddr(3)</a> returns <i class="farg">*retval</i> if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span>, <span class="define">NULL</span> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getnetbyname</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">struct netent **retval</i>, <i class="ftype">const char *name</i><p>
+<i class="farg">*retval</i> should be set to a pointer to an internal static <i class="ftype">struct netent</i> on success, <span class="define">NULL</span> otherwise.<p>
+<a class="link-man" href="../3/getnetbyname">getnetbyname(3)</a> returns <i class="farg">*retval</i> if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span>, <span class="define">NULL</span> otherwise.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x4d6574686f647320666f722070617373776420616e64207061737377645f636f6d70617420646174616261736573">Methods for passwd and passwd_compat databases</h2><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">endpwent</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Empty <i class="farg">ap</i>.<p>
+All methods for all sources are invoked for this method name.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getpwent</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">struct passwd **retval</i><p>
+<i class="farg">*retval</i> should be set to a pointer to an internal static <i class="ftype">struct passwd</i> on success, <span class="define">NULL</span> otherwise.<p>
+<a class="link-man" href="../3/getpwent">getpwent(3)</a> returns <i class="farg">*retval</i> if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span>, <span class="define">NULL</span> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getpwent_r</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">int *retval</i>, <i class="ftype">struct passwd *pw</i>, <i class="ftype">char *buffer</i>, <i class="ftype">size_t buflen</i>, <i class="ftype">struct passwd **result</i><p>
+<i class="farg">*retval</i> should be set to an appropriate <a class="link-man" href="../2/errno">errno(2)</a> on failure.<p>
+<a class="link-man" href="../3/getpwent_r">getpwent_r(3)</a> returns 0 if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span> or <span class="define">NS_NOTFOUND</span>, and <i class="farg">*retval</i> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getpwnam</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">struct passwd **retval</i>, <i class="ftype">const char *name</i><p>
+<i class="farg">*retval</i> should be set to a pointer to an internal static <i class="ftype">struct passwd</i> on success, <span class="define">NULL</span> otherwise.<p>
+<a class="link-man" href="../3/getpwnam">getpwnam(3)</a> returns <i class="farg">*retval</i> if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span>, <span class="define">NULL</span> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getpwnam_r</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">int *retval</i>, <i class="ftype">const char *name</i>, <i class="ftype">struct passwd *pw</i>, <i class="ftype">char *buffer</i>, <i class="ftype">size_t buflen</i>, <i class="ftype">struct passwd **result</i><p>
+<i class="farg">*retval</i> should be set to an appropriate <a class="link-man" href="../2/errno">errno(2)</a> on failure.<p>
+<a class="link-man" href="../3/getpwnam_r">getpwnam_r(3)</a> returns 0 if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span> or <span class="define">NS_NOTFOUND</span>, and <i class="farg">*retval</i> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getpwuid</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">struct passwd **retval</i>, <i class="ftype">uid_t uid</i><p>
+<i class="farg">*retval</i> should be set to a pointer to an internal static <i class="ftype">struct passwd</i> on success, <span class="define">NULL</span> otherwise.<p>
+<a class="link-man" href="../3/getpwuid">getpwuid(3)</a> returns <i class="farg">*retval</i> if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span>, <span class="define">NULL</span> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getpwuid_r</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">int *retval</i>, <i class="ftype">uid_t uid</i>, <i class="ftype">struct passwd *pw</i>, <i class="ftype">char *buffer</i>, <i class="ftype">size_t buflen</i>, <i class="ftype">struct passwd **result</i><p>
+<i class="farg">*retval</i> should be set to an appropriate <a class="link-man" href="../2/errno">errno(2)</a> on failure.<p>
+<a class="link-man" href="../3/getpwuid_r">getpwuid_r(3)</a> returns 0 if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span> or <span class="define">NS_NOTFOUND</span>, and <i class="farg">*retval</i> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">setpassent</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">int *retval</i>, <i class="ftype">int stayopen</i><p>
+<i class="farg">retval</i> should be set to 0 on failure and 1 on success.<p>
+All methods for all sources are invoked for this method name.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">setpwent</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Empty <i class="farg">ap</i>.<p>
+All methods for all sources are invoked for this method name.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x4d6574686f647320666f72207368656c6c73206461746162617365">Methods for shells database</h2><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">endusershell</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Empty <i class="farg">ap</i>.<p>
+All methods for all sources are invoked for this method name.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">getusershell</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+<i class="ftype">char **retval</i><p>
+<a class="link-man" href="../3/getusershell">getusershell(3)</a> returns <i class="farg">*retval</i> if <b class="fname">nsdispatch</b>() returns <span class="define">NS_SUCCESS</span>, and 0 otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">setusershell</span></dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Empty <i class="farg">ap</i>.<p>
+All methods for all sources are invoked for this method name.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../1/ld.elf_so">ld.elf_so(1)</a>, <a class="link-man" href="../3/hesiod">hesiod(3)</a>, <a class="link-man" href="../3/stdarg">stdarg(3)</a>, <a class="link-man" href="../3/ypclnt">ypclnt(3)</a>, <a class="link-man" href="../5/nsswitch.conf">nsswitch.conf(5)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">nsdispatch</b> routines first appeared in <span class="unix">NetBSD&#160;1.4</span>. Support for dynamically-loaded modules first appeared in <span class="unix">NetBSD&#160;3.0</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <span class="author">Luke Mewburn</span> &#60;<a class="link-mail" href="mailto:lukem@NetBSD.org">lukem@NetBSD.org</a>&#62; wrote this freely distributable name-service switch implementation, using ideas from the ULTRIX <a class="link-man" href="../5/svc.conf">svc.conf(5)</a> and Solaris <a class="link-man" href="../4/nsswitch.conf">nsswitch.conf(4)</a> manual pages. Support for dynamically-loaded modules was added by <span class="author">Jason Thorpe</span> &#60;<a class="link-mail" href="mailto:thorpej@NetBSD.org">thorpej@NetBSD.org</a>&#62;, based on code developed by the <span class="unix">FreeBSD</span> Project.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+January 4, 2015</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

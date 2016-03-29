@@ -1,0 +1,236 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+PTRACE(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PTRACE(2)</td>
+<td class="head-vol" align="center">
+System Calls Manual</td>
+<td class="head-rtitle" align="right">
+PTRACE(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">ptrace</b> &#8212; <span class="desc">process tracing and debugging</span></div>
+<div class="section">
+<h1 id="x4c494252415259">LIBRARY</h1> <span class="lib">Standard C Library (libc, &#45;lc)</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/types.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/ptrace.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">ptrace</b>(<i class="farg" style="white-space:nowrap;">int request</i>, <i class="farg" style="white-space:nowrap;">pid_t pid</i>, <i class="farg" style="white-space:nowrap;">void *addr</i>, <i class="farg" style="white-space:nowrap;">int data</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="fname">ptrace</b>() provides tracing and debugging facilities. It allows one process (the <span class="emph">tracing</span> process) to control another (the <span class="emph">traced</span> process). Most of the time, the traced process runs normally, but when it receives a signal (see <a class="link-man" href="../2/sigaction">sigaction(2)</a>), it stops. The tracing process is expected to notice this via <a class="link-man" href="../2/wait">wait(2)</a> or the delivery of a <span class="define">SIGCHLD</span> signal, examine the state of the stopped process, and cause it to terminate or continue as appropriate. <b class="fname">ptrace</b>() is the mechanism by which all this happens.<p>
+The <i class="farg">request</i> argument specifies what operation is being performed; the meaning of the rest of the arguments depends on the operation, but except for one special case noted below, all <b class="fname">ptrace</b>() calls are made by the tracing process, and the <i class="farg">pid</i> argument specifies the process ID of the traced process. <i class="farg">request</i> can be:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_TRACE_ME</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+This request is the only one used by the traced process; it declares that the process expects to be traced by its parent. All the other arguments are ignored. (If the parent process does not expect to trace the child, it will probably be rather confused by the results; once the traced process stops, it cannot be made to continue except via <b class="fname">ptrace</b>().) When a process has used this request and calls <a class="link-man" href="../2/execve">execve(2)</a> or any of the routines built on it (such as <a class="link-man" href="../3/execv">execv(3)</a>), it will stop before executing the first instruction of the new image. Also, any setuid or setgid bits on the executable being executed will be ignored.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_READ_I</span>, <span class="define">PT_READ_D</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+These requests read a single <code class="lit">int</code> of data from the traced process' address space. Traditionally, <b class="fname">ptrace</b>() has allowed for machines with distinct address spaces for instruction and data, which is why there are two requests: conceptually, <span class="define">PT_READ_I</span> reads from the instruction space and <span class="define">PT_READ_D</span> reads from the data space. In the current <span class="unix">NetBSD</span> implementation, these two requests are completely identical. The <i class="farg">addr</i> argument specifies the address (in the traced process' virtual address space) at which the read is to be done. This address does not have to meet any alignment constraints. The value read is returned as the return value from <b class="fname">ptrace</b>().</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_WRITE_I</span>, <span class="define">PT_WRITE_D</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+These requests parallel <span class="define">PT_READ_I</span> and <span class="define">PT_READ_D</span>, except that they write rather than read. The <i class="farg">data</i> argument supplies the value to be written.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_CONTINUE</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The traced process continues execution. <i class="farg">addr</i> is an address specifying the place where execution is to be resumed (a new value for the program counter), or <code class="lit">(void *)1</code> to indicate that execution is to pick up where it left off. <i class="farg">data</i> provides a signal number to be delivered to the traced process as it resumes execution, or 0 if no signal is to be sent. If a negative value is supplied, that is the negative of the LWP ID of the thread to be resumed, and only that thread executes.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_KILL</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The traced process terminates, as if <span class="define">PT_CONTINUE</span> had been used with <span class="define">SIGKILL</span> given as the signal to be delivered.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_ATTACH</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+This request allows a process to gain control of an otherwise unrelated process and begin tracing it. It does not need any cooperation from the to-be-traced process. In this case, <i class="farg">pid</i> specifies the process ID of the to-be-traced process, and the other two arguments are ignored. This request requires that the target process must have the same real UID as the tracing process, and that it must not be executing a setuid or setgid executable. (If the tracing process is running as root, these restrictions do not apply.) The tracing process will see the newly-traced process stop and may then control it as if it had been traced all along.<p>
+Three other restrictions apply to all tracing processes, even those running as root. First, no process may trace a system process. Second, no process may trace the process running <a class="link-man" href="../8/init">init(8)</a>. Third, if a process has its root directory set with <a class="link-man" href="../2/chroot">chroot(2)</a>, it may not trace another process unless that process's root directory is at or below the tracing process's root.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_DETACH</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+This request is like PT_CONTINUE, except that after it succeeds, the traced process is no longer traced and continues execution normally.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_IO</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+This request is a more general interface that can be used instead of <span class="define">PT_READ_D</span>, <span class="define">PT_WRITE_D</span>, <span class="define">PT_READ_I</span>, and <span class="define">PT_WRITE_I</span>. The I/O request is encoded in a &#8220;<code class="lit">struct ptrace_io_desc</code>&#8221; defined as:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct ptrace_io_desc { 
+	int	piod_op; 
+	void	*piod_offs; 
+	void	*piod_addr; 
+	size_t	piod_len; 
+};</pre>
+<p>
+where <i class="farg">piod_offs</i> is the offset within the traced process where the I/O operation should take place, <i class="farg">piod_addr</i> is the buffer in the tracing process, and <i class="farg">piod_len</i> is the length of the I/O request. The <i class="farg">piod_op</i> field specifies which type of I/O operation to perform. Possible values are:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PIOD_READ_D</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PIOD_WRITE_D</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PIOD_READ_I</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PIOD_WRITE_I</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PIOD_READ_AUXV</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+</dd>
+</dl>
+<p>
+See the description of <span class="define">PT_READ_I</span> for the difference between I and D spaces. The <span class="define">PIOD_READ_AUXV</span> operation can be used to read from the ELF auxiliary vector. A pointer to the I/O descriptor is passed in the <i class="farg">addr</i> argument to <b class="fname">ptrace</b>(). On return, the <i class="farg">piod_len</i> field in the I/O descriptor will be updated with the actual number of bytes transferred. If the requested I/O could not be successfully performed, <b class="fname">ptrace</b>() will return <code class="lit">&#45;1</code> and set <b class="var">errno</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_DUMPCORE</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Makes the process specified in the <i class="farg">pid</i> pid generate a core dump. The <i class="farg">addr</i> argument should contain the name of the core file to be generated and the <i class="farg">data</i> argument should contain the length of the core filename. This <b class="name">ptrace</b> call currently does not stop the child process so it can generate inconsistent data.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_LWPINFO</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Returns information about a thread from the list of threads for the process specified in the <i class="farg">pid</i> argument. The <i class="farg">addr</i> argument should contain a &#8220;<code class="lit">struct ptrace_lwpinfo</code>&#8221; defined as:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct ptrace_lwpinfo { 
+	lwpid_t pl_lwpid; 
+	int pl_event; 
+};</pre>
+<p>
+where <i class="farg">pl_lwpid</i> contains a thread LWP ID. Information is returned for the thread following the one with the specified ID in the process thread list, or for the first thread if <i class="farg">pl_lwpid</i> is 0. Upon return <i class="farg">pl_lwpid</i> contains the LWP ID of the thread that was found, or 0 if there is no thread after the one whose LWP ID was supplied in the call. <i class="farg">pl_event</i> contains the event that stopped the thread. Possible values are:<p>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PL_EVENT_NONE</span></dt>
+<dd class="list-tag" style="margin-left: 30.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">PL_EVENT_SIGNAL</span></dt>
+<dd class="list-tag" style="margin-left: 30.00ex;">
+</dd>
+</dl>
+<p>
+The <i class="farg">data</i> argument should contain &#8220;<code class="lit">sizeof(struct ptrace_lwpinfo)</code>&#8221;.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_SYSCALL</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Stops a process before and after executing each system call.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_SYSCALLEMU</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Intercept and ignore a system call before it has been executed, for use with <span class="define">PT_SYSCALL</span>.</dd>
+</dl>
+<p>
+Additionally, the following requests exist but are not available on all machine architectures. The file <b class="includes">&lt;<a class="link-includes">machine/ptrace.h</a>&gt;</b> lists which requests exist on a given machine.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_STEP</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Execution continues as in request PT_CONTINUE; however as soon as possible after execution of at least one instruction, execution stops again. If the <i class="farg">data</i> argument is greater than 0, it contains the LWP ID of the thread to be stepped, and any other threads are continued. If the <i class="farg">data</i> argument is less than zero, it contains the negative of the LWP ID of the thread to be stepped, and only that thread executes.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_GETREGS</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+This request reads the traced process' machine registers into the &#8220;<code class="lit">struct reg</code>&#8221; (defined in <b class="includes">&lt;<a class="link-includes">machine/reg.h</a>&gt;</b>) pointed to by <i class="farg">addr</i>. The <i class="farg">data</i> argument contains the LWP ID of the thread whose registers are to be read. If zero is supplied, the first thread of the process is read.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_SETREGS</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+This request is the converse of <span class="define">PT_GETREGS</span>; it loads the traced process' machine registers from the &#8220;<code class="lit">struct reg</code>&#8221; (defined in <b class="includes">&lt;<a class="link-includes">machine/reg.h</a>&gt;</b>) pointed to by <i class="farg">addr</i>. The <i class="farg">data</i> argument contains the LWP ID of the thread whose registers are to be written. If zero is supplied, the first thread of the process is written.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_GETFPREGS</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+This request reads the traced process' floating-point registers into the &#8220;<code class="lit">struct fpreg</code>&#8221; (defined in <b class="includes">&lt;<a class="link-includes">machine/reg.h</a>&gt;</b>) pointed to by <i class="farg">addr</i>. The <i class="farg">data</i> argument contains the LWP ID of the thread whose registers are to be read. If zero is supplied, the first thread of the process is read.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_SETFPREGS</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+This request is the converse of <span class="define">PT_GETFPREGS</span>; it loads the traced process' floating-point registers from the &#8220;<code class="lit">struct fpreg</code>&#8221; (defined in <b class="includes">&lt;<a class="link-includes">machine/reg.h</a>&gt;</b>) pointed to by <i class="farg">addr</i>. The <i class="farg">data</i> argument contains the LWP ID of the thread whose registers are to be written. If zero is supplied, the first thread of the process is written.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">PT_DUMPCORE</span></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Cause the traced process to dump core. If the <i class="farg">addr</i> argument is not <span class="define">NULL</span> it is taken to be the pathname of the core file to be generated and the <i class="farg">data</i> argument should contain the length of the pathname. The pathname may contain <span class="define">%</span> patterns that are expanded as described in <a class="link-man" href="../8/sysctl">sysctl(8)</a>. If the <i class="farg">data</i> argument is <span class="define">NULL</span>, the default core file path generation rules are followed.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4552524f5253">ERRORS</h1> Some requests can cause <b class="fname">ptrace</b>() to return <code class="lit">&#45;1</code> as a non-error value; to disambiguate, <b class="var">errno</b> can be set to 0 before the call and checked afterwards. The possible errors are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EAGAIN</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Process is currently exec'ing and cannot be traced.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EBUSY</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 0.00em;">
+<span class="define">PT_ATTACH</span> was attempted on a process that was already being traced.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+A request attempted to manipulate a process that was being traced by some process other than the one making the request.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+A request (other than <span class="define">PT_ATTACH</span>) specified a process that wasn't stopped.</li>
+</ul>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EINVAL</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 0.00em;">
+A process attempted to use <span class="define">PT_ATTACH</span> on itself.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+The <i class="farg">request</i> was not a legal request on this machine architecture.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+The signal number (in <i class="farg">data</i>) to <span class="define">PT_CONTINUE</span> was neither 0 nor a legal signal number.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+<span class="define">PT_GETREGS</span>, <span class="define">PT_SETREGS</span>, <span class="define">PT_GETFPREGS</span>, or <span class="define">PT_SETFPREGS</span> was attempted on a process with no valid register set. (This is normally true only of system processes.)</li>
+</ul>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">EPERM</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 0.00em;">
+A request (other than <span class="define">PT_ATTACH</span>) attempted to manipulate a process that wasn't being traced at all.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+An attempt was made to use <span class="define">PT_ATTACH</span> on a process in violation of the requirements listed under <span class="define">PT_ATTACH</span> above.</li>
+</ul>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#91;<span class="errno">ESRCH</span>&#93;</dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+No process having the specified process ID exists.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../2/sigaction">sigaction(2)</a>, <a class="link-man" href="../7/signal">signal(7)</a></div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> On the SPARC, the PC is set to the provided PC value for <span class="define">PT_CONTINUE</span> and similar calls, but the NPC is set willy-nilly to 4 greater than the PC value. Using <span class="define">PT_GETREGS</span> and <span class="define">PT_SETREGS</span> to modify the PC, passing <code class="lit">(void *)1</code> to <b class="fname">ptrace</b>(), should be able to sidestep this.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+July 1, 2015</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

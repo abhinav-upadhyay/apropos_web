@@ -1,0 +1,364 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+ALTQ(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+ALTQ(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+ALTQ(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">ALTQ</b> &#8212; <span class="desc">kernel interfaces for manipulating output queues on network interfaces</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/types.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">sys/socket.h</a>&gt;</b><br>
+<b class="includes">#include &lt;<a class="link-includes">net/if.h</a>&gt;</b><p>
+<i class="ftype">void</i><br>
+<b class="fname">IFQ_ENQUEUE</b>(<i class="farg" style="white-space:nowrap;">struct ifaltq *ifq</i>, <i class="farg" style="white-space:nowrap;">struct mbuf *m</i>, <i class="farg" style="white-space:nowrap;">struct altq_pktattr *pattr</i>, <i class="farg" style="white-space:nowrap;">int err</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">IFQ_DEQUEUE</b>(<i class="farg" style="white-space:nowrap;">struct ifaltq *ifq</i>, <i class="farg" style="white-space:nowrap;">struct mbuf *m</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">IFQ_POLL</b>(<i class="farg" style="white-space:nowrap;">struct ifaltq *ifq</i>, <i class="farg" style="white-space:nowrap;">struct mbuf *m</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">IFQ_PURGE</b>(<i class="farg" style="white-space:nowrap;">struct ifaltq *ifq</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">IFQ_CLASSIFY</b>(<i class="farg" style="white-space:nowrap;">struct ifaltq *ifq</i>, <i class="farg" style="white-space:nowrap;">struct mbuf *m</i>, <i class="farg" style="white-space:nowrap;">int af</i>, <i class="farg" style="white-space:nowrap;">struct altq_pktattr *pattr</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">IFQ_IS_EMPTY</b>(<i class="farg" style="white-space:nowrap;">struct ifaltq *ifq</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">IFQ_SET_MAXLEN</b>(<i class="farg" style="white-space:nowrap;">struct ifaltq *ifq</i>, <i class="farg" style="white-space:nowrap;">int len</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">IFQ_INC_LEN</b>(<i class="farg" style="white-space:nowrap;">struct ifaltq *ifq</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">IFQ_DEC_LEN</b>(<i class="farg" style="white-space:nowrap;">struct ifaltq *ifq</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">IFQ_INC_DROPS</b>(<i class="farg" style="white-space:nowrap;">struct ifaltq *ifq</i>);<p>
+<i class="ftype">void</i><br>
+<b class="fname">IFQ_SET_READY</b>(<i class="farg" style="white-space:nowrap;">struct ifaltq *ifq</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">ALTQ</b> system is a framework to manage queueing disciplines on network interfaces. <b class="name">ALTQ</b> introduces new macros to manipulate output queues. The output queue macros are used to abstract queue operations and not to touch the internal fields of the output queue structure. The macros are independent from the <b class="name">ALTQ</b> implementation, and compatible with the traditional <span class="define">ifqueue</span> macros for ease of transition.<p>
+<b class="fname">IFQ_ENQUEUE</b>() enqueues a packet <i class="farg">m</i> to the queue <i class="farg">ifq</i>. The underlying queueing discipline may discard the packet. <i class="farg">err</i> is set to 0 on success, or <span class="define">ENOBUFS</span> if the packet is discarded. <i class="farg">m</i> will be freed by the device driver on success or by the queueing discipline on failure, so that the caller should not touch <i class="farg">m</i> after calling <b class="fname">IFQ_ENQUEUE</b>().<p>
+<b class="fname">IFQ_DEQUEUE</b>() dequeues a packet from the queue. The dequeued packet is returned in <i class="farg">m</i>, or <i class="farg">m</i> is set to <span class="define">NULL</span> if no packet is dequeued. The caller must always check <i class="farg">m</i> since a non-empty queue could return <span class="define">NULL</span> under rate-limiting.<p>
+<b class="fname">IFQ_POLL</b>() returns the next packet without removing it from the queue. It is guaranteed by the underlying queueing discipline that <b class="fname">IFQ_DEQUEUE</b>() immediately after <b class="fname">IFQ_POLL</b>() returns the same packet.<p>
+<b class="fname">IFQ_PURGE</b>() discards all the packets in the queue. The purge operation is needed since a non-work conserving queue cannot be emptied by a dequeue loop.<p>
+<b class="fname">IFQ_CLASSIFY</b>() classifies a packet to a scheduling class, and returns the result in <i class="farg">pattr</i>.<p>
+<b class="fname">IFQ_IS_EMPTY</b>() can be used to check if the queue is empty. Note that <b class="fname">IFQ_DEQUEUE</b>() could still return <span class="define">NULL</span> if the queueing discipline is non-work conserving.<p>
+<b class="fname">IFQ_SET_MAXLEN</b>() sets the queue length limit to the default FIFO queue.<p>
+<b class="fname">IFQ_INC_LEN</b>() and <b class="fname">IFQ_DEC_LEN</b>() increment or decrement the current queue length in packets.<p>
+<b class="fname">IFQ_INC_DROPS</b>() increments the drop counter and is equal to <b class="fname">IF_DROP</b>(). It is defined for naming consistency.<p>
+<b class="fname">IFQ_SET_READY</b>() sets a flag to indicate this driver is converted to use the new macros. <b class="name">ALTQ</b> can be enabled only on interfaces with this flag.</div>
+<div class="section">
+<h1 id="x434f4d5041544942494c495459">COMPATIBILITY</h1><div class="subsection">
+<h2 id="x6966616c747120737472756374757265">ifaltq structure</h2> In order to keep compatibility with the existing code, the new output queue structure <span class="define">ifaltq</span> has the same fields. The traditional <b class="fname">IF_XXX</b>() macros and the code directly referencing the fields within <span class="define">if_snd</span> still work with <span class="define">ifaltq</span>. (Once we finish conversions of all the drivers, we no longer need these fields.)<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            ##old-style##                           ##new-style## 
+                                       | 
+ struct ifqueue {                      | struct ifaltq { 
+    struct mbuf *ifq_head;             |    struct mbuf *ifq_head; 
+    struct mbuf *ifq_tail;             |    struct mbuf *ifq_tail; 
+    int          ifq_len;              |    int          ifq_len; 
+    int          ifq_maxlen;           |    int          ifq_maxlen; 
+    int          ifq_drops;            |    int          ifq_drops; 
+ };                                    |    /* altq related fields */ 
+                                       |    ...... 
+                                       | }; 
+                                       |</pre>
+The new structure replaces <span class="define">struct ifqueue</span> in <span class="define">struct ifnet</span>.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            ##old-style##                           ##new-style## 
+                                       | 
+ struct ifnet {                        | struct ifnet { 
+     ....                              |     .... 
+                                       | 
+     struct ifqueue if_snd;            |     struct ifaltq if_snd; 
+                                       | 
+     ....                              |     .... 
+ };                                    | }; 
+                                       |</pre>
+The (simplified) new <b class="fname">IFQ_XXX</b>() macros looks like:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+	#ifdef ALTQ 
+	#define IFQ_DEQUEUE(ifq, m)			&#92; 
+		if (ALTQ_IS_ENABLED((ifq))		&#92; 
+			ALTQ_DEQUEUE((ifq), (m));	&#92; 
+		else					&#92; 
+			IF_DEQUEUE((ifq), (m)); 
+	#else 
+	#define IFQ_DEQUEUE(ifq, m)	IF_DEQUEUE((ifq), (m)); 
+	#endif</pre>
+</div>
+<div class="subsection">
+<h2 id="x456e7175657565206f7065726174696f6e">Enqueue operation</h2> The semantics of the enqueue operation are changed. In the new style, enqueue and packet drop are combined since they cannot be easily separated in many queueing disciplines. The new enqueue operation corresponds to the following macro that is written with the old macros.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define	IFQ_ENQUEUE(ifq, m, pattr, err)                   &#92; 
+do {                                                      &#92; 
+        if (ALTQ_IS_ENABLED((ifq)))                       &#92; 
+                ALTQ_ENQUEUE((ifq), (m), (pattr), (err)); &#92; 
+        else {                                            &#92; 
+                if (IF_QFULL((ifq))) {                    &#92; 
+                        m_freem((m));                     &#92; 
+                        (err) = ENOBUFS;                  &#92; 
+                } else {                                  &#92; 
+                        IF_ENQUEUE((ifq), (m));           &#92; 
+                        (err) = 0;                        &#92; 
+                }                                         &#92; 
+        }                                                 &#92; 
+        if ((err))                                        &#92; 
+                (ifq)-&gt;ifq_drops++;                       &#92; 
+} while (/*CONSTCOND*/ 0)</pre>
+<p>
+<b class="fname">IFQ_ENQUEUE</b>() does the following:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-hyph">
+<li class="list-hyph" style="margin-top: 0.00em;">
+queue a packet</li>
+<li class="list-hyph" style="margin-top: 0.00em;">
+drop (and free) a packet if the enqueue operation fails</li>
+</ul>
+If the enqueue operation fails, <i class="farg">err</i> is set to <span class="define">ENOBUFS</span>. <i class="farg">m</i> is freed by the queueing discipline. The caller should not touch mbuf after calling <b class="fname">IFQ_ENQUEUE</b>() so that the caller may need to copy <i class="farg">m_pkthdr.len</i> or <i class="farg">m_flags</i> field beforehand for statistics. The caller should not use <b class="fname">senderr</b>() since mbuf was already freed.<p>
+The new style <b class="fname">if_output</b>() looks as follows:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            ##old-style##                           ##new-style## 
+                                       | 
+ int                                   | int 
+ ether_output(ifp, m0, dst, rt0)       | ether_output(ifp, m0, dst, rt0) 
+ {                                     | { 
+     ......                            |     ...... 
+                                       | 
+                                       |     mflags = m-&gt;m_flags; 
+                                       |     len = m-&gt;m_pkthdr.len; 
+     s = splimp();                     |     s = splimp(); 
+     if (IF_QFULL(&amp;ifp-&gt;if_snd)) {     |     IFQ_ENQUEUE(&amp;ifp-&gt;if_snd, m, 
+                                       |                 NULL, error); 
+         IF_DROP(&amp;ifp-&gt;if_snd);        |     if (error != 0) { 
+         splx(s);                      |         splx(s); 
+         senderr(ENOBUFS);             |         return (error); 
+     }                                 |     } 
+     IF_ENQUEUE(&amp;ifp-&gt;if_snd, m);      | 
+     ifp-&gt;if_obytes +=                 |     ifp-&gt;if_obytes += len; 
+                    m-&gt;m_pkthdr.len;   | 
+     if (m-&gt;m_flags &amp; M_MCAST)         |     if (mflags &amp; M_MCAST) 
+         ifp-&gt;if_omcasts++;            |         ifp-&gt;if_omcasts++; 
+                                       | 
+     if ((ifp-&gt;if_flags &amp; IFF_OACTIVE) |     if ((ifp-&gt;if_flags &amp; IFF_OACTIVE) 
+         == 0)                         |         == 0) 
+         (*ifp-&gt;if_start)(ifp);        |         (*ifp-&gt;if_start)(ifp); 
+     splx(s);                          |     splx(s); 
+     return (error);                   |     return (error); 
+                                       | 
+ bad:                                  | bad: 
+     if (m)                            |     if (m) 
+         m_freem(m);                   |         m_freem(m); 
+     return (error);                   |     return (error); 
+ }                                     | } 
+                                       |</pre>
+</div>
+<div class="subsection">
+<h2 id="x436c6173736966696572">Classifier</h2> The classifier mechanism is currently implemented in <b class="fname">if_output</b>(). <span class="define">struct altq_pktattr</span> is used to store the classifier result, and it is passed to the enqueue function. (We will change the method to tag the classifier result to mbuf in the future.)<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+int 
+ether_output(ifp, m0, dst, rt0) 
+{ 
+	...... 
+	struct altq_pktattr pktattr; 
+ 
+	...... 
+ 
+	/* classify the packet before prepending link-headers */ 
+	IFQ_CLASSIFY(&amp;ifp-&gt;if_snd, m, dst-&gt;sa_family, &amp;pktattr); 
+ 
+	/* prepend link-level headers */ 
+	...... 
+ 
+	IFQ_ENQUEUE(&amp;ifp-&gt;if_snd, m, &amp;pktattr, error); 
+ 
+	...... 
+}</pre>
+</div>
+</div>
+<div class="section">
+<h1 id="x484f5720544f20434f4e5645525420544845204558495354494e472044524956455253">HOW TO CONVERT THE EXISTING DRIVERS</h1> First, make sure the corresponding <b class="fname">if_output</b>() is already converted to the new style.<p>
+Look for <i class="farg">if_snd</i> in the driver. You will probably need to make changes to the lines that include <i class="farg">if_snd</i>.<div class="subsection">
+<h2 id="x456d70747920636865636b206f7065726174696f6e">Empty check operation</h2> If the code checks <i class="farg">ifq_head</i> to see whether the queue is empty or not, use <b class="fname">IFQ_IS_EMPTY</b>().<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            ##old-style##                           ##new-style## 
+                                       | 
+ if (ifp-&gt;if_snd.ifq_head != NULL)     | if (IFQ_IS_EMPTY(&amp;ifp-&gt;if_snd) == 0) 
+                                       |</pre>
+Note that <b class="fname">IFQ_POLL</b>() can be used for the same purpose, but <b class="fname">IFQ_POLL</b>() could be costly for a complex scheduling algorithm since <b class="fname">IFQ_POLL</b>() needs to run the scheduling algorithm to select the next packet. On the other hand, <b class="fname">IFQ_IS_EMPTY</b>() checks only if there is any packet stored in the queue. Another difference is that even when <b class="fname">IFQ_IS_EMPTY</b>() is <span class="define">false</span>, <b class="fname">IFQ_DEQUEUE</b>() could still return <span class="define">NULL</span> if the queue is under rate-limiting.</div>
+<div class="subsection">
+<h2 id="x44657175657565206f7065726174696f6e">Dequeue operation</h2> Replace <b class="fname">IF_DEQUEUE</b>() by <b class="fname">IFQ_DEQUEUE</b>(). Always check whether the dequeued mbuf is <span class="define">NULL</span> or not. Note that even when <b class="fname">IFQ_IS_EMPTY</b>() is <span class="define">false</span>, <b class="fname">IFQ_DEQUEUE</b>() could return <span class="define">NULL</span> due to rate-limiting.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            ##old-style##                           ##new-style## 
+                                       | 
+ IF_DEQUEUE(&amp;ifp-&gt;if_snd, m);          | IFQ_DEQUEUE(&amp;ifp-&gt;if_snd, m); 
+                                       | if (m == NULL) 
+                                       |     return; 
+                                       |</pre>
+A driver is supposed to call <b class="fname">if_start</b>() from transmission complete interrupts in order to trigger the next dequeue.</div>
+<div class="subsection">
+<h2 id="x506f6c6c1e616e641e64657175657565206f7065726174696f6e">Poll-and-dequeue operation</h2> If the code polls the packet at the head of the queue and actually uses the packet before dequeueing it, use <b class="fname">IFQ_POLL</b>() and <b class="fname">IFQ_DEQUEUE</b>().<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            ##old-style##                           ##new-style## 
+                                       | 
+ m = ifp-&gt;if_snd.ifq_head;             | IFQ_POLL(&amp;ifp-&gt;if_snd, m); 
+ if (m != NULL) {                      | if (m != NULL) { 
+                                       | 
+     /* use m to get resources */      |     /* use m to get resources */ 
+     if (something goes wrong)         |     if (something goes wrong) 
+         return;                       |         return; 
+                                       | 
+     IF_DEQUEUE(&amp;ifp-&gt;if_snd, m);      |     IFQ_DEQUEUE(&amp;ifp-&gt;if_snd, m); 
+                                       | 
+     /* kick the hardware */           |     /* kick the hardware */ 
+ }                                     | } 
+                                       |</pre>
+It is guaranteed that <b class="fname">IFQ_DEQUEUE</b>() immediately after <b class="fname">IFQ_POLL</b>() returns the same packet. Note that they need to be guarded by <b class="fname">splimp</b>() if called from outside of <b class="fname">if_start</b>().</div>
+<div class="subsection">
+<h2 id="x456c696d696e6174696e672049465f50524550454e44">Eliminating IF_PREPEND</h2> If the code uses <b class="fname">IF_PREPEND</b>(), you have to eliminate it since the prepend operation is not possible for many queueing disciplines. A common use of <b class="fname">IF_PREPEND</b>() is to cancel the previous dequeue operation. You have to convert the logic into poll-and-dequeue.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            ##old-style##                           ##new-style## 
+                                       | 
+ IF_DEQUEUE(&amp;ifp-&gt;if_snd, m);          | IFQ_POLL(&amp;ifp-&gt;if_snd, m); 
+ if (m != NULL) {                      | if (m != NULL) { 
+                                       | 
+     if (something_goes_wrong) {       |     if (something_goes_wrong) { 
+         IF_PREPEND(&amp;ifp-&gt;if_snd, m);  | 
+         return;                       |         return; 
+     }                                 |     } 
+                                       | 
+                                       |     /* at this point, the driver 
+                                       |      * is committed to send this 
+                                       |      * packet. 
+                                       |      */ 
+                                       |     IFQ_DEQUEUE(&amp;ifp-&gt;if_snd, m); 
+                                       | 
+     /* kick the hardware */           |     /* kick the hardware */ 
+ }                                     | } 
+                                       |</pre>
+</div>
+<div class="subsection">
+<h2 id="x5075726765206f7065726174696f6e">Purge operation</h2> Use <b class="fname">IFQ_PURGE</b>() to empty the queue. Note that a non-work conserving queue cannot be emptied by a dequeue loop.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            ##old-style##                           ##new-style## 
+                                       | 
+ while (ifp-&gt;if_snd.ifq_head != NULL) {|  IFQ_PURGE(&amp;ifp-&gt;if_snd); 
+     IF_DEQUEUE(&amp;ifp-&gt;if_snd, m);      | 
+     m_freem(m);                       | 
+ }                                     | 
+                                       |</pre>
+</div>
+<div class="subsection">
+<h2 id="x41747461636820726f7574696e65">Attach routine</h2> Use <b class="fname">IFQ_SET_MAXLEN</b>() to set <i class="farg">ifq_maxlen</i> to <i class="farg">len</i>. Add <b class="fname">IFQ_SET_READY</b>() to show this driver is converted to the new style. (This is used to distinguish new-style drivers.)<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            ##old-style##                           ##new-style## 
+                                       | 
+ ifp-&gt;if_snd.ifq_maxlen = qsize;       | IFQ_SET_MAXLEN(&amp;ifp-&gt;if_snd, qsize); 
+                                       | IFQ_SET_READY(&amp;ifp-&gt;if_snd); 
+ if_attach(ifp);                       | if_attach(ifp); 
+                                       |</pre>
+</div>
+<div class="subsection">
+<h2 id="x4f7468657220697373756573">Other issues</h2> The new macros for statistics:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            ##old-style##                           ##new-style## 
+                                       | 
+ IF_DROP(&amp;ifp-&gt;if_snd);                | IFQ_INC_DROPS(&amp;ifp-&gt;if_snd); 
+                                       | 
+ ifp-&gt;if_snd.ifq_len++;                | IFQ_INC_LEN(&amp;ifp-&gt;if_snd); 
+                                       | 
+ ifp-&gt;if_snd.ifq_len--;                | IFQ_DEC_LEN(&amp;ifp-&gt;if_snd); 
+                                       |</pre>
+Some drivers instruct the hardware to invoke transmission complete interrupts only when it thinks necessary. Rate-limiting breaks its assumption.</div>
+<div class="subsection">
+<h2 id="x486f7720746f20636f6e766572742064726976657273207573696e67206d756c7469706c65206966717565756573">How to convert drivers using multiple ifqueues</h2> Some (pseudo) devices (such as slip) have another <span class="define">ifqueue</span> to prioritize packets. It is possible to eliminate the second queue since <b class="name">ALTQ</b> provides more flexible mechanisms but the following shows how to keep the original behavior.<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct sl_softc { 
+	struct	ifnet sc_if;		/* network-visible interface */ 
+	... 
+	struct	ifqueue sc_fastq;	/* interactive output queue */ 
+	... 
+};</pre>
+The driver doesn't compile in the new model since it has the following line (<i class="farg">if_snd</i> is no longer a type of <span class="define">struct ifqueue</span>).<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+	struct ifqueue *ifq = &amp;ifp-&gt;if_snd;</pre>
+A simple way is to use the original <b class="fname">IF_XXX</b>() macros for <i class="farg">sc_fastq</i> and use the new <b class="fname">IFQ_XXX</b>() macros for <i class="farg">if_snd</i>. The enqueue operation looks like:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            ##old-style##                           ##new-style## 
+                                       | 
+ struct ifqueue *ifq = &amp;ifp-&gt;if_snd;   | struct ifqueue *ifq = NULL; 
+                                       | 
+ if (ip-&gt;ip_tos &amp; IPTOS_LOWDELAY)      | if ((ip-&gt;ip_tos &amp; IPTOS_LOWDELAY) &amp;&amp; 
+     ifq = &amp;sc-&gt;sc_fastq;              | !ALTQ_IS_ENABLED(&amp;sc-&gt;sc_if.if_snd)) { 
+                                       |     ifq = &amp;sc-&gt;sc_fastq; 
+ if (IF_QFULL(ifq)) {                  |     if (IF_QFULL(ifq)) { 
+     IF_DROP(ifq);                     |         IF_DROP(ifq); 
+     m_freem(m);                       |         m_freem(m); 
+     splx(s);                          |         error = ENOBUFS; 
+     sc-&gt;sc_if.if_oerrors++;           |     } else { 
+     return (ENOBUFS);                 |         IF_ENQUEUE(ifq, m); 
+ }                                     |         error = 0; 
+ IF_ENQUEUE(ifq, m);                   |     } 
+                                       | } else 
+                                       |     IFQ_ENQUEUE(&amp;sc-&gt;sc_if.if_snd, 
+                                       |                 m, NULL, error); 
+                                       | 
+                                       | if (error) { 
+                                       |     splx(s); 
+                                       |     sc-&gt;sc_if.if_oerrors++; 
+                                       |     return (error); 
+                                       | } 
+ if ((sc-&gt;sc_oqlen =                   | if ((sc-&gt;sc_oqlen = 
+      sc-&gt;sc_ttyp-&gt;t_outq.c_cc) == 0)  |      sc-&gt;sc_ttyp-&gt;t_outq.c_cc) == 0) 
+     slstart(sc-&gt;sc_ttyp);             |     slstart(sc-&gt;sc_ttyp); 
+ splx(s);                              | splx(s); 
+                                       |</pre>
+The dequeue operations looks like:<p>
+<pre style="margin-left: 0.00ex;" class="lit display">
+            ##old-style##                           ##new-style## 
+                                       | 
+ s = splimp();                         | s = splimp(); 
+ IF_DEQUEUE(&amp;sc-&gt;sc_fastq, m);         | IF_DEQUEUE(&amp;sc-&gt;sc_fastq, m); 
+ if (m == NULL)                        | if (m == NULL) 
+     IF_DEQUEUE(&amp;sc-&gt;sc_if.if_snd, m); |     IFQ_DEQUEUE(&amp;sc-&gt;sc_if.if_snd, m); 
+ splx(s);                              | splx(s); 
+                                       |</pre>
+</div>
+</div>
+<div class="section">
+<h1 id="x5155455545494e47204449534349504c494e4553">QUEUEING DISCIPLINES</h1> Queueing disciplines need to maintain <i class="farg">ifq_len</i> (used by <b class="fname">IFQ_IS_EMPTY</b>()). Queueing disciplines also need to guarantee the same mbuf is returned if <b class="fname">IFQ_DEQUEUE</b>() is called immediately after <b class="fname">IFQ_POLL</b>().</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../4/pf">pf(4)</a>, <a class="link-man" href="../5/altq.conf">altq.conf(5)</a>, <a class="link-man" href="../5/pf.conf">pf.conf(5)</a>, <a class="link-man" href="../8/altqd">altqd(8)</a>, <a class="link-man" href="../8/tbrconfig">tbrconfig(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">ALTQ</b> system first appeared in March 1997.</div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+October 12, 2006</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+

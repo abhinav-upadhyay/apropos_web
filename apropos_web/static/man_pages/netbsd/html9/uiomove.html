@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/../4/strict.dtd">
+>
+<head>
+<meta http-equiv="Content-Type" content="te../; charset=utf-8">
+<meta name="resource-type" content="document">
+<link rel="stylesheet" href="../style.css" type="text/css" media="all">
+<title>
+UIOMOVE(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<table summary="Document Header" class="head" width="100%">
+<col width="30%">
+<col width="30%">
+<col width="30%">
+<tbody>
+<tr>
+<td class="head-ltitle">
+UIOMOVE(9)</td>
+<td class="head-vol" align="center">
+Kernel Developer's Manual</td>
+<td class="head-rtitle" align="right">
+UIOMOVE(9)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">uiomove</b> &#8212; <span class="desc">move data described by a struct uio</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/systm.h</a>&gt;</b><p>
+<i class="ftype">int</i><br>
+<b class="fname">uiomove</b>(<i class="farg" style="white-space:nowrap;">void *buf</i>, <i class="farg" style="white-space:nowrap;">size_t n</i>, <i class="farg" style="white-space:nowrap;">struct uio *uio</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="fname">uiomove</b>() function copies up to <i class="farg">n</i> bytes between the kernel-space address pointed to by <i class="farg">buf</i> and the addresses described by <i class="farg">uio</i>, which may be in user-space or kernel-space.<p>
+The <i class="farg">uio</i> argument is a pointer to a <b class="var">struct uio</b> as defined by <b class="includes">&lt;<a class="link-includes">sys/uio.h</a>&gt;</b>:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct uio { 
+	struct	iovec *uio_iov; 
+	int	uio_iovcnt; 
+	off_t	uio_offset; 
+	size_t	uio_resid; 
+	enum	uio_rw uio_rw; 
+	struct	vmspace *uio_vmspace; 
+};</pre>
+<p>
+A <b class="var">struct uio</b> typically describes data in motion. Several of the fields described below reflect that expectation.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">uio_iov</b></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Pointer to array of I/O vectors to be processed. The <b class="var">struct iovec</b> is defined to be:<p>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct iovec { 
+	void	*iov_base; 
+	size_t	 iov_len; 
+};</pre>
+<p>
+The members in the <b class="var">struct iovec</b> should only be initialized. These are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 5.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">iov_base</b></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The address for a range of memory to or from which data is transferred.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">iov_len</b></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The number of bytes of data to be transferred to or from the range of memory starting at <b class="var">iov_base</b>.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">uio_iovcnt</b></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The number of I/O vectors in the <b class="var">uio_iov</b> array.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">uio_offset</b></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+An offset into the corresponding object.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">uio_resid</b></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The amount of space described by the structure; notionally, the amount of data remaining to be transferred.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">uio_rw</b></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+A flag indicating whether data should be read into the space (UIO_READ) or written from the space (UIO_WRITE).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">uio_vmspace</b></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+A pointer to the address space which is being transferred to or from.</dd>
+</dl>
+<p>
+The value of <b class="var">uio-&gt;uio_rw</b> controls whether <b class="fname">uiomove</b>() copies data from <i class="farg">buf</i> to <i class="farg">uio</i> or vice versa.<p>
+The lesser of <i class="farg">n</i> or <b class="var">uio-&gt;uio_resid</b> bytes are copied.<p>
+<b class="fname">uiomove</b>() changes fields of the structure pointed to by <i class="farg">uio</i>, such that <b class="var">uio-&gt;uio_resid</b> is decremented by the amount of data moved, <b class="var">uio-&gt;uio_offset</b> is incremented by the same amount, and the array of iovecs is adjusted to point that much farther into the region described. This allows multiple calls to <b class="fname">uiomove</b>() to easily be used to fill or drain the region of data.</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> Upon successful completion, <b class="fname">uiomove</b>() returns 0. If a bad address is encountered, <span class="errno">EFAULT</span> is returned.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../9/copy">copy(9)</a>, <a class="link-man" href="../9/fetch">fetch(9)</a>, <a class="link-man" href="../9/store">store(9)</a></div>
+<table summary="Document Footer" class="foot" width="100%">
+<col width="50%">
+<col width="50%">
+<tbody>
+<tr>
+<td class="foot-date">
+April 26, 2010</td>
+<td class="foot-os" align="right">
+NetBSD 7.99</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+<>
+
