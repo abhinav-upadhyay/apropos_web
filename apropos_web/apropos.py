@@ -43,6 +43,9 @@ def manpage(os, section, name):
     referrer = request.referrer
     _log_click(name, section, rank, query, ip, platform, browser, version,
             language, referrer, time.time())
+
+    #Hack to serve the static html files through Nginx
+    #Source: http://flask.pocoo.org/snippets/118/
     host = request.host
     path = 'man_pages/' + os + '/html' + section + '/' + name + '.html'
     url = 'http://' + host + url_for('static', filename=path) #TODO don't hardcode the scheme
