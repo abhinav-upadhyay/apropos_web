@@ -4,6 +4,9 @@ import time
 from urlparse import urlparse
 from flask import Flask, url_for, render_template, send_from_directory
 from flask import request
+from flask import Response
+from flask import stream_with_context
+import requests
 from lrupy import LRUCache
 from . import apropos_db_logger
 from . import logger
@@ -25,6 +28,10 @@ def get_results():
 
 @app.route("/man/<os>/<section>/<name>")
 def manpage(os, section, name):
+    '''
+    Log the search query to the DB and serve the static man page
+    '''
+
     rank = request.args.get('r')
     query = request.args.get('q')
     ip = request.remote_addr
@@ -34,11 +41,14 @@ def manpage(os, section, name):
     version = user_agent.version
     language = user_agent.language
     referrer = request.referrer
-    previous_query = _get_previous_query(referrer)
     _log_click(name, section, rank, query, ip, platform, browser, version,
             language, referrer, time.time())
+    host = request.host
     path = 'man_pages/' + os + '/html' + section + '/' + name + '.html'
-    return send_from_directory('static', path)
+    url = 'http://' + host + url_for('static', filename=path) #TODO don't hardcode the scheme
+    req = requests.get(url, stream=True)
+#    return send_from_directory('static', path)
+    return Response(stream_with_context(req.iter_content()), content_type=req.headers['content-type'])
 
 @app.route("/search")
 def search():
