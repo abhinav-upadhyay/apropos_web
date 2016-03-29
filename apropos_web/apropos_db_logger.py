@@ -34,7 +34,7 @@ class AproposDBLogger(object):
                              language, referrer, click_time))
         except Exception:
             self.logger.exception('''Failed to log click with values:
-                                  page_name: %s, rank: %d, query: %s, ip: %s, platform: %s,
+                                  page_name: %s, rank: %s, query: %s, ip: %s, platform: %s,
                                   browser: %s, version: %s, language: %s, referrer: %s,
                                   click_time: %s''', page_name, rank, query, ip, platform,
                                   browser, version, language, referrer, click_time)
