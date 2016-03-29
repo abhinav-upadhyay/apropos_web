@@ -47,8 +47,8 @@ class AproposDBLogger(object):
                 conn.execute('''INSERT INTO QUERY_LOG (query, previous_query, ip,
                              platform, browser, version, language, referrer,
                              query_time) VALUES (?,?,?,?,?,?,?,?,?)''',
-                             query, previous_query, ip, platform, browser, version,
-                             language, referrer, query_time)
+                             (query, previous_query, ip, platform, browser, version,
+                             language, referrer, query_time))
         except Exception:
             self.logger.exception('''Failed to log query with values: query: %s
                                   previous_query: %s, ip: %s, platform: %s, browser: %s,
