@@ -9,6 +9,7 @@ from flask import stream_with_context
 import requests
 from lrupy.lrupy import LRUCache
 from . import apropos_db_logger
+from . import config
 from . import logger
 
 app = Flask(__name__)
@@ -112,7 +113,7 @@ def _log_click(page_name, section, rank, query, ip, platform, browser, version,
                        language, referrer, click_time)
 
 def _search(query):
-    command = '/home/abhinav/dev/apropos_replacement/apropos -j %s' % query
+    command = config.APROPOS_PATH + ' -j %s' % query
     args = command.split()
     proc = subprocess.Popen(args,
                             stdin=subprocess.PIPE,
