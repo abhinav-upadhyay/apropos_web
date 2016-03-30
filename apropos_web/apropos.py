@@ -85,8 +85,13 @@ def search():
             pass
         cache.add(query, results)
     if results is not None:
-        results = results[page * 10: page * 10 + 10]
-    return render_template('results.html', results=results, query=query, page=page,
+        start_index = page * 10
+        end_index = page * 10 + 10
+        next_page = False
+        if len(results) >= end_index:
+            next_page= True
+        results = results[start_index: end_index]
+    return render_template('results.html', results=results, query=query, page=page, next_page=next_page,
                            netbsd_logo_url=url_for('static', filename='images/netbsd.png'))
 
 def _log_query(query, previous_query, ip, platform, browser, version, language, referrer):
