@@ -43,7 +43,7 @@ def manpage(os, section, name):
     language = user_agent.language
     referrer = request.referrer
     _log_click(name, section, rank, query, ip, platform, browser, version,
-            language, referrer, time.time())
+            language, referrer, int(time.time()))
 
     #Hack to serve the static html files through Nginx
     #Source: http://flask.pocoo.org/snippets/118/
@@ -101,7 +101,7 @@ def search():
 
 def _log_query(query, previous_query, ip, platform, browser, version, language, referrer):
     dblogger.log_query(query, previous_query, ip, platform, browser, version,
-                       language, referrer, time.time())
+                       language, referrer, int(time.time()))
 
 def _get_previous_query(referrer):
     if referrer is None or referrer == '':
