@@ -58,6 +58,8 @@ def manpage(os, section, name):
 def search():
     query = request.args.get('q')
     page = request.args.get('p', 0)
+    netbsd_logo_url = url_for('static', filename='images/netbsd.png')
+
     try:
         page = int(page)
     except ValueError:
@@ -84,15 +86,18 @@ def search():
             #todo handle this
             pass
         cache.add(query, results)
-    if results is not None:
-        start_index = page * 10
-        end_index = page * 10 + 10
-        next_page = False
-        if len(results) >= end_index:
-            next_page= True
-        results = results[start_index: end_index]
+
+    if results is None or len(results) == 0:
+        return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
+
+    start_index = page * 10
+    end_index = page * 10 + 10
+    next_page = False
+    if len(results) >= end_index:
+        next_page= True
+    results = results[start_index: end_index]
     return render_template('results.html', results=results, query=query, page=page, next_page=next_page,
-                           netbsd_logo_url=url_for('static', filename='images/netbsd.png'))
+                           netbsd_logo_url=netbsd_logo_url)
 
 def _log_query(query, previous_query, ip, platform, browser, version, language, referrer):
     dblogger.log_query(query, previous_query, ip, platform, browser, version,
