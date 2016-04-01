@@ -54,6 +54,7 @@ def manpage(os, section, name):
 #    return send_from_directory('static', path)
     return Response(stream_with_context(req.iter_content()), content_type=req.headers['content-type'])
 
+@app.route("/search/")
 @app.route("/search")
 def search():
     query = request.args.get('q')
