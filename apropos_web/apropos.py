@@ -22,11 +22,6 @@ def index():
     return render_template('index.html',
             netbsd_logo_url=url_for('static', filename='images/netbsd.png'))
 
-@app.route("/res")
-def get_results():
-    return render_template('results.html',
-            netbsd_logo_url=url_for('static', filename='images/netbsd.png'))
-
 @app.route("/man/<os>/<section>/<name>")
 def manpage(os, section, name):
     '''
