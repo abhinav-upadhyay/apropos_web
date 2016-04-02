@@ -34,7 +34,7 @@ class AproposDBLogger(object):
             with conn:
                 conn.execute('''INSERT INTO page_visit_log (page_id, ip, platform, browser,
                 version, language, visit_time) values (?,?,?,?,?,?,?)''',
-                page_id, ip, platform, browser, version, language, visit_time)
+                (page_id, ip, platform, browser, version, language, visit_time))
         except Exception:
             self.logger.exception('''Failed to log page visit with values:
             page_id: %d, ip: %s, platform: %s, browser: %s, version:%s, language:%s,

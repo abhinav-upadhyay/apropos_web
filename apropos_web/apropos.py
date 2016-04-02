@@ -19,6 +19,15 @@ dblogger = apropos_db_logger.AproposDBLogger()
 
 @app.route("/")
 def index():
+    ip = request.remote_addr
+    user_agent = request.user_agent
+    platform = user_agent.platform
+    browser = user_agent.browser
+    version = user_agent.version
+    language = user_agent.language
+    referrer = request.referrer
+    dblogger.log_page_visit(1, ip, platform, browser, version, language, referrer,
+            int(time.time()))
     return render_template('index.html',
             netbsd_logo_url=url_for('static', filename='images/netbsd.png'))
 
