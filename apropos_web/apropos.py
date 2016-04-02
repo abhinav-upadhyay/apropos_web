@@ -62,6 +62,10 @@ def manpage(os, section, name):
 @app.route("/search")
 def search():
     query = request.args.get('q')
+    if query is None or query == '':
+        return render_template('index.html',
+                               netbsd_logo_url=url_for('static', filename='images/netbsd.png'))
+
     page = request.args.get('p', 0)
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
 
