@@ -8,6 +8,12 @@ class AproposDBLogger(object):
     def __init__(self):
         self.logger = logger.get_logger()
 
+    def log_home_page_visit(self, ip, platform, browser, version, language, referrer, visit_time):
+        t = Thread(target=self._log_home_page_visit, args=(ip, platform, browser,
+            version, language, visit_time))
+        t.setDaemon(True)
+        t.start()
+
     def log_query(self, query, previous_query, ip, platform, browser, version,
             language, referrer, query_time):
         t = Thread(target=self._log_query, args=(query, previous_query, ip,
@@ -21,6 +27,9 @@ class AproposDBLogger(object):
             platform, browser, version, language, referrer, click_time))
         t.setDaemon(True)
         t.start()
+
+    def _log_home_page_visit(self, ip, platform, browser, version, language, visit_time):
+
 
     def _log_click(self, page_name, section, rank, query, ip, platform, browser, version,
             language, referrer, click_time):
