@@ -8,8 +8,8 @@ class AproposDBLogger(object):
     def __init__(self):
         self.logger = logger.get_logger()
 
-    def log_home_page_visit(self, ip, platform, browser, version, language, referrer, visit_time):
-        t = Thread(target=self._log_home_page_visit, args=(ip, platform, browser,
+    def log_page_visit(self, page_id, ip, platform, browser, version, language, referrer, visit_time):
+        t = Thread(target=self._log_page_visit, args=(page_id, ip, platform, browser,
             version, language, visit_time))
         t.setDaemon(True)
         t.start()
@@ -28,7 +28,19 @@ class AproposDBLogger(object):
         t.setDaemon(True)
         t.start()
 
-    def _log_home_page_visit(self, ip, platform, browser, version, language, visit_time):
+    def _log_page_visit(self, page_id, ip, platform, browser, version, language, visit_time):
+        conn = self.get_connection()
+        try:
+            with conn:
+                conn.execute('''INSERT INTO page_visit_log (page_id, ip, platform, browser,
+                version, language, visit_time) values (?,?,?,?,?,?,?)''',
+                page_id, ip, platform, browser, version, language, visit_time)
+        except Exception:
+            self.logger.exception('''Failed to log page visit with values:
+            page_id: %d, ip: %s, platform: %s, browser: %s, version:%s, language:%s,
+            visit_time: %d''', page_id, ip, platform, browser, version, language,
+            visit_time)
+
 
 
     def _log_click(self, page_name, section, rank, query, ip, platform, browser, version,
