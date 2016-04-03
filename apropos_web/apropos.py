@@ -7,12 +7,14 @@ from flask import request
 from flask import Response
 from flask import stream_with_context
 import requests
+from werkzeug.contrib.fixers import ProxyFix
 from lrupy.lrupy import LRUCache
 from . import apropos_db_logger
 from . import config
 from . import logger
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app)
 cache = LRUCache(10240)
 _logger = logger.get_logger()
 dblogger = apropos_db_logger.AproposDBLogger()
