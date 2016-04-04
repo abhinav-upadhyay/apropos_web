@@ -88,26 +88,30 @@ def search():
         _log_query(query, previous_query, ip, platform, browser, version, language, referrer)
 
     results = cache.get(query)
+    suggestion = None
     if results is None:
         results = _search(query)
-        if results is None:
-            #todo handle this
-            pass
-        elif len(results) == 0:
-            #todo handle this
-            pass
-        cache.add(query, results)
-
-    if results is None or len(results) == 0:
-        return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
+        _logger.info(results)
+        if results is None or len(results) == 0:
+            return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
+        if results.get('error') is not None:
+            if results.get('category') == 'spell':
+                suggestion = results.get('suggestion')
+                results = _search(suggestion)
+                cache.add(suggestion, results)
+            else:
+                return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
+        else:
+            cache.add(query, results)
 
     start_index = page * 10
     end_index = page * 10 + 10
     next_page = False
-    if len(results) >= end_index:
+    results_list = results.get('results')
+    if len(results_list) >= end_index:
         next_page= True
-    results = results[start_index: end_index]
-    return render_template('results.html', results=results, query=query, page=page, next_page=next_page,
+    results_list = results_list[start_index: end_index]
+    return render_template('results.html', results=results_list, query=query, page=page, next_page=next_page, suggestion=suggestion,
                            netbsd_logo_url=netbsd_logo_url)
 
 def _log_query(query, previous_query, ip, platform, browser, version, language, referrer):
@@ -142,12 +146,13 @@ def _search(query):
                             stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
-        _logger.error('apropos returned error: %s', err)
-        return None
-    if out == '':
+        _logger.error('apropos returned error: %s for query %s', err, query)
+    if out is None or out == '':
+        _logger.info('No results for query %s', query)
         out = '[]'
     try:
-        return json.loads(out.replace('\n', '').replace('\t', '').replace('\\', '\\\\'))
+        out = filter(lambda x: x != '\n' and x != '\t' and ord(x) <= 127, out)
+        return json.loads(out.replace('\\', '\\\\'))
     except Exception:
         _logger.exception('Failed to parse JSON output: %s', out)
         return None
