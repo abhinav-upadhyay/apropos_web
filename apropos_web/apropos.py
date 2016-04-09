@@ -94,23 +94,27 @@ def search():
         _logger.info(results)
         if results is None or len(results) == 0:
             return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
-        if results.get('error') is not None:
-            if results.get('category') == 'spell':
-                suggestion = results.get('suggestion')
-                results = _search(suggestion)
-                cache.add(suggestion, results)
-            else:
-                return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
-        else:
-            cache.add(query, results)
+        error = results.get('error')
+        resultset = results.get('results')
+        if error is not None:
+            if error.get('category') == 'spell':
+                suggestion = error.get('suggestion')
+        if resultset is None and suggestion is None:
+            return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
+        elif (resultset is None or len(resultset) == 0) and suggestion is not None:
+            results = _search(suggestion)
+            resultset = results.get('results')
+            cache.add(suggestion, results)
+            query = suggestion
+        #else:
+        #    cache.add(query, results)
 
     start_index = page * 10
     end_index = page * 10 + 10
     next_page = False
-    results_list = results.get('results')
-    if len(results_list) >= end_index:
-        next_page= True
-    results_list = results_list[start_index: end_index]
+    if len(resultset) > end_index:
+        next_page = True
+    results_list = resultset[start_index: end_index]
     return render_template('results.html', results=results_list, query=query, page=page, next_page=next_page, suggestion=suggestion,
                            netbsd_logo_url=netbsd_logo_url)
 
