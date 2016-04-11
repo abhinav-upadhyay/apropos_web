@@ -47,6 +47,8 @@ def manpage(os, section, name):
     version = user_agent.version
     language = user_agent.language
     referrer = request.referrer
+    if query is None or query == '':
+        query = _get_previous_query(referrer)
     _log_click(name, section, rank, query, ip, platform, browser, version,
                language, referrer, int(time.time()))
 
@@ -56,6 +58,7 @@ def manpage(os, section, name):
     response.headers['Content-Type'] = 'text/html'
     response.headers['X-Accel-Redirect'] = path
     return response
+
 
 @app.route("/search/")
 @app.route("/search")
@@ -87,7 +90,7 @@ def search():
     if results is None:
         results = _search(query)
         _logger.info(results)
-        if results is None or len(results) == 0:
+        if results is None:
             return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
         error = results.get('error')
         resultset = results.get('results')
