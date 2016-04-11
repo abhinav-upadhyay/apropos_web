@@ -6,7 +6,7 @@ from flask import Flask, url_for, render_template, send_from_directory
 from flask import request
 from flask import Response
 from flask import stream_with_context
-import requests
+from flask import make_response
 from werkzeug.contrib.fixers import ProxyFix
 from lrupy.lrupy import LRUCache
 from . import apropos_db_logger
@@ -51,14 +51,12 @@ def manpage(os, section, name):
     _log_click(name, section, rank, query, ip, platform, browser, version,
             language, referrer, int(time.time()))
 
-    #Hack to serve the static html files through Nginx
-    #Source: http://flask.pocoo.org/snippets/118/
-    host = request.host
-    path = 'man_pages/' + os + '/html' + section + '/' + name + '.html'
-    url = 'http://' + host + url_for('static', filename=path) #TODO don't hardcode the scheme
-    req = requests.get(url, stream=True)
-#    return send_from_directory('static', path)
-    return Response(stream_with_context(req.iter_content()), content_type=req.headers['content-type'])
+    path = '/static/man_pages/' + os + '/html' + section + '/' + name + '.html'
+    response = make_response()
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['Content-Type'] = 'text/html'
+    response.headers['X-Accel-Redirect'] = path
+    return response
 
 @app.route("/search/")
 @app.route("/search")
