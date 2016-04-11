@@ -2,10 +2,8 @@ import json
 import subprocess
 import time
 from urlparse import urlparse
-from flask import Flask, url_for, render_template, send_from_directory
+from flask import Flask, url_for, render_template
 from flask import request
-from flask import Response
-from flask import stream_with_context
 from flask import make_response
 from werkzeug.contrib.fixers import ProxyFix
 from lrupy.lrupy import LRUCache
@@ -29,9 +27,9 @@ def index():
     language = user_agent.language
     referrer = request.referrer
     dblogger.log_page_visit(1, ip, platform, browser, version, language, referrer,
-            int(time.time()))
+                            int(time.time()))
     return render_template('index.html',
-            netbsd_logo_url=url_for('static', filename='images/netbsd.png'))
+                           netbsd_logo_url=url_for('static', filename='images/netbsd.png'))
 
 @app.route("/man/<os>/<section>/<name>")
 def manpage(os, section, name):
@@ -49,7 +47,7 @@ def manpage(os, section, name):
     language = user_agent.language
     referrer = request.referrer
     _log_click(name, section, rank, query, ip, platform, browser, version,
-            language, referrer, int(time.time()))
+               language, referrer, int(time.time()))
 
     path = '/static/man_pages/' + os + '/html' + section + '/' + name + '.html'
     response = make_response()
@@ -113,7 +111,8 @@ def search():
     if len(resultset) > end_index:
         next_page = True
     results_list = resultset[start_index: end_index]
-    return render_template('results.html', results=results_list, query=query, page=page, next_page=next_page, suggestion=suggestion,
+    return render_template('results.html', results=results_list, query=query,
+                           page=page, next_page=next_page, suggestion=suggestion,
                            netbsd_logo_url=netbsd_logo_url)
 
 def _log_query(query, previous_query, ip, platform, browser, version, language, referrer):
