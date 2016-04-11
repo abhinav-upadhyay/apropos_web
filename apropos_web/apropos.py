@@ -97,7 +97,7 @@ def search():
         if error is not None:
             if error.get('category') == 'spell':
                 suggestion = error.get('suggestion')
-        if resultset is None and suggestion is None:
+        if (resultset is None or len(resultset) == 0) and suggestion is None:
             return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
         elif (resultset is None or len(resultset) == 0) and suggestion is not None:
             results = _search(suggestion)
