@@ -28,8 +28,9 @@ def index():
     referrer = request.referrer
     dblogger.log_page_visit(1, ip, platform, browser, version, language, referrer,
                             int(time.time()))
+    netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     return render_template('index.html',
-                           netbsd_logo_url=url_for('static', filename='images/netbsd.png'))
+                           netbsd_logo_url=netbsd_logo_url)
 
 @app.route("/man/<os>/<section>/<name>")
 def manpage(os, section, name):
@@ -60,13 +61,11 @@ def manpage(os, section, name):
 @app.route("/search")
 def search():
     query = request.args.get('q')
+    netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     if query is None or query == '':
-        return render_template('index.html',
-                               netbsd_logo_url=url_for('static', filename='images/netbsd.png'))
+        return render_template('index.html', netbsd_logo_url=netbsd_logo_url)
 
     page = request.args.get('p', 0)
-    netbsd_logo_url = url_for('static', filename='images/netbsd.png')
-
     try:
         page = int(page)
     except ValueError:
