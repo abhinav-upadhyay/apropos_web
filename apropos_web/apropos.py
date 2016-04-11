@@ -102,10 +102,10 @@ def search():
         elif (resultset is None or len(resultset) == 0) and suggestion is not None:
             results = _search(suggestion)
             resultset = results.get('results')
+            if resultset is None or len(resultset) == 0:
+                return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
             cache.add(suggestion, results)
             query = suggestion
-        #else:
-        #    cache.add(query, results)
 
     start_index = page * 10
     end_index = page * 10 + 10
