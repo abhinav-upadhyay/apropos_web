@@ -34,6 +34,10 @@ def index():
 
 @app.route("/man/<os>/<section>/<name>")
 def manpage(os, section, name):
+    return manpage_arch(os, section, None, name)
+
+@app.route("/man/<os>/<section>/<arch>/<name>")
+def manpage_arch(os, section, arch, name):
     '''
     Log the search query to the DB and serve the static man page
     '''
@@ -52,7 +56,10 @@ def manpage(os, section, name):
     _log_click(name, section, rank, query, ip, platform, browser, version,
                language, referrer, int(time.time()))
 
-    path = '/static/man_pages/' + os + '/html' + section + '/' + name + '.html'
+    if arch is not None:
+        path = '/static/man_pages/' + os + '/html' + section + '/' + arch + '/' + name + '.html'
+    else:
+        path = '/static/man_pages/' + os + '/html' + section + '/' + name + '.html'
     response = make_response()
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['Content-Type'] = 'text/html'
