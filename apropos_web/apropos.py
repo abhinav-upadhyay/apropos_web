@@ -13,12 +13,18 @@ from . import logger
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)
-cache = LRUCache(10240)
+caches = {}
 _logger = logger.get_logger()
 dblogger = apropos_db_logger.AproposDBLogger()
 
 @app.route("/")
 def index():
+    return dist_index('netbsd')
+
+@app.route("/<dist>/")
+def dist_index(dist):
+    if dist not in config.DB_PATHS:
+        pass #Return 404
     ip = request.remote_addr
     user_agent = request.user_agent
     platform = user_agent.platform
@@ -27,17 +33,17 @@ def index():
     language = user_agent.language
     referrer = request.referrer
     dblogger.log_page_visit(1, ip, platform, browser, version, language, referrer,
-                            int(time.time()))
+                            int(time.time()), dist)
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     return render_template('index.html',
                            netbsd_logo_url=netbsd_logo_url)
 
-@app.route("/man/<os>/<section>/<name>")
-def manpage(os, section, name):
-    return manpage_arch(os, section, None, name)
+@app.route("/man/<dist>/<section>/<name>")
+def manpage(dist, section, name):
+    return manpage_arch(dist, section, None, name)
 
-@app.route("/man/<os>/<section>/<arch>/<name>")
-def manpage_arch(os, section, arch, name):
+@app.route("/man/<dist>/<section>/<arch>/<name>")
+def manpage_arch(dist, section, arch, name):
     '''
     Log the search query to the DB and serve the static man page
     '''
@@ -54,22 +60,27 @@ def manpage_arch(os, section, arch, name):
     if query is None or query == '':
         query = _get_previous_query(referrer)
     _log_click(name, section, rank, query, ip, platform, browser, version,
-               language, referrer, int(time.time()))
+               language, referrer, int(time.time()), dist)
 
     if arch is not None:
-        path = '/static/man_pages/' + os + '/html' + section + '/' + arch + '/' + name + '.html'
+        path = '/static/man_pages/' + dist + '/html' + section + '/' + arch + '/' + name + '.html'
     else:
-        path = '/static/man_pages/' + os + '/html' + section + '/' + name + '.html'
+        path = '/static/man_pages/' + dist + '/html' + section + '/' + name + '.html'
     response = make_response()
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['Content-Type'] = 'text/html'
     response.headers['X-Accel-Redirect'] = path
     return response
 
-
-@app.route("/search/")
-@app.route("/search")
-def search():
+@app.route("/<dist>/search/")
+@app.route("/<dist>/search")
+def os_specific_search(dist):
+    if dist is None or dist == '':
+        dist = 'netbsd'
+    db_path = config.DB_PATHS.get(dist)
+    if db_path is None:
+        #TODO show message about OS not supported
+        pass
     query = request.args.get('q')
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     if query is None or query == '':
@@ -90,12 +101,17 @@ def search():
         language = user_agent.language
         referrer = request.referrer
         previous_query = _get_previous_query(referrer)
-        _log_query(query, previous_query, ip, platform, browser, version, language, referrer)
+        _log_query(query, previous_query, ip, platform, browser, version, language, referrer, dist)
 
-    results = cache.get(query)
+    dist_results_cache = caches.get(dist)
+    if dist_results_cache is None:
+        dist_results_cache = LRUCache(config.DEFAULT_CACHE_SIZE)
+        caches[dist] = dist_results_cache
+
+    results = dist_results_cache.get(query) #TODO avoid looking up the cache when it is newly created
     suggestion = None
     if results is None:
-        results = _search(query)
+        results = _search(query, db_path)
         _logger.info(results)
         if results is None:
             return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
@@ -107,11 +123,11 @@ def search():
         if (resultset is None or len(resultset) == 0) and suggestion is None:
             return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
         elif (resultset is None or len(resultset) == 0) and suggestion is not None:
-            results = _search(suggestion)
+            results = _search(suggestion, db_path)
             resultset = results.get('results')
             if resultset is None or len(resultset) == 0:
                 return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
-            cache.add(suggestion, results)
+            dist_results_cache.add(suggestion, results)
             query = suggestion
 
     start_index = page * 10
@@ -124,9 +140,15 @@ def search():
                            page=page, next_page=next_page, suggestion=suggestion,
                            netbsd_logo_url=netbsd_logo_url)
 
-def _log_query(query, previous_query, ip, platform, browser, version, language, referrer):
+
+@app.route("/search/")
+@app.route("/search")
+def search():
+    return os_specific_search('netbsd')
+
+def _log_query(query, previous_query, ip, platform, browser, version, language, referrer, dist):
     dblogger.log_query(query, previous_query, ip, platform, browser, version,
-                       language, referrer, int(time.time()))
+                       language, referrer, int(time.time()), dist)
 
 def _get_previous_query(referrer):
     if referrer is None or referrer == '':
@@ -143,12 +165,15 @@ def _get_previous_query(referrer):
     return None
 
 def _log_click(page_name, section, rank, query, ip, platform, browser, version,
-               language, referrer, click_time):
+               language, referrer, click_time, dist):
     dblogger.log_click(page_name, section, rank, query, ip, platform, browser, version,
-                       language, referrer, click_time)
+                       language, referrer, click_time, dist)
 
-def _search(query):
+def _search(query, db_path=None):
     command = config.APROPOS_PATH + ' -j %s' % query
+    if db_path is not None:
+        command += ' -d %s' % db_path
+
     args = command.split()
     proc = subprocess.Popen(args,
                             stdin=subprocess.PIPE,

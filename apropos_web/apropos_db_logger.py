@@ -8,73 +8,73 @@ class AproposDBLogger(object):
     def __init__(self):
         self.logger = logger.get_logger()
 
-    def log_page_visit(self, page_id, ip, platform, browser, version, language, referrer, visit_time):
+    def log_page_visit(self, page_id, ip, platform, browser, version, language, referrer, visit_time, dist='netbsd'):
         t = Thread(target=self._log_page_visit, args=(page_id, ip, platform, browser,
-            version, language, visit_time))
+            version, language, visit_time, dist))
         t.setDaemon(True)
         t.start()
 
     def log_query(self, query, previous_query, ip, platform, browser, version,
-            language, referrer, query_time):
+            language, referrer, query_time, dist='netbsd'):
         t = Thread(target=self._log_query, args=(query, previous_query, ip,
-            platform, browser, version, language, referrer, query_time))
+            platform, browser, version, language, referrer, query_time, dist))
         t.setDaemon(True)
         t.start()
 
     def log_click(self, page_name, section, rank, query, ip, platform, browser,
-            version, language, referrer, click_time):
+            version, language, referrer, click_time, dist='netbsd'):
         t = Thread(target=self._log_click, args=(page_name, section, rank, query, ip,
-            platform, browser, version, language, referrer, click_time))
+            platform, browser, version, language, referrer, click_time, dist))
         t.setDaemon(True)
         t.start()
 
-    def _log_page_visit(self, page_id, ip, platform, browser, version, language, visit_time):
+    def _log_page_visit(self, page_id, ip, platform, browser, version, language, visit_time, dist):
         conn = self.get_connection()
         try:
             with conn:
-                conn.execute('''INSERT INTO page_visit_log (page_id, ip, platform, browser,
-                version, language, visit_time) values (?,?,?,?,?,?,?)''',
-                (page_id, ip, platform, browser, version, language, visit_time))
+                conn.execute('''INSERT INTO page_visit_log (dist, page_id, ip, platform, browser,
+                version, language, visit_time) values (?,?,?,?,?,?,?,?)''',
+                (dist, page_id, ip, platform, browser, version, language, visit_time))
         except Exception:
             self.logger.exception('''Failed to log page visit with values:
-            page_id: %d, ip: %s, platform: %s, browser: %s, version:%s, language:%s,
-            visit_time: %d''', page_id, ip, platform, browser, version, language,
+            dist: %s, page_id: %d, ip: %s, platform: %s, browser: %s, version:%s, language:%s,
+            visit_time: %d''', dist, page_id, ip, platform, browser, version, language,
             visit_time)
 
 
 
     def _log_click(self, page_name, section, rank, query, ip, platform, browser, version,
-            language, referrer, click_time):
+            language, referrer, click_time, dist):
         conn = self.get_connection()
         try:
             with conn:
-                conn.execute('''INSERT INTO CLICK_LOG (page_name, section, rank, query,
+                conn.execute('''INSERT INTO CLICK_LOG (dist, page_name, section, rank, query,
                              ip, platform, browser, version, language, referrer,
-                             click_time) VALUES(?,?,?,?,?,?,?,?,?,?,?)''',
-                             (page_name, section, rank, query, ip, platform, browser, version,
+                             click_time) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''',
+                             (dist, page_name, section, rank, query, ip, platform, browser, version,
                              language, referrer, click_time))
         except Exception:
             self.logger.exception('''Failed to log click with values:
-                                  page_name: %s, rank: %s, query: %s, ip: %s, platform: %s,
+                                  dist: %s, page_name: %s, rank: %s, query: %s, ip: %s, platform: %s,
                                   browser: %s, version: %s, language: %s, referrer: %s,
-                                  click_time: %s''', page_name, rank, query, ip, platform,
+                                  click_time: %s''', dist, page_name, rank, query, ip, platform,
                                   browser, version, language, referrer, click_time)
 
     def _log_query(self, query, previous_query, ip, platform, browser, version,
-                   language, referrer, query_time):
+                   language, referrer, query_time, dist='netbsd'):
         conn = self.get_connection()
         try:
             with conn:
-                conn.execute('''INSERT INTO QUERY_LOG (query, previous_query, ip,
+                conn.execute('''INSERT INTO QUERY_LOG (dist, query, previous_query, ip,
                              platform, browser, version, language, referrer,
-                             query_time) VALUES (?,?,?,?,?,?,?,?,?)''',
-                             (query, previous_query, ip, platform, browser, version,
+                             query_time) VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                             (dist, query, previous_query, ip, platform, browser, version,
                              language, referrer, query_time))
         except Exception:
-            self.logger.exception('''Failed to log query with values: query: %s
+            self.logger.exception('''Failed to log query with values: dist: %s, query: %s
                                   previous_query: %s, ip: %s, platform: %s, browser: %s,
                                   version: %s, language: %s, referrer: %s, query_time: %s''',
-                                  query, previous_query, ip, platform, browser, version,
+                                  dist, query, previous_query, ip, platform, browser, version,
                                   language, referrer, query_time)
 
     def get_connection(self):
