@@ -74,7 +74,7 @@ def manpage_arch(dist, section, arch, name):
 
 @app.route("/<dist>/search/")
 @app.route("/<dist>/search")
-def os_specific_search(dist):
+def dist_specific_search(dist):
     if dist is None or dist == '':
         dist = 'netbsd'
     db_path = config.DB_PATHS.get(dist)
@@ -136,7 +136,7 @@ def os_specific_search(dist):
     if len(resultset) > end_index:
         next_page = True
     results_list = resultset[start_index: end_index]
-    return render_template('results.html', results=results_list, query=query,
+    return render_template('results.html', dist=dist, results=results_list, query=query,
                            page=page, next_page=next_page, suggestion=suggestion,
                            netbsd_logo_url=netbsd_logo_url)
 
@@ -144,7 +144,7 @@ def os_specific_search(dist):
 @app.route("/search/")
 @app.route("/search")
 def search():
-    return os_specific_search('netbsd')
+    return dist_specific_search('netbsd')
 
 def _log_query(query, previous_query, ip, platform, browser, version, language, referrer, dist):
     dblogger.log_query(query, previous_query, ip, platform, browser, version,
