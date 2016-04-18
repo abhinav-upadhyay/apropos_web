@@ -1,0 +1,265 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of PCLOSE</TITLE>
+</HEAD><BODY>
+<H1>PCLOSE</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+pclose - close a pipe stream to or from a process
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/stdio.h">stdio.h</A>&gt;
+<BR>
+
+<P>
+int pclose(FILE *</B><I>stream</I><B>); </B>
+<B>
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The <I>pclose</I>() function shall close a stream that was opened by
+<I>popen</I>(), wait
+for the command to terminate, and return the termination status of
+the process that was running the command language interpreter.
+However, if a call caused the termination status to be unavailable
+to <I>pclose</I>(), then <I>pclose</I>() shall return -1 with
+<I>errno</I> set to [ECHILD] to report this situation. This can happen
+if the application calls one of the following functions:
+<DL COMPACT>
+<DT> *<DD>
+<I>wait</I>()
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+<I>waitpid</I>() with a <I>pid</I> argument less than or equal to 0
+or equal to the
+process ID of the command line interpreter
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+Any other function not defined in this volume of IEEE&nbsp;Std&nbsp;1003.1-2001
+that could do one of the above
+</DL>
+<P>
+
+<P>
+
+In any case, <I>pclose</I>() shall not return before the child process
+created by <I>popen</I>() has terminated.
+<P>
+
+If the command language interpreter cannot be executed, the child
+termination status returned by <I>pclose</I>() shall be as if
+the command language interpreter terminated using <I>exit</I>(127)
+or <I>_exit</I>(127).
+<P>
+
+The <I>pclose</I>() function shall not affect the termination status
+of any child of the calling process other than the one
+created by <I>popen</I>() for the associated stream.
+<P>
+
+If the argument <I>stream</I> to <I>pclose</I>() is not a pointer to
+a stream created by <I>popen</I>(), the result of <I>pclose</I>() is
+undefined.
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+Upon successful return, <I>pclose</I>() shall return the termination
+status of the command language interpreter. Otherwise,
+<I>pclose</I>() shall return -1 and set <I>errno</I> to indicate the
+error.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+The <I>pclose</I>() function shall fail if:
+<DL COMPACT>
+<DT><B>ECHILD</B>
+
+<DD>
+The status of the child process could not be obtained, as described
+above.
+<P>
+</DL>
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<P>
+
+None.
+<A NAME="lbAI">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+None.
+<A NAME="lbAJ">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+There is a requirement that <I>pclose</I>() not return before the child
+process terminates. This is intended to disallow
+implementations that return [EINTR] if a signal is received while
+waiting. If <I>pclose</I>() returned before the child terminated,
+there would be no way for the application to discover which child
+used to be associated with the stream, and it could not do the
+cleanup itself.
+<P>
+
+If the stream pointed to by <I>stream</I> was not created by <I>popen</I>(),
+historical
+implementations of <I>pclose</I>() return -1 without setting <I>errno</I>.
+To avoid requiring <I>pclose</I>() to set <I>errno</I>
+in this case, IEEE&nbsp;Std&nbsp;1003.1-2001 makes the behavior unspecified.
+An application should not use <I>pclose</I>() to close
+any stream that was not created by <I>popen</I>().
+<P>
+
+Some historical implementations of <I>pclose</I>() either block or
+ignore the signals SIGINT, SIGQUIT, and SIGHUP while waiting
+for the child process to terminate. Since this behavior is not described
+for the <I>pclose</I>() function in
+IEEE&nbsp;Std&nbsp;1003.1-2001, such implementations are not conforming. Also,
+some historical implementations return [EINTR] if a
+signal is received, even though the child process has not terminated.
+Such implementations are also considered non-conforming.
+<P>
+
+Consider, for example, an application that uses:
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>popen(&quot;command&quot;, &quot;r&quot;)
+</B>
+</PRE>
+
+</DL>
+
+<P>
+
+to start <I>command</I>, which is part of the same application. The
+parent writes a prompt to its standard output (presumably
+the terminal) and then reads from the <I>popen</I>()ed stream. The
+child reads the response
+from the user, does some transformation on the response (pathname
+expansion, perhaps) and writes the result to its standard output.
+The parent process reads the result from the pipe, does something
+with it, and prints another prompt. The cycle repeats. Assuming
+that both processes do appropriate buffer flushing, this would be
+expected to work.
+<P>
+
+To conform to IEEE&nbsp;Std&nbsp;1003.1-2001, <I>pclose</I>() must use <I>waitpid</I>(),
+or some similar function, instead of <I>wait</I>().
+<P>
+
+The code sample below illustrates how the <I>pclose</I>() function
+might be implemented on a system conforming to
+IEEE&nbsp;Std&nbsp;1003.1-2001.
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>int pclose(FILE *stream)
+{
+    int stat;
+    pid_t pid;
+
+
+    pid = &lt;pid for process created for stream by popen()&gt;
+    (void) fclose(stream);
+    while (waitpid(pid, &amp;stat, 0) == -1) {
+        if (errno != EINTR){
+            stat = -1;
+            break;
+        }
+    }
+    return(stat);
+}
+</B>
+</PRE>
+
+</DL>
+
+<A NAME="lbAK">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAL">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>fork</I>(), <I>popen</I>(), <I>waitpid</I>(),
+the Base Definitions volume of IEEE&nbsp;Std&nbsp;1003.1-2001, <I>&lt;<A HREF="file:///usr/include/stdio.h">stdio.h</A>&gt;</I>
+<A NAME="lbAM">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DT><A HREF="#lbAI">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAJ">RATIONALE</A><DD>
+<DT><A HREF="#lbAK">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAL">SEE ALSO</A><DD>
+<DT><A HREF="#lbAM">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:34 GMT, April 18, 2016
+</BODY>
+</HTML>

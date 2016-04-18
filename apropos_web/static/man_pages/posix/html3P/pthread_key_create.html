@@ -1,0 +1,335 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of PTHREAD_KEY_CREATE</TITLE>
+</HEAD><BODY>
+<H1>PTHREAD_KEY_CREATE</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+pthread_key_create - thread-specific data key creation
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;
+<BR>
+
+<P>
+int pthread_key_create(pthread_key_t *</B><I>key</I><B>, void (*</B><I>destructor</I><B>)(void*));
+</B>
+<B>
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The <I>pthread_key_create</I>() function shall create a thread-specific
+data key visible to all threads in the process. Key
+values provided by <I>pthread_key_create</I>() are opaque objects used
+to locate thread-specific data. Although the same key value
+may be used by different threads, the values bound to the key by <I>pthread_setspecific</I>()
+are maintained on a per-thread basis and persist for the
+life of the calling thread.
+<P>
+
+Upon key creation, the value NULL shall be associated with the new
+key in all active threads. Upon thread creation, the value
+NULL shall be associated with all defined keys in the new thread.
+<P>
+
+An optional destructor function may be associated with each key value.
+At thread exit, if a key value has a non-NULL destructor
+pointer, and the thread has a non-NULL value associated with that
+key, the value of the key is set to NULL, and then the function
+pointed to is called with the previously associated value as its sole
+argument. The order of destructor calls is unspecified if
+more than one destructor exists for a thread when it exits.
+<P>
+
+If, after all the destructors have been called for all non-NULL values
+with associated destructors, there are still some
+non-NULL values with associated destructors, then the process is repeated.
+If, after at least {PTHREAD_DESTRUCTOR_ITERATIONS}
+iterations of destructor calls for outstanding non-NULL values, there
+are still some non-NULL values with associated destructors,
+implementations may stop calling destructors, or they may continue
+calling destructors until no non-NULL values with associated
+destructors exist, even though this might result in an infinite loop.
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+If successful, the <I>pthread_key_create</I>() function shall store
+the newly created key value at *<I>key</I> and shall return
+zero. Otherwise, an error number shall be returned to indicate the
+error.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+The <I>pthread_key_create</I>() function shall fail if:
+<DL COMPACT>
+<DT><B>EAGAIN</B>
+
+<DD>
+The system lacked the necessary resources to create another thread-specific
+data key, or the system-imposed limit on the total
+number of keys per process {PTHREAD_KEYS_MAX} has been exceeded.
+<DT><B>ENOMEM</B>
+
+<DD>
+Insufficient memory exists to create the key.
+<P>
+</DL>
+<P>
+
+The <I>pthread_key_create</I>() function shall not return an error
+code of [EINTR].
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<P>
+
+The following example demonstrates a function that initializes a thread-specific
+data key when it is first called, and
+associates a thread-specific object with each calling thread, initializing
+this object when necessary.
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>static pthread_key_t key;
+static pthread_once_t key_once = PTHREAD_ONCE_INIT;
+
+
+static void
+make_key()
+{
+    (void) pthread_key_create(&amp;key, NULL);
+}
+
+
+func()
+{
+    void *ptr;
+
+
+    (void) pthread_once(&amp;key_once, make_key);
+    if ((ptr = pthread_getspecific(key)) == NULL) {
+        ptr = malloc(OBJECT_SIZE);
+        ...
+        (void) pthread_setspecific(key, ptr);
+    }
+    ...
+}
+</B>
+</PRE>
+
+</DL>
+
+<P>
+
+Note that the key has to be initialized before <I>pthread_getspecific</I>()
+or <I>pthread_setspecific</I>() can be used. The <I>pthread_key_create</I>()
+call could either be explicitly made in a module initialization routine,
+or it can be done implicitly by the first call to a module
+as in this example. Any attempt to use the key before it is initialized
+is a programming error, making the code below
+incorrect.
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>static pthread_key_t key;
+
+
+func()
+{
+    void *ptr;
+
+
+   /* KEY NOT INITIALIZED!!!  THIS WON'T WORK!!! */
+    if ((ptr = pthread_getspecific(key)) == NULL &amp;&amp;
+        pthread_setspecific(key, NULL) != 0) {
+        pthread_key_create(&amp;key, NULL);
+        ...
+    }
+}
+</B>
+</PRE>
+
+</DL>
+
+<A NAME="lbAI">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+None.
+<BR>
+
+<A NAME="lbAJ">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+<A NAME="lbAK">&nbsp;</A>
+<H3>Destructor Functions</H3>
+
+<P>
+
+Normally, the value bound to a key on behalf of a particular thread
+is a pointer to storage allocated dynamically on behalf of
+the calling thread. The destructor functions specified with <I>pthread_key_create</I>()
+are intended to be used to free this
+storage when the thread exits. Thread cancellation cleanup handlers
+cannot be used for this purpose because thread-specific data
+may persist outside the lexical scope in which the cancellation cleanup
+handlers operate.
+<P>
+
+If the value associated with a key needs to be updated during the
+lifetime of the thread, it may be necessary to release the
+storage associated with the old value before the new value is bound.
+Although the <I>pthread_setspecific</I>() function could do this automatically,
+this feature is not
+needed often enough to justify the added complexity. Instead, the
+programmer is responsible for freeing the stale storage:
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>pthread_getspecific(key, &amp;old);
+new = allocate();
+destructor(old);
+pthread_setspecific(key, new);
+</B>
+</PRE>
+
+</DL>
+
+<DL COMPACT>
+<DT><B>Note:</B><DD>
+The above example could leak storage if run with asynchronous cancellation
+enabled. No such problems occur in the default
+cancellation state if no cancellation points occur between the get
+and set.
+<P>
+</DL>
+<P>
+
+There is no notion of a destructor-safe function. If an application
+does not call <I>pthread_exit</I>() from a signal handler, or if it
+blocks any signal whose handler may call
+<I>pthread_exit</I>() while calling async-unsafe functions, all functions
+may be
+safely called from destructors.
+<A NAME="lbAL">&nbsp;</A>
+<H3>Non-Idempotent Data Key Creation</H3>
+
+<P>
+
+There were requests to make <I>pthread_key_create</I>() idempotent
+with respect to a given <I>key</I> address parameter. This
+would allow applications to call <I>pthread_key_create</I>() multiple
+times for a given <I>key</I> address and be guaranteed that
+only one key would be created. Doing so would require the key value
+to be previously initialized (possibly at compile time) to a
+known null value and would require that implicit mutual-exclusion
+be performed based on the address and contents of the <I>key</I>
+parameter in order to guarantee that exactly one key would be created.
+<P>
+
+Unfortunately, the implicit mutual-exclusion would not be limited
+to only <I>pthread_key_create</I>(). On many implementations,
+implicit mutual-exclusion would also have to be performed by <I>pthread_getspecific</I>()
+and <I>pthread_setspecific</I>() in order to guard against using incompletely
+stored or
+not-yet-visible key values. This could significantly increase the
+cost of important operations, particularly <I>pthread_getspecific</I>().
+<P>
+
+Thus, this proposal was rejected. The <I>pthread_key_create</I>() function
+performs no implicit synchronization. It is the
+responsibility of the programmer to ensure that it is called exactly
+once per key before use of the key. Several straightforward
+mechanisms can already be used to accomplish this, including calling
+explicit module initialization functions, using mutexes, and
+using <I>pthread_once</I>(). This places no significant burden on the
+programmer,
+introduces no possibly confusing <I>ad hoc</I> implicit synchronization
+mechanism, and potentially allows commonly used
+thread-specific data operations to be more efficient.
+<A NAME="lbAM">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAN">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>pthread_getspecific</I>(), <I>pthread_key_delete</I>(), the Base
+Definitions volume of IEEE&nbsp;Std&nbsp;1003.1-2001, <I>&lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;</I>
+<A NAME="lbAO">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DT><A HREF="#lbAI">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAJ">RATIONALE</A><DD>
+<DL>
+<DT><A HREF="#lbAK">Destructor Functions</A><DD>
+<DT><A HREF="#lbAL">Non-Idempotent Data Key Creation</A><DD>
+</DL>
+<DT><A HREF="#lbAM">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAN">SEE ALSO</A><DD>
+<DT><A HREF="#lbAO">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:35 GMT, April 18, 2016
+</BODY>
+</HTML>

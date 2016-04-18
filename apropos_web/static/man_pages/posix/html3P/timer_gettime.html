@@ -1,0 +1,266 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of TIMER_GETOVERRUN</TITLE>
+</HEAD><BODY>
+<H1>TIMER_GETOVERRUN</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+timer_getoverrun, timer_gettime, timer_settime - per-process timers
+(<B>REALTIME</B>)
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/time.h">time.h</A>&gt;
+<BR>
+
+<P>
+int timer_getoverrun(timer_t</B> <I>timerid</I><B>);
+<BR>
+
+int timer_gettime(timer_t</B> <I>timerid</I><B>, struct itimerspec *</B><I>value</I><B>);
+<BR>
+
+int timer_settime(timer_t</B> <I>timerid</I><B>, int</B> <I>flags</I><B>,
+<BR>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; const struct itimerspec *restrict</B> <I>value</I><B>,
+<BR>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct itimerspec *restrict</B> <I>ovalue</I><B>); </B>
+<B>
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The <I>timer_gettime</I>() function shall store the amount of time
+until the specified timer, <I>timerid</I>, expires and the
+reload value of the timer into the space pointed to by the <I>value</I>
+argument. The <I>it_value</I> member of this structure
+shall contain the amount of time before the timer expires, or zero
+if the timer is disarmed. This value is returned as the interval
+until timer expiration, even if the timer was armed with absolute
+time. The <I>it_interval</I> member of <I>value</I> shall contain
+the reload value last set by <I>timer_settime</I>().
+<P>
+
+The <I>timer_settime</I>() function shall set the time until the next
+expiration of the timer specified by <I>timerid</I> from
+the <I>it_value</I> member of the <I>value</I> argument and arm the
+timer if the <I>it_value</I> member of <I>value</I> is
+non-zero. If the specified timer was already armed when <I>timer_settime</I>()
+is called, this call shall reset the time until next
+expiration to the <I>value</I> specified. If the <I>it_value</I> member
+of <I>value</I> is zero, the timer shall be disarmed. The
+effect of disarming or resetting a timer with pending expiration notifications
+is unspecified.
+<P>
+
+If the flag TIMER_ABSTIME is not set in the argument <I>flags</I>,
+<I>timer_settime</I>() shall behave as if the time until next
+expiration is set to be equal to the interval specified by the <I>it_value</I>
+member of <I>value</I>. That is, the timer shall
+expire in <I>it_value</I> nanoseconds from when the call is made. If
+the flag TIMER_ABSTIME is set in the argument <I>flags</I>,
+<I>timer_settime</I>() shall behave as if the time until next expiration
+is set to be equal to the difference between the absolute
+time specified by the <I>it_value</I> member of <I>value</I> and the
+current value of the clock associated with <I>timerid</I>.
+That is, the timer shall expire when the clock reaches the value specified
+by the <I>it_value</I> member of <I>value</I>. If the
+specified time has already passed, the function shall succeed and
+the expiration notification shall be made.
+<P>
+
+The reload value of the timer shall be set to the value specified
+by the <I>it_interval</I> member of <I>value</I>. When a timer
+is armed with a non-zero <I>it_interval</I>, a periodic (or repetitive)
+timer is specified.
+<P>
+
+Time values that are between two consecutive non-negative integer
+multiples of the resolution of the specified timer shall be
+rounded up to the larger multiple of the resolution. Quantization
+error shall not cause the timer to expire earlier than the
+rounded time value.
+<P>
+
+If the argument <I>ovalue</I> is not NULL, the <I>timer_settime</I>()
+function shall store, in the location referenced by
+<I>ovalue</I>, a value representing the previous amount of time before
+the timer would have expired, or zero if the timer was
+disarmed, together with the previous timer reload value. Timers shall
+not expire before their scheduled time.
+<P>
+
+Only a single signal shall be queued to the process for a given timer
+at any point in time. When a timer for which a signal is
+still pending expires, no signal shall be queued, and a timer overrun
+shall occur.  When a timer
+expiration signal is delivered to or accepted by a process, if the
+implementation supports the Realtime Signals Extension, the
+<I>timer_getoverrun</I>() function shall return the timer expiration
+overrun count for the specified timer. The overrun count
+returned contains the number of extra timer expirations that occurred
+between the time the signal was generated (queued) and when
+it was delivered or accepted, up to but not including an implementation-defined
+maximum of {DELAYTIMER_MAX}. If the number of such
+extra expirations is greater than or equal to {DELAYTIMER_MAX}, then
+the overrun count shall be set to {DELAYTIMER_MAX}. The value
+returned by <I>timer_getoverrun</I>() shall apply to the most recent
+expiration signal delivery or acceptance for the timer.  If no expiration
+signal has been delivered for the timer, or if the
+Realtime Signals Extension is not supported, the return value of <I>timer_getoverrun</I>()
+is unspecified.
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+If the <I>timer_getoverrun</I>() function succeeds, it shall return
+the timer expiration overrun count as explained above.
+<P>
+
+If the <I>timer_gettime</I>() or <I>timer_settime</I>() functions succeed,
+a value of 0 shall be returned.
+<P>
+
+If an error occurs for any of these functions, the value -1 shall
+be returned, and <I>errno</I> set to indicate the error.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+The <I>timer_getoverrun</I>(), <I>timer_gettime</I>(), and <I>timer_settime</I>()
+functions shall fail if:
+<DL COMPACT>
+<DT><B>EINVAL</B>
+
+<DD>
+The <I>timerid</I> argument does not correspond to an ID returned by
+<I>timer_create</I>() but not yet deleted by <I>timer_delete</I>().
+<P>
+</DL>
+<P>
+
+The <I>timer_settime</I>() function shall fail if:
+<DL COMPACT>
+<DT><B>EINVAL</B>
+
+<DD>
+A <I>value</I> structure specified a nanosecond value less than zero
+or greater than or equal to 1000 million, and the
+<I>it_value</I> member of that structure did not specify zero seconds
+and nanoseconds.
+<P>
+</DL>
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<P>
+
+None.
+<A NAME="lbAI">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+None.
+<A NAME="lbAJ">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+Practical clocks tick at a finite rate, with rates of 100 hertz and
+1000 hertz being common. The inverse of this tick rate is
+the clock resolution, also called the clock granularity, which in
+either case is expressed as a time duration, being 10
+milliseconds and 1 millisecond respectively for these common rates.
+The granularity of practical clocks implies that if one reads a
+given clock twice in rapid succession, one may get the same time value
+twice; and that timers must wait for the next clock tick
+after the theoretical expiration time, to ensure that a timer never
+returns too soon. Note also that the granularity of the clock
+may be significantly coarser than the resolution of the data format
+used to set and get time and interval values. Also note that
+some implementations may choose to adjust time and/or interval values
+to exactly match the ticks of the underlying clock.
+<P>
+
+This volume of IEEE&nbsp;Std&nbsp;1003.1-2001 defines functions that allow
+an application to determine the
+implementation-supported resolution for the clocks and requires an
+implementation to document the resolution supported for timers
+and <I>nanosleep</I>() if they differ from the supported clock resolution.
+This is more
+of a procurement issue than a runtime application issue.
+<A NAME="lbAK">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAL">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>clock_getres</I>(), <I>timer_create</I>(), the Base
+Definitions volume of IEEE&nbsp;Std&nbsp;1003.1-2001, <I>&lt;<A HREF="file:///usr/include/time.h">time.h</A>&gt;</I>
+<A NAME="lbAM">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DT><A HREF="#lbAI">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAJ">RATIONALE</A><DD>
+<DT><A HREF="#lbAK">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAL">SEE ALSO</A><DD>
+<DT><A HREF="#lbAM">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:35 GMT, April 18, 2016
+</BODY>
+</HTML>

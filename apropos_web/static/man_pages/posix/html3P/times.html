@@ -1,0 +1,253 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of TIMES</TITLE>
+</HEAD><BODY>
+<H1>TIMES</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+times - get process and waited-for child process times
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/sys/times.h">sys/times.h</A>&gt;
+<BR>
+
+<P>
+clock_t times(struct tms *</B><I>buffer</I><B>);
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The <I>times</I>() function shall fill the <B>tms</B> structure pointed
+to by <I>buffer</I> with time-accounting information.
+The <B>tms</B> structure is defined in <I>&lt;<A HREF="file:///usr/include/sys/times.h">sys/times.h</A>&gt;</I>.
+<P>
+
+All times are measured in terms of the number of clock ticks used.
+<P>
+
+The times of a terminated child process shall be included in the <I>tms_cutime</I>
+and <I>tms_cstime</I> elements of the parent
+when <I>wait</I>() or <I>waitpid</I>() returns the
+process ID of this terminated child. If a child process has not waited
+for its children, their times shall not be included in its
+times.
+<DL COMPACT>
+<DT> *<DD>
+The <I>tms_utime</I> structure member is the CPU time charged for the
+execution of user instructions of the calling process.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+The <I>tms_stime</I> structure member is the CPU time charged for execution
+by the system on behalf of the calling process.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+The <I>tms_cutime</I> structure member is the sum of the <I>tms_utime</I>
+and <I>tms_cutime</I> times of the child
+processes.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+The <I>tms_cstime</I> structure member is the sum of the <I>tms_stime</I>
+and <I>tms_cstime</I> times of the child
+processes.
+</DL>
+<P>
+
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+Upon successful completion, <I>times</I>() shall return the elapsed
+real time, in clock ticks, since an arbitrary point in the
+past (for example, system start-up time). This point does not change
+from one invocation of <I>times</I>() within the process to
+another. The return value may overflow the possible range of type
+<B>clock_t</B>. If <I>times</I>() fails, (<B>clock_t</B>)-1 shall
+be returned and <I>errno</I> set to indicate the error.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+No errors are defined.
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<A NAME="lbAI">&nbsp;</A>
+<H3>Timing a Database Lookup</H3>
+
+<P>
+
+The following example defines two functions, <I>start_clock</I>() and
+<I>end_clock</I>(), that are used to time a lookup. It
+also defines variables of type <B>clock_t</B> and <B>tms</B> to measure
+the duration of transactions. The <I>start_clock</I>()
+function saves the beginning times given by the <I>times</I>() function.
+The <I>end_clock</I>() function gets the ending times and
+prints the difference between the two times.
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>#include &lt;<A HREF="file:///usr/include/sys/times.h">sys/times.h</A>&gt;
+#include &lt;<A HREF="file:///usr/include/stdio.h">stdio.h</A>&gt;
+...
+void start_clock(void);
+void end_clock(char *msg);
+...
+static clock_t st_time;
+static clock_t en_time;
+static struct tms st_cpu;
+static struct tms en_cpu;
+...
+void
+start_clock()
+{
+    st_time = times(&amp;st_cpu);
+}
+
+
+/* This example assumes that the result of each subtraction
+   is within the range of values that can be represented in
+   an integer type. */
+void
+end_clock(char *msg)
+{
+    en_time = times(&amp;en_cpu);
+
+
+    fputs(msg,stdout);
+    printf(&quot;Real Time: %jd, User Time %jd, System Time %jd\n&quot;,
+        (intmax_t)(en_time - st_time),
+        (intmax_t)(en_cpu.tms_utime - st_cpu.tms_utime),
+        (intmax_t)(en_cpu.tms_stime - st_cpu.tms_stime));
+}
+</B>
+</PRE>
+
+</DL>
+
+<A NAME="lbAJ">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+Applications should use <I>sysconf</I>(_SC_CLK_TCK) to determine the
+number of clock ticks per second as it may vary from system
+to system.
+<A NAME="lbAK">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+The accuracy of the times reported is intentionally left unspecified
+to allow implementations flexibility in design, from
+uniprocessor to multi-processor networks.
+<P>
+
+The inclusion of times of child processes is recursive, so that a
+parent process may collect the total times of all of its
+descendants. But the times of a child are only added to those of its
+parent when its parent successfully waits on the child. Thus,
+it is not guaranteed that a parent process can always see the total
+times of all its descendants; see also the discussion of the
+term ``realtime'' in <I>alarm</I>().
+<P>
+
+If the type <B>clock_t</B> is defined to be a signed 32-bit integer,
+it overflows in somewhat more than a year if there are 60
+clock ticks per second, or less than a year if there are 100. There
+are individual systems that run continuously for longer than
+that. This volume of IEEE&nbsp;Std&nbsp;1003.1-2001 permits an implementation
+to make the reference point for the returned value be
+the start-up time of the process, rather than system start-up time.
+<P>
+
+The term ``charge'' in this context has nothing to do with billing
+for services. The operating system accounts for time used in
+this way. That information must be correct, regardless of how that
+information is used.
+<A NAME="lbAL">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAM">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>alarm</I>(), <I>exec</I>(), <I>fork</I>(), <I>sysconf</I>(), <I>time</I>(),
+<I>wait</I>(), the Base Definitions volume of IEEE&nbsp;Std&nbsp;1003.1-2001,
+<I>&lt;<A HREF="file:///usr/include/sys/times.h">sys/times.h</A>&gt;</I>
+<A NAME="lbAN">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DL>
+<DT><A HREF="#lbAI">Timing a Database Lookup</A><DD>
+</DL>
+<DT><A HREF="#lbAJ">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAK">RATIONALE</A><DD>
+<DT><A HREF="#lbAL">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAM">SEE ALSO</A><DD>
+<DT><A HREF="#lbAN">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:34 GMT, April 18, 2016
+</BODY>
+</HTML>

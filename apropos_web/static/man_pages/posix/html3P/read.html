@@ -1,0 +1,647 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of READ</TITLE>
+</HEAD><BODY>
+<H1>READ</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+pread, read - read from a file
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/unistd.h">unistd.h</A>&gt;
+<BR>
+
+<P>
+</B>
+<P>
+
+<B>ssize_t pread(int</B> <I>fildes</I><B>, void *</B><I>buf</I><B>, size_t</B>
+<I>nbyte</I><B>,
+off_t</B> <I>offset</I><B>); </B>
+<B>
+<BR>
+
+ssize_t read(int</B> <I>fildes</I><B>, void *</B><I>buf</I><B>, size_t</B>
+<I>nbyte</I><B>);
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The <I>read</I>() function shall attempt to read <I>nbyte</I> bytes
+from the file associated with the open file descriptor,
+<I>fildes</I>, into the buffer pointed to by <I>buf</I>. The behavior
+of multiple concurrent reads on the same pipe, FIFO, or
+terminal device is unspecified.
+<P>
+
+Before any action described below is taken, and if <I>nbyte</I> is
+zero, the <I>read</I>() function may detect and return errors
+as described below. In the absence of errors, or if error detection
+is not performed, the <I>read</I>() function shall return zero
+and have no other results.
+<P>
+
+On files that support seeking (for example, a regular file), the <I>read</I>()
+shall start at a position in the file given by
+the file offset associated with <I>fildes</I>. The file offset shall
+be incremented by the number of bytes actually read.
+<P>
+
+Files that do not support seeking-for example, terminals-always read
+from the current position. The value of a file offset
+associated with such a file is undefined.
+<P>
+
+No data transfer shall occur past the current end-of-file. If the
+starting position is at or after the end-of-file, 0 shall be
+returned. If the file refers to a device special file, the result
+of subsequent <I>read</I>() requests is
+implementation-defined.
+<P>
+
+If the value of <I>nbyte</I> is greater than {SSIZE_MAX}, the result
+is implementation-defined.
+<P>
+
+When attempting to read from an empty pipe or FIFO:
+<DL COMPACT>
+<DT> *<DD>
+If no process has the pipe open for writing, <I>read</I>() shall return
+0 to indicate end-of-file.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+If some process has the pipe open for writing and O_NONBLOCK is set,
+<I>read</I>() shall return -1 and set <I>errno</I> to
+[EAGAIN].
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+If some process has the pipe open for writing and O_NONBLOCK is clear,
+<I>read</I>() shall block the calling thread until some
+data is written or the pipe is closed by all processes that had the
+pipe open for writing.
+</DL>
+<P>
+
+<P>
+
+When attempting to read a file (other than a pipe or FIFO) that supports
+non-blocking reads and has no data currently
+available:
+<DL COMPACT>
+<DT> *<DD>
+If O_NONBLOCK is set, <I>read</I>() shall return -1 and set <I>errno</I>
+to [EAGAIN].
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+If O_NONBLOCK is clear, <I>read</I>() shall block the calling thread
+until some data becomes available.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+The use of the O_NONBLOCK flag has no effect if there is some data
+available.
+</DL>
+<P>
+
+<P>
+
+The <I>read</I>() function reads data previously written to a file.
+If any portion of a regular file prior to the end-of-file
+has not been written, <I>read</I>() shall return bytes with value 0.
+For example, <I>lseek</I>() allows the file offset to be set beyond
+the end of existing data in the file. If data
+is later written at this point, subsequent reads in the gap between
+the previous end of data and the newly written data shall
+return bytes with value 0 until data is written into the gap.
+<P>
+
+Upon successful completion, where <I>nbyte</I> is greater than 0, <I>read</I>()
+shall mark for update the <I>st_atime</I> field
+of the file, and shall return the number of bytes read. This number
+shall never be greater than <I>nbyte</I>. The value returned
+may be less than <I>nbyte</I> if the number of bytes left in the file
+is less than <I>nbyte</I>, if the <I>read</I>() request was
+interrupted by a signal, or if the file is a pipe or FIFO or special
+file and has fewer than <I>nbyte</I> bytes immediately
+available for reading. For example, a <I>read</I>() from a file associated
+with a terminal may return one typed line of data.
+<P>
+
+If a <I>read</I>() is interrupted by a signal before it reads any data,
+it shall return -1 with <I>errno</I> set to [EINTR].
+<P>
+
+If a <I>read</I>() is interrupted by a signal after it has successfully
+read some data, it shall return the number of bytes
+read.
+<P>
+
+For regular files, no data transfer shall occur past the offset maximum
+established in the open file description associated with
+<I>fildes</I>.
+<P>
+
+If <I>fildes</I> refers to a socket, <I>read</I>() shall be equivalent
+to <I>recv</I>()
+with no flags set.
+<P>
+
+If the O_DSYNC and O_RSYNC bits have been set, read I/O operations
+on the file descriptor shall complete as defined by synchronized
+I/O data integrity completion. If the O_SYNC and O_RSYNC bits have
+been set, read I/O operations on the file descriptor shall
+complete as defined by synchronized I/O file integrity completion.
+<P>
+
+If <I>fildes</I> refers to a shared memory object, the result of the
+<I>read</I>() function is unspecified. 
+<P>
+
+If <I>fildes</I> refers to a typed memory object, the result of the
+<I>read</I>() function is unspecified. 
+<P>
+
+A
+<I>read</I>() from a STREAMS file can read data in three different
+modes: <I>byte-stream</I> mode, <I>message-nondiscard</I> mode,
+and <I>message-discard</I> mode. The default shall be byte-stream mode.
+This can be changed using the I_SRDOPT <I>ioctl</I>() request, and
+can be tested with I_GRDOPT <I>ioctl</I>(). In byte-stream mode, <I>read</I>()
+shall retrieve data from the STREAM until as many
+bytes as were requested are transferred, or until there is no more
+data to be retrieved. Byte-stream mode ignores message
+boundaries.
+<P>
+
+In STREAMS message-nondiscard mode, <I>read</I>() shall retrieve data
+until as many bytes as were requested are transferred, or
+until a message boundary is reached. If <I>read</I>() does not retrieve
+all the data in a message, the remaining data shall be left
+on the STREAM, and can be retrieved by the next <I>read</I>() call.
+Message-discard mode also retrieves data until as many bytes as
+were requested are transferred, or a message boundary is reached.
+However, unread data remaining in a message after the
+<I>read</I>() returns shall be discarded, and shall not be available
+for a subsequent <I>read</I>(), <I>getmsg</I>(), or <I>getpmsg</I>()
+call.
+<P>
+
+How <I>read</I>() handles zero-byte STREAMS messages is determined
+by the current read mode setting. In byte-stream mode,
+<I>read</I>() shall accept data until it has read <I>nbyte</I> bytes,
+or until there is no more data to read, or until a zero-byte
+message block is encountered. The <I>read</I>() function shall then
+return the number of bytes read, and place the zero-byte
+message back on the STREAM to be retrieved by the next <I>read</I>(),
+<I>getmsg</I>(), or <I>getpmsg</I>(). In message-nondiscard mode or
+message-discard mode, a zero-byte message
+shall return 0 and the message shall be removed from the STREAM. When
+a zero-byte message is read as the first message on a STREAM,
+the message shall be removed from the STREAM and 0 shall be returned,
+regardless of the read mode.
+<P>
+
+A <I>read</I>() from a STREAMS file shall return the data in the message
+at the front of the STREAM head read queue, regardless
+of the priority band of the message.
+<P>
+
+By default, STREAMs are in control-normal mode, in which a <I>read</I>()
+from a STREAMS file can only process messages that
+contain a data part but do not contain a control part. The <I>read</I>()
+shall fail if a message containing a control part is
+encountered at the STREAM head. This default action can be changed
+by placing the STREAM in either control-data mode or
+control-discard mode with the I_SRDOPT <I>ioctl</I>() command. In control-data
+mode,
+<I>read</I>() shall convert any control part to data and pass it to
+the application before passing any data part originally present
+in the same message. In control-discard mode, <I>read</I>() shall discard
+message control parts but return to the process any data
+part in the message.
+<P>
+
+In addition, <I>read</I>() shall fail if the STREAM head had processed
+an asynchronous error before the call. In this case, the
+value of <I>errno</I> shall not reflect the result of <I>read</I>(),
+but reflect the prior error. If a hangup occurs on the STREAM
+being read, <I>read</I>() shall continue to operate normally until
+the STREAM head read queue is empty. Thereafter, it shall return
+0. 
+<P>
+
+The <I>pread</I>() function shall be equivalent to <I>read</I>(), except
+that it shall read from a given position in the file
+without changing the file pointer. The first three arguments to <I>pread</I>()
+are the same as <I>read</I>() with the addition of a
+fourth argument <I>offset</I> for the desired position inside the file.
+An attempt to perform a <I>pread</I>() on a file that is
+incapable of seeking shall result in an error. 
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+Upon successful completion, <I>read</I>()  and <I>pread</I>()  shall
+return a non-negative integer indicating the number of bytes actually
+read. Otherwise, the
+functions shall return -1 and set <I>errno</I> to indicate the error.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+The <I>read</I>() and   <I>pread</I>()  functions shall fail
+if:
+<DL COMPACT>
+<DT><B>EAGAIN</B>
+
+<DD>
+The O_NONBLOCK flag is set for the file descriptor and the process
+would be delayed.
+<DT><B>EBADF</B>
+
+<DD>
+The <I>fildes</I> argument is not a valid file descriptor open for
+reading.
+<DT><B>EBADMSG</B>
+
+<DD>
+The file is a STREAM file that is set to control-normal mode and the
+message waiting to be read includes a control part. 
+<DT><B>EINTR</B>
+
+<DD>
+The read operation was terminated due to the receipt of a signal,
+and no data was transferred.
+<DT><B>EINVAL</B>
+
+<DD>
+The STREAM or multiplexer referenced by <I>fildes</I> is linked (directly
+or indirectly) downstream from a multiplexer. 
+<DT><B>EIO</B>
+
+<DD>
+The process is a member of a background process attempting to read
+from its controlling terminal, the process is ignoring or
+blocking the SIGTTIN signal, or the process group is orphaned. This
+error may also be generated for implementation-defined
+reasons.
+<DT><B>EISDIR</B>
+
+<DD>
+The <I>fildes</I> argument refers to a directory and the implementation
+does not allow the directory to be read using <I>read</I>()
+or <I>pread</I>(). The <I>readdir</I>() function should be used instead.
+<DT><B>EOVERFLOW</B>
+
+<DD>
+The file is a regular file, <I>nbyte</I> is greater than 0, the starting
+position is before the end-of-file, and the starting
+position is greater than or equal to the offset maximum established
+in the open file description associated with
+<I>fildes</I>.
+<P>
+</DL>
+<P>
+
+The <I>read</I>() function shall fail if:
+<DL COMPACT>
+<DT><B>EAGAIN </B>or EWOULDBLOCK
+
+<DD>
+<P>
+The file descriptor is for a socket, is marked O_NONBLOCK, and no
+data is waiting to be received.
+<DT><B>ECONNRESET</B>
+
+<DD>
+A read was attempted on a socket and the connection was forcibly closed
+by its peer.
+<DT><B>ENOTCONN</B>
+
+<DD>
+A read was attempted on a socket that is not connected.
+<DT><B>ETIMEDOUT</B>
+
+<DD>
+A read was attempted on a socket and a transmission timeout occurred.
+<P>
+</DL>
+<P>
+
+The <I>read</I>() and   <I>pread</I>()  functions may fail
+if:
+<DL COMPACT>
+<DT><B>EIO</B>
+
+<DD>
+A physical I/O error has occurred.
+<DT><B>ENOBUFS</B>
+
+<DD>
+Insufficient resources were available in the system to perform the
+operation.
+<DT><B>ENOMEM</B>
+
+<DD>
+Insufficient memory was available to fulfill the request.
+<DT><B>ENXIO</B>
+
+<DD>
+A request was made of a nonexistent device, or the request was outside
+the capabilities of the device.
+<P>
+</DL>
+<P>
+
+The <I>pread</I>() function shall fail, and the file pointer shall
+remain unchanged, if:
+<DL COMPACT>
+<DT><B>EINVAL</B>
+
+<DD>
+The <I>offset</I> argument is invalid. The value is negative. 
+<DT><B>EOVERFLOW</B>
+
+<DD>
+The file is a regular file and an attempt was made to read at or beyond
+the offset maximum associated with the file. 
+<DT><B>ENXIO</B>
+
+<DD>
+A request was outside the capabilities of the device. 
+<DT><B>ESPIPE</B>
+
+<DD>
+<I>fildes</I> is associated with a pipe or FIFO. 
+<P>
+</DL>
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<A NAME="lbAI">&nbsp;</A>
+<H3>Reading Data into a Buffer</H3>
+
+<P>
+
+The following example reads data from the file associated with the
+file descriptor <I>fd</I> into the buffer pointed to by
+<I>buf</I>.
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>#include &lt;<A HREF="file:///usr/include/sys/types.h">sys/types.h</A>&gt;
+#include &lt;<A HREF="file:///usr/include/unistd.h">unistd.h</A>&gt;
+...
+char buf[20];
+size_t nbytes;
+ssize_t bytes_read;
+int fd;
+...
+nbytes = sizeof(buf);
+bytes_read = read(fd, buf, nbytes);
+...
+</B>
+</PRE>
+
+</DL>
+
+<A NAME="lbAJ">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+None.
+<A NAME="lbAK">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+This volume of IEEE&nbsp;Std&nbsp;1003.1-2001 does not specify the value of
+the file offset after an error is returned; there
+are too many cases. For programming errors, such as [EBADF], the concept
+is meaningless since no file is involved. For errors that
+are detected immediately, such as [EAGAIN], clearly the pointer should
+not change. After an interrupt or hardware error, however,
+an updated value would be very useful and is the behavior of many
+implementations.
+<P>
+
+Note that a <I>read</I>() of zero bytes does not modify <I>st_atime</I>.
+A <I>read</I>() that requests more than zero bytes, but
+returns zero, shall modify <I>st_atime</I>.
+<P>
+
+Implementations are allowed, but not required, to perform error checking
+for <I>read</I>() requests of zero bytes.
+<A NAME="lbAL">&nbsp;</A>
+<H3>Input and Output</H3>
+
+<P>
+
+The use of I/O with large byte counts has always presented problems.
+Ideas such as <I>lread</I>() and <I>lwrite</I>() (using and
+returning <B>long</B>s) were considered at one time. The current solution
+is to use abstract types on the ISO&nbsp;C standard
+function to <I>read</I>() and <I>write</I>(). The abstract types can
+be declared so that
+existing functions work, but can also be declared so that larger types
+can be represented in future implementations. It is presumed
+that whatever constraints limit the maximum range of <B>size_t</B>
+also limit portable I/O requests to the same range. This volume
+of IEEE&nbsp;Std&nbsp;1003.1-2001 also limits the range further by requiring
+that the byte count be limited so that a signed return
+value remains meaningful. Since the return type is also a (signed)
+abstract type, the byte count can be defined by the
+implementation to be larger than an <B>int</B> can hold.
+<P>
+
+The standard developers considered adding atomicity requirements to
+a pipe or FIFO, but recognized that due to the nature of
+pipes and FIFOs there could be no guarantee of atomicity of reads
+of {PIPE_BUF} or any other size that would be an aid to
+applications portability.
+<P>
+
+This volume of IEEE&nbsp;Std&nbsp;1003.1-2001 requires that no action be taken
+for <I>read</I>() or <I>write</I>() when <I>nbyte</I> is zero. This is
+not intended to take precedence over detection of
+errors (such as invalid buffer pointers or file descriptors). This
+is consistent with the rest of this volume of
+IEEE&nbsp;Std&nbsp;1003.1-2001, but the phrasing here could be misread to
+require detection of the zero case before any other
+errors. A value of zero is to be considered a correct value, for which
+the semantics are a no-op.
+<P>
+
+I/O is intended to be atomic to ordinary files and pipes and FIFOs.
+Atomic means that all the bytes from a single operation that
+started out together end up together, without interleaving from other
+I/O operations. It is a known attribute of terminals that
+this is not honored, and terminals are explicitly (and implicitly
+permanently) excepted, making the behavior unspecified. The
+behavior for other device types is also left unspecified, but the
+wording is intended to imply that future standards might choose
+to specify atomicity (or not).
+<P>
+
+There were recommendations to add format parameters to <I>read</I>()
+and <I>write</I>() in
+order to handle networked transfers among heterogeneous file system
+and base hardware types. Such a facility may be required for
+support by the OSI presentation of layer services. However, it was
+determined that this should correspond with similar C-language
+facilities, and that is beyond the scope of this volume of IEEE&nbsp;Std&nbsp;1003.1-2001.
+The concept was suggested to the
+developers of the ISO&nbsp;C standard for their consideration as a possible
+area for future work.
+<P>
+
+In 4.3 BSD, a <I>read</I>() or <I>write</I>() that is interrupted by
+a signal before
+transferring any data does not by default return an [EINTR] error,
+but is restarted. In 4.2 BSD, 4.3 BSD, and the Eighth Edition,
+there is an additional function, <I>select</I>(), whose purpose is
+to pause until specified
+activity (data to read, space to write, and so on) is detected on
+specified file descriptors. It is common in applications written
+for those systems for <I>select</I>() to be used before <I>read</I>()
+in situations (such as
+keyboard input) where interruption of I/O due to a signal is desired.
+<P>
+
+The issue of which files or file types are interruptible is considered
+an implementation design issue. This is often affected
+primarily by hardware and reliability issues.
+<P>
+
+There are no references to actions taken following an &quot;unrecoverable
+error&quot;. It is considered beyond the scope of this volume
+of IEEE&nbsp;Std&nbsp;1003.1-2001 to describe what happens in the case of
+hardware errors.
+<P>
+
+Previous versions of IEEE&nbsp;Std&nbsp;1003.1-2001 allowed two very different
+behaviors with regard to the handling of
+interrupts. In order to minimize the resulting confusion, it was decided
+that IEEE&nbsp;Std&nbsp;1003.1-2001 should support only
+one of these behaviors. Historical practice on AT&amp;T-derived systems
+was to have <I>read</I>() and <I>write</I>() return -1 and set <I>errno</I>
+to [EINTR] when interrupted after some, but not all, of
+the data requested had been transferred. However, the U.S. Department
+of Commerce FIPS 151-1 and FIPS 151-2 require the historical
+BSD behavior, in which <I>read</I>() and <I>write</I>() return the number
+of bytes actually
+transferred before the interrupt. If -1 is returned when any data
+is transferred, it is difficult to recover from the error on a
+seekable device and impossible on a non-seekable device. Most new
+implementations support this behavior. The behavior required by
+IEEE&nbsp;Std&nbsp;1003.1-2001 is to return the number of bytes transferred.
+<P>
+
+IEEE&nbsp;Std&nbsp;1003.1-2001 does not specify when an implementation that
+buffers <I>read</I>()ss actually moves the data into
+the user-supplied buffer, so an implementation may chose to do this
+at the latest possible moment. Therefore, an interrupt arriving
+earlier may not cause <I>read</I>() to return a partial byte count,
+but rather to return -1 and set <I>errno</I> to [EINTR].
+<P>
+
+Consideration was also given to combining the two previous options,
+and setting <I>errno</I> to [EINTR] while returning a short
+count. However, not only is there no existing practice that implements
+this, it is also contradictory to the idea that when
+<I>errno</I> is set, the function responsible shall return -1.
+<A NAME="lbAM">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAN">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>fcntl</I>(), <I>ioctl</I>(), <I>lseek</I>(), <I>open</I>(), <I>pipe</I>(),
+<I>readv</I>(), the Base
+Definitions volume of IEEE&nbsp;Std&nbsp;1003.1-2001, Chapter 11, General
+Terminal
+Interface, <I>&lt;<A HREF="file:///usr/include/stropts.h">stropts.h</A>&gt;</I>, <I>&lt;<A HREF="file:///usr/include/sys/uio.h">sys/uio.h</A>&gt;</I>, <I>&lt;<A HREF="file:///usr/include/unistd.h">unistd.h</A>&gt;</I>
+<A NAME="lbAO">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DL>
+<DT><A HREF="#lbAI">Reading Data into a Buffer</A><DD>
+</DL>
+<DT><A HREF="#lbAJ">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAK">RATIONALE</A><DD>
+<DL>
+<DT><A HREF="#lbAL">Input and Output</A><DD>
+</DL>
+<DT><A HREF="#lbAM">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAN">SEE ALSO</A><DD>
+<DT><A HREF="#lbAO">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:34 GMT, April 18, 2016
+</BODY>
+</HTML>

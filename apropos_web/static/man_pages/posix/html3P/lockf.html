@@ -1,0 +1,332 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of LOCKF</TITLE>
+</HEAD><BODY>
+<H1>LOCKF</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+lockf - record locking on files
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/unistd.h">unistd.h</A>&gt;
+<BR>
+
+<P>
+int lockf(int</B> <I>fildes</I><B>, int</B> <I>function</I><B>, off_t</B>
+<I>size</I><B>); </B>
+<B>
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The <I>lockf</I>() function shall lock sections of a file with advisory-mode
+locks. Calls to <I>lockf</I>() from other threads
+which attempt to lock the locked file section shall either return
+an error value or block until the section becomes unlocked. All
+the locks for a process are removed when the process terminates. Record
+locking with <I>lockf</I>() shall be supported for regular
+files and may be supported for other files.
+<P>
+
+The <I>fildes</I> argument is an open file descriptor. To establish
+a lock with this function, the file descriptor shall be
+opened with write-only permission (O_WRONLY) or with read/write permission
+(O_RDWR).
+<P>
+
+The <I>function</I> argument is a control value which specifies the
+action to be taken. The permissible values for
+<I>function</I> are defined in <I>&lt;<A HREF="file:///usr/include/unistd.h">unistd.h</A>&gt;</I> as follows:
+<TABLE>
+<TR VALIGN=top><TD ALIGN=center><B>Function</B></TD><TD ALIGN=right><B>Description</B>&nbsp;&nbsp;&nbsp;&nbsp;</TD><TD ALIGN=right></TD><TD>&nbsp;&nbsp;</TD><TD><BR></TD></TR>
+<TR VALIGN=top><TD ALIGN=center>F_ULOCK</TD><TD ALIGN=right>Unlock locked sections.&nbsp;&nbsp;&nbsp;&nbsp;</TD><TD ALIGN=right></TD><TD>&nbsp;&nbsp;</TD><TD><BR></TD></TR>
+<TR VALIGN=top><TD ALIGN=center>F_LOCK</TD><TD ALIGN=right>Lock a section for exclusive use.&nbsp;&nbsp;&nbsp;&nbsp;</TD><TD ALIGN=right></TD><TD>&nbsp;&nbsp;</TD><TD><BR></TD></TR>
+<TR VALIGN=top><TD ALIGN=center>F_TLOCK</TD><TD ALIGN=right>Test and lock a section for exclusive use.&nbsp;&nbsp;&nbsp;&nbsp;</TD><TD ALIGN=right></TD><TD>&nbsp;&nbsp;</TD><TD><BR></TD></TR>
+<TR VALIGN=top><TD ALIGN=center>F_TEST</TD><TD ALIGN=right>Test a section for locks by other processes.&nbsp;&nbsp;&nbsp;&nbsp;</TD><TD ALIGN=right></TD><TD>&nbsp;&nbsp;</TD><TD><BR></TD></TR>
+</TABLE>
+
+<P>
+
+F_TEST shall detect if a lock by another process is present on the
+specified section.
+<P>
+
+F_LOCK and F_TLOCK shall both lock a section of a file if the section
+is available.
+<P>
+
+F_ULOCK shall remove locks from a section of the file.
+<P>
+
+The <I>size</I> argument is the number of contiguous bytes to be locked
+or unlocked. The section to be locked or unlocked starts
+at the current offset in the file and extends forward for a positive
+size or backward for a negative size (the preceding bytes up
+to but not including the current offset). If <I>size</I> is 0, the
+section from the current offset through the largest possible
+file offset shall be locked (that is, from the current offset through
+the present or any future end-of-file). An area need not be
+allocated to the file to be locked because locks may exist past the
+end-of-file.
+<P>
+
+The sections locked with F_LOCK or F_TLOCK may, in whole or in part,
+contain or be contained by a previously locked section for
+the same process. When this occurs, or if adjacent locked sections
+would occur, the sections shall be combined into a single locked
+section. If the request would cause the number of locks to exceed
+a system-imposed limit, the request shall fail.
+<P>
+
+F_LOCK and F_TLOCK requests differ only by the action taken if the
+section is not available. F_LOCK shall block the calling
+thread until the section is available. F_TLOCK shall cause the function
+to fail if the section is already locked by another
+process.
+<P>
+
+File locks shall be released on first close by the locking process
+of any file descriptor for the file.
+<P>
+
+F_ULOCK requests may release (wholly or in part) one or more locked
+sections controlled by the process. Locked sections shall be
+unlocked starting at the current file offset through <I>size</I> bytes
+or to the end-of-file if <I>size</I> is (<B>off_t</B>)0.
+When all of a locked section is not released (that is, when the beginning
+or end of the area to be unlocked falls within a locked
+section), the remaining portions of that section shall remain locked
+by the process. Releasing the center portion of a locked
+section shall cause the remaining locked beginning and end portions
+to become two separate locked sections. If the request would
+cause the number of locks in the system to exceed a system-imposed
+limit, the request shall fail.
+<P>
+
+A potential for deadlock occurs if the threads of a process controlling
+a locked section are blocked by accessing another
+process' locked section. If the system detects that deadlock would
+occur, <I>lockf</I>() shall fail with an [EDEADLK] error.
+<P>
+
+The interaction between <I>fcntl</I>() and <I>lockf</I>() locks is unspecified.
+<P>
+
+Blocking on a section shall be interrupted by any signal.
+<P>
+
+An F_ULOCK request in which <I>size</I> is non-zero and the offset
+of the last byte of the requested section is the maximum
+value for an object of type <B>off_t</B>, when the process has an existing
+lock in which <I>size</I> is 0 and which includes the
+last byte of the requested section, shall be treated as a request
+to unlock from the start of the requested section with a size
+equal to 0. Otherwise, an F_ULOCK request shall attempt to unlock
+only the requested section.
+<P>
+
+Attempting to lock a section of a file that is associated with a buffered
+stream produces unspecified results.
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+Upon successful completion, <I>lockf</I>() shall return 0. Otherwise,
+it shall return -1, set <I>errno</I> to indicate an error,
+and existing locks shall not be changed.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+The <I>lockf</I>() function shall fail if:
+<DL COMPACT>
+<DT><B>EBADF</B>
+
+<DD>
+The <I>fildes</I> argument is not a valid open file descriptor; or
+<I>function</I> is F_LOCK or F_TLOCK and <I>fildes</I> is
+not a valid file descriptor open for writing.
+<DT><B>EACCES </B>or EAGAIN
+
+<DD>
+<P>
+The <I>function</I> argument is F_TLOCK or F_TEST and the section is
+already locked by another process.
+<DT><B>EDEADLK</B>
+
+<DD>
+The <I>function</I> argument is F_LOCK and a deadlock is detected.
+<DT><B>EINTR</B>
+
+<DD>
+A signal was caught during execution of the function.
+<DT><B>EINVAL</B>
+
+<DD>
+The <I>function</I> argument is not one of F_LOCK, F_TLOCK, F_TEST,
+or F_ULOCK; or <I>size</I> plus the current file offset is
+less than 0.
+<DT><B>EOVERFLOW</B>
+
+<DD>
+The offset of the first, or if <I>size</I> is not 0 then the last,
+byte in the requested section cannot be represented
+correctly in an object of type <B>off_t</B>.
+<P>
+</DL>
+<P>
+
+The <I>lockf</I>() function may fail if:
+<DL COMPACT>
+<DT><B>EAGAIN</B>
+
+<DD>
+The <I>function</I> argument is F_LOCK or F_TLOCK and the file is mapped
+with <I>mmap</I>().
+<DT><B>EDEADLK </B>or ENOLCK
+
+<DD>
+<P>
+The <I>function</I> argument is F_LOCK, F_TLOCK, or F_ULOCK, and the
+request would cause the number of locks to exceed a
+system-imposed limit.
+<DT><B>EOPNOTSUPP </B>or EINVAL
+
+<DD>
+<P>
+The implementation does not support the locking of files of the type
+indicated by the <I>fildes</I> argument.
+<P>
+</DL>
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<A NAME="lbAI">&nbsp;</A>
+<H3>Locking a Portion of a File</H3>
+
+<P>
+
+In the following example, a file named <B>/home/cnd/mod1</B> is being
+modified. Other processes that use locking are prevented
+from changing it during this process. Only the first 10000 bytes are
+locked, and the lock call fails if another process has any
+part of this area locked already.
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>#include &lt;<A HREF="file:///usr/include/fcntl.h">fcntl.h</A>&gt;
+#include &lt;<A HREF="file:///usr/include/unistd.h">unistd.h</A>&gt;
+
+
+int fildes;
+int status;
+...
+fildes = open(&quot;/home/cnd/mod1&quot;, O_RDWR);
+status = lockf(fildes, F_TLOCK, (off_t)10000);
+</B>
+</PRE>
+
+</DL>
+
+<A NAME="lbAJ">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+Record-locking should not be used in combination with the <I>fopen</I>(),
+<I>fread</I>(), <I>fwrite</I>(), and other <I>stdio</I>
+functions. Instead, the more primitive, non-buffered functions (such
+as <I>open</I>()) should
+be used. Unexpected results may occur in processes that do buffering
+in the user address space. The process may later read/write
+data which is/was locked. The <I>stdio</I> functions are the most common
+source of unexpected buffering.
+<P>
+
+The <I>alarm</I>() function may be used to provide a timeout facility
+in applications
+requiring it.
+<A NAME="lbAK">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+None.
+<A NAME="lbAL">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAM">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>alarm</I>(), <I>chmod</I>(), <I>close</I>(), <I>creat</I>(), <I>fcntl</I>(),
+<I>fopen</I>(), <I>mmap</I>(), <I>open</I>(), <I>read</I>(), <I>write</I>(),
+the Base Definitions volume of IEEE&nbsp;Std&nbsp;1003.1-2001, <I>&lt;<A HREF="file:///usr/include/unistd.h">unistd.h</A>&gt;</I>
+<A NAME="lbAN">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DL>
+<DT><A HREF="#lbAI">Locking a Portion of a File</A><DD>
+</DL>
+<DT><A HREF="#lbAJ">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAK">RATIONALE</A><DD>
+<DT><A HREF="#lbAL">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAM">SEE ALSO</A><DD>
+<DT><A HREF="#lbAN">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:34 GMT, April 18, 2016
+</BODY>
+</HTML>

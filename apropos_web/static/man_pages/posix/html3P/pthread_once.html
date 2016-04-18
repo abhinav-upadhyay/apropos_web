@@ -1,0 +1,232 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of PTHREAD_ONCE</TITLE>
+</HEAD><BODY>
+<H1>PTHREAD_ONCE</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+pthread_once - dynamic package initialization
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;
+<BR>
+
+<P>
+int pthread_once(pthread_once_t *</B><I>once_control</I><B>,
+<BR>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; void (*</B><I>init_routine</I><B>)(void));
+<BR>
+
+pthread_once_t</B> <I>once_control</I> <B>= PTHREAD_ONCE_INIT; </B>
+<B>
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The first call to <I>pthread_once</I>() by any thread in a process,
+with a given <I>once_control</I>, shall call the
+<I>init_routine</I> with no arguments. Subsequent calls of <I>pthread_once</I>()
+with the same <I>once_control</I> shall not call
+the <I>init_routine</I>. On return from <I>pthread_once</I>(), <I>init_routine</I>
+shall have completed. The <I>once_control</I>
+parameter shall determine whether the associated initialization routine
+has been called.
+<P>
+
+The <I>pthread_once</I>() function is not a cancellation point. However,
+if <I>init_routine</I> is a cancellation point and is
+canceled, the effect on <I>once_control</I> shall be as if <I>pthread_once</I>()
+was never called.
+<P>
+
+The constant PTHREAD_ONCE_INIT is defined in the <I>&lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;</I>
+header.
+<P>
+
+The behavior of <I>pthread_once</I>() is undefined if <I>once_control</I>
+has automatic storage duration or is not initialized
+by PTHREAD_ONCE_INIT.
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+Upon successful completion, <I>pthread_once</I>() shall return zero;
+otherwise, an error number shall be returned to indicate
+the error.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+The <I>pthread_once</I>() function may fail if:
+<DL COMPACT>
+<DT><B>EINVAL</B>
+
+<DD>
+If either <I>once_control</I> or <I>init_routine</I> is invalid.
+<P>
+</DL>
+<P>
+
+The <I>pthread_once</I>() function shall not return an error code of
+[EINTR].
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<P>
+
+None.
+<A NAME="lbAI">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+None.
+<A NAME="lbAJ">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+Some C libraries are designed for dynamic initialization. That is,
+the global initialization for the library is performed when
+the first procedure in the library is called. In a single-threaded
+program, this is normally implemented using a static variable
+whose value is checked on entry to a routine, as follows:
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>static int random_is_initialized = 0;
+extern int initialize_random();
+
+
+int random_function()
+{
+    if (random_is_initialized == 0) {
+        initialize_random();
+        random_is_initialized = 1;
+    }
+    ... /* Operations performed after initialization. */
+}
+</B>
+</PRE>
+
+</DL>
+
+<P>
+
+To keep the same structure in a multi-threaded program, a new primitive
+is needed. Otherwise, library initialization has to be
+accomplished by an explicit call to a library-exported initialization
+function prior to any use of the library.
+<P>
+
+For dynamic library initialization in a multi-threaded process, a
+simple initialization flag is not sufficient; the flag needs
+to be protected against modification by multiple threads simultaneously
+calling into the library. Protecting the flag requires the
+use of a mutex; however, mutexes have to be initialized before they
+are used. Ensuring that the mutex is only initialized once
+requires a recursive solution to this problem.
+<P>
+
+The use of <I>pthread_once</I>() not only supplies an implementation-guaranteed
+means of dynamic initialization, it provides an
+aid to the reliable construction of multi-threaded and realtime systems.
+The preceding example then becomes:
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>#include &lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;
+static pthread_once_t random_is_initialized = PTHREAD_ONCE_INIT;
+extern int initialize_random();
+
+
+int random_function()
+{
+    (void) pthread_once(&amp;random_is_initialized, initialize_random);
+    ... /* Operations performed after initialization. */
+}
+</B>
+</PRE>
+
+</DL>
+
+<P>
+
+Note that a <B>pthread_once_t</B> cannot be an array because some compilers
+do not accept the construct
+<B>&amp;&lt;array_name&gt;</B>.
+<A NAME="lbAK">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAL">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+The Base Definitions volume of IEEE&nbsp;Std&nbsp;1003.1-2001, <I>&lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;</I>
+<A NAME="lbAM">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DT><A HREF="#lbAI">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAJ">RATIONALE</A><DD>
+<DT><A HREF="#lbAK">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAL">SEE ALSO</A><DD>
+<DT><A HREF="#lbAM">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:35 GMT, April 18, 2016
+</BODY>
+</HTML>

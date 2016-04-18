@@ -1,0 +1,310 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of PTHREAD_CREATE</TITLE>
+</HEAD><BODY>
+<H1>PTHREAD_CREATE</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+pthread_create - thread creation
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;
+<BR>
+
+<P>
+int pthread_create(pthread_t *restrict</B> <I>thread</I><B>,
+<BR>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; const pthread_attr_t *restrict</B> <I>attr</I><B>,
+<BR>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; void *(*</B><I>start_routine</I><B>)(void*), void *restrict</B>
+<I>arg</I><B>); </B>
+<B>
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The <I>pthread_create</I>() function shall create a new thread, with
+attributes specified by <I>attr</I>, within a process. If
+<I>attr</I> is NULL, the default attributes shall be used. If the attributes
+specified by <I>attr</I> are modified later, the
+thread's attributes shall not be affected. Upon successful completion,
+<I>pthread_create</I>() shall store the ID of the created
+thread in the location referenced by <I>thread</I>.
+<P>
+
+The thread is created executing <I>start_routine</I> with <I>arg</I>
+as its sole argument. If the <I>start_routine</I> returns,
+the effect shall be as if there was an implicit call to <I>pthread_exit</I>()
+using
+the return value of <I>start_routine</I> as the exit status. Note that
+the thread in which <I>main</I>() was originally invoked
+differs from this. When it returns from <I>main</I>(), the effect shall
+be as if there was an implicit call to <I>exit</I>() using the return
+value of <I>main</I>() as the exit status.
+<P>
+
+The signal state of the new thread shall be initialized as follows:
+<DL COMPACT>
+<DT> *<DD>
+The signal mask shall be inherited from the creating thread.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+The set of signals pending for the new thread shall be empty.
+</DL>
+<P>
+
+<P>
+
+The alternate stack shall not be inherited. 
+<P>
+
+The floating-point environment shall be inherited from the creating
+thread.
+<P>
+
+If <I>pthread_create</I>() fails, no new thread is created and the
+contents of the location referenced by <I>thread</I> are
+undefined.
+<P>
+
+If _POSIX_THREAD_CPUTIME is defined, the new thread shall have a CPU-time
+clock accessible, and the initial value of this clock
+shall be set to zero. 
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+If successful, the <I>pthread_create</I>() function shall return zero;
+otherwise, an error number shall be returned to indicate
+the error.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+The <I>pthread_create</I>() function shall fail if:
+<DL COMPACT>
+<DT><B>EAGAIN</B>
+
+<DD>
+The system lacked the necessary resources to create another thread,
+or the system-imposed limit on the total number of threads
+in a process {PTHREAD_THREADS_MAX} would be exceeded.
+<DT><B>EINVAL</B>
+
+<DD>
+The value specified by <I>attr</I> is invalid.
+<DT><B>EPERM</B>
+
+<DD>
+The caller does not have appropriate permission to set the required
+scheduling parameters or scheduling policy.
+<P>
+</DL>
+<P>
+
+The <I>pthread_create</I>() function shall not return an error code
+of [EINTR].
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<P>
+
+None.
+<A NAME="lbAI">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+None.
+<A NAME="lbAJ">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+A suggested alternative to <I>pthread_create</I>() would be to define
+two separate operations: create and start. Some
+applications would find such behavior more natural. Ada, in particular,
+separates the &quot;creation&quot; of a task from its
+&quot;activation&quot;.
+<P>
+
+Splitting the operation was rejected by the standard developers for
+many reasons:
+<DL COMPACT>
+<DT> *<DD>
+The number of calls required to start a thread would increase from
+one to two and thus place an additional burden on
+applications that do not require the additional synchronization. The
+second call, however, could be avoided by the additional
+complication of a start-up state attribute.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+An extra state would be introduced: &quot;created but not started&quot;. This
+would require the standard to specify the behavior of the
+thread operations when the target has not yet started executing.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+For those applications that require such behavior, it is possible
+to simulate the two separate steps with the facilities that
+are currently provided. The <I>start_routine</I>() can synchronize
+by waiting on a condition variable that is signaled by the start
+operation.
+</DL>
+<P>
+
+<P>
+
+An Ada implementor can choose to create the thread at either of two
+points in the Ada program: when the task object is created,
+or when the task is activated (generally at a &quot;begin&quot;). If the first
+approach is adopted, the <I>start_routine</I>() needs to
+wait on a condition variable to receive the order to begin &quot;activation&quot;.
+The second approach requires no such condition variable
+or extra synchronization. In either approach, a separate Ada task
+control block would need to be created when the task object is
+created to hold rendezvous queues, and so on.
+<P>
+
+An extension of the preceding model would be to allow the state of
+the thread to be modified between the create and start. This
+would allow the thread attributes object to be eliminated. This has
+been rejected because:
+<DL COMPACT>
+<DT> *<DD>
+All state in the thread attributes object has to be able to be set
+for the thread. This would require the definition of
+functions to modify thread attributes. There would be no reduction
+in the number of function calls required to set up the thread.
+In fact, for an application that creates all threads using identical
+attributes, the number of function calls required to set up
+the threads would be dramatically increased. Use of a thread attributes
+object permits the application to make one set of attribute
+setting function calls. Otherwise, the set of attribute setting function
+calls needs to be made for each thread creation.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+Depending on the implementation architecture, functions to set thread
+state would require kernel calls, or for other
+implementation reasons would not be able to be implemented as macros,
+thereby increasing the cost of thread creation.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+The ability for applications to segregate threads by class would be
+lost.
+</DL>
+<P>
+
+<P>
+
+Another suggested alternative uses a model similar to that for process
+creation, such as &quot;thread fork&quot;. The fork semantics
+would provide more flexibility and the &quot;create&quot; function can be implemented
+simply by doing a thread fork followed immediately by
+a call to the desired &quot;start routine&quot; for the thread. This alternative
+has these problems:
+<DL COMPACT>
+<DT> *<DD>
+For many implementations, the entire stack of the calling thread would
+need to be duplicated, since in many architectures there
+is no way to determine the size of the calling frame.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+Efficiency is reduced since at least some part of the stack has to
+be copied, even though in most cases the thread never needs
+the copied context, since it merely calls the desired start routine.
+</DL>
+<P>
+
+<A NAME="lbAK">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAL">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>fork</I>(), <I>pthread_exit</I>(), <I>pthread_join</I>(), the Base
+Definitions volume of IEEE&nbsp;Std&nbsp;1003.1-2001, <I>&lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;</I>
+<A NAME="lbAM">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DT><A HREF="#lbAI">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAJ">RATIONALE</A><DD>
+<DT><A HREF="#lbAK">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAL">SEE ALSO</A><DD>
+<DT><A HREF="#lbAM">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:35 GMT, April 18, 2016
+</BODY>
+</HTML>

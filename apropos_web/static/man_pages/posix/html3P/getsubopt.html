@@ -1,0 +1,301 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of GETSUBOPT</TITLE>
+</HEAD><BODY>
+<H1>GETSUBOPT</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+getsubopt - parse suboption arguments from a string
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/stdlib.h">stdlib.h</A>&gt;
+<BR>
+
+<P>
+int getsubopt(char **</B><I>optionp</I><B>, char * const *</B><I>keylistp</I><B>,
+char **</B><I>valuep</I><B>); </B>
+<B>
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The <I>getsubopt</I>() function shall parse suboption arguments in
+a flag argument. Such options often result from the use of <I>getopt</I>().
+<P>
+
+The <I>getsubopt</I>() argument <I>optionp</I> is a pointer to a pointer
+to the option argument string. The suboption arguments
+shall be separated by commas and each may consist of either a single
+token, or a token-value pair separated by an equal sign.
+<P>
+
+The <I>keylistp</I> argument shall be a pointer to a vector of strings.
+The end of the vector is identified by a null pointer.
+Each entry in the vector is one of the possible tokens that might
+be found in *<I>optionp</I>. Since commas delimit suboption
+arguments in <I>optionp</I>, they should not appear in any of the strings
+pointed to by <I>keylistp</I>. Similarly, because an
+equal sign separates a token from its value, the application should
+not include an equal sign in any of the strings pointed to by
+<I>keylistp</I>.
+<P>
+
+The <I>valuep</I> argument is the address of a value string pointer.
+<P>
+
+If a comma appears in <I>optionp</I>, it shall be interpreted as a
+suboption separator. After commas have been processed, if
+there are one or more equal signs in a suboption string, the first
+equal sign in any suboption string shall be interpreted as a
+separator between a token and a value. Subsequent equal signs in a
+suboption string shall be interpreted as part of the value.
+<P>
+
+If the string at *<I>optionp</I> contains only one suboption argument
+(equivalently, no commas), <I>getsubopt</I>() shall update
+*<I>optionp</I> to point to the null character at the end of the string.
+Otherwise, it shall isolate the suboption argument by
+replacing the comma separator with a null character, and shall update
+*<I>optionp</I> to point to the start of the next suboption
+argument. If the suboption argument has an associated value (equivalently,
+contains an equal sign), <I>getsubopt</I>() shall update
+*<I>valuep</I> to point to the value's first character. Otherwise,
+it shall set *<I>valuep</I> to a null pointer. The calling
+application may use this information to determine whether the presence
+or absence of a value for the suboption is an error.
+<P>
+
+Additionally, when <I>getsubopt</I>() fails to match the suboption
+argument with a token in the <I>keylistp</I> array, the
+calling application should decide if this is an error, or if the unrecognized
+option should be processed in another way.
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+The <I>getsubopt</I>() function shall return the index of the matched
+token string, or -1 if no token strings were matched.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+No errors are defined.
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>#include &lt;<A HREF="file:///usr/include/stdio.h">stdio.h</A>&gt;
+#include &lt;<A HREF="file:///usr/include/stdlib.h">stdlib.h</A>&gt;
+
+
+int do_all;
+const char *type;
+int read_size;
+int write_size;
+int read_only;
+
+
+enum
+{
+    RO_OPTION = 0,
+    RW_OPTION,
+    READ_SIZE_OPTION,
+    WRITE_SIZE_OPTION
+};
+
+
+const char *mount_opts[] =
+{
+    [RO_OPTION] = &quot;ro&quot;,
+    [RW_OPTION] = &quot;rw&quot;,
+    [READ_SIZE_OPTION] = &quot;rsize&quot;,
+    [WRITE_SIZE_OPTION] = &quot;wsize&quot;,
+    NULL
+};
+
+
+int
+main(int argc, char *argv[])
+{
+    char *subopts, *value;
+    int opt;
+
+
+    while ((opt = getopt(argc, argv, &quot;at:o:&quot;)) != -1)
+        switch(opt)
+            {
+            case 'a':
+                do_all = 1;
+                break;
+            case 't':
+                type = optarg;
+                break;
+            case 'o':
+                subopts = optarg;
+                while (*subopts != '\0')
+                    switch(getsubopt(&amp;subopts, mount_opts, &amp;value))
+                {
+                case RO_OPTION:
+                    read_only = 1;
+                    break;
+                case RW_OPTION:
+                    read_only = 0;
+                    break;
+                case READ_SIZE_OPTION:
+                    if (value == NULL)
+                        abort();
+                    read_size = atoi(value);
+                    break;
+                case WRITE_SIZE_OPTION:
+                    if (value == NULL)
+                        abort();
+                    write_size = atoi(value);
+                    break;
+                default:
+                    /* Unknown suboption. */
+                    printf(&quot;Unknown suboption `%s'\n&quot;, value);
+                    break;
+                }
+            break;
+        default:
+            abort();
+        }
+
+
+    /* Do the real work. */
+
+
+    return 0;
+}
+</B>
+</PRE>
+
+</DL>
+
+<A NAME="lbAI">&nbsp;</A>
+<H3>Parsing Suboptions</H3>
+
+<P>
+
+The following example uses the <I>getsubopt</I>() function to parse
+a <I>value</I> argument in the <I>optarg</I> external
+variable returned by a call to <I>getopt</I>().
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>#include &lt;<A HREF="file:///usr/include/stdlib.h">stdlib.h</A>&gt;
+...
+char *tokens[] = {&quot;HOME&quot;, &quot;PATH&quot;, &quot;LOGNAME&quot;, (char *) NULL };
+char *value;
+int opt, index;
+
+
+while ((opt = getopt(argc, argv, &quot;e:&quot;)) != -1) {
+    switch(opt)  {
+    case 'e' :
+        while ((index = getsubopt(&amp;optarg, tokens, &amp;value)) != -1) {
+            switch(index) {
+...
+        }
+        break;
+...
+    }
+}
+...
+</B>
+</PRE>
+
+</DL>
+
+<A NAME="lbAJ">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+None.
+<A NAME="lbAK">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+None.
+<A NAME="lbAL">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAM">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>getopt</I>(), the Base Definitions volume of IEEE&nbsp;Std&nbsp;1003.1-2001,
+<I>&lt;<A HREF="file:///usr/include/stdlib.h">stdlib.h</A>&gt;</I>
+<A NAME="lbAN">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DL>
+<DT><A HREF="#lbAI">Parsing Suboptions</A><DD>
+</DL>
+<DT><A HREF="#lbAJ">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAK">RATIONALE</A><DD>
+<DT><A HREF="#lbAL">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAM">SEE ALSO</A><DD>
+<DT><A HREF="#lbAN">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:34 GMT, April 18, 2016
+</BODY>
+</HTML>

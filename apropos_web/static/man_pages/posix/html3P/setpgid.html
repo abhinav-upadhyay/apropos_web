@@ -1,0 +1,243 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of SETPGID</TITLE>
+</HEAD><BODY>
+<H1>SETPGID</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+setpgid - set process group ID for job control
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/unistd.h">unistd.h</A>&gt;
+<BR>
+
+<P>
+int setpgid(pid_t</B> <I>pid</I><B>, pid_t</B> <I>pgid</I><B>);
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The <I>setpgid</I>() function shall either join an existing process
+group or create a new process group within the session of
+the calling process. The process group ID of a session leader shall
+not change. Upon successful completion, the process group ID of
+the process with a process ID that matches <I>pid</I> shall be set
+to <I>pgid</I>. As a special case, if <I>pid</I> is 0, the
+process ID of the calling process shall be used. Also, if <I>pgid</I>
+is 0, the process ID of the indicated process shall be
+used.
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+Upon successful completion, <I>setpgid</I>() shall return 0; otherwise,
+-1 shall be returned and <I>errno</I> shall be set to
+indicate the error.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+The <I>setpgid</I>() function shall fail if:
+<DL COMPACT>
+<DT><B>EACCES</B>
+
+<DD>
+The value of the <I>pid</I> argument matches the process ID of a child
+process of the calling process and the child process has
+successfully executed one of the <I>exec</I> functions.
+<DT><B>EINVAL</B>
+
+<DD>
+The value of the <I>pgid</I> argument is less than 0, or is not a value
+supported by the implementation.
+<DT><B>EPERM</B>
+
+<DD>
+The process indicated by the <I>pid</I> argument is a session leader.
+<DT><B>EPERM</B>
+
+<DD>
+The value of the <I>pid</I> argument matches the process ID of a child
+process of the calling process and the child process is
+not in the same session as the calling process.
+<DT><B>EPERM</B>
+
+<DD>
+The value of the <I>pgid</I> argument is valid but does not match the
+process ID of the process indicated by the <I>pid</I>
+argument and there is no process with a process group ID that matches
+the value of the <I>pgid</I> argument in the same session as
+the calling process.
+<DT><B>ESRCH</B>
+
+<DD>
+The value of the <I>pid</I> argument does not match the process ID
+of the calling process or of a child process of the calling
+process.
+<P>
+</DL>
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<P>
+
+None.
+<A NAME="lbAI">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+None.
+<A NAME="lbAJ">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+The <I>setpgid</I>() function shall group processes together for the
+purpose of signaling, placement in foreground or
+background, and other job control actions.
+<P>
+
+The <I>setpgid</I>() function is similar to the <I>setpgrp</I>() function
+of 4.2 BSD,
+except that 4.2 BSD allowed the specified new process group to assume
+any value. This presents certain security problems and is
+more flexible than necessary to support job control.
+<P>
+
+To provide tighter security, <I>setpgid</I>() only allows the calling
+process to join a process group already in use inside its
+session or create a new process group whose process group ID was equal
+to its process ID.
+<P>
+
+When a job control shell spawns a new job, the processes in the job
+must be placed into a new process group via
+<I>setpgid</I>(). There are two timing constraints involved in this
+action:
+<DL COMPACT>
+<DT> 1.<DD>
+The new process must be placed in the new process group before the
+appropriate program is launched via one of the <I>exec</I> functions.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> 2.<DD>
+The new process must be placed in the new process group before the
+shell can correctly send signals to the new process
+group.
+</DL>
+<P>
+
+<P>
+
+To address these constraints, the following actions are performed.
+The new processes call <I>setpgid</I>() to alter their own
+process groups after <I>fork</I>() but before <I>exec</I>. This satisfies
+the first constraint. Under 4.3 BSD, the second constraint is satisfied
+by
+the synchronization property of <I>vfork</I>(); that is, the shell
+is suspended until the
+child has completed the <I>exec</I>, thus ensuring that the child has
+completed the
+<I>setpgid</I>(). A new version of <I>fork</I>() with this same synchronization
+property was
+considered, but it was decided instead to merely allow the parent
+shell process to adjust the process group of its child processes
+via <I>setpgid</I>(). Both timing constraints are now satisfied by
+having both the parent shell and the child attempt to adjust the
+process group of the child process; it does not matter which succeeds
+first.
+<P>
+
+Since it would be confusing to an application to have its process
+group change after it began executing (that is, after <I>exec</I>),
+and because the child process would already have adjusted its process
+group before
+this, the [EACCES] error was added to disallow this.
+<P>
+
+One non-obvious use of <I>setpgid</I>() is to allow a job control shell
+to return itself to its original process group (the one
+in effect when the job control shell was executed). A job control
+shell does this before returning control back to its parent when
+it is terminating or suspending itself as a way of restoring its job
+control &quot;state&quot; back to what its parent would expect. (Note
+that the original process group of the job control shell typically
+matches the process group of its parent, but this is not
+necessarily always the case.)
+<A NAME="lbAK">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAL">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>exec</I>(), <I>getpgrp</I>(), <I>setsid</I>(), <I>tcsetpgrp</I>(),
+the Base Definitions volume of
+IEEE&nbsp;Std&nbsp;1003.1-2001, <I>&lt;<A HREF="file:///usr/include/sys/types.h">sys/types.h</A>&gt;</I>, <I>&lt;<A HREF="file:///usr/include/unistd.h">unistd.h</A>&gt;</I>
+<A NAME="lbAM">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DT><A HREF="#lbAI">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAJ">RATIONALE</A><DD>
+<DT><A HREF="#lbAK">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAL">SEE ALSO</A><DD>
+<DT><A HREF="#lbAM">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:35 GMT, April 18, 2016
+</BODY>
+</HTML>

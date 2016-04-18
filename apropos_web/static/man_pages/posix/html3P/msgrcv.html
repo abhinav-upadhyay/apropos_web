@@ -1,0 +1,346 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of MSGRCV</TITLE>
+</HEAD><BODY>
+<H1>MSGRCV</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+msgrcv - XSI message receive operation
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/sys/msg.h">sys/msg.h</A>&gt;
+<BR>
+
+<P>
+ssize_t msgrcv(int</B> <I>msqid</I><B>, void *</B><I>msgp</I><B>, size_t</B>
+<I>msgsz</I><B>, long</B>
+<I>msgtyp</I><B>,
+<BR>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int</B> <I>msgflg</I><B>); </B>
+<B>
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The <I>msgrcv</I>() function operates on XSI message queues (see the
+Base Definitions volume of IEEE&nbsp;Std&nbsp;1003.1-2001,
+Section 3.224, Message Queue). It is unspecified whether this function
+interoperates with the realtime interprocess communication facilities
+defined in <I>Realtime</I> .
+<P>
+
+The <I>msgrcv</I>() function shall read a message from the queue associated
+with the message queue identifier specified by
+<I>msqid</I> and place it in the user-defined buffer pointed to by
+<I>msgp</I>.
+<P>
+
+The application shall ensure that the argument <I>msgp</I> points to
+a user-defined buffer that contains first a field of type
+<B>long</B> specifying the type of the message, and then a data portion
+that holds the data bytes of the message. The structure
+below is an example of what this user-defined buffer might look like:
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>struct mymsg {
+    long    mtype;     /* Message type. */
+    char    mtext[1];  /* Message text. */
+}
+</B>
+</PRE>
+
+</DL>
+
+<P>
+
+The structure member <I>mtype</I> is the received message's type as
+specified by the sending process.
+<P>
+
+The structure member <I>mtext</I> is the text of the message.
+<P>
+
+The argument <I>msgsz</I> specifies the size in bytes of <I>mtext</I>.
+The received message shall be truncated to <I>msgsz</I>
+bytes if it is larger than <I>msgsz</I> and (<I>msgflg</I> &amp; MSG_NOERROR)
+is non-zero. The truncated part of the message shall
+be lost and no indication of the truncation shall be given to the
+calling process.
+<P>
+
+If the value of <I>msgsz</I> is greater than {SSIZE_MAX}, the result
+is implementation-defined.
+<P>
+
+The argument <I>msgtyp</I> specifies the type of message requested
+as follows:
+<DL COMPACT>
+<DT> *<DD>
+If <I>msgtyp</I> is 0, the first message on the queue shall be received.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+If <I>msgtyp</I> is greater than 0, the first message of type <I>msgtyp</I>
+shall be received.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+If <I>msgtyp</I> is less than 0, the first message of the lowest type
+that is less than or equal to the absolute value of
+<I>msgtyp</I> shall be received.
+</DL>
+<P>
+
+<P>
+
+The argument <I>msgflg</I> specifies the action to be taken if a message
+of the desired type is not on the queue. These are as
+follows:
+<DL COMPACT>
+<DT> *<DD>
+If (<I>msgflg</I> &amp; IPC_NOWAIT) is non-zero, the calling thread shall
+return immediately with a return value of -1 and
+<I>errno</I> set to [ENOMSG].
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+If (<I>msgflg</I> &amp; IPC_NOWAIT) is 0, the calling thread shall suspend
+execution until one of the following occurs:
+<DL COMPACT><DT><DD>
+<DL COMPACT>
+<DT> *<DD>
+A message of the desired type is placed on the queue.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+The message queue identifier <I>msqid</I> is removed from the system;
+when this occurs, <I>errno</I> shall be set equal to
+[EIDRM] and -1 shall be returned.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+The calling thread receives a signal that is to be caught; in this
+case a message is not received and the calling thread resumes
+execution in the manner prescribed in <I>sigaction</I>().
+</DL>
+<P>
+
+</DL>
+
+</DL>
+<P>
+
+<P>
+
+Upon successful completion, the following actions are taken with respect
+to the data structure associated with <I>msqid</I>:
+<DL COMPACT>
+<DT> *<DD>
+<B>msg_qnum</B> shall be decremented by 1.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+<B>msg_lrpid</B> shall be set equal to the process ID of the calling
+process.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+<B>msg_rtime</B> shall be set equal to the current time.
+</DL>
+<P>
+
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+Upon successful completion, <I>msgrcv</I>() shall return a value equal
+to the number of bytes actually placed into the buffer
+<I>mtext</I>. Otherwise, no message shall be received, <I>msgrcv</I>()
+shall return (<B>ssize_t</B>)-1, and <I>errno</I> shall be
+set to indicate the error.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+The <I>msgrcv</I>() function shall fail if:
+<DL COMPACT>
+<DT><B>E2BIG</B>
+
+<DD>
+The value of <I>mtext</I> is greater than <I>msgsz</I> and (<I>msgflg</I>
+&amp; MSG_NOERROR) is 0.
+<DT><B>EACCES</B>
+
+<DD>
+Operation permission is denied to the calling process; see <I>XSI
+Interprocess
+Communication</I> .
+<DT><B>EIDRM</B>
+
+<DD>
+The message queue identifier <I>msqid</I> is removed from the system.
+<DT><B>EINTR</B>
+
+<DD>
+The <I>msgrcv</I>() function was interrupted by a signal.
+<DT><B>EINVAL</B>
+
+<DD>
+<I>msqid</I> is not a valid message queue identifier.
+<DT><B>ENOMSG</B>
+
+<DD>
+The queue does not contain a message of the desired type and (<I>msgflg</I>
+&amp; IPC_NOWAIT) is non-zero.
+<P>
+</DL>
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<A NAME="lbAI">&nbsp;</A>
+<H3>Receiving a Message</H3>
+
+<P>
+
+The following example receives the first message on the queue (based
+on the value of the <I>msgtyp</I> argument, 0). The queue
+is identified by the <I>msqid</I> argument (assuming that the value
+has previously been set). This call specifies that an error
+should be reported if no message is available, but not if the message
+is too large. The message size is calculated directly using
+the <I>sizeof</I> operator.
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>#include &lt;<A HREF="file:///usr/include/sys/msg.h">sys/msg.h</A>&gt;
+...
+int result;
+int msqid;
+struct message {
+    long type;
+    char text[20];
+} msg;
+long msgtyp = 0;
+...
+result = msgrcv(msqid, (void *) &amp;msg, sizeof(msg.text),
+         msgtyp, MSG_NOERROR | IPC_NOWAIT);
+</B>
+</PRE>
+
+</DL>
+
+<A NAME="lbAJ">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+The POSIX Realtime Extension defines alternative interfaces for interprocess
+communication (IPC). Application developers who
+need to use IPC should design their applications so that modules using
+the IPC routines described in <I>XSI Interprocess Communication</I>
+can be easily modified to use the alternative
+interfaces.
+<A NAME="lbAK">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+None.
+<A NAME="lbAL">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAM">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>XSI Interprocess Communication</I>, <I>Realtime</I>, <I>mq_close</I>(),
+<I>mq_getattr</I>(), <I>mq_notify</I>(), <I>mq_open</I>(), <I>mq_receive</I>(),
+<I>mq_send</I>(), <I>mq_setattr</I>(), <I>mq_unlink</I>(), <I>msgctl</I>(),
+<I>msgget</I>(),
+<I>msgsnd</I>(), <I>sigaction</I>(), the Base Definitions volume of
+IEEE&nbsp;Std&nbsp;1003.1-2001, <I>&lt;<A HREF="file:///usr/include/sys/msg.h">sys/msg.h</A>&gt;</I>
+<A NAME="lbAN">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DL>
+<DT><A HREF="#lbAI">Receiving a Message</A><DD>
+</DL>
+<DT><A HREF="#lbAJ">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAK">RATIONALE</A><DD>
+<DT><A HREF="#lbAL">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAM">SEE ALSO</A><DD>
+<DT><A HREF="#lbAN">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:35 GMT, April 18, 2016
+</BODY>
+</HTML>

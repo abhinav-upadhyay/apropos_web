@@ -1,0 +1,275 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of PTHREAD_COND_BROADCAST</TITLE>
+</HEAD><BODY>
+<H1>PTHREAD_COND_BROADCAST</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+pthread_cond_broadcast, pthread_cond_signal - broadcast or signal
+a condition
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;
+<BR>
+
+<P>
+int pthread_cond_broadcast(pthread_cond_t *</B><I>cond</I><B>);
+<BR>
+
+int pthread_cond_signal(pthread_cond_t *</B><I>cond</I><B>); </B>
+<B>
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+These functions shall unblock threads blocked on a condition variable.
+<P>
+
+The <I>pthread_cond_broadcast</I>() function shall unblock all threads
+currently blocked on the specified condition variable
+<I>cond</I>.
+<P>
+
+The <I>pthread_cond_signal</I>() function shall unblock at least one
+of the threads that are blocked on the specified condition
+variable <I>cond</I> (if any threads are blocked on <I>cond</I>).
+<P>
+
+If more than one thread is blocked on a condition variable, the scheduling
+policy shall determine the order in which threads are
+unblocked. When each thread unblocked as a result of a <I>pthread_cond_broadcast</I>()
+or <I>pthread_cond_signal</I>() returns from
+its call to <I>pthread_cond_wait</I>() or <I>pthread_cond_timedwait</I>(),
+the thread shall own the mutex with which it called
+<I>pthread_cond_wait</I>() or <I>pthread_cond_timedwait</I>(). The thread(s)
+that are unblocked shall contend for
+the mutex according to the scheduling policy (if applicable), and
+as if each had called <I>pthread_mutex_lock</I>().
+<P>
+
+The <I>pthread_cond_broadcast</I>() or <I>pthread_cond_signal</I>()
+functions may be called by a thread whether or not it
+currently owns the mutex that threads calling <I>pthread_cond_wait</I>()
+or <I>pthread_cond_timedwait</I>() have associated with the condition
+variable
+during their waits; however, if predictable scheduling behavior is
+required, then that mutex shall be locked by the thread calling
+<I>pthread_cond_broadcast</I>() or <I>pthread_cond_signal</I>().
+<P>
+
+The <I>pthread_cond_broadcast</I>() and <I>pthread_cond_signal</I>()
+functions shall have no effect if there are no threads
+currently blocked on <I>cond</I>.
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+If successful, the <I>pthread_cond_broadcast</I>() and <I>pthread_cond_signal</I>()
+functions shall return zero; otherwise, an
+error number shall be returned to indicate the error.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+The <I>pthread_cond_broadcast</I>() and <I>pthread_cond_signal</I>()
+function may fail if:
+<DL COMPACT>
+<DT><B>EINVAL</B>
+
+<DD>
+The value <I>cond</I> does not refer to an initialized condition variable.
+<P>
+</DL>
+<P>
+
+These functions shall not return an error code of [EINTR].
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<P>
+
+None.
+<A NAME="lbAI">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+The <I>pthread_cond_broadcast</I>() function is used whenever the shared-variable
+state has been changed in a way that more than
+one thread can proceed with its task. Consider a single producer/multiple
+consumer problem, where the producer can insert multiple
+items on a list that is accessed one item at a time by the consumers.
+By calling the <I>pthread_cond_broadcast</I>() function, the
+producer would notify all consumers that might be waiting, and thereby
+the application would receive more throughput on a
+multi-processor. In addition, <I>pthread_cond_broadcast</I>() makes
+it easier to implement a read-write lock. The
+<I>pthread_cond_broadcast</I>() function is needed in order to wake
+up all waiting readers when a writer releases its lock.
+Finally, the two-phase commit algorithm can use this broadcast function
+to notify all clients of an impending transaction
+commit.
+<P>
+
+It is not safe to use the <I>pthread_cond_signal</I>() function in
+a signal handler that is invoked asynchronously. Even if it
+were safe, there would still be a race between the test of the Boolean
+<I>pthread_cond_wait</I>() that could not be efficiently eliminated.
+<P>
+
+Mutexes and condition variables are thus not suitable for releasing
+a waiting thread by signaling from code running in a signal
+handler.
+<A NAME="lbAJ">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<A NAME="lbAK">&nbsp;</A>
+<H3>Multiple Awakenings by Condition Signal</H3>
+
+<P>
+
+On a multi-processor, it may be impossible for an implementation of
+<I>pthread_cond_signal</I>() to avoid the unblocking of more
+than one thread blocked on a condition variable. For example, consider
+the following partial implementation of <I>pthread_cond_wait</I>()
+and <I>pthread_cond_signal</I>(), executed by two threads in
+the order given. One thread is trying to wait on the condition variable,
+another is concurrently executing
+<I>pthread_cond_signal</I>(), while a third thread is already waiting.
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>pthread_cond_wait(mutex, cond):
+    value = cond-&gt;value; /* 1 */
+    pthread_mutex_unlock(mutex); /* 2 */
+    pthread_mutex_lock(cond-&gt;mutex); /* 10 */
+    if (value == cond-&gt;value) { /* 11 */
+        me-&gt;next_cond = cond-&gt;waiter;
+        cond-&gt;waiter = me;
+        pthread_mutex_unlock(cond-&gt;mutex);
+        unable_to_run(me);
+    } else
+        pthread_mutex_unlock(cond-&gt;mutex); /* 12 */
+    pthread_mutex_lock(mutex); /* 13 */
+
+
+pthread_cond_signal(cond):
+    pthread_mutex_lock(cond-&gt;mutex); /* 3 */
+    cond-&gt;value++; /* 4 */
+    if (cond-&gt;waiter) { /* 5 */
+        sleeper = cond-&gt;waiter; /* 6 */
+        cond-&gt;waiter = sleeper-&gt;next_cond; /* 7 */
+        able_to_run(sleeper); /* 8 */
+    }
+    pthread_mutex_unlock(cond-&gt;mutex); /* 9 */
+</B>
+</PRE>
+
+</DL>
+
+<P>
+
+The effect is that more than one thread can return from its call to
+<I>pthread_cond_wait</I>() or <I>pthread_cond_timedwait</I>() as a result
+of one call to
+<I>pthread_cond_signal</I>(). This effect is called &quot;spurious wakeup&quot;.
+Note that the situation is self-correcting in that the
+number of threads that are so awakened is finite; for example, the
+next thread to call <I>pthread_cond_wait</I>() after the sequence of
+events above blocks.
+<P>
+
+While this problem could be resolved, the loss of efficiency for a
+fringe condition that occurs only rarely is unacceptable,
+especially given that one has to check the predicate associated with
+a condition variable anyway. Correcting this problem would
+unnecessarily reduce the degree of concurrency in this basic building
+block for all higher-level synchronization operations.
+<P>
+
+An added benefit of allowing spurious wakeups is that applications
+are forced to code a predicate-testing-loop around the
+condition wait. This also makes the application tolerate superfluous
+condition broadcasts or signals on the same condition variable
+that may be coded in some other part of the application. The resulting
+applications are thus more robust. Therefore,
+IEEE&nbsp;Std&nbsp;1003.1-2001 explicitly documents that spurious wakeups
+may occur.
+<A NAME="lbAL">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAM">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>pthread_cond_destroy</I>(), <I>pthread_cond_timedwait</I>(), the
+Base Definitions volume of IEEE&nbsp;Std&nbsp;1003.1-2001,
+<I>&lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;</I>
+<A NAME="lbAN">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DT><A HREF="#lbAI">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAJ">RATIONALE</A><DD>
+<DL>
+<DT><A HREF="#lbAK">Multiple Awakenings by Condition Signal</A><DD>
+</DL>
+<DT><A HREF="#lbAL">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAM">SEE ALSO</A><DD>
+<DT><A HREF="#lbAN">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:33 GMT, April 18, 2016
+</BODY>
+</HTML>

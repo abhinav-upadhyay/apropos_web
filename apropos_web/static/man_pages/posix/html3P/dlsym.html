@@ -1,0 +1,227 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of DLSYM</TITLE>
+</HEAD><BODY>
+<H1>DLSYM</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+dlsym - obtain the address of a symbol from a dlopen object
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/dlfcn.h">dlfcn.h</A>&gt;
+<BR>
+
+<P>
+void *dlsym(void *restrict</B> <I>handle</I><B>, const char *restrict</B>
+<I>name</I><B>); </B>
+<B>
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The <I>dlsym</I>() function shall obtain the address of a symbol defined
+within an object made accessible through a <I>dlopen</I>() call. The
+<I>handle</I> argument is the value returned from a call to <I>dlopen</I>()
+(and which has not since been released via a call to <I>dlclose</I>()),
+and <I>name</I> is the symbol's name as a character string.
+<P>
+
+The <I>dlsym</I>() function shall search for the named symbol in all
+objects loaded automatically as a result of loading the
+object referenced by <I>handle</I> (see <I>dlopen</I>()). Load ordering
+is used in <I>dlsym</I>()
+operations upon the global symbol object. The symbol resolution algorithm
+used shall be dependency order as described in <I>dlopen</I>().
+<P>
+
+The RTLD_DEFAULT and RTLD_NEXT flags are reserved for future use.
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+If <I>handle</I> does not refer to a valid object opened by <I>dlopen</I>(),
+or if the
+named symbol cannot be found within any of the objects associated
+with <I>handle</I>, <I>dlsym</I>() shall return NULL. More
+detailed diagnostic information shall be available through <I>dlerror</I>()
+.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+No errors are defined.
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<P>
+
+The following example shows how <I>dlopen</I>() and <I>dlsym</I>() can
+be used to access
+either function or data objects. For simplicity, error checking has
+been omitted.
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>void    *handle;
+int     *iptr, (*fptr)(int);
+
+
+/* open the needed object */
+handle = dlopen(&quot;/usr/home/me/libfoo.so&quot;, RTLD_LOCAL | RTLD_LAZY);
+
+
+/* find the address of function and data objects */
+*(void **)(&amp;fptr) = dlsym(handle, &quot;my_function&quot;);
+iptr = (int *)dlsym(handle, &quot;my_object&quot;);
+
+
+/* invoke function, passing value of integer as a parameter */
+(*fptr)(*iptr);
+</B>
+</PRE>
+
+</DL>
+
+<A NAME="lbAI">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+Special purpose values for <I>handle</I> are reserved for future use.
+These values and their meanings are:
+<DL COMPACT>
+<DT>RTLD_DEFAULT<DD>
+The symbol lookup happens in the normal global scope; that is, a search
+for a symbol using this handle would find the same
+definition as a direct use of this symbol in the program code.
+<DT>RTLD_NEXT<DD>
+Specifies the next object after this one that defines <I>name</I>.
+<I>This one</I> refers to the object containing the
+invocation of <I>dlsym</I>(). The <I>next</I> object is the one found
+upon the application of a load order symbol resolution
+algorithm (see <I>dlopen</I>()). The next object is either one of
+global scope (because it was
+introduced as part of the original process image or because it was
+added with a <I>dlopen</I>() operation including the RTLD_GLOBAL flag),
+or is an object that was included in the
+same <I>dlopen</I>() operation that loaded this one. 
+</DL>
+<P>
+
+The RTLD_NEXT flag is useful to navigate an intentionally created
+hierarchy of multiply-defined symbols created through
+<I>interposition</I>. For example, if a program wished to create an
+implementation of <I>malloc</I>() that embedded some statistics gathering
+about memory allocations, such an
+implementation could use the real <I>malloc</I>() definition to perform
+the memory
+allocation-and itself only embed the necessary logic to implement
+the statistics gathering function.
+<P>
+<A NAME="lbAJ">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+The ISO&nbsp;C standard does not require that pointers to functions can
+be cast back and forth to pointers to data. Indeed, the
+ISO&nbsp;C standard does not require that an object of type <B>void *</B>
+can hold a pointer to a function. Implementations
+supporting the XSI extension, however, do require that an object of
+type <B>void *</B> can hold a pointer to a function. The result
+of converting a pointer to a function into a pointer to another data
+type (except <B>void *</B>) is still undefined, however. Note
+that compilers conforming to the ISO&nbsp;C standard are required to generate
+a warning if a conversion from a <B>void *</B>
+pointer to a function pointer is attempted as in:
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>fptr = (int (*)(int))dlsym(handle, &quot;my_function&quot;);
+</B>
+</PRE>
+
+</DL>
+
+<P>
+
+Due to the problem noted here, a future version may either add a new
+function to return function pointers, or the current
+interface may be deprecated in favor of two new functions: one that
+returns data pointers and the other that returns function
+pointers.
+<A NAME="lbAK">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAL">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>dlclose</I>(), <I>dlerror</I>(), <I>dlopen</I>(), the Base Definitions
+volume of IEEE&nbsp;Std&nbsp;1003.1-2001, <I>&lt;<A HREF="file:///usr/include/dlfcn.h">dlfcn.h</A>&gt;</I>
+<A NAME="lbAM">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DT><A HREF="#lbAI">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAJ">RATIONALE</A><DD>
+<DT><A HREF="#lbAK">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAL">SEE ALSO</A><DD>
+<DT><A HREF="#lbAM">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:34 GMT, April 18, 2016
+</BODY>
+</HTML>

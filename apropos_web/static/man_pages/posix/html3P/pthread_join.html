@@ -1,0 +1,272 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of PTHREAD_JOIN</TITLE>
+</HEAD><BODY>
+<H1>PTHREAD_JOIN</H1>
+Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>PROLOG</H2>
+
+This manual page is part of the POSIX Programmer's Manual.
+The Linux implementation of this interface may differ (consult
+the corresponding Linux manual page for details of Linux behavior),
+or the interface may not be implemented on Linux.
+<A NAME="lbAC">&nbsp;</A>
+<H2>NAME</H2>
+
+pthread_join - wait for thread termination
+<A NAME="lbAD">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+<B>#include &lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;
+<BR>
+
+<P>
+int pthread_join(pthread_t</B> <I>thread</I><B>, void **</B><I>value_ptr</I><B>);
+</B>
+<B>
+<BR>
+
+</B>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+The <I>pthread_join</I>() function shall suspend execution of the calling
+thread until the target <I>thread</I> terminates,
+unless the target <I>thread</I> has already terminated. On return from
+a successful <I>pthread_join</I>() call with a non-NULL
+<I>value_ptr</I> argument, the value passed to <I>pthread_exit</I>()
+by the
+terminating thread shall be made available in the location referenced
+by <I>value_ptr</I>. When a <I>pthread_join</I>() returns
+successfully, the target thread has been terminated. The results of
+multiple simultaneous calls to <I>pthread_join</I>() specifying
+the same target thread are undefined. If the thread calling <I>pthread_join</I>()
+is canceled, then the target thread shall not be
+detached.
+<P>
+
+It is unspecified whether a thread that has exited but remains unjoined
+counts against {PTHREAD_THREADS_MAX}.
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUE</H2>
+
+<P>
+
+If successful, the <I>pthread_join</I>() function shall return zero;
+otherwise, an error number shall be returned to indicate
+the error.
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+<P>
+
+The <I>pthread_join</I>() function shall fail if:
+<DL COMPACT>
+<DT><B>EINVAL</B>
+
+<DD>
+The implementation has detected that the value specified by <I>thread</I>
+does not refer to a joinable thread.
+<DT><B>ESRCH</B>
+
+<DD>
+No thread could be found corresponding to that specified by the given
+thread ID.
+<P>
+</DL>
+<P>
+
+The <I>pthread_join</I>() function may fail if:
+<DL COMPACT>
+<DT><B>EDEADLK</B>
+
+<DD>
+A deadlock was detected or the value of <I>thread</I> specifies the
+calling thread.
+<P>
+</DL>
+<P>
+
+The <I>pthread_join</I>() function shall not return an error code of
+[EINTR].
+<P>
+
+<I>The following sections are informative.</I>
+<A NAME="lbAH">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<P>
+
+An example of thread creation and deletion follows:
+<P>
+<DL COMPACT><DT><DD>
+<PRE>
+
+<B>typedef struct {
+    int *ar;
+    long n;
+} subarray;
+
+
+void *
+incer(void *arg)
+{
+    long i;
+
+
+    for (i = 0; i &lt; ((subarray *)arg)-&gt;n; i++)
+        ((subarray *)arg)-&gt;ar[i]++;
+}
+
+
+int main(void)
+{
+    int        ar[1000000];
+    pthread_t  th1, th2;
+    subarray   sb1, sb2;
+
+
+    sb1.ar = &amp;ar[0];
+    sb1.n  = 500000;
+    (void) pthread_create(&amp;th1, NULL, incer, &amp;sb1);
+
+
+    sb2.ar = &amp;ar[500000];
+    sb2.n  = 500000;
+    (void) pthread_create(&amp;th2, NULL, incer, &amp;sb2);
+
+
+    (void) pthread_join(th1, NULL);
+    (void) pthread_join(th2, NULL);
+    return 0;
+}
+</B>
+</PRE>
+
+</DL>
+
+<A NAME="lbAI">&nbsp;</A>
+<H2>APPLICATION USAGE</H2>
+
+<P>
+
+None.
+<A NAME="lbAJ">&nbsp;</A>
+<H2>RATIONALE</H2>
+
+<P>
+
+The <I>pthread_join</I>() function is a convenience that has proven
+useful in multi-threaded applications. It is true that a
+programmer could simulate this function if it were not provided by
+passing extra state as part of the argument to the
+<I>start_routine</I>(). The terminating thread would set a flag to
+indicate termination and broadcast a condition that is part of
+that state; a joining thread would wait on that condition variable.
+While such a technique would allow a thread to wait on more
+complex conditions (for example, waiting for multiple threads to terminate),
+waiting on individual thread termination is considered
+widely useful. Also, including the <I>pthread_join</I>() function in
+no way precludes a programmer from coding such complex waits.
+Thus, while not a primitive, including <I>pthread_join</I>() in this
+volume of IEEE&nbsp;Std&nbsp;1003.1-2001 was considered
+valuable.
+<P>
+
+The <I>pthread_join</I>() function provides a simple mechanism allowing
+an application to wait for a thread to terminate. After
+the thread terminates, the application may then choose to clean up
+resources that were used by the thread. For instance, after
+<I>pthread_join</I>() returns, any application-provided stack storage
+could be reclaimed.
+<P>
+
+The <I>pthread_join</I>() or <I>pthread_detach</I>() function should
+eventually
+be called for every thread that is created with the <I>detachstate</I>
+attribute set to PTHREAD_CREATE_JOINABLE so that storage
+associated with the thread may be reclaimed.
+<P>
+
+The interaction between <I>pthread_join</I>() and cancellation is well-defined
+for the following reasons:
+<DL COMPACT>
+<DT> *<DD>
+The <I>pthread_join</I>() function, like all other non-async-cancel-safe
+functions, can only be called with deferred
+cancelability type.
+</DL>
+<P>
+
+<DL COMPACT>
+<DT> *<DD>
+Cancellation cannot occur in the disabled cancelability state.
+</DL>
+<P>
+
+<P>
+
+Thus, only the default cancelability state need be considered. As
+specified, either the <I>pthread_join</I>() call is canceled,
+or it succeeds, but not both. The difference is obvious to the application,
+since either a cancellation handler is run or
+<I>pthread_join</I>() returns. There are no race conditions since <I>pthread_join</I>()
+was called in the deferred cancelability
+state.
+<A NAME="lbAK">&nbsp;</A>
+<H2>FUTURE DIRECTIONS</H2>
+
+<P>
+
+None.
+<A NAME="lbAL">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+<I>pthread_create</I>(), <I>wait</I>(), the Base Definitions volume
+of IEEE&nbsp;Std&nbsp;1003.1-2001, <I>&lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;</I>
+<A NAME="lbAM">&nbsp;</A>
+<H2>COPYRIGHT</H2>
+
+Portions of this text are reprinted and reproduced in electronic form
+from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
+-- Portable Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
+Electrical and Electronics Engineers, Inc and The Open Group. In the
+event of any discrepancy between this version and the original IEEE and
+The Open Group Standard, the original IEEE and The Open Group Standard
+is the referee document. The original Standard can be obtained online at
+<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">PROLOG</A><DD>
+<DT><A HREF="#lbAC">NAME</A><DD>
+<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">EXAMPLES</A><DD>
+<DT><A HREF="#lbAI">APPLICATION USAGE</A><DD>
+<DT><A HREF="#lbAJ">RATIONALE</A><DD>
+<DT><A HREF="#lbAK">FUTURE DIRECTIONS</A><DD>
+<DT><A HREF="#lbAL">SEE ALSO</A><DD>
+<DT><A HREF="#lbAM">COPYRIGHT</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 12:41:35 GMT, April 18, 2016
+</BODY>
+</HTML>
