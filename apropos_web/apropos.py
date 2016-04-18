@@ -25,7 +25,7 @@ def index():
 @app.route("/<dist>/")
 def dist_index(dist):
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
-    if dist not in config.DB_PATHS:
+    if dist not in config.DB_PATHS and dist != 'favicon.ico':
         return redirect(url_for('search'))
     ip = request.remote_addr
     user_agent = request.user_agent
