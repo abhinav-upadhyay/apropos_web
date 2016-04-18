@@ -4,6 +4,7 @@ import time
 from urlparse import urlparse
 from flask import Flask, url_for, render_template
 from flask import request
+from flask import redirect
 from flask import make_response
 from werkzeug.contrib.fixers import ProxyFix
 from lrupy.lrupy import LRUCache
@@ -23,8 +24,9 @@ def index():
 
 @app.route("/<dist>/")
 def dist_index(dist):
+    netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     if dist not in config.DB_PATHS:
-        pass #Return 404
+        return redirect(url_for('search'))
     ip = request.remote_addr
     user_agent = request.user_agent
     platform = user_agent.platform
@@ -34,7 +36,6 @@ def dist_index(dist):
     referrer = request.referrer
     dblogger.log_page_visit(1, ip, platform, browser, version, language, referrer,
                             int(time.time()), dist)
-    netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     return render_template('index.html',
                            netbsd_logo_url=netbsd_logo_url)
 
@@ -75,14 +76,15 @@ def manpage_arch(dist, section, arch, name):
 @app.route("/<dist>/search/")
 @app.route("/<dist>/search")
 def dist_specific_search(dist):
+    netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     if dist is None or dist == '':
         dist = 'netbsd'
     db_path = config.DB_PATHS.get(dist)
     if db_path is None:
         #TODO show message about OS not supported
-        pass
+        return redirect(url_for('search'))
+
     query = request.args.get('q')
-    netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     if query is None or query == '':
         return render_template('index.html', netbsd_logo_url=netbsd_logo_url)
 
