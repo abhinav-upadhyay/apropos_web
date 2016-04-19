@@ -3,5 +3,6 @@
 In the summer of 2011, I worked on rewriting [apropos(1)] (https://github.com/abhinav-upadhyay/apropos_replacement) utility for [NetBSD] (http://netbsd.org) as part of Google Summer of Code 2011. This project attempts to develop a web interface for it.
 
 ### See it in action here: [man-k.org] (http://man-k.org)
-Currently it supports searching for ```NetBSD``` man pages: http://man-k.org/netbsd
-and searching for ```posix``` man pages: http://man-k.org/posix
+Currently it supports searching two distributions of man pages:
+* ```NetBSD``` man pages: http://man-k.org/netbsd or http://man-k.org
+* ```posix``` man pages: http://man-k.org/posix
