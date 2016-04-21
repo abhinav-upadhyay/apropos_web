@@ -19,10 +19,11 @@ _logger = logger.get_logger()
 dblogger = apropos_db_logger.AproposDBLogger()
 
 @app.route("/")
+@app.route("/netbsd/")
+@app.route("/posix/")
 def index():
     return dist_index('netbsd')
 
-@app.route("/<dist>/")
 def dist_index(dist):
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     if dist not in config.DB_PATHS and dist != 'favicon.ico':
