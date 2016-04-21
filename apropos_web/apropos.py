@@ -18,11 +18,15 @@ caches = {}
 _logger = logger.get_logger()
 dblogger = apropos_db_logger.AproposDBLogger()
 
-@app.route("/")
-@app.route("/netbsd/")
-@app.route("/posix/")
-def index():
+
+@app.route('/')
+@app.route('/netbsd/')
+def posix_index():
     return dist_index('netbsd')
+
+@app.route('/posix/')
+def netbsd_index():
+    return dist_index('posix')
 
 def dist_index(dist):
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
