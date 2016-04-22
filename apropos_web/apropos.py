@@ -177,7 +177,7 @@ def _log_click(page_name, section, rank, query, ip, platform, browser, version,
                        language, referrer, click_time, dist)
 
 def _search(query, db_path=None):
-    command = config.APROPOS_PATH + ' -j %s' % query
+    command = config.APROPOS_PATH + ' -j %s' % query.replace('-', '')
     if db_path is not None:
         command += ' -d %s' % db_path
 
