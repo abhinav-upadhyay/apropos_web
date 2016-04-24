@@ -6,7 +6,7 @@ Unlike the traditional apropos implementations, the apropos in NetBSD does full 
 
 It also does a basic spell check for queries and offers suggestions. For example try [make directry] (https://man-k.org/search?q=make+directry)
 
-### See it in action here: [man-k.org] (http://man-k.org)
+### See it in action here: [man-k.org] (https://man-k.org)
 Currently it supports searching two distributions of man pages:
-* ```NetBSD``` man pages: http://man-k.org/netbsd or http://man-k.org
-* ```posix``` man pages: http://man-k.org/posix
+* ```NetBSD``` man pages: https://man-k.org/netbsd/ or https://man-k.org
+* ```posix``` man pages: https://man-k.org/posix/
