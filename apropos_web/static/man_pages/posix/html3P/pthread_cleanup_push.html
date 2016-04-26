@@ -1,389 +1,292 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<HTML><HEAD><TITLE>Man page of PTHREAD_CLEANUP_POP</TITLE>
-</HEAD><BODY>
-<H1>PTHREAD_CLEANUP_POP</H1>
-Section: POSIX Programmer's Manual (3P)<BR>Updated: 2003<BR><A HREF="#index">Index</A>
-<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+PTHREAD_CLEANUP_POP(3P)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PTHREAD_CLEANUP_POP(3P)</td>
+<td class="head-vol">
+POSIX Programmer's Manual</td>
+<td class="head-rtitle">
+PTHREAD_CLEANUP_POP(3P)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>PROLOG</h1> This manual page is part of the POSIX Programmer's Manual. The Linux implementation of this interface may differ (consult the corresponding Linux manual page for details of Linux behavior), or the interface may not be implemented on Linux.</div>
+<div class="section">
+<h1>NAME</h1> pthread_cleanup_pop, pthread_cleanup_push - establish cancellation handlers</div>
+<div class="section">
+<h1>SYNOPSIS</h1>  <b>#include &lt;pthread.h&gt;</b><div style="height: 0.00em;">
+&#160;</div>
+<div style="height: 1.00em;">
+&#160;</div>
+void pthread_cleanup_pop(int<b> </b><i>execute</i><b></b><b>);</b><div style="height: 0.00em;">
+&#160;</div>
+void pthread_cleanup_push(void (*<b></b><i>routine</i><b></b><b>)(void*), void</b>  <b>*</b><b></b><i>arg</i><b></b><b>); </b><b></b>  <b></b><b></b><div style="height: 0.00em;">
+&#160;</div>
+<b></b></div>
+<div class="section">
+<h1>DESCRIPTION</h1> The  <i>pthread_cleanup_pop</i>() function shall remove the routine at the top of the calling thread's cancellation cleanup stack and optionally invoke it (if  <i>execute</i> is non-zero).<div class="spacer">
+</div>
+The <i>pthread_cleanup_push</i>() function shall push the specified cancellation cleanup handler  <i>routine</i> onto the calling thread's cancellation cleanup stack. The cancellation cleanup handler shall be popped from the cancellation cleanup stack and invoked with the argument  <i>arg</i> when:<dl>
+<dt>
+ *</dt>
+<dd>
+The thread exits (that is, calls <i>pthread_exit</i>()).</dd>
+</dl>
+<dl>
+<dt>
+ *</dt>
+<dd>
+The thread acts upon a cancellation request.</dd>
+</dl>
+<dl>
+<dt>
+ *</dt>
+<dd>
+The thread calls <i>pthread_cleanup_pop</i>() with a non-zero <i>execute</i> argument.</dd>
+</dl>
+<div class="spacer">
+</div>
+These functions may be implemented as macros. The application shall ensure that they appear as statements, and in pairs within the same lexical scope (that is, the  <i>pthread_cleanup_push</i>() macro may be thought to expand to a token list whose first token is  <b>'{'</b> with <i>pthread_cleanup_pop</i>() expanding to a token list whose last token is the corresponding  <b>'}'</b> ).<div class="spacer">
+</div>
+The effect of calling <i>longjmp</i>() or <i>siglongjmp</i>() is undefined if there have been any calls to  <i>pthread_cleanup_push</i>() or  <i>pthread_cleanup_pop</i>() made without the matching call since the jump buffer was filled. The effect of calling  <i>longjmp</i>() or  <i>siglongjmp</i>() from inside a cancellation cleanup handler is also undefined unless the jump buffer was also filled in the cancellation cleanup handler.</div>
+<div class="section">
+<h1>RETURN VALUE</h1> The  <i>pthread_cleanup_push</i>() and <i>pthread_cleanup_pop</i>() functions shall not return a value.</div>
+<div class="section">
+<h1>ERRORS</h1> No errors are defined.<div class="spacer">
+</div>
+These functions shall not return an error code of [EINTR].<div class="spacer">
+</div>
+<i>The following sections are informative.</i></div>
+<div class="section">
+<h1>EXAMPLES</h1> The following is an example using thread primitives to implement a cancelable, writers-priority read-write lock:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 5.00ex;">
+<div class="spacer">
+</div>
+<br/>
+<b>typedef struct {</b><br/>
+<b>    pthread_mutex_t lock;</b><br/>
+<b>    pthread_cond_t rcond,</b><br/>
+<b>        wcond;</b><br/>
+<b>    int lock_count; /* &lt; 0 .. Held by writer. */</b><br/>
+<b>                    /* &gt; 0 .. Held by lock_count readers. */</b><br/>
+<b>                    /* = 0 .. Held by nobody. */</b><br/>
+<b>    int waiting_writers; /* Count of waiting writers. */</b><br/>
+<b>} rwlock;</b><div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+<br/>
+void<br/>
+waiting_reader_cleanup(void *arg)<br/>
+{<br/>
+    rwlock *l;<div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+<br/>
+    l = (rwlock *) arg;<br/>
+    pthread_mutex_unlock(&amp;l-&gt;lock);<br/>
+}<div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+<br/>
+void<br/>
+lock_for_read(rwlock *l)<br/>
+{<br/>
+    pthread_mutex_lock(&amp;l-&gt;lock);<br/>
+    pthread_cleanup_push(waiting_reader_cleanup, l);<br/>
+    while ((l-&gt;lock_count &lt; 0) &amp;&amp; (l-&gt;waiting_writers != 0))<br/>
+        pthread_cond_wait(&amp;l-&gt;rcond, &amp;l-&gt;lock);<br/>
+    l-&gt;lock_count++;<br/>
+   /*<br/>
+    * Note the pthread_cleanup_pop executes<br/>
+    * waiting_reader_cleanup.<br/>
+    */<br/>
+    pthread_cleanup_pop(1);<br/>
+}<div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+<br/>
+void<br/>
+release_read_lock(rwlock *l)<br/>
+{<br/>
+    pthread_mutex_lock(&amp;l-&gt;lock);<br/>
+    if (--l-&gt;lock_count == 0)<br/>
+        pthread_cond_signal(&amp;l-&gt;wcond);<br/>
+    pthread_mutex_unlock(l);<br/>
+}<div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+<br/>
+void<br/>
+waiting_writer_cleanup(void *arg)<br/>
+{<br/>
+    rwlock *l;<div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+<br/>
+    l = (rwlock *) arg;<br/>
+    if ((--l-&gt;waiting_writers == 0) &amp;&amp; (l-&gt;lock_count &gt;= 0)) {<br/>
+       /*<br/>
+        * This only happens if we have been canceled.<br/>
+        */<br/>
+        pthread_cond_broadcast(&amp;l-&gt;wcond);<br/>
+}<br/>
+    pthread_mutex_unlock(&amp;l-&gt;lock);<br/>
+}<div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+<br/>
+void<br/>
+lock_for_write(rwlock *l)<br/>
+{<br/>
+    pthread_mutex_lock(&amp;l-&gt;lock);<br/>
+    l-&gt;waiting_writers++;<br/>
+    pthread_cleanup_push(waiting_writer_cleanup, l);<br/>
+    while (l-&gt;lock_count != 0)<br/>
+        pthread_cond_wait(&amp;l-&gt;wcond, &amp;l-&gt;lock);<br/>
+    l-&gt;lock_count = -1;<br/>
+   /*<br/>
+    * Note the pthread_cleanup_pop executes<br/>
+    * waiting_writer_cleanup.<br/>
+    */<br/>
+    pthread_cleanup_pop(1);<br/>
+}<div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+<br/>
+void<br/>
+release_write_lock(rwlock *l)<br/>
+{<br/>
+    pthread_mutex_lock(&amp;l-&gt;lock);<br/>
+    l-&gt;lock_count = 0;<br/>
+    if (l-&gt;waiting_writers == 0)<br/>
+        pthread_cond_broadcast(&amp;l-&gt;rcond)<br/>
+    else<br/>
+        pthread_cond_signal(&amp;l-&gt;wcond);<br/>
+    pthread_mutex_unlock(&amp;l-&gt;lock);<br/>
+}<div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+<br/>
+/*<br/>
+ * This function is called to initialize the read/write lock.<br/>
+ */<br/>
+void<br/>
+initialize_rwlock(rwlock *l)<br/>
+{<br/>
+    pthread_mutex_init(&amp;l-&gt;lock, pthread_mutexattr_default);<br/>
+    pthread_cond_init(&amp;l-&gt;wcond, pthread_condattr_default);<br/>
+    pthread_cond_init(&amp;l-&gt;rcond, pthread_condattr_default);<br/>
+    l-&gt;lock_count = 0;<br/>
+    l-&gt;waiting_writers = 0;<br/>
+}<div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+<br/>
+reader_thread()<br/>
+{<br/>
+    lock_for_read(&amp;lock);<br/>
+    pthread_cleanup_push(release_read_lock, &amp;lock);<br/>
+   /*<br/>
+    * Thread has read lock.<br/>
+    */<br/>
+    pthread_cleanup_pop(1);<br/>
+}<div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+<br/>
+writer_thread()<br/>
+{<br/>
+    lock_for_write(&amp;lock);<br/>
+    pthread_cleanup_push(release_write_lock, &amp;lock);<br/>
+   /*<br/>
+    * Thread has write lock.<br/>
+    */<br/>
+pthread_cleanup_pop(1);<br/>
+}<br/>
+<b></b><br/>
+</div>
+</div>
+<div class="section">
+<h1>APPLICATION USAGE</h1> The two routines that push and pop cancellation cleanup handlers,  <i>pthread_cleanup_push</i>() and  <i>pthread_cleanup_pop</i>(), can be thought of as left and right parentheses. They always need to be matched.</div>
+<div class="section">
+<h1>RATIONALE</h1> The restriction that the two routines that push and pop cancellation cleanup handlers,  <i>pthread_cleanup_push</i>() and  <i>pthread_cleanup_pop</i>(), have to appear in the same lexical scope allows for efficient macro or compiler implementations and efficient storage management. A sample implementation of these routines as macros might look like this:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 5.00ex;">
+<div class="spacer">
+</div>
+<br/>
+<b>#define pthread_cleanup_push(rtn,arg) { \</b><br/>
+<b>    struct _pthread_handler_rec __cleanup_handler, **__head; \</b><br/>
+<b>    __cleanup_handler.rtn = rtn; \</b><br/>
+<b>    __cleanup_handler.arg = arg; \</b><br/>
+<b>    (void) pthread_getspecific(_pthread_handler_key, &amp;__head); \</b><br/>
+<b>    __cleanup_handler.next = *__head; \</b><br/>
+<b>    *__head = &amp;__cleanup_handler;</b><div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+<br/>
+#define pthread_cleanup_pop(ex) \<br/>
+    *__head = __cleanup_handler.next; \<br/>
+    if (ex) (*__cleanup_handler.rtn)(__cleanup_handler.arg); \<br/>
+}<br/>
+<b></b><br/>
+</div>
+<div class="spacer">
+</div>
+A more ambitious implementation of these routines might do even better by allowing the compiler to note that the cancellation cleanup handler is a constant and can be expanded inline.<div class="spacer">
+</div>
+This volume of IEEE&#160;Std&#160;1003.1-2001 currently leaves unspecified the effect of calling  <i>longjmp</i>() from a signal handler executing in a POSIX System Interfaces function. If an implementation wants to allow this and give the programmer reasonable behavior, the  <i>longjmp</i>() function has to call all cancellation cleanup handlers that have been pushed but not popped since the time  <i>setjmp</i>() was called.<div class="spacer">
+</div>
+Consider a multi-threaded function called by a thread that uses signals. If a signal were delivered to a signal handler during the operation of  <i>qsort</i>() and that handler were to call <i>longjmp</i>() (which, in turn, did  <i>not</i> call the cancellation cleanup handlers) the helper threads created by the  <i>qsort</i>() function would not be canceled. Instead, they would continue to execute and write into the argument array even though the array might have been popped off the stack.<div class="spacer">
+</div>
+Note that the specified cleanup handling mechanism is especially tied to the C language and, while the requirement for a uniform mechanism for expressing cleanup is language-independent, the mechanism used in other languages may be quite different. In addition, this mechanism is really only necessary due to the lack of a real exception mechanism in the C language, which would be the ideal solution.<div class="spacer">
+</div>
+There is no notion of a cancellation cleanup-safe function. If an application has no cancellation points in its signal handlers, blocks any signal whose handler may have cancellation points while calling async-unsafe functions, or disables cancellation while calling async-unsafe functions, all functions may be safely called from cancellation cleanup routines.</div>
+<div class="section">
+<h1>FUTURE DIRECTIONS</h1> None.</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <i>pthread_cancel</i>(), <i>pthread_setcancelstate</i>(), the Base Definitions volume of IEEE&#160;Std&#160;1003.1-2001,  <i>&lt;pthread.h&gt;</i></div>
+<div class="section">
+<h1>COPYRIGHT</h1> Portions of this text are reprinted and reproduced in electronic form from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology -- Portable Operating System Interface (POSIX), The Open Group Base Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of Electrical and Electronics Engineers, Inc and The Open Group. In the event of any discrepancy between this version and the original IEEE and The Open Group Standard, the original IEEE and The Open Group Standard is the referee document. The original Standard can be obtained online at http://www.opengroup.org/unix/online.html .</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2003</td>
+<td class="foot-os">
+IEEE/The Open Group</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
 
-
-<A NAME="lbAB">&nbsp;</A>
-<H2>PROLOG</H2>
-
-This manual page is part of the POSIX Programmer's Manual.
-The Linux implementation of this interface may differ (consult
-the corresponding Linux manual page for details of Linux behavior),
-or the interface may not be implemented on Linux.
-<A NAME="lbAC">&nbsp;</A>
-<H2>NAME</H2>
-
-pthread_cleanup_pop, pthread_cleanup_push - establish cancellation
-handlers
-<A NAME="lbAD">&nbsp;</A>
-<H2>SYNOPSIS</H2>
-
-<P>
-
-<B>#include &lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;
-<BR>
-
-<P>
-void pthread_cleanup_pop(int</B> <I>execute</I><B>);
-<BR>
-
-void pthread_cleanup_push(void (*</B><I>routine</I><B>)(void*), void
-*</B><I>arg</I><B>); </B>
-<B>
-<BR>
-
-</B>
-<A NAME="lbAE">&nbsp;</A>
-<H2>DESCRIPTION</H2>
-
-<P>
-
-The <I>pthread_cleanup_pop</I>() function shall remove the routine
-at the top of the calling thread's cancellation cleanup stack
-and optionally invoke it (if <I>execute</I> is non-zero).
-<P>
-
-The <I>pthread_cleanup_push</I>() function shall push the specified
-cancellation cleanup handler <I>routine</I> onto the calling
-thread's cancellation cleanup stack. The cancellation cleanup handler
-shall be popped from the cancellation cleanup stack and
-invoked with the argument <I>arg</I> when:
-<DL COMPACT>
-<DT> *<DD>
-The thread exits (that is, calls <I>pthread_exit</I>()).
-</DL>
-<P>
-
-<DL COMPACT>
-<DT> *<DD>
-The thread acts upon a cancellation request.
-</DL>
-<P>
-
-<DL COMPACT>
-<DT> *<DD>
-The thread calls <I>pthread_cleanup_pop</I>() with a non-zero <I>execute</I>
-argument.
-</DL>
-<P>
-
-<P>
-
-These functions may be implemented as macros. The application shall
-ensure that they appear as statements, and in pairs within
-the same lexical scope (that is, the <I>pthread_cleanup_push</I>()
-macro may be thought to expand to a token list whose first token
-is <B>'{'</B> with <I>pthread_cleanup_pop</I>() expanding to a token
-list whose last token is the corresponding <B>'}'</B>
-).
-<P>
-
-The effect of calling <I>longjmp</I>() or <I>siglongjmp</I>() is undefined
-if there have been any calls to <I>pthread_cleanup_push</I>()
-or <I>pthread_cleanup_pop</I>() made without the matching call since
-the jump buffer was filled. The effect of calling <I>longjmp</I>()
-or <I>siglongjmp</I>() from inside a
-cancellation cleanup handler is also undefined unless the jump buffer
-was also filled in the cancellation cleanup handler.
-<A NAME="lbAF">&nbsp;</A>
-<H2>RETURN VALUE</H2>
-
-<P>
-
-The <I>pthread_cleanup_push</I>() and <I>pthread_cleanup_pop</I>() functions
-shall not return a value.
-<A NAME="lbAG">&nbsp;</A>
-<H2>ERRORS</H2>
-
-<P>
-
-No errors are defined.
-<P>
-
-These functions shall not return an error code of [EINTR].
-<P>
-
-<I>The following sections are informative.</I>
-<A NAME="lbAH">&nbsp;</A>
-<H2>EXAMPLES</H2>
-
-<P>
-
-The following is an example using thread primitives to implement a
-cancelable, writers-priority read-write lock:
-<P>
-<DL COMPACT><DT><DD>
-<PRE>
-
-<B>typedef struct {
-    pthread_mutex_t lock;
-    pthread_cond_t rcond,
-        wcond;
-    int lock_count; /* &lt; 0 .. Held by writer. */
-                    /* &gt; 0 .. Held by lock_count readers. */
-                    /* = 0 .. Held by nobody. */
-    int waiting_writers; /* Count of waiting writers. */
-} rwlock;
-
-
-void
-waiting_reader_cleanup(void *arg)
-{
-    rwlock *l;
-
-
-    l = (rwlock *) arg;
-    pthread_mutex_unlock(&amp;l-&gt;lock);
-}
-
-
-void
-lock_for_read(rwlock *l)
-{
-    pthread_mutex_lock(&amp;l-&gt;lock);
-    pthread_cleanup_push(waiting_reader_cleanup, l);
-    while ((l-&gt;lock_count &lt; 0) &amp;&amp; (l-&gt;waiting_writers != 0))
-        pthread_cond_wait(&amp;l-&gt;rcond, &amp;l-&gt;lock);
-    l-&gt;lock_count++;
-   /*
-    * Note the pthread_cleanup_pop executes
-    * waiting_reader_cleanup.
-    */
-    <A HREF="/cgi-bin/man/man2html?1+pthread_cleanup_pop">pthread_cleanup_pop</A>(1);
-}
-
-
-void
-release_read_lock(rwlock *l)
-{
-    pthread_mutex_lock(&amp;l-&gt;lock);
-    if (--l-&gt;lock_count == 0)
-        pthread_cond_signal(&amp;l-&gt;wcond);
-    <A HREF="/cgi-bin/man/man2html?l+pthread_mutex_unlock">pthread_mutex_unlock</A>(l);
-}
-
-
-void
-waiting_writer_cleanup(void *arg)
-{
-    rwlock *l;
-
-
-    l = (rwlock *) arg;
-    if ((--l-&gt;waiting_writers == 0) &amp;&amp; (l-&gt;lock_count &gt;= 0)) {
-       /*
-        * This only happens if we have been canceled.
-        */
-        pthread_cond_broadcast(&amp;l-&gt;wcond);
-}
-    pthread_mutex_unlock(&amp;l-&gt;lock);
-}
-
-
-void
-lock_for_write(rwlock *l)
-{
-    pthread_mutex_lock(&amp;l-&gt;lock);
-    l-&gt;waiting_writers++;
-    pthread_cleanup_push(waiting_writer_cleanup, l);
-    while (l-&gt;lock_count != 0)
-        pthread_cond_wait(&amp;l-&gt;wcond, &amp;l-&gt;lock);
-    l-&gt;lock_count = -1;
-   /*
-    * Note the pthread_cleanup_pop executes
-    * waiting_writer_cleanup.
-    */
-    <A HREF="/cgi-bin/man/man2html?1+pthread_cleanup_pop">pthread_cleanup_pop</A>(1);
-}
-
-
-void
-release_write_lock(rwlock *l)
-{
-    pthread_mutex_lock(&amp;l-&gt;lock);
-    l-&gt;lock_count = 0;
-    if (l-&gt;waiting_writers == 0)
-        pthread_cond_broadcast(&amp;l-&gt;rcond)
-    else
-        pthread_cond_signal(&amp;l-&gt;wcond);
-    pthread_mutex_unlock(&amp;l-&gt;lock);
-}
-
-
-/*
- * This function is called to initialize the read/write lock.
- */
-void
-initialize_rwlock(rwlock *l)
-{
-    pthread_mutex_init(&amp;l-&gt;lock, pthread_mutexattr_default);
-    pthread_cond_init(&amp;l-&gt;wcond, pthread_condattr_default);
-    pthread_cond_init(&amp;l-&gt;rcond, pthread_condattr_default);
-    l-&gt;lock_count = 0;
-    l-&gt;waiting_writers = 0;
-}
-
-
-reader_thread()
-{
-    lock_for_read(&amp;lock);
-    pthread_cleanup_push(release_read_lock, &amp;lock);
-   /*
-    * Thread has read lock.
-    */
-    <A HREF="/cgi-bin/man/man2html?1+pthread_cleanup_pop">pthread_cleanup_pop</A>(1);
-}
-
-
-writer_thread()
-{
-    lock_for_write(&amp;lock);
-    pthread_cleanup_push(release_write_lock, &amp;lock);
-   /*
-    * Thread has write lock.
-    */
-<A HREF="/cgi-bin/man/man2html?1+pthread_cleanup_pop">pthread_cleanup_pop</A>(1);
-}
-</B>
-</PRE>
-
-</DL>
-
-<A NAME="lbAI">&nbsp;</A>
-<H2>APPLICATION USAGE</H2>
-
-<P>
-
-The two routines that push and pop cancellation cleanup handlers,
-<I>pthread_cleanup_push</I>() and
-<I>pthread_cleanup_pop</I>(), can be thought of as left and right parentheses.
-They always need to be matched.
-<A NAME="lbAJ">&nbsp;</A>
-<H2>RATIONALE</H2>
-
-<P>
-
-The restriction that the two routines that push and pop cancellation
-cleanup handlers, <I>pthread_cleanup_push</I>() and
-<I>pthread_cleanup_pop</I>(), have to appear in the same lexical scope
-allows for efficient macro or compiler implementations and
-efficient storage management. A sample implementation of these routines
-as macros might look like this:
-<P>
-<DL COMPACT><DT><DD>
-<PRE>
-
-<B>#define pthread_cleanup_push(rtn,arg) { \
-    struct _pthread_handler_rec __cleanup_handler, **__head; \
-    __cleanup_handler.rtn = rtn; \
-    __cleanup_handler.arg = arg; \
-    (void) pthread_getspecific(_pthread_handler_key, &amp;__head); \
-    __cleanup_handler.next = *__head; \
-    *__head = &amp;__cleanup_handler;
-
-
-#define pthread_cleanup_pop(ex) \
-    *__head = __cleanup_handler.next; \
-    if (ex) (*__cleanup_handler.rtn)(__cleanup_handler.arg); \
-}
-</B>
-</PRE>
-
-</DL>
-
-<P>
-
-A more ambitious implementation of these routines might do even better
-by allowing the compiler to note that the cancellation
-cleanup handler is a constant and can be expanded inline.
-<P>
-
-This volume of IEEE&nbsp;Std&nbsp;1003.1-2001 currently leaves unspecified
-the effect of calling <I>longjmp</I>() from a signal handler executing
-in a POSIX System Interfaces function. If an
-implementation wants to allow this and give the programmer reasonable
-behavior, the <I>longjmp</I>() function has to call all cancellation
-cleanup handlers that have been pushed but
-not popped since the time <I>setjmp</I>() was called.
-<P>
-
-Consider a multi-threaded function called by a thread that uses signals.
-If a signal were delivered to a signal handler during
-the operation of <I>qsort</I>() and that handler were to call <I>longjmp</I>()
-(which, in turn, did <I>not</I> call the cancellation cleanup handlers)
-the helper
-threads created by the <I>qsort</I>() function would not be canceled.
-Instead, they would
-continue to execute and write into the argument array even though
-the array might have been popped off the stack.
-<P>
-
-Note that the specified cleanup handling mechanism is especially tied
-to the C language and, while the requirement for a uniform
-mechanism for expressing cleanup is language-independent, the mechanism
-used in other languages may be quite different. In
-addition, this mechanism is really only necessary due to the lack
-of a real exception mechanism in the C language, which would be
-the ideal solution.
-<P>
-
-There is no notion of a cancellation cleanup-safe function. If an
-application has no cancellation points in its signal handlers,
-blocks any signal whose handler may have cancellation points while
-calling async-unsafe functions, or disables cancellation while
-calling async-unsafe functions, all functions may be safely called
-from cancellation cleanup routines.
-<A NAME="lbAK">&nbsp;</A>
-<H2>FUTURE DIRECTIONS</H2>
-
-<P>
-
-None.
-<A NAME="lbAL">&nbsp;</A>
-<H2>SEE ALSO</H2>
-
-<P>
-
-<I>pthread_cancel</I>(), <I>pthread_setcancelstate</I>(), the Base
-Definitions volume of IEEE&nbsp;Std&nbsp;1003.1-2001,
-<I>&lt;<A HREF="file:///usr/include/pthread.h">pthread.h</A>&gt;</I>
-<A NAME="lbAM">&nbsp;</A>
-<H2>COPYRIGHT</H2>
-
-Portions of this text are reprinted and reproduced in electronic form
-from IEEE Std 1003.1, 2003 Edition, Standard for Information Technology
--- Portable Operating System Interface (POSIX), The Open Group Base
-Specifications Issue 6, Copyright (C) 2001-2003 by the Institute of
-Electrical and Electronics Engineers, Inc and The Open Group. In the
-event of any discrepancy between this version and the original IEEE and
-The Open Group Standard, the original IEEE and The Open Group Standard
-is the referee document. The original Standard can be obtained online at
-<A HREF="http://www.opengroup.org/unix/online.html">http://www.opengroup.org/unix/online.html</A> .
-<P>
-
-<HR>
-<A NAME="index">&nbsp;</A><H2>Index</H2>
-<DL>
-<DT><A HREF="#lbAB">PROLOG</A><DD>
-<DT><A HREF="#lbAC">NAME</A><DD>
-<DT><A HREF="#lbAD">SYNOPSIS</A><DD>
-<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
-<DT><A HREF="#lbAF">RETURN VALUE</A><DD>
-<DT><A HREF="#lbAG">ERRORS</A><DD>
-<DT><A HREF="#lbAH">EXAMPLES</A><DD>
-<DT><A HREF="#lbAI">APPLICATION USAGE</A><DD>
-<DT><A HREF="#lbAJ">RATIONALE</A><DD>
-<DT><A HREF="#lbAK">FUTURE DIRECTIONS</A><DD>
-<DT><A HREF="#lbAL">SEE ALSO</A><DD>
-<DT><A HREF="#lbAM">COPYRIGHT</A><DD>
-</DL>
-<HR>
-This document was created by
-<A HREF="/cgi-bin/man/man2html">man2html</A>,
-using the manual pages.<BR>
-Time: 12:41:33 GMT, April 18, 2016
-</BODY>
-</HTML>
