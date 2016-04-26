@@ -24,6 +24,10 @@ dblogger = apropos_db_logger.AproposDBLogger()
 def posix_index():
     return dist_index('netbsd')
 
+@app.route('/linux/')
+def linux_index():
+    return dist_index('linux')
+
 @app.route('/posix/')
 def netbsd_index():
     return dist_index('posix')
