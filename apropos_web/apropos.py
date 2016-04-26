@@ -119,7 +119,7 @@ def dist_specific_search(dist):
     suggestion = None
     if results is None:
         results = _search(query, db_path)
-        _logger.info(results)
+        _logger.debug(results)
         if results is None:
             return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
         error = results.get('error')
