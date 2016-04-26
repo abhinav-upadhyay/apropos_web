@@ -136,6 +136,8 @@ def dist_specific_search(dist):
                 return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
             dist_results_cache.add(suggestion, results)
             query = suggestion
+    else:
+        resultset = results.get('results')
 
     start_index = page * 10
     end_index = page * 10 + 10
