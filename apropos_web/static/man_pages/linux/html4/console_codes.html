@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+CONSOLE_CODES(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+CONSOLE_CODES(4)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+CONSOLE_CODES(4)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> console_codes - Linux console escape and control sequences</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The Linux console implements a large subset of the VT102 and ECMA-48/ISO 6429/ANSI X3.64 terminal controls, plus certain private-mode sequences for changing the color palette, character-set mapping, etc. In the tabular descriptions below, the second column gives ECMA-48 or DEC mnemonics (the latter if prefixed with DEC) for the given function. Sequences without a mnemonic are neither ECMA-48 nor VT102.<div class="spacer">
+</div>
+After all the normal output processing has been done, and a stream of characters arrives at the console driver for actual printing, the first thing that happens is a translation from the code used for processing to the code used for printing.<div class="spacer">
+</div>
+If the console is in UTF-8 mode, then the incoming bytes are first assembled into 16-bit Unicode codes. Otherwise each byte is transformed according to the current mapping table (which translates it to a Unicode value). See the  <b>Character Sets</b> section below for discussion.<div class="spacer">
+</div>
+In the normal case, the Unicode value is converted to a font index, and this is stored in video memory, so that the corresponding glyph (as found in video ROM) appears on the screen. Note that the use of Unicode (and the design of the PC hardware) allows us to use 512 different glyphs simultaneously.<div class="spacer">
+</div>
+If the current Unicode value is a control character, or we are currently processing an escape sequence, the value will treated specially. Instead of being turned into a font index and rendered as a glyph, it may trigger cursor movement or other control functions. See the  <b>Linux Console Controls</b> section below for discussion.<div class="spacer">
+</div>
+It is generally not good practice to hard-wire terminal controls into programs. Linux supports a <b>terminfo</b>(5) database of terminal capabilities. Rather than emitting console escape sequences by hand, you will almost always want to use a terminfo-aware screen library or utility such as <b>ncurses</b>(3), <b>tput</b>(1), or <b>reset</b>(1).<div class="subsection">
+<h2>Linux Console Controls</h2> This section describes all the control characters and escape sequences that invoke special functions (i.e., anything other than writing a glyph at the current cursor location) on the Linux console.<div class="spacer">
+</div>
+<b>Control characters</b><div style="height: 1.00em;">
+&#160;</div>
+A character is a control character if (before transformation according to the mapping table) it has one of the 14 codes 00 (NUL), 07 (BEL), 08 (BS), 09 (HT), 0a (LF), 0b (VT), 0c (FF), 0d (CR), 0e (SO), 0f (SI), 18 (CAN), 1a (SUB), 1b (ESC), 7f (DEL). One can set a &quot;display control characters&quot; mode (see below), and allow 07, 09, 0b, 18, 1a, 7f to be displayed as glyphs. On the other hand, in UTF-8 mode all codes 00-1f are regarded as control characters, regardless of any &quot;display control characters&quot; mode.<div class="spacer">
+</div>
+If we have a control character, it is acted upon immediately and then discarded (even in the middle of an escape sequence) and the escape sequence continues with the next character. (However, ESC starts a new escape sequence, possibly aborting a previous unfinished one, and CAN and SUB abort any escape sequence.) The recognized control characters are BEL, BS, HT, LF, VT, FF, CR, SO, SI, CAN, SUB, ESC, DEL, CSI. They do what one would expect:<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+BEL (0x07, <b>^G</b>) beeps;</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+BS (0x08, <b>^H</b>) backspaces one column (but not past the beginning of the line);</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+HT (0x09, <b>^I</b>) goes to the next tab stop or to the end of the line if there is no earlier tab stop;</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+LF (0x0A, <b>^J</b>), VT (0x0B, <b>^K</b>) and FF (0x0C,  <b>^L</b>) all give a linefeed, and if LF/NL (new-line mode) is set also a carriage return;</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+CR (0x0D, <b>^M</b>) gives a carriage return;</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+SO (0x0E, <b>^N</b>) activates the G1 character set;</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+SI (0x0F, <b>^O</b>) activates the G0 character set;</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+CAN (0x18, <b>^X</b>) and SUB (0x1A, <b>^Z</b>) interrupt escape sequences;</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+ESC (0x1B, <b>^[</b>) starts an escape sequence;</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+DEL (0x7F) is ignored;</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+CSI (0x9B) is equivalent to ESC [.</div>
+<div class="spacer">
+</div>
+<b>ESC- but not CSI-sequences</b><table class="tbl">
+<col style="width: 7.00ex;"/>
+<col style="width: 6.00ex;"/>
+<col style="width: 260.00ex;"/>
+<tbody>
+<tr>
+<td>
+ESC c</td>
+<td>
+RIS</td>
+<td>
+Reset.</td>
+</tr>
+<tr>
+<td>
+ESC D</td>
+<td>
+IND</td>
+<td>
+Linefeed.</td>
+</tr>
+<tr>
+<td>
+ESC E</td>
+<td>
+NEL</td>
+<td>
+Newline.</td>
+</tr>
+<tr>
+<td>
+ESC H</td>
+<td>
+HTS</td>
+<td>
+Set tab stop at current column.</td>
+</tr>
+<tr>
+<td>
+ESC M</td>
+<td>
+RI</td>
+<td>
+Reverse linefeed.</td>
+</tr>
+<tr>
+<td>
+ESC Z</td>
+<td>
+DECID</td>
+<td>
+DEC private identification. The kernel returns the string  ESC [ ? 6 c, claiming that it is a VT102.</td>
+</tr>
+<tr>
+<td>
+ESC 7</td>
+<td>
+DECSC</td>
+<td>
+Save current state (cursor coordinates, attributes, character sets pointed at by G0, G1).</td>
+</tr>
+<tr>
+<td>
+ESC 8</td>
+<td>
+DECRC</td>
+<td>
+Restore state most recently saved by ESC 7.</td>
+</tr>
+<tr>
+<td>
+ESC [</td>
+<td>
+CSI</td>
+<td>
+Control sequence introducer</td>
+</tr>
+<tr>
+<td>
+ESC %</td>
+<td>
+</td>
+<td>
+Start sequence selecting character set</td>
+</tr>
+<tr>
+<td>
+ESC % @</td>
+<td>
+</td>
+<td>
+&#8194;&#8194;&#8194;Select default (ISO 646 / ISO 8859-1)</td>
+</tr>
+<tr>
+<td>
+ESC % G</td>
+<td>
+</td>
+<td>
+&#8194;&#8194;&#8194;Select UTF-8</td>
+</tr>
+<tr>
+<td>
+ESC % 8</td>
+<td>
+</td>
+<td>
+&#8194;&#8194;&#8194;Select UTF-8 (obsolete)</td>
+</tr>
+<tr>
+<td>
+ESC # 8</td>
+<td>
+DECALN</td>
+<td>
+DEC screen alignment test - fill screen with E's.</td>
+</tr>
+<tr>
+<td>
+ESC (</td>
+<td>
+</td>
+<td>
+Start sequence defining G0 character set</td>
+</tr>
+<tr>
+<td>
+ESC ( B</td>
+<td>
+</td>
+<td>
+&#8194;&#8194;&#8194;Select default (ISO 8859-1 mapping)</td>
+</tr>
+<tr>
+<td>
+ESC ( 0</td>
+<td>
+</td>
+<td>
+&#8194;&#8194;&#8194;Select VT100 graphics mapping</td>
+</tr>
+<tr>
+<td>
+ESC ( U</td>
+<td>
+</td>
+<td>
+&#8194;&#8194;&#8194;Select null mapping - straight to character ROM</td>
+</tr>
+<tr>
+<td>
+ESC ( K</td>
+<td>
+</td>
+<td>
+&#8194;&#8194;&#8194;Select user mapping - the map that is loaded by</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+&#8194;&#8194;&#8194;the utility <b>mapscrn</b>(8).</td>
+</tr>
+<tr>
+<td>
+ESC )</td>
+<td>
+</td>
+<td>
+Start sequence defining G1</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+(followed by one of B, 0, U, K, as above).</td>
+</tr>
+<tr>
+<td>
+ESC &gt;</td>
+<td>
+DECPNM</td>
+<td>
+Set numeric keypad mode</td>
+</tr>
+<tr>
+<td>
+ESC =</td>
+<td>
+DECPAM</td>
+<td>
+Set application keypad mode</td>
+</tr>
+<tr>
+<td>
+ESC ]</td>
+<td>
+OSC</td>
+<td>
+(Should be: Operating system command) ESC ] P <i>nrrggbb</i>: set palette, with parameter given in 7 hexadecimal digits after the final P :-(. Here <i>n</i> is the color (0-15), and <i>rrggbb</i> indicates the red/green/blue values (0-255). ESC ] R: reset palette</td>
+</tr>
+</tbody>
+</table>
+<div class="spacer">
+</div>
+<b>ECMA-48 CSI sequences</b><div style="height: 1.00em;">
+&#160;</div>
+CSI (or ESC [) is followed by a sequence of parameters, at most NPAR (16), that are decimal numbers separated by semicolons. An empty or absent parameter is taken to be 0. The sequence of parameters may be preceded by a single question mark.<div class="spacer">
+</div>
+However, after CSI [ (or ESC [ [) a single character is read and this entire sequence is ignored. (The idea is to ignore an echoed function key.)<div class="spacer">
+</div>
+The action of a CSI sequence is determined by its final character.<table class="tbl">
+<col style="width: 2.00ex;"/>
+<col style="width: 7.00ex;"/>
+<col style="width: 58.00ex;"/>
+<col style="width: 0.00ex;"/>
+<tbody>
+<tr>
+<td>
+@</td>
+<td>
+ICH</td>
+<td>
+Insert the indicated # of blank characters.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+A</td>
+<td>
+CUU</td>
+<td>
+Move cursor up the indicated # of rows.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+B</td>
+<td>
+CUD</td>
+<td>
+Move cursor down the indicated # of rows.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+C</td>
+<td>
+CUF</td>
+<td>
+Move cursor right the indicated # of columns.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+D</td>
+<td>
+CUB</td>
+<td>
+Move cursor left the indicated # of columns.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+E</td>
+<td>
+CNL</td>
+<td>
+Move cursor down the indicated # of rows, to column 1.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+F</td>
+<td>
+CPL</td>
+<td>
+Move cursor up the indicated # of rows, to column 1.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+G</td>
+<td>
+CHA</td>
+<td>
+Move cursor to indicated column in current row.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+H</td>
+<td>
+CUP</td>
+<td>
+Move cursor to the indicated row, column (origin at 1,1).</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+J</td>
+<td>
+ED</td>
+<td>
+Erase display (default: from cursor to end of display).</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+ESC [ 1 J: erase from start to cursor.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+ESC [ 2 J: erase whole display.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+ESC [ 3 J: erase whole display including scroll-back</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+           buffer (since Linux 3.0).</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+.</td>
+<td>
+</td>
+<td>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+K</td>
+<td>
+EL</td>
+<td>
+Erase line (default: from cursor to end of line).</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+ESC [ 1 K: erase from start of line to cursor.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+ESC [ 2 K: erase whole line.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+L</td>
+<td>
+IL</td>
+<td>
+Insert the indicated # of blank lines.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+M</td>
+<td>
+DL</td>
+<td>
+Delete the indicated # of lines.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+P</td>
+<td>
+DCH</td>
+<td>
+Delete the indicated # of characters on the current line.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+X</td>
+<td>
+ECH</td>
+<td>
+Erase the indicated # of characters on the current line.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+a</td>
+<td>
+HPR</td>
+<td>
+Move cursor right the indicated # of columns.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+c</td>
+<td>
+DA</td>
+<td>
+Answer ESC [ ? 6 c: &quot;I am a VT102&quot;.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+d</td>
+<td>
+VPA</td>
+<td>
+Move cursor to the indicated row, current column.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+e</td>
+<td>
+VPR</td>
+<td>
+Move cursor down the indicated # of rows.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+f</td>
+<td>
+HVP</td>
+<td>
+Move cursor to the indicated row, column.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+g</td>
+<td>
+TBC</td>
+<td>
+Without parameter: clear tab stop at the current position.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+ESC [ 3 g: delete all tab stops.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+h</td>
+<td>
+SM</td>
+<td>
+Set Mode (see below).</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+l</td>
+<td>
+RM</td>
+<td>
+Reset Mode (see below).</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+m</td>
+<td>
+SGR</td>
+<td>
+Set attributes (see below).</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+n</td>
+<td>
+DSR</td>
+<td>
+Status report (see below).</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+q</td>
+<td>
+DECLL</td>
+<td>
+Set keyboard LEDs.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+ESC [ 0 q: clear all LEDs</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+ESC [ 1 q: set Scroll Lock LED</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+ESC [ 2 q: set Num Lock LED</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+ESC [ 3 q: set Caps Lock LED</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+r</td>
+<td>
+DECSTBM</td>
+<td>
+Set scrolling region; parameters are top and bottom row.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+s</td>
+<td>
+?</td>
+<td>
+Save cursor location.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+u</td>
+<td>
+?</td>
+<td>
+Restore cursor location.</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+`</td>
+<td>
+HPA</td>
+<td>
+Move cursor to indicated column in current row.</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="spacer">
+</div>
+<b>ECMA-48 Set Graphics Rendition</b><div style="height: 1.00em;">
+&#160;</div>
+The ECMA-48 SGR sequence ESC [ <i>parameters</i> m sets display attributes. Several attributes can be set in the same sequence, separated by semicolons. An empty parameter (between semicolons or string initiator or terminator) is interpreted as a zero.<table class="tbl">
+<col style="width: 5.00ex;"/>
+<col style="width: 218.00ex;"/>
+<tbody>
+<tr>
+<td>
+param</td>
+<td>
+result</td>
+</tr>
+<tr>
+<td>
+0</td>
+<td>
+reset all attributes to their defaults</td>
+</tr>
+<tr>
+<td>
+1</td>
+<td>
+set bold</td>
+</tr>
+<tr>
+<td>
+2</td>
+<td>
+set half-bright (simulated with color on a color display)</td>
+</tr>
+<tr>
+<td>
+4</td>
+<td>
+set underscore (simulated with color on a color display) (the colors used to simulate dim or underline are set using ESC ] ...)</td>
+</tr>
+<tr>
+<td>
+5</td>
+<td>
+set blink</td>
+</tr>
+<tr>
+<td>
+7</td>
+<td>
+set reverse video</td>
+</tr>
+<tr>
+<td>
+10</td>
+<td>
+reset selected mapping, display control flag, and toggle meta flag (ECMA-48 says &quot;primary font&quot;).</td>
+</tr>
+<tr>
+<td>
+11</td>
+<td>
+select null mapping, set display control flag, reset toggle meta flag (ECMA-48 says &quot;first alternate font&quot;).</td>
+</tr>
+<tr>
+<td>
+12</td>
+<td>
+select null mapping, set display control flag, set toggle meta flag (ECMA-48 says &quot;second alternate font&quot;). The toggle meta flag causes the high bit of a byte to be toggled before the mapping table translation is done.</td>
+</tr>
+<tr>
+<td>
+21</td>
+<td>
+set normal intensity (ECMA-48 says &quot;doubly underlined&quot;)</td>
+</tr>
+<tr>
+<td>
+22</td>
+<td>
+set normal intensity</td>
+</tr>
+<tr>
+<td>
+24</td>
+<td>
+underline off</td>
+</tr>
+<tr>
+<td>
+25</td>
+<td>
+blink off</td>
+</tr>
+<tr>
+<td>
+27</td>
+<td>
+reverse video off</td>
+</tr>
+<tr>
+<td>
+30</td>
+<td>
+set black foreground</td>
+</tr>
+<tr>
+<td>
+31</td>
+<td>
+set red foreground</td>
+</tr>
+<tr>
+<td>
+32</td>
+<td>
+set green foreground</td>
+</tr>
+<tr>
+<td>
+33</td>
+<td>
+set brown foreground</td>
+</tr>
+<tr>
+<td>
+34</td>
+<td>
+set blue foreground</td>
+</tr>
+<tr>
+<td>
+35</td>
+<td>
+set magenta foreground</td>
+</tr>
+<tr>
+<td>
+36</td>
+<td>
+set cyan foreground</td>
+</tr>
+<tr>
+<td>
+37</td>
+<td>
+set white foreground</td>
+</tr>
+<tr>
+<td>
+38</td>
+<td>
+set underscore on, set default foreground color</td>
+</tr>
+<tr>
+<td>
+39</td>
+<td>
+set underscore off, set default foreground color</td>
+</tr>
+<tr>
+<td>
+40</td>
+<td>
+set black background</td>
+</tr>
+<tr>
+<td>
+41</td>
+<td>
+set red background</td>
+</tr>
+<tr>
+<td>
+42</td>
+<td>
+set green background</td>
+</tr>
+<tr>
+<td>
+43</td>
+<td>
+set brown background</td>
+</tr>
+<tr>
+<td>
+44</td>
+<td>
+set blue background</td>
+</tr>
+<tr>
+<td>
+45</td>
+<td>
+set magenta background</td>
+</tr>
+<tr>
+<td>
+46</td>
+<td>
+set cyan background</td>
+</tr>
+<tr>
+<td>
+47</td>
+<td>
+set white background</td>
+</tr>
+<tr>
+<td>
+49</td>
+<td>
+set default background color</td>
+</tr>
+</tbody>
+</table>
+<div class="spacer">
+</div>
+<b>ECMA-48 Mode Switches</b><dl>
+<dt>
+ESC [ 3 h</dt>
+<dd>
+DECCRM (default off): Display control chars.</dd>
+</dl>
+<dl>
+<dt>
+ESC [ 4 h</dt>
+<dd>
+DECIM (default off): Set insert mode.</dd>
+</dl>
+<dl>
+<dt>
+ESC [ 20 h</dt>
+<dd>
+LF/NL (default off): Automatically follow echo of LF, VT or FF with CR.</dd>
+</dl>
+<div class="spacer">
+</div>
+<b>ECMA-48 Status Report Commands</b><dl>
+<dt>
+ESC [ 5 n</dt>
+<dd>
+Device status report (DSR): Answer is ESC [ 0 n (Terminal OK).</dd>
+</dl>
+<dl>
+<dt>
+ESC [ 6 n</dt>
+<dd>
+Cursor position report (CPR): Answer is ESC [ <i>y</i> ; <i>x</i> R, where  <i>x,y</i> is the cursor location.</dd>
+</dl>
+<div class="spacer">
+</div>
+<b>DEC Private Mode (DECSET/DECRST) sequences</b><div style="height: 1.00em;">
+&#160;</div>
+These are not described in ECMA-48. We list the Set Mode sequences; the Reset Mode sequences are obtained by replacing the final 'h' by 'l'.<dl>
+<dt>
+ESC [ ? 1 h</dt>
+<dd>
+DECCKM (default off): When set, the cursor keys send an ESC O prefix, rather than ESC [.</dd>
+</dl>
+<dl>
+<dt>
+ESC [ ? 3 h</dt>
+<dd>
+DECCOLM (default off = 80 columns): 80/132 col mode switch. The driver sources note that this alone does not suffice; some user-mode utility such as <b>resizecons</b>(8) has to change the hardware registers on the console video card.</dd>
+</dl>
+<dl>
+<dt>
+ESC [ ? 5 h</dt>
+<dd>
+DECSCNM (default off): Set reverse-video mode.</dd>
+</dl>
+<dl>
+<dt>
+ESC [ ? 6 h</dt>
+<dd>
+DECOM (default off): When set, cursor addressing is relative to the upper left corner of the scrolling region.</dd>
+</dl>
+<dl>
+<dt>
+ESC [ ? 7 h</dt>
+<dd>
+DECAWM (default on): Set autowrap on. In this mode, a graphic character emitted after column 80 (or column 132 of DECCOLM is on) forces a wrap to the beginning of the following line first.</dd>
+</dl>
+<dl>
+<dt>
+ESC [ ? 8 h</dt>
+<dd>
+DECARM (default on): Set keyboard autorepeat on.</dd>
+</dl>
+<dl>
+<dt>
+ESC [ ? 9 h</dt>
+<dd>
+X10 Mouse Reporting (default off): Set reporting mode to 1 (or reset to 0)&#8212;see below.</dd>
+</dl>
+<dl>
+<dt>
+ESC [ ? 25 h</dt>
+<dd>
+DECTECM (default on): Make cursor visible.</dd>
+</dl>
+<dl>
+<dt>
+ESC [ ? 1000 h</dt>
+<dd>
+X11 Mouse Reporting (default off): Set reporting mode to 2 (or reset to 0)&#8212;see below.</dd>
+</dl>
+<div class="spacer">
+</div>
+<b>Linux Console Private CSI Sequences</b><div style="height: 1.00em;">
+&#160;</div>
+The following sequences are neither ECMA-48 nor native VT102. They are native to the Linux console driver. Colors are in SGR parameters: 0 = black, 1 = red, 2 = green, 3 = brown, 4 = blue, 5 = magenta, 6 = cyan, 7 = white.<table class="tbl">
+<col style="width: 23.00ex;"/>
+<col style="width: 51.00ex;"/>
+<tbody>
+<tr>
+<td>
+ESC [ 1 ; <i>n</i> ]</td>
+<td>
+Set color <i>n</i> as the underline color</td>
+</tr>
+<tr>
+<td>
+ESC [ 2 ; <i>n</i> ]</td>
+<td>
+Set color <i>n</i> as the dim color</td>
+</tr>
+<tr>
+<td>
+ESC [ 8 ]       </td>
+<td>
+Make the current color pair the default attributes.</td>
+</tr>
+<tr>
+<td>
+ESC [ 9 ; <i>n</i> ]</td>
+<td>
+Set screen blank timeout to <i>n</i> minutes.</td>
+</tr>
+<tr>
+<td>
+ESC [ 10 ; <i>n</i> ]</td>
+<td>
+Set bell frequency in Hz.</td>
+</tr>
+<tr>
+<td>
+ESC [ 11 ; <i>n</i> ]</td>
+<td>
+Set bell duration in msec.</td>
+</tr>
+<tr>
+<td>
+ESC [ 12 ; <i>n</i> ]</td>
+<td>
+Bring specified console to the front.</td>
+</tr>
+<tr>
+<td>
+ESC [ 13 ]      </td>
+<td>
+Unblank the screen.</td>
+</tr>
+<tr>
+<td>
+ESC [ 14 ; <i>n</i> ]   </td>
+<td>
+Set the VESA powerdown interval in minutes.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="subsection">
+<h2>Character Sets</h2> The kernel knows about 4 translations of bytes into console-screen symbols. The four tables are: a) Latin1 -&gt; PC, b) VT100 graphics -&gt; PC, c) PC -&gt; PC, d) user-defined.<div class="spacer">
+</div>
+There are two character sets, called G0 and G1, and one of them is the current character set. (Initially G0.) Typing  <b>^N</b> causes G1 to become current,  <b>^O</b> causes G0 to become current.<div class="spacer">
+</div>
+These variables G0 and G1 point at a translation table, and can be changed by the user. Initially they point at tables a) and b), respectively. The sequences ESC ( B and ESC ( 0 and ESC ( U and ESC ( K cause G0 to point at translation table a), b), c) and d), respectively. The sequences ESC ) B and ESC ) 0 and ESC ) U and ESC ) K cause G1 to point at translation table a), b), c) and d), respectively.<div class="spacer">
+</div>
+The sequence ESC c causes a terminal reset, which is what you want if the screen is all garbled. The oft-advised &quot;echo ^V^O&quot; will only make G0 current, but there is no guarantee that G0 points at table a). In some distributions there is a program <b>reset</b>(1) that just does &quot;echo ^[c&quot;. If your terminfo entry for the console is correct (and has an entry rs1=\Ec), then &quot;tput reset&quot; will also work.<div class="spacer">
+</div>
+The user-defined mapping table can be set using <b>mapscrn</b>(8). The result of the mapping is that if a symbol c is printed, the symbol s = map[c] is sent to the video memory. The bitmap that corresponds to s is found in the character ROM, and can be changed using <b>setfont</b>(8).</div>
+<div class="subsection">
+<h2>Mouse Tracking</h2> The mouse tracking facility is intended to return <b>xterm</b>(1)-compatible mouse status reports. Because the console driver has no way to know the device or type of the mouse, these reports are returned in the console input stream only when the virtual terminal driver receives a mouse update ioctl. These ioctls must be generated by a mouse-aware user-mode application such as the <b>gpm</b>(8) daemon.<div class="spacer">
+</div>
+The mouse tracking escape sequences generated by  <b>xterm</b>(1) encode numeric parameters in a single character as  <i>value</i>+040. For example, '!' is 1. The screen coordinate system is 1-based.<div class="spacer">
+</div>
+The X10 compatibility mode sends an escape sequence on button press encoding the location and the mouse button pressed. It is enabled by sending ESC [ ? 9 h and disabled with ESC [ ? 9 l. On button press,  <b>xterm</b>(1) sends ESC [ M  <i>bxy</i> (6 characters). Here  <i>b</i> is button-1, and  <i>x</i> and <i>y</i> are the x and y coordinates of the mouse when the button was pressed. This is the same code the kernel also produces.<div class="spacer">
+</div>
+Normal tracking mode (not implemented in Linux 2.0.24) sends an escape sequence on both button press and release. Modifier information is also sent. It is enabled by sending ESC [ ? 1000 h and disabled with ESC [ ? 1000 l. On button press or release,  <b>xterm</b>(1) sends ESC [ M  <i>bxy</i>. The low two bits of  <i>b</i> encode button information: 0=MB1 pressed, 1=MB2 pressed, 2=MB3 pressed, 3=release. The upper bits encode what modifiers were down when the button was pressed and are added together: 4=Shift, 8=Meta, 16=Control. Again  <i>x</i> and  <i>y</i> are the x and y coordinates of the mouse event. The upper left corner is (1,1).</div>
+<div class="subsection">
+<h2>Comparisons With Other Terminals</h2> Many different terminal types are described, like the Linux console, as being &quot;VT100-compatible&quot;. Here we discuss differences between the Linux console and the two most important others, the DEC VT102 and <b>xterm</b>(1).<div class="spacer">
+</div>
+<b>Control-character handling</b><div style="height: 1.00em;">
+&#160;</div>
+The VT102 also recognized the following control characters:<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+NUL (0x00) was ignored;</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+ENQ (0x05) triggered an answerback message;</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+DC1 (0x11, <b>^Q</b>, XON) resumed transmission;</div>
+<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;text-indent: -5.00ex;" class="spacer">
+DC3 (0x13, <b>^S</b>, XOFF) caused VT100 to ignore (and stop transmitting) all codes except XOFF and XON.</div>
+<div class="spacer">
+</div>
+VT100-like DC1/DC3 processing may be enabled by the tty driver.<div class="spacer">
+</div>
+The <b>xterm</b>(1) program (in VT100 mode) recognizes the control characters BEL, BS, HT, LF, VT, FF, CR, SO, SI, ESC.<div class="spacer">
+</div>
+<b>Escape sequences</b><div style="height: 1.00em;">
+&#160;</div>
+VT100 console sequences not implemented on the Linux console:<table class="tbl">
+<col style="width: 9.00ex;"/>
+<col style="width: 3.00ex;"/>
+<col style="width: 53.00ex;"/>
+<tbody>
+<tr>
+<td>
+ESC N</td>
+<td>
+SS2</td>
+<td>
+Single shift 2. (Select G2 character set for the next</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+character only.)</td>
+</tr>
+<tr>
+<td>
+ESC O</td>
+<td>
+SS3</td>
+<td>
+Single shift 3. (Select G3 character set for the next</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+character only.)</td>
+</tr>
+<tr>
+<td>
+ESC P</td>
+<td>
+DCS</td>
+<td>
+Device control string (ended by ESC \)</td>
+</tr>
+<tr>
+<td>
+ESC X</td>
+<td>
+SOS</td>
+<td>
+Start of string.</td>
+</tr>
+<tr>
+<td>
+ESC ^</td>
+<td>
+PM</td>
+<td>
+Privacy message (ended by ESC \)</td>
+</tr>
+<tr>
+<td>
+ESC \</td>
+<td>
+ST</td>
+<td>
+String terminator</td>
+</tr>
+<tr>
+<td>
+ESC * ...</td>
+<td>
+</td>
+<td>
+Designate G2 character set</td>
+</tr>
+<tr>
+<td>
+ESC + ...</td>
+<td>
+</td>
+<td>
+Designate G3 character set</td>
+</tr>
+</tbody>
+</table>
+<div class="spacer">
+</div>
+The program <b>xterm</b>(1) (in VT100 mode) recognizes ESC c, ESC # 8, ESC &gt;, ESC =, ESC D, ESC E, ESC H, ESC M, ESC N, ESC O, ESC P ... ESC \, ESC Z (it answers ESC [ ? 1 ; 2 c, &quot;I am a VT100 with advanced video option&quot;) and ESC ^ ... ESC \ with the same meanings as indicated above. It accepts ESC (, ESC ), ESC *,  ESC + followed by 0, A, B for the DEC special character and line drawing set, UK, and US-ASCII, respectively.<div class="spacer">
+</div>
+The user can configure <b>xterm</b>(1) to respond to VT220-specific control sequences, and it will identify itself as a VT52, VT100, and up depending on the way it is configured and initialized.<div class="spacer">
+</div>
+It accepts ESC ] (OSC) for the setting of certain resources. In addition to the ECMA-48 string terminator (ST),  <b>xterm</b>(1) accepts a BEL to terminate an OSC string. These are a few of the OSC control sequences recognized by  <b>xterm</b>(1):<table class="tbl">
+<col style="width: 33.00ex;"/>
+<col style="width: 48.00ex;"/>
+<tbody>
+<tr>
+<td>
+ESC ] 0 ; <i>txt</i> ST</td>
+<td>
+Set icon name and window title to <i>txt</i>.</td>
+</tr>
+<tr>
+<td>
+ESC ] 1 ; <i>txt</i> ST</td>
+<td>
+Set icon name to <i>txt</i>.</td>
+</tr>
+<tr>
+<td>
+ESC ] 2 ; <i>txt</i> ST</td>
+<td>
+Set window title to <i>txt</i>.</td>
+</tr>
+<tr>
+<td>
+ESC ] 4 ; <i>num</i>; <i>txt</i> ST</td>
+<td>
+Set ANSI color <i>num</i> to <i>txt</i>.</td>
+</tr>
+<tr>
+<td>
+ESC ] 10 ; <i>txt</i> ST</td>
+<td>
+Set dynamic text color to <i>txt</i>.</td>
+</tr>
+<tr>
+<td>
+ESC ] 4 6 ; <i>name</i> ST</td>
+<td>
+Change log file to <i>name</i> (normally disabled</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+by a compile-time option)</td>
+</tr>
+<tr>
+<td>
+ESC ] 5 0 ; <i>fn</i> ST</td>
+<td>
+Set font to <i>fn</i>.</td>
+</tr>
+</tbody>
+</table>
+<div class="spacer">
+</div>
+It recognizes the following with slightly modified meaning (saving more state, behaving closer to VT100/VT220):<table class="tbl">
+<col style="width: 12.00ex;"/>
+<col style="width: 14.00ex;"/>
+<col style="width: 0.00ex;"/>
+<tbody>
+<tr>
+<td>
+ESC 7  DECSC</td>
+<td>
+Save cursor</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+ESC 8  DECRC</td>
+<td>
+Restore cursor</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="spacer">
+</div>
+It also recognizes<table class="tbl">
+<col style="width: 5.00ex;"/>
+<col style="width: 4.00ex;"/>
+<col style="width: 53.00ex;"/>
+<tbody>
+<tr>
+<td>
+ESC F</td>
+<td>
+</td>
+<td>
+Cursor to lower left corner of screen (if enabled by</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+<b>xterm</b>(1)'s <b>hpLowerleftBugCompat</b> resource)</td>
+</tr>
+<tr>
+<td>
+ESC l</td>
+<td>
+</td>
+<td>
+Memory lock (per HP terminals).</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+Locks memory above the cursor.</td>
+</tr>
+<tr>
+<td>
+ESC m</td>
+<td>
+</td>
+<td>
+Memory unlock (per HP terminals).</td>
+</tr>
+<tr>
+<td>
+ESC n</td>
+<td>
+LS2</td>
+<td>
+Invoke the G2 character set.</td>
+</tr>
+<tr>
+<td>
+ESC o</td>
+<td>
+LS3</td>
+<td>
+Invoke the G3 character set.</td>
+</tr>
+<tr>
+<td>
+ESC |</td>
+<td>
+LS3R</td>
+<td>
+Invoke the G3 character set as GR.</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+Has no visible effect in xterm.</td>
+</tr>
+<tr>
+<td>
+ESC }</td>
+<td>
+LS2R</td>
+<td>
+Invoke the G2 character set as GR.</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+Has no visible effect in xterm.</td>
+</tr>
+<tr>
+<td>
+ESC ~</td>
+<td>
+LS1R</td>
+<td>
+Invoke the G1 character set as GR.</td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+</td>
+<td>
+Has no visible effect in xterm.</td>
+</tr>
+</tbody>
+</table>
+<div class="spacer">
+</div>
+It also recognizes ESC % and provides a more complete UTF-8 implementation than Linux console.<div class="spacer">
+</div>
+<b>CSI Sequences</b><div style="height: 1.00em;">
+&#160;</div>
+Old versions of <b>xterm</b>(1), for example, from X11R5, interpret the blink SGR as a bold SGR. Later versions which implemented ANSI colors, for example, XFree86 3.1.2A in 1995, improved this by allowing the blink attribute to be displayed as a color. Modern versions of xterm implement blink SGR as blinking text and still allow colored text as an alternate rendering of SGRs. Stock X11R6 versions did not recognize the color-setting SGRs until the X11R6.8 release, which incorporated XFree86 xterm. All ECMA-48 CSI sequences recognized by Linux are also recognized by <i>xterm</i>, however  <b>xterm</b>(1) implements several ECMA-48 and DEC control sequences not recognized by Linux.<div class="spacer">
+</div>
+The <b>xterm</b>(1) program recognizes all of the DEC Private Mode sequences listed above, but none of the Linux private-mode sequences. For discussion of  <b>xterm</b>(1)'s own private-mode sequences, refer to the  <i>Xterm Control Sequences</i> document by Edward Moy, Stephen Gildea, and Thomas E. Dickey available with the X distribution. That document, though terse, is much longer than this manual page. For a chronological overview,<div class="spacer">
+</div>
+<br/>
+http://invisible-island.net/xterm/xterm.log.html<br/>
+<div class="spacer">
+</div>
+details changes to xterm.<div class="spacer">
+</div>
+The <i>vttest</i> program<div class="spacer">
+</div>
+<br/>
+http://invisible-island.net/vttest/<br/>
+<div class="spacer">
+</div>
+demonstrates many of these control sequences. The  <b>xterm</b>(1) source distribution also contains sample scripts which exercise other features.</div>
+</div>
+<div class="section">
+<h1>NOTES</h1> ESC 8 (DECRC) is not able to restore the character set changed with ESC %.</div>
+<div class="section">
+<h1>BUGS</h1> In 2.0.23, CSI is broken, and NUL is not ignored inside escape sequences.<div class="spacer">
+</div>
+Some older kernel versions (after 2.0) interpret 8-bit control sequences. These &quot;C1 controls&quot; use codes between 128 and 159 to replace ESC [, ESC ] and similar two-byte control sequence initiators. There are fragments of that in modern kernels (either overlooked or broken by changes to support UTF-8), but the implementation is incomplete and should be regarded as unreliable.<div class="spacer">
+</div>
+Linux &quot;private mode&quot; sequences do not follow the rules in ECMA-48 for private mode control sequences. In particular, those ending with ] do not use a standard terminating character. The OSC (set palette) sequence is a greater problem, since  <b>xterm</b>(1) may interpret this as a control sequence which requires a string terminator (ST). Unlike the  <b>setterm</b>(1) sequences which will be ignored (since they are invalid control sequences), the palette sequence will make  <b>xterm</b>(1) appear to hang (though pressing the return-key will fix that). To accommodate applications which have been hardcoded to use Linux control sequences, set the  <b>xterm</b>(1) resource <b>brokenLinuxOSC</b> to true.<div class="spacer">
+</div>
+An older version of this document implied that Linux recognizes the ECMA-48 control sequence for invisible text. It is ignored.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>console</b>(4), <b>console_ioctl</b>(4), <b>charsets</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-15</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

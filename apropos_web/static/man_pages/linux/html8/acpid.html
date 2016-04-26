@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+acpid(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+acpid(8)</td>
+<td class="head-vol">
+System Manager's Manual</td>
+<td class="head-rtitle">
+acpid(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> acpid - Advanced Configuration and Power Interface event daemon</div>
+<div class="section">
+<h1>SYNOPSIS</h1>  <b>acpid</b> [<i>options</i>]<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <b>acpid</b> is designed to notify user-space programs of ACPI events.  <b>acpid</b> should be started during the system boot, and will run as a background process, by default.  It will open an events file ( <i>/proc/acpi/event</i> by default) and attempt to read whole lines which represent ACPI events.  If the events file does not exist,  <b>acpid</b> will attempt to connect to the Linux kernel via the input layer and netlink.  When an ACPI event is received from one of these sources,  <b>acpid</b> will examine a list of rules, and execute the rules that match the event.  <b>acpid</b> will ignore all incoming ACPI events if a lock file exists ( <i>/var/lock/acpid</i> by default).<div class="spacer">
+</div>
+<i>Rules</i> are defined by simple configuration files.  <b>acpid</b> will look in a configuration directory ( <i>/etc/acpi/events</i> by default), and parse all regular files with names that consist entirely of upper and lower case letters, digits, underscores, and hyphens (similar to run-parts(8)). Each file must define two things: an  <i>event</i> and an  <i>action</i>.  Any blank lines, or lines where the first character is a hash ('#') are ignored.  Extraneous lines are flagged as warnings, but are not fatal.  Each line has three tokens: the key, a literal equal sign, and the value.  The key can be up to 63 characters, and is case-insensitive (but whitespace matters).  The value can be up to 511 characters, and is case and whitespace sensitive.<div class="spacer">
+</div>
+The event value is a regular expression (see regcomp(3)), against which events are matched.<div class="spacer">
+</div>
+The action value is a commandline, which will be invoked via <i>/bin/sh</i> whenever an event matching the rule in question occurs.  The commandline may include shell-special characters, and they will be preserved.  The only special characters in an action value are &quot;%&quot; escaped.  The string &quot;%e&quot; will be replaced by the literal text of the event for which the action was invoked. This string may contain spaces, so the commandline must take care to quote the &quot;%e&quot; if it wants a single token.  The string &quot;%%&quot; will be replaced by a literal &quot;%&quot;.  All other &quot;%&quot; escapes are reserved, and will cause a rule to not load.<div class="spacer">
+</div>
+This feature allows multiple rules to be defined for the same event (though no ordering is guaranteed), as well as one rule to be defined for multiple events. To force  <b>acpid</b> to reload the rule configuration, send it a SIGHUP.<div class="spacer">
+</div>
+In addition to rule files, <b>acpid</b> also accepts connections on a UNIX domain socket ( <i>/var/run/acpid.socket</i> by default).  Any application may connect to this socket.  Once connected,  <b>acpid</b> will send the text of all ACPI events to the client.  The client has the responsibility of filtering for messages about which it cares.   <b>acpid</b> will not close the client socket except in the case of a SIGHUP or  <b>acpid</b> exiting.<div class="spacer">
+</div>
+For faster startup, this socket can be passed in as stdin so that <b>acpid</b> need not create the socket.  In addition, if a socket is passed in as stdin,  <b>acpid</b> will not daemonize.  It will be run in foreground.  This behavior is provided to support systemd(1).<div class="spacer">
+</div>
+<b>acpid</b> will log all of its activities, as well as the stdout and stderr of any actions, to syslog.<div class="spacer">
+</div>
+All the default files and directories can be changed with commandline options.</div>
+<div class="section">
+<h1>OPTIONS</h1><dl>
+<dt>
+<b>-c</b><i>, </i><b>--confdir</b><i> directory</i></dt>
+<dd>
+This option changes the directory in which <b>acpid</b> looks for rule configuration files.  Default is  <i>/etc/acpi/events</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>-C</b><i>, </i><b>--clientmax</b><i> number</i></dt>
+<dd>
+This option changes the maximum number of non-root socket connections which can be made to the  <b>acpid</b> socket.  Default is <i>256</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>-d</b><i>, </i><b>--debug</b></dt>
+<dd>
+This option increases the <b>acpid</b> debug level by one.  If the debug level is non-zero,  <b>acpid</b> will run in the foreground, and will log to stderr, in addition to the regular syslog.</dd>
+</dl>
+<dl>
+<dt>
+<b>-e</b><i>, </i><b>--eventfile</b><i> filename</i></dt>
+<dd>
+This option changes the event file from which <b>acpid</b> reads events. Default is  <i>/proc/acpi/event</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>-n</b><i>, </i><b>--netlink</b></dt>
+<dd>
+This option forces <b>acpid</b> to use the Linux kernel input layer and netlink interface for ACPI events.</dd>
+</dl>
+<dl>
+<dt>
+<b>-f</b><i>, </i><b>--foreground</b></dt>
+<dd>
+This option keeps <b>acpid</b> in the foreground by not forking at startup.</dd>
+</dl>
+<dl>
+<dt>
+<b>-l</b><i>, </i><b>--logevents</b></dt>
+<dd>
+This option tells <b>acpid</b> to log information about all events and actions.</dd>
+</dl>
+<dl>
+<dt>
+<b>-L</b><i>, </i><b>--lockfile</b><i> filename</i></dt>
+<dd>
+This option changes the lock file used to stop event processing. Default is  <i>/var/lock/acpid</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>-g</b><i>, </i><b>--socketgroup</b><i> groupname</i></dt>
+<dd>
+This option changes the group ownership of the UNIX domain socket to which  <b>acpid</b> publishes events.</dd>
+</dl>
+<dl>
+<dt>
+<b>-m</b><i>, </i><b>--socketmode</b><i> mode</i></dt>
+<dd>
+This option changes the permissions of the UNIX domain socket to which  <b>acpid</b> publishes events.  Default is <i>0666</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>-s</b><i>, </i><b>--socketfile</b><i> filename</i></dt>
+<dd>
+This option changes the name of the UNIX domain socket which <b>acpid</b> opens. Default is  <i>/var/run/acpid.socket</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>-S</b><i>, </i><b>--nosocket</b><i> filename</i></dt>
+<dd>
+This option tells <b>acpid</b> not to open a UNIX domain socket.  This overrides the  <i>-s</i> option, and negates all other socket options.</dd>
+</dl>
+<dl>
+<dt>
+<b>-p</b><i>, </i><b>--pidfile</b><i> filename</i></dt>
+<dd>
+This option tells <b>acpid</b> to use the specified file as its pidfile.  If the file exists, it will be removed and over-written. Default is  <i>/var/run/acpid.pid</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>-v</b><i>, </i><b>--version</b></dt>
+<dd>
+Print version information and exit.</dd>
+</dl>
+<dl>
+<dt>
+<b>-h</b><i>, </i><b>--help</b></dt>
+<dd>
+Show help and exit.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>EXAMPLE</h1> This example will shut down your system if you press the power button.<div class="spacer">
+</div>
+Create a file named /etc/acpi/events/power that contains the following:<dl>
+<dt>
+</dt>
+<dd>
+<div style="height: 0.00em;">
+&#160;</div>
+event=button/power<div style="height: 0.00em;">
+&#160;</div>
+action=/etc/acpi/power.sh &quot;%e&quot;</dd>
+</dl>
+<div class="spacer">
+</div>
+Then create a file named /etc/acpi/power.sh that contains the following:<dl>
+<dt>
+</dt>
+<dd>
+/sbin/shutdown -h now &quot;Power button pressed&quot;</dd>
+</dl>
+<div class="spacer">
+</div>
+Now, when <b>acpid</b> is running, a press of the power button will cause the rule in /etc/acpi/events/power to trigger the script in /etc/acpi/power.sh. The script will then shut down the system.</div>
+<div class="section">
+<h1>DEPENDENCIES</h1>  <b>acpid</b> should work on any linux kernel released since 2003.</div>
+<div class="section">
+<h1>FILES</h1> <b>/proc/acpi/event</b><div style="height: 0.00em;">
+&#160;</div>
+<b>/dev/input/event*</b><div style="height: 0.00em;">
+&#160;</div>
+<b>/etc/acpi/</b><div style="height: 0.00em;">
+&#160;</div>
+<b>/var/run/acpid.socket</b><div style="height: 0.00em;">
+&#160;</div>
+<b>/var/run/acpid.pid</b><div style="height: 0.00em;">
+&#160;</div>
+<b>/var/lock/acpid</b><div style="height: 0.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>BUGS</h1> There are no known bugs.  To file bug reports, see  <b>AUTHORS</b> below.</div>
+<div class="section">
+<h1>SEE ALSO</h1> regcomp(3), sh(1), socket(2), connect(2), systemd(1), acpi_listen(8), kacpimon(8)</div>
+<div class="section">
+<h1>AUTHORS</h1> Ted Felix (www.tedfelix.com)<div style="height: 0.00em;">
+&#160;</div>
+Tim Hockin &lt;thockin@hockin.org&gt;<div style="height: 0.00em;">
+&#160;</div>
+Andrew Henroid<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+</td>
+<td class="foot-os">
+</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

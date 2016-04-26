@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+SSL_CTX_set_tmp_dh_callback(3SSL)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SSL_CTX_set_tmp_dh_callback(3SSL)</td>
+<td class="head-vol">
+OpenSSL</td>
+<td class="head-rtitle">
+SSL_CTX_set_tmp_dh_callback(3SSL)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> SSL_CTX_set_tmp_dh_callback, SSL_CTX_set_tmp_dh, SSL_set_tmp_dh_callback, SSL_set_tmp_dh - handle DH keys for ephemeral key exchange</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ #include &lt;openssl/ssl.h&gt;<br/>
+<br/>
+ void SSL_CTX_set_tmp_dh_callback(SSL_CTX *ctx,<br/>
+            DH *(*tmp_dh_callback)(SSL *ssl, int is_export, int keylength));<br/>
+ long SSL_CTX_set_tmp_dh(SSL_CTX *ctx, DH *dh);<br/>
+<br/>
+ void SSL_set_tmp_dh_callback(SSL_CTX *ctx,<br/>
+            DH *(*tmp_dh_callback)(SSL *ssl, int is_export, int keylength));<br/>
+ long SSL_set_tmp_dh(SSL *ssl, DH *dh)<br/>
+<br/>
+ DH *(*tmp_dh_callback)(SSL *ssl, int is_export, int keylength));<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <i>SSL_CTX_set_tmp_dh_callback()</i> sets the callback function for <b>ctx</b> to be used when a DH parameters are required to  <b>tmp_dh_callback</b>. The callback is inherited by all  <b>ssl</b> objects created from <b>ctx</b>.<div class="spacer">
+</div>
+<i>SSL_CTX_set_tmp_dh()</i> sets DH parameters to be used to be <b>dh</b>. The key is inherited by all  <b>ssl</b> objects created from <b>ctx</b>.<div class="spacer">
+</div>
+<i>SSL_set_tmp_dh_callback()</i> sets the callback only for <b>ssl</b>.<div class="spacer">
+</div>
+<i>SSL_set_tmp_dh()</i> sets the parameters only for <b>ssl</b>.<div class="spacer">
+</div>
+These functions apply to SSL/TLS servers only.</div>
+<div class="section">
+<h1>NOTES</h1> When using a cipher with RSA authentication, an ephemeral DH key exchange can take place. Ciphers with DSA keys always use ephemeral DH keys as well. In these cases, the session data are negotiated using the ephemeral/temporary DH key and the key supplied and certified by the certificate chain is only used for signing. Anonymous ciphers (without a permanent server key) also use ephemeral DH keys.<div class="spacer">
+</div>
+Using ephemeral DH key exchange yields forward secrecy, as the connection can only be decrypted, when the DH key is known. By generating a temporary DH key inside the server application that is lost when the application is left, it becomes impossible for an attacker to decrypt past sessions, even if he gets hold of the normal (certified) key, as this key was only used for signing.<div class="spacer">
+</div>
+In order to perform a DH key exchange the server must use a DH group (DH parameters) and generate a DH key. The server will always generate a new DH key during the negotiation, when the DH parameters are supplied via callback and/or when the SSL_OP_SINGLE_DH_USE option of  <i>SSL_CTX_set_options</i>(3) is set. It will immediately create a DH key, when DH parameters are supplied via  <i>SSL_CTX_set_tmp_dh()</i> and SSL_OP_SINGLE_DH_USE is not set. In this case, it may happen that a key is generated on initialization without later being needed, while on the other hand the computer time during the negotiation is being saved.<div class="spacer">
+</div>
+If &quot;strong&quot; primes were used to generate the DH parameters, it is not strictly necessary to generate a new key for each handshake but it does improve forward secrecy. If it is not assured that &quot;strong&quot; primes were used, SSL_OP_SINGLE_DH_USE must be used in order to prevent small subgroup attacks. Always using SSL_OP_SINGLE_DH_USE has an impact on the computer time needed during negotiation, but it is not very large, so application authors/users should consider always enabling this option. The option is required to implement perfect forward secrecy (PFS).<div class="spacer">
+</div>
+As generating DH parameters is extremely time consuming, an application should not generate the parameters on the fly but supply the parameters. DH parameters can be reused, as the actual key is newly generated during the negotiation. The risk in reusing DH parameters is that an attacker may specialize on a very often used DH group. Applications should therefore generate their own DH parameters during the installation process using the openssl  <i>dhparam</i>(1) application. This application guarantees that &quot;strong&quot; primes are used.<div class="spacer">
+</div>
+Files dh2048.pem, and dh4096.pem in the 'apps' directory of the current version of the OpenSSL distribution contain the 'SKIP' DH parameters, which use safe primes and were generated verifiably pseudo-randomly. These files can be converted into C code using the  <b>-C</b> option of the  <i>dhparam</i>(1) application. Generation of custom DH parameters during installation should still be preferred to stop an attacker from specializing on a commonly used group. Files dh1024.pem and dh512.pem contain old parameters that must not be used by applications.<div class="spacer">
+</div>
+An application may either directly specify the DH parameters or can supply the DH parameters via a callback function.<div class="spacer">
+</div>
+Previous versions of the callback used <b>is_export</b> and <b>keylength</b> parameters to control parameter generation for export and non-export cipher suites. Modern servers that do not support export ciphersuites are advised to either use  <i>SSL_CTX_set_tmp_dh()</i> in combination with SSL_OP_SINGLE_DH_USE, or alternatively, use the callback but ignore  <b>keylength</b> and <b>is_export</b> and simply supply at least 2048-bit parameters in the callback.</div>
+<div class="section">
+<h1>EXAMPLES</h1> Setup DH parameters with a key length of 2048 bits. (Error handling partly left out.)<div class="spacer">
+</div>
+<br/>
+ Command-line parameter generation:<br/>
+ $ openssl dhparam -out dh_param_2048.pem 2048<br/>
+<br/>
+ Code for setting up parameters during server initialization:<br/>
+<br/>
+ ...<br/>
+ SSL_CTX ctx = SSL_CTX_new();<br/>
+ ...<br/>
+<br/>
+ /* Set up ephemeral DH parameters. */<br/>
+ DH *dh_2048 = NULL;<br/>
+ FILE *paramfile;<br/>
+ paramfile = fopen(&quot;dh_param_2048.pem&quot;, &quot;r&quot;);<br/>
+ if (paramfile) {<br/>
+   dh_2048 = PEM_read_DHparams(paramfile, NULL, NULL, NULL);<br/>
+   fclose(paramfile);<br/>
+ } else {<br/>
+   /* Error. */<br/>
+ }<br/>
+ if (dh_2048 == NULL) {<br/>
+  /* Error. */<br/>
+ }<br/>
+ if (SSL_CTX_set_tmp_dh(ctx, dh_2048) != 1) {<br/>
+   /* Error. */<br/>
+ }<br/>
+ SSL_CTX_set_options(ctx, SSL_OP_SINGLE_DH_USE);<br/>
+ ...<br/>
+</div>
+<div class="section">
+<h1>RETURN VALUES</h1>  <i>SSL_CTX_set_tmp_dh_callback()</i> and <i>SSL_set_tmp_dh_callback()</i> do not return diagnostic output.<div class="spacer">
+</div>
+<i>SSL_CTX_set_tmp_dh()</i> and <i>SSL_set_tmp_dh()</i> do return 1 on success and 0 on failure. Check the error queue to find out the reason of failure.</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <i>ssl</i>(3), <i>SSL_CTX_set_cipher_list</i>(3),  <i>SSL_CTX_set_tmp_rsa_callback</i>(3),  <i>SSL_CTX_set_options</i>(3),  <i>ciphers</i>(1), <i>dhparam</i>(1)</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2016-02-29</td>
+<td class="foot-os">
+1.0.1</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

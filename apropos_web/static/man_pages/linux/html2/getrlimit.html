@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+GETRLIMIT(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+GETRLIMIT(2)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+GETRLIMIT(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> getrlimit, setrlimit, prlimit - get/set resource limits</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;sys/time.h&gt;</b><div style="height: 0.00em;">
+&#160;</div>
+<b>#include &lt;sys/resource.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int getrlimit(int </b><i>resource</i><b>, struct rlimit *</b><i>rlim</i><b>);</b><div style="height: 0.00em;">
+&#160;</div>
+<b>int setrlimit(int </b><i>resource</i><b>, const struct rlimit *</b><i>rlim</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int prlimit(pid_t </b><i>pid</i><b>, int </b><i>resource</i><b>, const struct rlimit *</b><i>new_limit</i><b>,</b><div style="height: 0.00em;">
+&#160;</div>
+<b>            struct rlimit *</b><i>old_limit</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+Feature Test Macro Requirements for glibc (see <b>feature_test_macros</b>(7)):<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<b>prlimit</b>(): _GNU_SOURCE &amp;&amp; _FILE_OFFSET_BITS == 64</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The <b>getrlimit</b>() and <b>setrlimit</b>() system calls get and set resource limits respectively. Each resource has an associated soft and hard limit, as defined by the <i>rlimit</i> structure:<div class="spacer">
+</div>
+<br/>
+<br/>
+struct rlimit {<br/>
+    rlim_t rlim_cur;  /* Soft limit */<br/>
+    rlim_t rlim_max;  /* Hard limit (ceiling for rlim_cur) */<br/>
+};<div class="spacer">
+</div>
+<br/>
+<br/>
+The soft limit is the value that the kernel enforces for the corresponding resource. The hard limit acts as a ceiling for the soft limit: an unprivileged process may only set its soft limit to a value in the range from 0 up to the hard limit, and (irreversibly) lower its hard limit. A privileged process (under Linux: one with the <b>CAP_SYS_RESOURCE</b> capability) may make arbitrary changes to either limit value.<div class="spacer">
+</div>
+The value <b>RLIM_INFINITY</b> denotes no limit on a resource (both in the structure returned by <b>getrlimit</b>() and in the structure passed to <b>setrlimit</b>()).<div class="spacer">
+</div>
+The <i>resource</i> argument must be one of:<dl>
+<dt>
+<b>RLIMIT_AS</b></dt>
+<dd>
+The maximum size of the process's virtual memory (address space) in bytes. This limit affects calls to <b>brk</b>(2), <b>mmap</b>(2) and <b>mremap</b>(2), which fail with the error <b>ENOMEM</b> upon exceeding this limit. Also automatic stack expansion will fail (and generate a <b>SIGSEGV</b> that kills the process if no alternate stack has been made available via <b>sigaltstack</b>(2)). Since the value is a  <i>long</i>, on machines with a 32-bit <i>long</i> either this limit is at most 2 GiB, or this resource is unlimited.</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_CORE</b></dt>
+<dd>
+Maximum size of <i>core</i> file. When 0 no core dump files are created. When nonzero, larger dumps are truncated to this size.</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_CPU</b></dt>
+<dd>
+CPU time limit in seconds. When the process reaches the soft limit, it is sent a <b>SIGXCPU</b> signal. The default action for this signal is to terminate the process. However, the signal can be caught, and the handler can return control to the main program. If the process continues to consume CPU time, it will be sent <b>SIGXCPU</b> once per second until the hard limit is reached, at which time it is sent <b>SIGKILL</b>. (This latter point describes Linux behavior. Implementations vary in how they treat processes which continue to consume CPU time after reaching the soft limit. Portable applications that need to catch this signal should perform an orderly termination upon first receipt of <b>SIGXCPU</b>.)</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_DATA</b></dt>
+<dd>
+The maximum size of the process's data segment (initialized data, uninitialized data, and heap). This limit affects calls to <b>brk</b>(2) and <b>sbrk</b>(2), which fail with the error <b>ENOMEM</b> upon encountering the soft limit of this resource.</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_FSIZE</b></dt>
+<dd>
+The maximum size of files that the process may create. Attempts to extend a file beyond this limit result in delivery of a <b>SIGXFSZ</b> signal. By default, this signal terminates a process, but a process can catch this signal instead, in which case the relevant system call (e.g., <b>write</b>(2), <b>truncate</b>(2)) fails with the error <b>EFBIG</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_LOCKS</b> (Early Linux 2.4 only)</dt>
+<dd>
+A limit on the combined number of <b>flock</b>(2) locks and <b>fcntl</b>(2) leases that this process may establish.</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_MEMLOCK</b></dt>
+<dd>
+The maximum number of bytes of memory that may be locked into RAM. In effect this limit is rounded down to the nearest multiple of the system page size. This limit affects <b>mlock</b>(2) and <b>mlockall</b>(2) and the <b>mmap</b>(2) <b>MAP_LOCKED</b> operation. Since Linux 2.6.9 it also affects the <b>shmctl</b>(2) <b>SHM_LOCK</b> operation, where it sets a maximum on the total bytes in shared memory segments (see <b>shmget</b>(2)) that may be locked by the real user ID of the calling process. The <b>shmctl</b>(2) <b>SHM_LOCK</b> locks are accounted for separately from the per-process memory locks established by <b>mlock</b>(2), <b>mlockall</b>(2), and <b>mmap</b>(2) <b>MAP_LOCKED</b>; a process can lock bytes up to this limit in each of these two categories. In Linux kernels before 2.6.9, this limit controlled the amount of memory that could be locked by a privileged process. Since Linux 2.6.9, no limits are placed on the amount of memory that a privileged process may lock, and this limit instead governs the amount of memory that an unprivileged process may lock.</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_MSGQUEUE</b> (Since Linux 2.6.8)</dt>
+<dd>
+Specifies the limit on the number of bytes that can be allocated for POSIX message queues for the real user ID of the calling process. This limit is enforced for <b>mq_open</b>(3). Each message queue that the user creates counts (until it is removed) against this limit according to the formula:<div class="spacer">
+</div>
+<br/>
+    bytes = attr.mq_maxmsg * sizeof(struct msg_msg *) +<br/>
+            attr.mq_maxmsg * attr.mq_msgsize<div class="spacer">
+</div>
+<br/>
+where <i>attr</i> is the <i>mq_attr</i> structure specified as the fourth argument to <b>mq_open</b>(3).<div style="height: 1.00em;">
+&#160;</div>
+The first addend in the formula, which includes <i>sizeof(struct msg_msg *)</i> (4 bytes on Linux/i386), ensures that the user cannot create an unlimited number of zero-length messages (such messages nevertheless each consume some system memory for bookkeeping overhead).</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_NICE</b> (since Linux 2.6.12, but see BUGS below)</dt>
+<dd>
+Specifies a ceiling to which the process's nice value can be raised using <b>setpriority</b>(2) or <b>nice</b>(2). The actual ceiling for the nice value is calculated as <i>20&#160;-&#160;rlim_cur</i>. (This strangeness occurs because negative numbers cannot be specified as resource limit values, since they typically have special meanings. For example, <b>RLIM_INFINITY</b> typically is the same as -1.)</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_NOFILE</b></dt>
+<dd>
+Specifies a value one greater than the maximum file descriptor number that can be opened by this process. Attempts (<b>open</b>(2), <b>pipe</b>(2), <b>dup</b>(2), etc.) to exceed this limit yield the error <b>EMFILE</b>. (Historically, this limit was named <b>RLIMIT_OFILE</b> on BSD.)</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_NPROC</b></dt>
+<dd>
+The maximum number of processes (or, more precisely on Linux, threads) that can be created for the real user ID of the calling process. Upon encountering this limit, <b>fork</b>(2) fails with the error <b>EAGAIN</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_RSS</b></dt>
+<dd>
+Specifies the limit (in pages) of the process's resident set (the number of virtual pages resident in RAM). This limit only has effect in Linux 2.4.x, x &lt; 30, and there only affects calls to <b>madvise</b>(2) specifying <b>MADV_WILLNEED</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_RTPRIO</b> (Since Linux 2.6.12, but see BUGS)</dt>
+<dd>
+Specifies a ceiling on the real-time priority that may be set for this process using <b>sched_setscheduler</b>(2) and <b>sched_setparam</b>(2).</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_RTTIME</b> (Since Linux 2.6.25)</dt>
+<dd>
+Specifies a limit (in microseconds) on the amount of CPU time that a process scheduled under a real-time scheduling policy may consume without making a blocking system call. For the purpose of this limit, each time a process makes a blocking system call, the count of its consumed CPU time is reset to zero. The CPU time count is not reset if the process continues trying to use the CPU but is preempted, its time slice expires, or it calls <b>sched_yield</b>(2).<div style="height: 1.00em;">
+&#160;</div>
+Upon reaching the soft limit, the process is sent a <b>SIGXCPU</b> signal. If the process catches or ignores this signal and continues consuming CPU time, then <b>SIGXCPU</b> will be generated once each second until the hard limit is reached, at which point the process is sent a <b>SIGKILL</b> signal.<div style="height: 1.00em;">
+&#160;</div>
+The intended use of this limit is to stop a runaway real-time process from locking up the system.</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_SIGPENDING</b> (Since Linux 2.6.8)</dt>
+<dd>
+Specifies the limit on the number of signals that may be queued for the real user ID of the calling process. Both standard and real-time signals are counted for the purpose of checking this limit. However, the limit is only enforced for <b>sigqueue</b>(3); it is always possible to use <b>kill</b>(2) to queue one instance of any of the signals that are not already queued to the process.</dd>
+</dl>
+<dl>
+<dt>
+<b>RLIMIT_STACK</b></dt>
+<dd>
+The maximum size of the process stack, in bytes. Upon reaching this limit, a <b>SIGSEGV</b> signal is generated. To handle this signal, a process must employ an alternate signal stack (<b>sigaltstack</b>(2)).<div style="height: 1.00em;">
+&#160;</div>
+Since Linux 2.6.23, this limit also determines the amount of space used for the process's command-line arguments and environment variables; for details, see <b>execve</b>(2).</dd>
+</dl>
+<div class="subsection">
+<h2>prlimit()</h2> The Linux-specific <b>prlimit</b>() system call combines and extends the functionality of <b>setrlimit</b>() and <b>getrlimit</b>(). It can be used to both set and get the resource limits of an arbitrary process.<div style="height: 1.00em;">
+&#160;</div>
+The <i>resource</i> argument has the same meaning as for <b>setrlimit</b>() and <b>getrlimit</b>().<div style="height: 1.00em;">
+&#160;</div>
+If the <i>new_limit</i> argument is a not NULL, then the <i>rlimit</i> structure to which it points is used to set new values for the soft and hard limits for <i>resource</i>. If the <i>old_limit</i> argument is a not NULL, then a successful call to <b>prlimit</b>() places the previous soft and hard limits for <i>resource</i> in the <i>rlimit</i> structure pointed to by <i>old_limit</i>.<div style="height: 1.00em;">
+&#160;</div>
+The <i>pid</i> argument specifies the ID of the process on which the call is to operate. If <i>pid</i> is 0, then the call applies to the calling process. To set or get the resources of a process other than itself, the caller must have the <b>CAP_SYS_RESOURCE</b> capability, or the real, effective, and saved set user IDs of the target process must match the real user ID of the caller <i>and</i> the real, effective, and saved set group IDs of the target process must match the real group ID of the caller.</div>
+</div>
+<div class="section">
+<h1>RETURN VALUE</h1> On success, these system calls return 0. On error, -1 is returned, and <i>errno</i> is set appropriately.</div>
+<div class="section">
+<h1>ERRORS</h1><dl>
+<dt>
+<b>EFAULT</b></dt>
+<dd>
+A pointer argument points to a location outside the accessible address space.</dd>
+</dl>
+<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+The value specified in <i>resource</i> is not valid; or, for <b>setrlimit</b>() or <b>prlimit</b>(): <i>rlim-&gt;rlim_cur</i> was greater than <i>rlim-&gt;rlim_max</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>EPERM</b></dt>
+<dd>
+An unprivileged process tried to raise the hard limit; the <b>CAP_SYS_RESOURCE</b> capability is required to do this. Or, the caller tried to increase the hard <b>RLIMIT_NOFILE</b> limit above the current kernel maximum (<b>NR_OPEN</b>). Or, the calling process did not have permission to set limits for the process specified by <i>pid</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>ESRCH</b></dt>
+<dd>
+Could not find a process with the ID specified in <i>pid</i>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>VERSIONS</h1> The <b>prlimit</b>() system call is available since Linux 2.6.36. Library support is available since glibc 2.13.</div>
+<div class="section">
+<h1>CONFORMING TO</h1> <b>getrlimit</b>(), <b>setrlimit</b>(): SVr4, 4.3BSD, POSIX.1-2001.<div style="height: 0.00em;">
+&#160;</div>
+<b>prlimit</b>(): Linux-specific.<div style="height: 1.00em;">
+&#160;</div>
+<b>RLIMIT_MEMLOCK</b> and <b>RLIMIT_NPROC</b> derive from BSD and are not specified in POSIX.1-2001; they are present on the BSDs and Linux, but on few other implementations. <b>RLIMIT_RSS</b> derives from BSD and is not specified in POSIX.1-2001; it is nevertheless present on most implementations. <b>RLIMIT_MSGQUEUE</b>, <b>RLIMIT_NICE</b>, <b>RLIMIT_RTPRIO</b>, <b>RLIMIT_RTTIME</b>, and <b>RLIMIT_SIGPENDING</b> are Linux-specific.</div>
+<div class="section">
+<h1>NOTES</h1> A child process created via <b>fork</b>(2) inherits its parent's resource limits. Resource limits are preserved across <b>execve</b>(2).<div style="height: 1.00em;">
+&#160;</div>
+One can set the resource limits of the shell using the built-in <i>ulimit</i> command (<i>limit</i> in <b>csh</b>(1)). The shell's resource limits are inherited by the processes that it creates to execute commands.<div style="height: 1.00em;">
+&#160;</div>
+Ancient systems provided a <b>vlimit</b>() function with a similar purpose to <b>setrlimit</b>(). For backward compatibility, glibc also provides <b>vlimit</b>(). All new applications should be written using <b>setrlimit</b>().</div>
+<div class="section">
+<h1>EXAMPLE</h1> The program below demonstrates the use of <b>prlimit</b>().<div class="spacer">
+</div>
+<br/>
+#define _GNU_SOURCE<br/>
+#define _FILE_OFFSET_BITS 64<br/>
+#include &lt;stdio.h&gt;<br/>
+#include &lt;time.h&gt;<br/>
+#include &lt;stdlib.h&gt;<br/>
+#include &lt;unistd.h&gt;<br/>
+#include &lt;sys/resource.h&gt;<div class="spacer">
+</div>
+<br/>
+#define errExit(msg) 	do { perror(msg); exit(EXIT_FAILURE); \<br/>
+                        } while (0)<div class="spacer">
+</div>
+<br/>
+int<br/>
+main(int argc, char *argv[])<br/>
+{<br/>
+    struct rlimit old, new;<br/>
+    struct rlimit *newp;<br/>
+    pid_t pid;<div class="spacer">
+</div>
+<br/>
+    if (!(argc == 2 || argc == 4)) {<br/>
+        fprintf(stderr, &quot;Usage: %s &lt;pid&gt; [&lt;new-soft-limit&gt; &quot;<br/>
+                &quot;&lt;new-hard-limit&gt;]\n&quot;, argv[0]);<br/>
+        exit(EXIT_FAILURE);<br/>
+    }<div class="spacer">
+</div>
+<br/>
+    pid = atoi(argv[1]);        /* PID of target process */<div class="spacer">
+</div>
+<br/>
+    newp = NULL;<br/>
+    if (argc == 4) {<br/>
+        new.rlim_cur = atoi(argv[2]);<br/>
+        new.rlim_max = atoi(argv[3]);<br/>
+        newp = &amp;new;<br/>
+    }<div class="spacer">
+</div>
+<br/>
+    /* Set CPU time limit of target process; retrieve and display<br/>
+       previous limit */<div class="spacer">
+</div>
+<br/>
+    if (prlimit(pid, RLIMIT_CPU, newp, &amp;old) == -1)<br/>
+        errExit(&quot;prlimit-1&quot;);<br/>
+    printf(&quot;Previous limits: soft=%lld; hard=%lld\n&quot;,<br/>
+            (long long) old.rlim_cur, (long long) old.rlim_max);<div class="spacer">
+</div>
+<br/>
+    /* Retrieve and display new CPU time limit */<div class="spacer">
+</div>
+<br/>
+    if (prlimit(pid, RLIMIT_CPU, NULL, &amp;old) == -1)<br/>
+        errExit(&quot;prlimit-2&quot;);<br/>
+    printf(&quot;New limits: soft=%lld; hard=%lld\n&quot;,<br/>
+            (long long) old.rlim_cur, (long long) old.rlim_max);<div class="spacer">
+</div>
+<br/>
+    exit(EXIT_FAILURE);<br/>
+}<br/>
+</div>
+<div class="section">
+<h1>BUGS</h1> In older Linux kernels, the <b>SIGXCPU</b> and <b>SIGKILL</b> signals delivered when a process encountered the soft and hard <b>RLIMIT_CPU</b> limits were delivered one (CPU) second later than they should have been. This was fixed in kernel 2.6.8.<div style="height: 1.00em;">
+&#160;</div>
+In 2.6.x kernels before 2.6.17, a <b>RLIMIT_CPU</b> limit of 0 is wrongly treated as &quot;no limit&quot; (like <b>RLIM_INFINITY</b>). Since Linux 2.6.17, setting a limit of 0 does have an effect, but is actually treated as a limit of 1 second.<div style="height: 1.00em;">
+&#160;</div>
+A kernel bug means that <b>RLIMIT_RTPRIO</b> does not work in kernel 2.6.12; the problem is fixed in kernel 2.6.13.<div style="height: 1.00em;">
+&#160;</div>
+In kernel 2.6.12, there was an off-by-one mismatch between the priority ranges returned by <b>getpriority</b>(2) and <b>RLIMIT_NICE</b>. This had the effect that the actual ceiling for the nice value was calculated as <i>19&#160;-&#160;rlim_cur</i>. This was fixed in kernel 2.6.13.<div style="height: 1.00em;">
+&#160;</div>
+Kernels before 2.4.22 did not diagnose the error <b>EINVAL</b> for <b>setrlimit</b>() when <i>rlim-&gt;rlim_cur</i> was greater than <i>rlim-&gt;rlim_max</i>.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>dup</b>(2), <b>fcntl</b>(2), <b>fork</b>(2), <b>getrusage</b>(2), <b>mlock</b>(2), <b>mmap</b>(2), <b>open</b>(2), <b>quotactl</b>(2), <b>sbrk</b>(2), <b>shmctl</b>(2), <b>malloc</b>(3), <b>sigqueue</b>(3), <b>ulimit</b>(3), <b>core</b>(5), <b>capabilities</b>(7), <b>signal</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-10</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+SIGVEC(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SIGVEC(3)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+SIGVEC(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> sigvec, sigblock, sigsetmask, siggetmask, sigmask - BSD signal API</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;signal.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int sigvec(int </b><i>sig</i><b>, struct sigvec *</b><i>vec</i><b>, struct sigvec *</b><i>ovec</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int sigmask(int </b><i>signum</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int sigblock(int </b><i>mask</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int sigsetmask(int </b><i>mask</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int siggetmask(void);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+Feature Test Macro Requirements for glibc (see <b>feature_test_macros</b>(7)):<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+All functions shown above: _BSD_SOURCE</div>
+<div class="section">
+<h1>DESCRIPTION</h1> These functions are provided in glibc as a compatibility interface for programs that make use of the historical BSD signal API. This API is obsolete: new applications should use the POSIX signal API (<b>sigaction</b>(2), <b>sigprocmask</b>(2), etc.)<div style="height: 1.00em;">
+&#160;</div>
+The <b>sigvec</b>() function sets and/or gets the disposition of the signal <i>sig</i> (like the POSIX <b>sigaction</b>(2)). If <i>vec</i> is not NULL, it points to a <i>sigvec</i> structure that defines the new disposition for <i>sig</i>. If <i>ovec</i> is not NULL, it points to a <i>sigvec</i> structure that is used to return the previous disposition of <i>sig</i>. To obtain the current disposition of <i>sig</i> without changing it, specify NULL for <i>vec</i>, and a non-NULL pointer for <i>ovec</i>.<div style="height: 1.00em;">
+&#160;</div>
+The dispositions for <b>SIGKILL</b> and <b>SIGSTOP</b> cannot be changed.<div style="height: 1.00em;">
+&#160;</div>
+The <i>sigvec</i> structure has the following form:<br/>
+<div class="spacer">
+</div>
+<br/>
+struct sigvec {<br/>
+    void (*sv_handler)();  /* Signal disposition */<br/>
+    int    sv_mask;        /* Signals to be blocked in handler */<br/>
+    int    sv_flags;       /* Flags */<br/>
+};<div class="spacer">
+</div>
+<br/>
+<br/>
+The <i>sv_handler</i> field specifies the disposition of the signal, and is either: the address of a signal handler function; or <b>SIG_DFL</b> meaning the default disposition applies for the signal; or <b>SIG_IGN</b> meaning that the signal is ignored.<div style="height: 1.00em;">
+&#160;</div>
+If <i>sv_handler</i> specifies the address of a signal handler, then <i>sv_mask</i> specifies a mask of signals that are to be blocked while the handler is executing. In addition, the signal for which the handler is invoked is also blocked by default. Attempts to block <b>SIGKILL</b> or <b>SIGSTOP</b> are silently ignored.<div style="height: 1.00em;">
+&#160;</div>
+If <i>sv_handler</i> specifies the address of a signal handler, then the <i>sv_flags</i> field specifies flags controlling what happens when the handler is called. This field may contain zero or more of the following flags:<dl>
+<dt>
+<b>SV_INTERRUPT</b></dt>
+<dd>
+If the signal handler interrupts a blocking system call, then upon return from the handler the system call will not be restarted: instead it will fail with the error <b>EINTR</b>. If this flag is not specified, then system calls are restarted by default.</dd>
+</dl>
+<dl>
+<dt>
+<b>SV_RESETHAND</b></dt>
+<dd>
+Reset the disposition of the signal to the default before calling the signal handler. If this flag is not specified, then the handler remains established until explicitly removed by a later call to <b>sigvec</b>() or until the process performs an <b>execve</b>(2).</dd>
+</dl>
+<dl>
+<dt>
+<b>SV_ONSTACK</b></dt>
+<dd>
+Handle the signal on the alternate signal stack (historically established under BSD using the obsolete <b>sigstack</b>() function; the POSIX replacement is <b>sigaltstack</b>(2)).</dd>
+</dl>
+<div class="spacer">
+</div>
+The <b>sigmask</b>() function constructs and returns a &quot;signal mask&quot; for <i>signum</i>. For example, we can initialize the <i>vec.sv_mask</i> field given to <b>sigvec</b>() using code such as the following:<div class="spacer">
+</div>
+<br/>
+    vec.sv_mask = sigmask(SIGQUIT) | sigpause(SIGABRT);<br/>
+                /* Block SIGQUIT and SIGABRT during<br/>
+                   handler execution */<br/>
+<div class="spacer">
+</div>
+The <b>sigblock</b>() function adds the signals in <i>mask</i> to the process's signal mask (like POSIX <i>sigprocmask(SIG_BLOCK)</i>), and returns the process's previous signal mask. Attempts to block <b>SIGKILL</b> or <b>SIGSTOP</b> are silently ignored.<div class="spacer">
+</div>
+The <b>sigsetmask</b>() function sets the process's signal mask to the value given in <i>mask</i> (like POSIX <i>sigprocmask(SIG_SETMASK)</i>), and returns the process's previous signal mask.<div class="spacer">
+</div>
+The <b>siggetmask</b>() function returns the process's current signal mask. This call is equivalent to <i>sigblock(0)</i>.</div>
+<div class="section">
+<h1>RETURN VALUE</h1> The <b>sigvec</b>() function returns 0 on success; on error, it returns -1 and sets <i>errno</i> to indicate the error.<div style="height: 1.00em;">
+&#160;</div>
+The <b>sigblock</b>() and <b>sigsetmask</b>() functions return the previous signal mask.<div style="height: 1.00em;">
+&#160;</div>
+The <b>sigmask</b>() function returns the signal mask for <i>signum</i>.</div>
+<div class="section">
+<h1>ERRORS</h1> See the ERRORS under <b>sigaction</b>(2) and <b>sigprocmask</b>(2).</div>
+<div class="section">
+<h1>CONFORMING TO</h1> All of these functions were in 4.3BSD, except <b>siggetmask</b>(), whose origin is unclear. These functions are obsolete: do not use them in new programs.</div>
+<div class="section">
+<h1>NOTES</h1> On 4.3BSD, the <b>signal</b>() function provided reliable semantics (as when calling <b>sigvec</b>() with <i>vec.sv_mask</i> equal to 0). On System V, <b>signal</b>() provides unreliable semantics. POSIX.1-2001 leaves these aspects of <b>signal</b>() unspecified. See <b>signal</b>(2) for further details.<div style="height: 1.00em;">
+&#160;</div>
+In order to wait for a signal, BSD and System V both provided a function named <b>sigpause</b>(3), but this function has a different argument on the two systems. See <b>sigpause</b>(3) for details.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>kill</b>(2), <b>pause</b>(2), <b>sigaction</b>(2), <b>signal</b>(2), <b>sigprocmask</b>(2), <b>raise</b>(3), <b>sigpause</b>(3), <b>sigset</b>(3), <b>signal</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2007-07-26</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

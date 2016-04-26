@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PERL5134DELTA(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERL5134DELTA(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+PERL5134DELTA(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perl5134delta - what is new for perl v5.13.4</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This document describes differences between the 5.13.4 release and the 5.13.3 release.<div class="spacer">
+</div>
+If you are upgrading from an earlier release such as 5.13.2, first read perl5133delta, which describes differences between 5.13.2 and 5.13.3.</div>
+<div class="section">
+<h1>Core Enhancements</h1><div class="subsection">
+<h2>&quot;srand()&quot; now returns the seed</h2> This allows programs that need to have repeatable results to not have to come up with their own seed generating mechanism.  Instead, they can use &quot;srand()&quot; and somehow stash the return for future use.  Typical is a test program which has too many combinations to test comprehensively in the time available to it each run.  It can test a random subset each time, and should there be a failure, log the seed used for that run so that it can later be used to reproduce the exact results.</div>
+<div class="subsection">
+<h2>&quot;\N{<i>name</i>}&quot; and &quot;charnames&quot; enhancements</h2> &quot;\N{}&quot;, &quot;charnames::vianame&quot;, &quot;charnames::viacode&quot; now know about every character in Unicode.  Previously, they didn't know about the Hangul syllables nor a number of CJK (Chinese/Japanese/Korean) characters.</div>
+</div>
+<div class="section">
+<h1>Incompatible Changes</h1><div class="subsection">
+<h2>Declare API incompatibility between blead releases</h2> Only stable releases (5.10.x, 5.12.x, 5.14.x, ...) guarantee binary compatibility with each other, while blead releases (5.13.x, 5.15.x, ...) often break this compatibility. However, prior to perl 5.13.4, all blead releases had the same &quot;PERL_API_REVISION&quot;, &quot;PERL_API_VERSION&quot;, and &quot;PERL_API_SUBVERSION&quot;, effectively declaring them as binary compatible, which they weren't. From now on, blead releases will have a &quot;PERL_API_SUBVERSION&quot; equal to their &quot;PERL_SUBVERSION&quot;, explicitly marking them as incompatible with each other.<div class="spacer">
+</div>
+Maintenance releases of stable perl versions will continue to make no intentionally incompatible API changes.</div>
+<div class="subsection">
+<h2>Check API compatibility when loading XS modules</h2> When perl's API changes in incompatible ways (which usually happens between every major release), XS modules compiled for previous versions of perl will not work anymore. They will need to be recompiled against the new perl.<div class="spacer">
+</div>
+In order to ensure that modules are recompiled, and to prevent users from accidentally loading modules compiled for old perls into newer ones, the &quot;XS_APIVERSION_BOOTCHECK&quot; macro has been added. That macro, which is called when loading every newly compiled extension, compares the API version of the running perl with the version a module has been compiled for and raises an exception if they don't match.</div>
+<div class="subsection">
+<h2>Binary Incompatible with all previous Perls</h2> Some bit fields have been reordered; therefore, this release will not be binary compatible with any previous Perl release.</div>
+<div class="subsection">
+<h2>Change in the parsing of certain prototypes</h2> Functions declared with the following prototypes now behave correctly as unary functions:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;*&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;\sigil&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;\[...]&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;;$&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;;*&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;;\sigil&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;;\[...]&quot;</dd>
+</dl>
+<div class="spacer">
+</div>
+Due to this bug fix, functions using the &quot;(*)&quot;, &quot;(;$)&quot; and &quot;(;*)&quot; prototypes are parsed with higher precedence than before. So in the following example:<div class="spacer">
+</div>
+<br/>
+  sub foo($);<br/>
+  foo $a &lt; $b;<br/>
+<div class="spacer">
+</div>
+the second line is now parsed correctly as &quot;foo($a) &lt; $b&quot;, rather than &quot;foo($a &lt; $b)&quot;. This happens when one of these operators is used in an unparenthesised argument:<div class="spacer">
+</div>
+<br/>
+  &lt; &gt; &lt;= &gt;= lt gt le ge<br/>
+  == != &lt;=&gt; eq ne cmp ~~<br/>
+  &amp;<br/>
+  | ^<br/>
+  &amp;&amp;<br/>
+  || //<br/>
+  .. ...<br/>
+  ?:<br/>
+  = += -= *= etc.<br/>
+</div>
+</div>
+<div class="section">
+<h1>Deprecations</h1><div class="subsection">
+<h2>List assignment to $[</h2> After assignment to $[ has been deprecated and started to give warnings in perl version 5.12.0, this version of perl also starts to emit a warning when assigning to $[ in list context. This fixes an oversight in 5.12.0.</div>
+</div>
+<div class="section">
+<h1>Performance Enhancements</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Make string appending 100 times faster<div style="height: 1.00em;">
+&#160;</div>
+When doing a lot of string appending, perl could end up allocating a lot more memory than needed in a very inefficient way, if perl was configured to use the system's &quot;malloc&quot; implementation instead of its own.<div style="height: 1.00em;">
+&#160;</div>
+&quot;sv_grow&quot;, which is what's being used to allocate more memory if necessary when appending to a string, has now been taught how to round up the memory it requests to a certain geometric progression, making it much faster on certain platforms and configurations. On Win32, it's now about 100 times faster.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+For weak references, the common case of just a single weak reference per referent has been optimised to reduce the storage required. In this case it saves the equivalent of one small perl array per referent.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;XPV&quot;, &quot;XPVIV&quot;, and &quot;XPVNV&quot; now only allocate the parts of the &quot;SV&quot; body they actually use, saving some space.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Modules and Pragmata</h1><div class="subsection">
+<h2>New Modules and Pragmata</h2> This release does not introduce any new modules or pragmata.</div>
+<div class="subsection">
+<h2>Updated Modules and Pragmata</h2><dl>
+<dt>
+&quot;Archive::Tar&quot;</dt>
+<dd>
+Upgraded from version 1.64 to 1.68.<div style="height: 1.00em;">
+&#160;</div>
+Among other things, the new version adds a new option to &quot;ptar&quot; to allow safe creation of tarballs without world-writable files on Windows, allowing those archives to be uploaded to CPAN.</dd>
+</dl>
+<dl>
+<dt>
+&quot;B::Lint&quot;</dt>
+<dd>
+Upgraded from version 1.11 to 1.12.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Carp&quot;</dt>
+<dd>
+Upgraded from version 1.16 to 1.18.<div style="height: 1.00em;">
+&#160;</div>
+Carp now detects incomplete <i>caller()</i> overrides and avoids using bogus @DB::args. To provide backtraces, Carp relies on particular behaviour of the caller built-in. Carp now detects if other code has overridden this with an incomplete implementation, and modifies its backtrace accordingly. Previously incomplete overrides would cause incorrect values in backtraces (best case), or obscure fatal errors (worst case)<div style="height: 1.00em;">
+&#160;</div>
+This fixes certain cases of &quot;Bizarre copy of ARRAY&quot; caused by modules overriding &quot;caller()&quot; incorrectly.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Compress::Raw::Bzip2&quot;</dt>
+<dd>
+Upgraded from version 2.027 to 2.030.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Compress::Raw::Zlib&quot;</dt>
+<dd>
+Upgraded from version 2.027 to 2.030.</dd>
+</dl>
+<dl>
+<dt>
+&quot;File::Spec&quot;</dt>
+<dd>
+Upgraded from version 3.31 to 3.31_01.<div style="height: 1.00em;">
+&#160;</div>
+Various issues in File::Spec::VMS have been fixed.</dd>
+</dl>
+<dl>
+<dt>
+&quot;I18N::Langinfo&quot;</dt>
+<dd>
+Upgraded from version 0.03 to 0.04.<div style="height: 1.00em;">
+&#160;</div>
+&quot;langinfo()&quot; now defaults to using $_ if there is no argument given, just like the documentation always claimed it did.</dd>
+</dl>
+<dl>
+<dt>
+&quot;IO::Compress&quot;</dt>
+<dd>
+Upgraded from version 2.027 to 2.030.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Module::CoreList&quot;</dt>
+<dd>
+Upgraded from version 2.36 to 2.37.<div style="height: 1.00em;">
+&#160;</div>
+Besides listing the updated core modules of this release, it also stops listing the &quot;Filespec&quot; module. That module never existed in core. The scripts generating &quot;Module::CoreList&quot; confused it with &quot;VMS::Filespec&quot;, which actually is a core module, since the time of perl 5.8.7.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Test::Harness&quot;</dt>
+<dd>
+Upgraded from version 3.21 to 3.22.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Test::Simple&quot;</dt>
+<dd>
+Upgraded from version 0.94 to 0.96.<div style="height: 1.00em;">
+&#160;</div>
+Among many other things, subtests without a &quot;plan&quot; or &quot;no_plan&quot; now have an implicit &quot;done_testing()&quot; added to them.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Unicode::Collate&quot;</dt>
+<dd>
+Upgraded from version 0.53 to 0.56.<div style="height: 1.00em;">
+&#160;</div>
+Among other things, it is now using UCA Revision 20 (based on Unicode 5.2.0) and supports a couple of new locales.</dd>
+</dl>
+<dl>
+<dt>
+&quot;feature&quot;</dt>
+<dd>
+Upgraded from version 1.17 to 1.18.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Removed Modules and Pragmata</h2> This release does not remove any modules or pragmata.</div>
+</div>
+<div class="section">
+<h1>Documentation</h1><div class="subsection">
+<h2>Changes to Existing Documentation</h2>  <i>perldiag</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The following existing diagnostics are now documented:</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Ambiguous use of %c resolved as operator %c</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Ambiguous use of %c{%s} resolved to %c%s</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Ambiguous use of %c{%s%s} resolved to %c%s%s</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Ambiguous use of -%s resolved as -&amp;%s()</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Invalid strict version format (%s)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Invalid version format (%s)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Invalid version object</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+</div>
+<div class="spacer">
+</div>
+<i>perlport</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Documented a limitation of <i>alarm()</i> on Win32.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlre</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Minor fix to a multiple scalar match example.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Configuration and Compilation</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Compatibility with &quot;C++&quot; compilers has been improved.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+On compilers that support it, &quot;-Wwrite-strings&quot; is now added to cflags by default.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Testing</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>t/op/print.t</i> has been added to test implicit printing of $_.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>t/io/errnosig.t</i> has been added to test for restoration of of $! when leaving signal handlers.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>t/op/tie_fetch_count.t</i> has been added to see if &quot;FETCH&quot; is only called once on tied variables.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>lib/Tie/ExtraHash.t</i> has been added to make sure the, previously untested, Tie::ExtraHash keeps working.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>t/re/overload.t</i> has been added to test against string corruption in pattern matches on overloaded objects. This is a TODO test.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Platform Support</h1><div class="subsection">
+<h2>Platform-Specific Notes</h2><dl>
+<dt>
+Win32</dt>
+<dd>
+</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Fixed a possible hang in <i>t/op/readline.t</i>.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Fixed build process for SDK2003SP1 compilers.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When using old 32-bit compilers, the define &quot;_USE_32BIT_TIME_T&quot; will now be set in $Config{ccflags}. This improves portability when compiling XS extensions using new compilers, but for a perl compiled with old 32-bit compilers.</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+</div>
+</div>
+</div>
+<div class="section">
+<h1>Internal Changes</h1><dl>
+<dt>
+Removed &quot;PERL_POLLUTE&quot;</dt>
+<dd>
+The option to define &quot;PERL_POLLUTE&quot; to expose older 5.005 symbols for backwards compatibility has been removed. It's use was always discouraged, and MakeMaker contains a more specific escape hatch:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    perl Makefile.PL POLLUTE=1<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This can be used for modules that have not been upgraded to 5.6 naming conventions (and really should be completely obsolete by now).</dd>
+</dl>
+<dl>
+<dt>
+Added &quot;PERL_STATIC_INLINE&quot;</dt>
+<dd>
+The &quot;PERL_STATIC_INLINE&quot; define has been added to provide the best-guess incantation to use for static inline functions, if the C compiler supports C99-style static inline. If it doesn't, it'll give a plain &quot;static&quot;.<div style="height: 1.00em;">
+&#160;</div>
+&quot;HAS_STATIC_INLINE&quot; can be used to check if the compiler actually supports inline functions.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Selected Bug Fixes</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+A possible memory leak when using <i>caller()</i> to set @DB::args has been fixed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Several memory leaks when loading XS modules were fixed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A panic in the regular expression optimizer has been fixed (RT#75762).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assignments to lvalue subroutines now honor copy-on-write behavior again, which has been broken since version 5.10.0 (RT#75656).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assignments to glob copies now behave just like assignments to regular globs (RT#1804).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Within signal handlers, $! is now implicitly localized.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+readline now honors &quot;&lt;&gt;&quot; overloading on tied arguments.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>substr()</i>,  <i>pos()</i>, <i>keys()</i>, and  <i>vec()</i> could, when used in combination with lvalues, result in leaking the scalar value they operate on, and cause its destruction to happen too late. This has now been fixed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Building with &quot;PERL_GLOBAL_STRUCT&quot;, which has been broken accidentally in 5.13.3, now works again.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Known Problems</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The changes in <i>substr()</i> broke &quot;HTML::Parser&quot; &lt;= 3.66. A fixed &quot;HTML::Parser&quot; is available as version 3.67 on CPAN.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The changes in prototype handling break &quot;Switch&quot;. A patch has been sent upstream and will hopefully appear on CPAN soon.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Acknowledgements</h1> Perl 5.13.4 represents approximately one month of development since Perl 5.13.3, and contains 91,200 lines of changes across 436 files from 34 authors and committers.<div class="spacer">
+</div>
+Thank you to the following for contributing to this release:<div class="spacer">
+</div>
+Abigail, Andy Armstrong, Andy Dougherty, Chas. Owens, Chip Salzenberg, Chris 'BinGOs' Williams, Craig A. Berry, David Cantrell, David Golden, David Mitchell, Eric Brine, Father Chrysostomos, Florian Ragwitz, George Greer, Gerard Goossen, H.Merijn Brand, James Mastros, Jan Dubois, Jerry D. Hedden, Joshua ben Jore, Karl Williamson, Lars DXXXXXX XXX, Leon Brocard, Lubomir Rintel, Nicholas Clark, Paul Marquess, Rafael Garcia-Suarez, Reini Urban, Robin Barker, Slaven Rezic, Steve Peters, Tony Cook, Wolfram Humann, Zefram</div>
+<div class="section">
+<h1>Reporting Bugs</h1> If you find what you think is a bug, you might check the articles recently posted to the comp.lang.perl.misc newsgroup and the perl bug database at http://rt.perl.org/perlbug/ .  There may also be information at http://www.perl.org/ , the Perl Home Page.<div class="spacer">
+</div>
+If you believe you have an unreported bug, please run the <b>perlbug</b> program included with your release.  Be sure to trim your bug down to a tiny but sufficient test case.  Your bug report, along with the output of &quot;perl -V&quot;, will be sent off to perlbug@perl.org to be analysed by the Perl porting team.<div class="spacer">
+</div>
+If the bug you are reporting has security implications, which make it inappropriate to send to a publicly archived mailing list, then please send it to perl5-security-report@perl.org. This points to a closed subscription unarchived mailing list, which includes all the core committers, who be able to help assess the impact of issues, figure out a resolution, and help co-ordinate the release of patches to mitigate or fix the problem across all platforms on which Perl is supported. Please only use this address for security issues in the Perl core, not for modules independently distributed on CPAN.</div>
+<div class="section">
+<h1>SEE ALSO</h1> The  <i>Changes</i> file for an explanation of how to view exhaustive details on what changed.<div class="spacer">
+</div>
+The <i>INSTALL</i> file for how to build Perl.<div class="spacer">
+</div>
+The <i>README</i> file for general stuff.<div class="spacer">
+</div>
+The <i>Artistic</i> and <i>Copying</i> files for copyright information.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

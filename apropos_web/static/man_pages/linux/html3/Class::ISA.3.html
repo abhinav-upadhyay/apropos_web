@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Class::ISA(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Class::ISA(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Class::ISA(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Class::ISA - report the search path for a class's ISA tree</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  # Suppose you go: use Food::Fishstick, and that uses and<br/>
+  # inherits from other things, which in turn use and inherit<br/>
+  # from other things.  And suppose, for sake of brevity of<br/>
+  # example, that their ISA tree is the same as:<br/>
+<br/>
+  @Food::Fishstick::ISA = qw(Food::Fish  Life::Fungus  Chemicals);<br/>
+  @Food::Fish::ISA = qw(Food);<br/>
+  @Food::ISA = qw(Matter);<br/>
+  @Life::Fungus::ISA = qw(Life);<br/>
+  @Chemicals::ISA = qw(Matter);<br/>
+  @Life::ISA = qw(Matter);<br/>
+  @Matter::ISA = qw();<br/>
+<br/>
+  use Class::ISA;<br/>
+  print &quot;Food::Fishstick path is:\n &quot;,<br/>
+        join(&quot;, &quot;, Class::ISA::super_path('Food::Fishstick')),<br/>
+        &quot;\n&quot;;<br/>
+<div class="spacer">
+</div>
+That prints:<div class="spacer">
+</div>
+<br/>
+  Food::Fishstick path is:<br/>
+   Food::Fish, Food, Matter, Life::Fungus, Life, Chemicals<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Suppose you have a class (like Food::Fish::Fishstick) that is derived, via its @ISA, from one or more superclasses (as Food::Fish::Fishstick is from Food::Fish, Life::Fungus, and Chemicals), and some of those superclasses may themselves each be derived, via its @ISA, from one or more superclasses (as above).<div class="spacer">
+</div>
+When, then, you call a method in that class ($fishstick-&gt;calories), Perl first searches there for that method, but if it's not there, it goes searching in its superclasses, and so on, in a depth-first (or maybe &quot;height-first&quot; is the word) search.  In the above example, it'd first look in Food::Fish, then Food, then Matter, then Life::Fungus, then Life, then Chemicals.<div class="spacer">
+</div>
+This library, Class::ISA, provides functions that return that list -- the list (in order) of names of classes Perl would search to find a method, with no duplicates.</div>
+<div class="section">
+<h1>FUNCTIONS</h1><dl>
+<dt>
+the function Class::ISA::super_path($CLASS)</dt>
+<dd>
+This returns the ordered list of names of classes that Perl would search thru in order to find a method, with no duplicates in the list. $CLASS is not included in the list.  UNIVERSAL is not included -- if you need to consider it, add it to the end.</dd>
+</dl>
+<dl>
+<dt>
+the function Class::ISA::self_and_super_path($CLASS)</dt>
+<dd>
+Just like &quot;super_path&quot;, except that $CLASS is included as the first element.</dd>
+</dl>
+<dl>
+<dt>
+the function Class::ISA::self_and_super_versions($CLASS)</dt>
+<dd>
+This returns a hash whose keys are $CLASS and its (super-)superclasses, and whose values are the contents of each class's $VERSION (or undef, for classes with no $VERSION).<div style="height: 1.00em;">
+&#160;</div>
+The code for self_and_super_versions is meant to serve as an example for precisely the kind of tasks I anticipate that self_and_super_path and super_path will be used for.  You are strongly advised to read the source for self_and_super_versions, and the comments there.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>CAUTIONARY NOTES</h1> * Class::ISA doesn't export anything.  You have to address the functions with a &quot;Class::ISA::&quot; on the front.<div class="spacer">
+</div>
+* Contrary to its name, Class::ISA isn't a class; it's just a package. Strange, isn't it?<div class="spacer">
+</div>
+* Say you have a loop in the ISA tree of the class you're calling one of the Class::ISA functions on: say that Food inherits from Matter, but Matter inherits from Food (for sake of argument).  If Perl, while searching for a method, actually discovers this cyclicity, it will throw a fatal error.  The functions in Class::ISA effectively ignore this cyclicity; the Class::ISA algorithm is &quot;never go down the same path twice&quot;, and cyclicities are just a special case of that.<div class="spacer">
+</div>
+* The Class::ISA functions just look at @ISAs.  But theoretically, I suppose, AUTOLOADs could bypass Perl's ISA-based search mechanism and do whatever they please.  That would be bad behavior, tho; and I try not to think about that.<div class="spacer">
+</div>
+* If Perl can't find a method anywhere in the ISA tree, it then looks in the magical class UNIVERSAL.  This is rarely relevant to the tasks that I expect Class::ISA functions to be put to, but if it matters to you, then instead of this:<div class="spacer">
+</div>
+<br/>
+  @supers = Class::Tree::super_path($class);<br/>
+<div class="spacer">
+</div>
+do this:<div class="spacer">
+</div>
+<br/>
+  @supers = (Class::Tree::super_path($class), 'UNIVERSAL');<br/>
+<div class="spacer">
+</div>
+And don't say no-one ever told ya!<div class="spacer">
+</div>
+* When you call them, the Class::ISA functions look at @ISAs anew -- that is, there is no memoization, and so if ISAs change during runtime, you get the current ISA tree's path, not anything memoized. However, changing ISAs at runtime is probably a sign that you're out of your mind!</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> Copyright (c) 1999-2009 Sean M. Burke. All rights reserved.<div class="spacer">
+</div>
+This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.</div>
+<div class="section">
+<h1>AUTHOR</h1> Sean M. Burke &quot;sburke@cpan.org&quot;</div>
+<div class="section">
+<h1>MAINTAINER</h1> Maintained by Steffen Mueller &quot;smueller@cpan.org&quot;.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-12-05</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

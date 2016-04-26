@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Config::Model::Node(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Config::Model::Node(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Config::Model::Node(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Config::Model::Node - Class for configuration tree node</div>
+<div class="section">
+<h1>VERSION</h1> version 2.005</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ use Config::Model;<br/>
+ use Log::Log4perl qw(:easy);<br/>
+ Log::Log4perl-&gt;easy_init($WARN);<br/>
+<br/>
+ # define configuration tree object<br/>
+ my $model = Config::Model-&gt;new;<br/>
+ $model-&gt;create_config_class(<br/>
+    name              =&gt; 'OneConfigClass',<br/>
+    class_description =&gt; &quot;OneConfigClass detailed description&quot;,<br/>
+<br/>
+    element =&gt; [<br/>
+        [qw/X Y Z/] =&gt; {<br/>
+            type       =&gt; 'leaf',<br/>
+            value_type =&gt; 'enum',<br/>
+            choice     =&gt; [qw/Av Bv Cv/]<br/>
+        }<br/>
+    ],<br/>
+<br/>
+    experience =&gt; [<br/>
+        Y =&gt; 'beginner',<br/>
+        X =&gt; 'master'<br/>
+    ],<br/>
+    status      =&gt; [ X =&gt; 'deprecated' ],<br/>
+    description =&gt; [ X =&gt; 'X-ray description (can be long)' ],<br/>
+    summary     =&gt; [ X =&gt; 'X-ray' ],<br/>
+<br/>
+    accept =&gt; [<br/>
+        'ip.*' =&gt; {<br/>
+            type       =&gt; 'leaf',<br/>
+            value_type =&gt; 'uniline',<br/>
+            summary    =&gt; 'ip address',<br/>
+        }<br/>
+    ]<br/>
+ );<br/>
+ my $instance = $model-&gt;instance (root_class_name =&gt; 'OneConfigClass');<br/>
+ my $root = $instance-&gt;config_root ;<br/>
+<br/>
+ # X is not shown below because of its deprecated status<br/>
+ print $root-&gt;describe,&quot;\n&quot; ;<br/>
+ # name         value        type         comment<br/>
+ # Y            [undef]      enum         choice: Av Bv Cv<br/>
+ # Z            [undef]      enum         choice: Av Bv Cv<br/>
+<br/>
+ # add some data<br/>
+ $root-&gt;load( step =&gt; 'Y=Av' );<br/>
+<br/>
+ # add some accepted element, ipA and ipB are created on the fly<br/>
+ $root-&gt;load( step =&gt; q!ipA=192.168.1.0 ipB=192.168.1.1&quot;! );<br/>
+<br/>
+ # show also ip* element created in the last &quot;load&quot; call<br/>
+ print $root-&gt;describe,&quot;\n&quot; ;<br/>
+ # name         value        type         comment<br/>
+ # Y            Av           enum         choice: Av Bv Cv<br/>
+ # Z            [undef]      enum         choice: Av Bv Cv<br/>
+ # ipA          192.168.1.0  uniline<br/>
+ # ipB          192.168.1.1  uniline<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This class provides the nodes of a configuration tree. When created, a node object will get a set of rules that will define its properties within the configuration tree.<div class="spacer">
+</div>
+Each node contain a set of elements. An element can contain:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A leaf element implemented with Config::Model::Value. A leaf can be plain (unconstrained value) or be strongly typed (values are checked against a set of rules).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Another node.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A collection of items: a list element, implemented with Config::Model::ListId. Each item can be another node or a leaf.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A collection of identified items: a hash element, implemented with Config::Model::HashId.  Each item can be another node or a leaf.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Configuration class declaration</h1> A class declaration is made of the following parameters:<dl>
+<dt>
+<b>name</b></dt>
+<dd>
+Mandatory &quot;string&quot; parameter. This config class name can be used by a node element in another configuration class.</dd>
+</dl>
+<dl>
+<dt>
+<b>class_description</b></dt>
+<dd>
+Optional &quot;string&quot; parameter. This description will be used when generating user interfaces.</dd>
+</dl>
+<dl>
+<dt>
+<b>element</b></dt>
+<dd>
+Mandatory &quot;list ref&quot; of elements of the configuration class :<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  element =&gt; [ foo =&gt; { type = 'leaf', ... },<br/>
+               bar =&gt; { type = 'leaf', ... }<br/>
+             ]<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Element names can be grouped to save typing:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  element =&gt; [ [qw/foo bar/] =&gt; { type = 'leaf', ... } ]<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+See below for details on element declaration.</dd>
+</dl>
+<dl>
+<dt>
+<b>experience</b></dt>
+<dd>
+Optional &quot;list ref&quot; of the elements whose experience are different from default value (&quot;beginner&quot;). Possible values are &quot;master&quot;, &quot;advanced&quot; and &quot;beginner&quot;.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  experience   =&gt; [ Y =&gt; 'beginner', <br/>
+                    [qw/foo bar/] =&gt; 'master' <br/>
+                  ],<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>level</b></dt>
+<dd>
+Optional &quot;list ref&quot; of the elements whose level are different from default value (&quot;normal&quot;). Possible values are &quot;important&quot;, &quot;normal&quot; or &quot;hidden&quot;.<div style="height: 1.00em;">
+&#160;</div>
+The level is used to set how configuration data is presented to the user in browsing mode. &quot;Important&quot; elements will be shown to the user no matter what. &quot;hidden&quot; elements will be explained with the  <i>warp</i> notion.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  level  =&gt; [ [qw/X Y/] =&gt; 'important' ]<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>status</b></dt>
+<dd>
+Optional &quot;list ref&quot; of the elements whose status are different from default value (&quot;standard&quot;). Possible values are &quot;obsolete&quot;, &quot;deprecated&quot; or &quot;standard&quot;.<div style="height: 1.00em;">
+&#160;</div>
+Using a deprecated element will issue a warning. Using an obsolete element will raise an exception (See Config::Model::Exception.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  status  =&gt; [ [qw/X Y/] =&gt; 'obsolete' ]<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>description</b></dt>
+<dd>
+Optional &quot;list ref&quot; of element description. These descriptions will be used when generating user interfaces.</dd>
+</dl>
+<dl>
+<dt>
+<b>description</b></dt>
+<dd>
+Optional &quot;list ref&quot; of element summary. These descriptions will be used when generating user interfaces or as comment when writing configuration files.</dd>
+</dl>
+<dl>
+<dt>
+<b>read_config</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>write_config</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>config_dir</b></dt>
+<dd>
+Parameters used to load on demand configuration data. See Config::Model::AutoRead for details.</dd>
+</dl>
+<dl>
+<dt>
+<b>accept</b></dt>
+<dd>
+Optional list of criteria (i.e. a regular expression to match ) to accept unknown parameters. Each criteria will have a list of specification that will enable &quot;Config::Model&quot; to create a model snippet for the unknown element.<div style="height: 1.00em;">
+&#160;</div>
+Example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ accept =&gt; [<br/>
+    'list.*' =&gt; {<br/>
+        type  =&gt; 'list',<br/>
+        cargo =&gt; {<br/>
+            type       =&gt; 'leaf',<br/>
+            value_type =&gt; 'string',<br/>
+        },<br/>
+    },<br/>
+    'str.*' =&gt; {<br/>
+        type       =&gt; 'leaf',<br/>
+        value_type =&gt; 'uniline'<br/>
+    },<br/>
+  ]<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+All &quot;element&quot; parameters can be used in specifying accepted parameters.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Element declaration</h1><div class="subsection">
+<h2>Element type</h2> Each element is declared with a list ref that contains all necessary information:<div class="spacer">
+</div>
+<br/>
+  element =&gt; [ <br/>
+               foo =&gt; { ... }<br/>
+             ]<br/>
+<div class="spacer">
+</div>
+This most important information from this hash ref is the mandatory  <b>type</b> parameter. The <i>type</i> type can be:<dl>
+<dt>
+&quot;node&quot;</dt>
+<dd>
+The element is a simple node of a tree instantiated from a configuration class (declared with &quot;create_config_class( ... )&quot; in Config::Model). See &quot;Node element&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;warped_node&quot;</dt>
+<dd>
+The element is a node whose properties (mostly &quot;config_class_name&quot;) can be changed (warped) according to the values of one or more leaf elements in the configuration tree.  See Config::Model::WarpedNode for details.</dd>
+</dl>
+<dl>
+<dt>
+&quot;leaf&quot;</dt>
+<dd>
+The element is a scalar value. See &quot;Leaf element&quot;</dd>
+</dl>
+<dl>
+<dt>
+&quot;hash&quot;</dt>
+<dd>
+The element is a collection of nodes or values (default). Each element of this collection is identified by a string (Just like a regular hash, except that you can set up constraint of the keys). See &quot;Hash element&quot;</dd>
+</dl>
+<dl>
+<dt>
+&quot;list&quot;</dt>
+<dd>
+The element is a collection of nodes or values (default). Each element of this collection is identified by an integer (Just like a regular perl array, except that you can set up constraint of the keys).  See &quot;List element&quot;</dd>
+</dl>
+<dl>
+<dt>
+&quot;check_list&quot;</dt>
+<dd>
+The element is a collection of values which are unique in the check_list. See CheckList.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Node element</h2> When declaring a &quot;node&quot; element, you must also provide a &quot;config_class_name&quot; parameter. For instance:<div class="spacer">
+</div>
+<br/>
+ $model -&gt;create_config_class <br/>
+   (<br/>
+   name =&gt; &quot;ClassWithOneNode&quot;,<br/>
+   element =&gt; [<br/>
+                the_node =&gt; { <br/>
+                              type =&gt; 'node',<br/>
+                              config_class_name =&gt; 'AnotherClass',<br/>
+                            },<br/>
+              ]<br/>
+   ) ;<br/>
+</div>
+<div class="subsection">
+<h2>Leaf element</h2> When declaring a &quot;leaf&quot; element, you must also provide a &quot;value_type&quot; parameter. See Config::Model::Value for more details.</div>
+<div class="subsection">
+<h2>Hash element</h2> When declaring a &quot;hash&quot; element, you must also provide a &quot;index_type&quot; parameter.<div class="spacer">
+</div>
+You can also provide a &quot;cargo_type&quot; parameter set to &quot;node&quot; or &quot;leaf&quot; (default).<div class="spacer">
+</div>
+See Config::Model::HashId and Config::Model::AnyId for more details.</div>
+<div class="subsection">
+<h2>List element</h2> You can also provide a &quot;cargo_type&quot; parameter set to &quot;node&quot; or &quot;leaf&quot; (default).<div class="spacer">
+</div>
+See Config::Model::ListId and Config::Model::AnyId for more details.</div>
+</div>
+<div class="section">
+<h1>Introspection methods</h1><div class="subsection">
+<h2>name</h2> Returns the location of the node, or its config class name (for root node).</div>
+<div class="subsection">
+<h2>get_type</h2> Returns &quot;node&quot;.</div>
+<div class="subsection">
+<h2>config_model</h2> Returns the  <b>entire</b> configuration model (Config::Model object).</div>
+<div class="subsection">
+<h2>model</h2> Returns the configuration model of this node (data structure).</div>
+<div class="subsection">
+<h2>config_class_name</h2> Returns the configuration class name of this node.</div>
+<div class="subsection">
+<h2>instance</h2> Returns the instance object containing this node. Inherited from Config::Model::AnyThing</div>
+<div class="subsection">
+<h2>has_element ( name =&gt; element_name, [ type =&gt; searched_type ] )</h2> Returns 1 if the class model has the element declared or if the element name is matched by the optional &quot;accept&quot; parameter. If &quot;type&quot; is specified, the element name must also match the type.</div>
+<div class="subsection">
+<h2>find_element ( element_name , [ case =&gt; any ])</h2> Returns $name if the class model has the element declared or if the element name is matched by the optional &quot;accept&quot; parameter.<div class="spacer">
+</div>
+If case is set to any, has_element will return the element name who match the passed name in a case-insensitive manner.<div class="spacer">
+</div>
+Returns empty if no matching element is found.</div>
+<div class="subsection">
+<h2>model_searcher ()</h2> Returns an object dedicated to search an element in the configuration model (respecting privilege level).<div class="spacer">
+</div>
+This method returns a Config::Model::SearchElement object. See Config::Model::SearchElement for details on how to handle a search.<div class="spacer">
+</div>
+This method is inherited from Config::Model::AnyThing.</div>
+<div class="subsection">
+<h2>element_model ( element_name )</h2> Returns model of the element.</div>
+<div class="subsection">
+<h2>element_type ( element_name )</h2> Returns the type (e.g. leaf, hash, list, checklist or node) of the element.</div>
+<div class="subsection">
+<h2><i>element_name()</i></h2> Returns the element name that contain this object. Inherited from Config::Model::AnyThing</div>
+<div class="subsection">
+<h2><i>index_value()</i></h2> See &quot; <i>index_value()</i>&quot; in Config::Model::AnyThing</div>
+<div class="subsection">
+<h2><i>parent()</i></h2> See &quot; <i>parent()</i>&quot; in Config::Model::AnyThing</div>
+<div class="subsection">
+<h2><i>root()</i></h2> See &quot; <i>root()</i>&quot; in Config::Model::AnyThing</div>
+<div class="subsection">
+<h2><i>location()</i></h2> See &quot; <i>location()</i>&quot; in Config::Model::AnyThing</div>
+</div>
+<div class="section">
+<h1>Element property management</h1><div class="subsection">
+<h2>get_element_name ( for =&gt; &lt;experience&gt;, ...  )</h2> Return all elements names available for &quot;experience&quot;. If no experience is specified, will return all elements available at 'master' level (I.e all elements).<div class="spacer">
+</div>
+Optional parameters are:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>type</b>: Returns only element of requested type (e.g. &quot;list&quot;, &quot;hash&quot;, &quot;leaf&quot;,...). By default return elements of any type.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>cargo_type</b>: Returns only element which contain requested type. E.g. if &quot;get_element_name&quot; is called with &quot;cargo_type =&gt; leaf&quot;, &quot;get_element_name&quot; will return simple leaf elements, but also hash or list element that contain leaf object. By default return elements of any type.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>check</b>: &quot;yes&quot;, &quot;no&quot; or &quot;skip&quot;</dd>
+</dl>
+<div class="spacer">
+</div>
+Returns an array in array context, and a string (e.g. &quot;join(' ',@array)&quot;) in scalar context.</div>
+<div class="subsection">
+<h2>children</h2> Like get_element_name without parameters. Returns the list of elements. This method is polymorphic for all non-leaf objects of the configuration tree.</div>
+<div class="subsection">
+<h2>next_element ( ... )</h2> This method provides a way to iterate through the elements of a node. Mandatory parameter is &quot;name&quot;. Optional parameters are &quot;experience&quot; and &quot;status&quot;.<div class="spacer">
+</div>
+Returns the next element name for a given experience (default &quot;master&quot;) and status (default &quot;normal&quot;). Returns undef if no next element is available.</div>
+<div class="subsection">
+<h2>previous_element ( name =&gt; element_name, [ experience =&gt; min_experience ] )</h2> This method provides a way to iterate through the elements of a node.<div class="spacer">
+</div>
+Returns the previous element name for a given experience (default &quot;master&quot;).  Returns undef if no previous element is available.</div>
+<div class="subsection">
+<h2>get_element_property ( element =&gt; ..., property =&gt; ... )</h2> Retrieve a property of an element.<div class="spacer">
+</div>
+I.e. for a model :<div class="spacer">
+</div>
+<br/>
+  experience =&gt; [ X =&gt; 'master'],<br/>
+  status     =&gt; [ X =&gt; 'deprecated' ]<br/>
+  element    =&gt; [ X =&gt; { ... } ]<br/>
+<div class="spacer">
+</div>
+This call will return &quot;deprecated&quot;:<div class="spacer">
+</div>
+<br/>
+  $node-&gt;get_element_property ( element =&gt; 'X', property =&gt; 'status' )<br/>
+</div>
+<div class="subsection">
+<h2>set_element_property ( element =&gt; ..., property =&gt; ... )</h2> Set a property of an element.</div>
+<div class="subsection">
+<h2>reset_element_property ( element =&gt; ... )</h2> Reset a property of an element according to the original model.</div>
+</div>
+<div class="section">
+<h1>Information management</h1><div class="subsection">
+<h2>fetch_element ( name =&gt; ..  [ , user_experience =&gt; .. ] , [ check =&gt; ..] )</h2> Fetch and returns an element from a node.<div class="spacer">
+</div>
+If user_experience is given, this method will check that the user has enough privilege to access the element. If not, a &quot;RestrictedElement&quot; exception will be raised.<div class="spacer">
+</div>
+check can be set to yes, no or skip</div>
+<div class="subsection">
+<h2>fetch_element_value ( name =&gt; ... [ check =&gt; ...] )</h2> Fetch and returns the  <i>value</i> of a leaf element from a node.<div class="spacer">
+</div>
+If user_experience is given, this method will check that the user has enough privilege to access the element. If not, a &quot;RestrictedElement&quot; exception will be raised.</div>
+<div class="subsection">
+<h2>store_element_value ( name, value )</h2> Store a  <i>value</i> in a leaf element from a node.<div class="spacer">
+</div>
+Can be invoked with named parameters (name, value, experience, check)<div class="spacer">
+</div>
+If user_experience is given, this method will check that the user has enough privilege to access the element. If not, a &quot;RestrictedElement&quot; exception will be raised.</div>
+<div class="subsection">
+<h2>is_element_available( name =&gt; ...,  experience =&gt; ... )</h2> Returns 1 if the element &quot;name&quot; is available for the given &quot;experience&quot; ('beginner' by default) and if the element is not &quot;hidden&quot;. Returns 0 otherwise.<div class="spacer">
+</div>
+As a syntactic sugar, this method can be called with only one parameter:<div class="spacer">
+</div>
+<br/>
+   is_element_available( 'element_name' ) ;<br/>
+</div>
+<div class="subsection">
+<h2>accept_element( name )</h2> Checks and returns the appropriate model of an acceptable element (be it explicitly declared, or part of an &quot;accept&quot; declaration). Returns undef if the element cannot be accepted.</div>
+<div class="subsection">
+<h2>accept_regexp( name )</h2> Returns the list of regular expressions used to check for acceptable parameters. Useful for diagnostics.</div>
+<div class="subsection">
+<h2>element_exists( element_name )</h2> Returns 1 if the element is known in the model.</div>
+<div class="subsection">
+<h2>is_element_defined( element_name )</h2> Returns 1 if the element is defined.</div>
+<div class="subsection">
+<h2>grab(...)</h2> See &quot;grab(...)&quot; in Config::Model::AnyThing.</div>
+<div class="subsection">
+<h2>grab_value(...)</h2> See &quot;grab_value(...)&quot; in Config::Model::AnyThing.</div>
+<div class="subsection">
+<h2><i>grab_root()</i></h2> See &quot; <i>grab_root()</i>&quot; in Config::Model::AnyThing.</div>
+<div class="subsection">
+<h2>get( path =&gt; ..., mode =&gt; ... ,  check =&gt; ... , get_obj =&gt; 1|0, autoadd =&gt; 1|0)</h2> Get a value from a directory like path. If &quot;get_obj&quot; is 1, &quot;get&quot; will return leaf object instead of returning their value.</div>
+<div class="subsection">
+<h2>set( path  , value)</h2> Set a value from a directory like path.</div>
+</div>
+<div class="section">
+<h1>Serialization</h1><div class="subsection">
+<h2>load ( step =&gt; string [, experience =&gt; ... ] )</h2> Load configuration data from the string into the node and its siblings.<div class="spacer">
+</div>
+This string follows the syntax defined in Config::Model::Loader. See &quot;load ( ... )&quot; in Config::Model::Loader for details on parameters. &quot;experience&quot; is 'master' by default.<div class="spacer">
+</div>
+This method can also be called with a single parameter:<div class="spacer">
+</div>
+<br/>
+  $node-&gt;load(&quot;some data:to be=loaded&quot;);<br/>
+</div>
+<div class="subsection">
+<h2>load_data ( hash_ref, [ $check  ])</h2> Load configuration data with a hash ref (first parameter). The hash ref key must match the available elements of the node. The hash ref structure must match the structure of the configuration model.</div>
+<div class="subsection">
+<h2>dump_tree ( ... )</h2> Dumps the configuration data of the node and its siblings into a string.  See &quot;dump_tree&quot; in Config::Model::Dumper for parameter details.<div class="spacer">
+</div>
+This string follows the syntax defined in Config::Model::Loader. The string produced by &quot;dump_tree&quot; can be passed to &quot;load&quot;.</div>
+<div class="subsection">
+<h2>dump_annotations_as_pod ( ... )</h2> Dumps the configuration annotations of the node and its siblings into a string.  See &quot;dump_annotations_as_pod&quot; in Config::Model::Dumper for parameter details.</div>
+<div class="subsection">
+<h2>describe ( [ element =&gt; ... ] )</h2> Provides a description of the node elements or of one element.</div>
+<div class="subsection">
+<h2>report ()</h2> Provides a text report on the content of the configuration below this node.</div>
+<div class="subsection">
+<h2>audit ()</h2> Provides a text audit on the content of the configuration below this node. This audit will show only value different from their default value.</div>
+<div class="subsection">
+<h2>copy_from ( another_node_object )</h2> Copy configuration data from another node into this node and its siblings. The copy is made in a  <i>tolerant</i> mode where invalid data are simply discarded.</div>
+</div>
+<div class="section">
+<h1>Help management</h1><div class="subsection">
+<h2>get_help ( [ [ description | summary ] =&gt; element_name ] )</h2> If called without element, returns the description of the class (Stored in &quot;class_description&quot; attribute of a node declaration).<div class="spacer">
+</div>
+If called with an element name, returns the description of the element (Stored in &quot;description&quot; attribute of a node declaration).<div class="spacer">
+</div>
+If called with 2 argument, either return the &quot;summary&quot; or the &quot;description&quot; of the element.<div class="spacer">
+</div>
+Returns an empty string if no description was found.</div>
+<div class="subsection">
+<h2>tree_searcher( type =&gt; ... )</h2> Returns an object able to search the configuration tree. Parameters are :<dl>
+<dt>
+type</dt>
+<dd>
+Where to perform the search. It can be &quot;element&quot;, &quot;value&quot;, &quot;key&quot;, &quot;summary&quot;, &quot;description&quot;, &quot;help&quot; or &quot;all&quot;.</dd>
+</dl>
+<div class="spacer">
+</div>
+Typically, you will have to call &quot;search&quot; on this object.<div class="spacer">
+</div>
+Returns a Config::Model::TreeSearcher object.</div>
+<div class="subsection">
+<h2>AutoRead nodes</h2> As configuration model are getting bigger, the load time of a tree gets longer. The Config::Model::AutoRead class provides a way to load the configuration information only when needed.</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Dominique Dumont, (ddumont at cpan dot org)</div>
+<div class="section">
+<h1>SEE ALSO</h1> Config::Model, Config::Model::Instance, Config::Model::HashId, Config::Model::ListId, Config::Model::CheckList, Config::Model::WarpedNode, Config::Model::Value</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2012-02-24</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

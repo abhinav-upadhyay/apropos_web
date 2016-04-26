@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+fuse(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+fuse(8)</td>
+<td class="head-vol">
+System Manager's Manual</td>
+<td class="head-rtitle">
+fuse(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> fuse - format and options for the fuse file systems</div>
+<div class="section">
+<h1>DESCRIPTION</h1> FUSE (Filesystem in Userspace) is a simple interface for userspace programs to export a virtual filesystem to the Linux kernel. FUSE also aims to provide a secure method for non privileged users to create and mount their own filesystem implementations.</div>
+<div class="section">
+<h1>CONFIGURATION</h1> Some options regarding mount policy can be set in the file  <i>/etc/fuse.conf</i>. Currently these options are:<dl>
+<dt>
+<b>mount_max = NNN</b></dt>
+<dd>
+Set the maximum number of FUSE mounts allowed to non-root users. The default is 1000.</dd>
+</dl>
+<dl>
+<dt>
+<b>user_allow_other</b></dt>
+<dd>
+Allow non-root users to specify the <b>allow_other</b> or <b>allow_root</b> mount options (see below).</dd>
+</dl>
+</div>
+<div class="section">
+<h1>OPTIONS</h1> Most of the generic mount options described in  <b>mount</b> are supported (<b>ro</b>, <b>rw</b>, <b>suid</b>, <b>nosuid</b>, <b>dev</b>, <b>nodev</b>, <b>exec</b>, <b>noexec</b>, <b>atime</b>, <b>noatime</b>, <b>sync</b>, <b>async</b>, <b>dirsync</b>). Filesystems are mounted with <b>nodev,nosuid</b> by default, which can only be overridden by a privileged user.<div class="subsection">
+<h2>General mount options:</h2> These are FUSE specific mount options that can be specified for all filesystems:<dl>
+<dt>
+<b>default_permissions</b></dt>
+<dd>
+By default FUSE doesn't check file access permissions, the filesystem is free to implement it's access policy or leave it to the underlying file access mechanism (e.g. in case of network filesystems). This option enables permission checking, restricting access based on file mode.  This is option is usually useful together with the <b>allow_other</b> mount option.</dd>
+</dl>
+<dl>
+<dt>
+<b>allow_other</b></dt>
+<dd>
+This option overrides the security measure restricting file access to the user mounting the filesystem.  So all users (including root) can access the files.  This option is by default only allowed to root, but this restriction can be removed with a configuration option described in the previous section.</dd>
+</dl>
+<dl>
+<dt>
+<b>allow_root</b></dt>
+<dd>
+This option is similar to <b>allow_other</b> but file access is limited to the user mounting the filesystem and root.  This option and <b>allow_other</b> are mutually exclusive.</dd>
+</dl>
+<dl>
+<dt>
+<b>kernel_cache</b></dt>
+<dd>
+This option disables flushing the cache of the file contents on every <b>open</b>(2).  This should only be enabled on filesystems, where the file data is never changed externally (not through the mounted FUSE filesystem).  Thus it is not suitable for network filesystems and other <i>intermediate</i> filesystems.<div style="height: 1.00em;">
+&#160;</div>
+<b>NOTE</b>: if this option is not specified (and neither <b>direct_io</b>) data is still cached after the <b>open</b>(2), so a <b>read</b>(2) system call will not always initiate a read operation.</dd>
+</dl>
+<dl>
+<dt>
+<b>auto_cache</b></dt>
+<dd>
+This option enables automatic flushing of the data cache on <b>open</b>(2). The cache will only be flushed if the modification time or the size of the file has changed.</dd>
+</dl>
+<dl>
+<dt>
+<b>large_read</b></dt>
+<dd>
+Issue large read requests.  This can improve performance for some filesystems, but can also degrade performance. This option is only useful on 2.4.X kernels, as on 2.6 kernels requests size is automatically determined for optimum performance.</dd>
+</dl>
+<dl>
+<dt>
+<b>direct_io</b></dt>
+<dd>
+This option disables the use of page cache (file content cache) in the kernel for this filesystem. This has several affects:</dd>
+</dl>
+<dl>
+<dt>
+1.</dt>
+<dd>
+Each <b>read</b>(2) or <b>write</b>(2) system call will initiate one or more read or write operations, data will not be cached in the kernel.</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+The return value of the read() and write() system calls will correspond to the return values of the read and write operations. This is useful for example if the file size is not known in advance (before reading it).</dd>
+</dl>
+<dl>
+<dt>
+<b>max_read=N</b></dt>
+<dd>
+With this option the maximum size of read operations can be set. The default is infinite. Note that the size of read requests is limited anyway to 32 pages (which is 128kbyte on i386).</dd>
+</dl>
+<dl>
+<dt>
+<b>max_readahead=N</b></dt>
+<dd>
+Set the maximum number of bytes to read-ahead.  The default is determined by the kernel. On linux-2.6.22 or earlier it's 131072 (128kbytes)</dd>
+</dl>
+<dl>
+<dt>
+<b>max_write=N</b></dt>
+<dd>
+Set the maximum number of bytes in a single write operation. The default is 128kbytes.  Note, that due to various limitations, the size of write requests can be much smaller (4kbytes). This limitation will be removed in the future.</dd>
+</dl>
+<dl>
+<dt>
+<b>async_read</b></dt>
+<dd>
+Perform reads asynchronously. This is the default</dd>
+</dl>
+<dl>
+<dt>
+<b>sync_read</b></dt>
+<dd>
+Perform all reads (even read-ahead) synchronously.</dd>
+</dl>
+<dl>
+<dt>
+<b>hard_remove</b></dt>
+<dd>
+The default behavior is that if an open file is deleted, the file is renamed to a hidden file (<b>.fuse_hiddenXXX</b>), and only removed when the file is finally released.  This relieves the filesystem implementation of having to deal with this problem.  This option disables the hiding behavior, and files are removed immediately in an unlink operation (or in a rename operation which overwrites an existing file).<div style="height: 1.00em;">
+&#160;</div>
+It is recommended that you not use the hard_remove option. When hard_remove is set, the following libc functions fail on unlinked files (returning errno of <b>ENOENT</b>): <b>read</b>(2), <b>write</b>(2), <b>fsync</b>(2), <b>close</b>(2), <b>f*xattr</b>(2), <b>ftruncate</b>(2), <b>fstat</b>(2), <b>fchmod</b>(2), <b>fchown</b>(2)</dd>
+</dl>
+<dl>
+<dt>
+<b>debug</b></dt>
+<dd>
+Turns on debug information printing by the library.</dd>
+</dl>
+<dl>
+<dt>
+<b>fsname=NAME</b></dt>
+<dd>
+Sets the filesystem source (first field in <i>/etc/mtab</i>). The default is the mount program name.</dd>
+</dl>
+<dl>
+<dt>
+<b>subtype=TYPE</b></dt>
+<dd>
+Sets the filesystem type (third field in <i>/etc/mtab</i>). The default is the mount program name. If the kernel suppports it, <i>/etc/mtab</i> and <i>/proc/mounts</i> will show the filesystem type as <b>fuse.TYPE</b><div style="height: 1.00em;">
+&#160;</div>
+If the kernel doesn't support subtypes, the source filed will be <b>TYPE#NAME</b>, or if <b>fsname</b> option is not specified, just <b>TYPE</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>use_ino</b></dt>
+<dd>
+Honor the <i>st_ino</i> field in kernel functions <b>getattr()</b> and <b>fill_dir()</b>. This value is used to fill in the  <i>st_ino</i> field in the <b>stat</b>(2), <b>lstat</b>(2), <b>fstat</b>(2) functions and the <i>d_ino</i> field in the <b>readdir</b>(2) function. The filesystem does not have to guarantee uniqueness, however some applications rely on this value being unique for the whole filesystem.</dd>
+</dl>
+<dl>
+<dt>
+<b>readdir_ino</b></dt>
+<dd>
+If <b>use_ino</b> option is not given, still try to fill in the <i>d_ino</i> field in <b>readdir</b>(2). If the name was previously looked up, and is still in the cache, the inode number found there will be used. Otherwise it will be set to <b>-1</b>.  If <b>use_ino</b> option is given, this option is ignored.</dd>
+</dl>
+<dl>
+<dt>
+<b>nonempty</b></dt>
+<dd>
+Allows mounts over a non-empty file or directory. By default these  mounts are rejected to prevent accidental covering up of data, which could for example prevent automatic backup.</dd>
+</dl>
+<dl>
+<dt>
+<b>umask=M</b></dt>
+<dd>
+Override the permission bits in <i>st_mode</i> set by the filesystem. The resulting permission bits are the ones missing from the given umask value.  The value is given in octal representation.</dd>
+</dl>
+<dl>
+<dt>
+<b>uid=N</b></dt>
+<dd>
+Override the <i>st_uid</i> field set by the filesystem (N is numeric).</dd>
+</dl>
+<dl>
+<dt>
+<b>gid=N</b></dt>
+<dd>
+Override the <i>st_gid</i> field set by the filesystem (N is numeric).</dd>
+</dl>
+<dl>
+<dt>
+<b>blkdev</b></dt>
+<dd>
+Mount a filesystem backed by a block device.  This is a privileged option. The device must be specified with the <b>fsname=NAME</b> option.</dd>
+</dl>
+<dl>
+<dt>
+<b>entry_timeout=T</b></dt>
+<dd>
+The timeout in seconds for which name lookups will be cached. The default is 1.0 second. For all the timeout options, it is possible to give fractions of a second as well (e.g. <b>entry_timeout=2.8</b>)</dd>
+</dl>
+<dl>
+<dt>
+<b>negative_timeout=T</b></dt>
+<dd>
+The timeout in seconds for which a negative lookup will be cached. This means, that if file did not exist (lookup retuned <b>ENOENT</b>), the lookup will only be redone after the timeout, and the file/directory will be assumed to not exist until then.  The default is 0.0 second, meaning that caching negative lookups are disabled.</dd>
+</dl>
+<dl>
+<dt>
+<b>attr_timeout=T</b></dt>
+<dd>
+The timeout in seconds for which file/directory attributes are cached.  The default is 1.0 second.</dd>
+</dl>
+<dl>
+<dt>
+<b>ac_attr_timeout=T</b></dt>
+<dd>
+The timeout in seconds for which file attributes are cached for the purpose of checking if <b>auto_cache</b> should flush the file data on  open. The default is the value of <b>attr_timeout</b></dd>
+</dl>
+<dl>
+<dt>
+<b>intr</b></dt>
+<dd>
+Allow requests to be interrupted.  Turning on this option may result in unexpected behavior, if the filesystem does not support request interruption.</dd>
+</dl>
+<dl>
+<dt>
+<b>intr_signal=NUM</b></dt>
+<dd>
+Specify which signal number to send to the filesystem when a request is interrupted.  The default is hardcoded to USR1.</dd>
+</dl>
+<dl>
+<dt>
+<b>modules=M1[:M2...]</b></dt>
+<dd>
+Add modules to the filesystem stack.  Modules are pushed in the order they are specified, with the original filesystem being on the bottom of the stack.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>FUSE MODULES (STACKING)</h1> Modules are filesystem stacking support to high level API. Filesystem modules can be built into libfuse or loaded from shared object<div class="subsection">
+<h2>iconv</h2> Perform file name character set conversion.  Options are:<dl>
+<dt>
+<b>from_code=CHARSET</b></dt>
+<dd>
+Character set to convert from (see <b>iconv -l</b> for a list of possible values). Default is <b>UTF-8</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>to_code=CHARSET</b></dt>
+<dd>
+Character set to convert to.  Default is determined by the current locale.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>subdir</h2> Prepend a given directory to each path. Options are:<dl>
+<dt>
+<b>subdir=DIR</b></dt>
+<dd>
+Directory to prepend to all paths.  This option is <i>mandatory</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>rellinks</b></dt>
+<dd>
+Transform absolute symlinks into relative</dd>
+</dl>
+<dl>
+<dt>
+<b>norellinks</b></dt>
+<dd>
+Do not transform absolute symlinks into relative.  This is the default.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>SECURITY</h1> The fusermount program is installed set-user-gid to fuse. This is done to allow users from fuse group to mount their own filesystem implementations. There must however be some limitations, in order to prevent Bad User from doing nasty things.  Currently those limitations are:<dl>
+<dt>
+1.</dt>
+<dd>
+The user can only mount on a mountpoint, for which it has write permission</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+The mountpoint is not a sticky directory which isn't owned by the user (like <i>/tmp</i> usually is)</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+No other user (including root) can access the contents of the mounted filesystem.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>NOTE</h1> FUSE filesystems are unmounted using the  <b>fusermount</b>(1) command (<b>fusermount -u mountpoint</b>).</div>
+<div class="section">
+<h1>AUTHORS</h1> The main author of FUSE is Miklos Szeredi &lt;mszeredi@inf.bme.hu&gt;.<div class="spacer">
+</div>
+This man page was written by Bastien Roucaries &lt;roucaries.bastien+debian@gmail.com&gt; for the Debian GNU/Linux distribution (but it may be used by others) from README file.</div>
+<div class="section">
+<h1>SEE ALSO</h1> fusermount(1) mount(8)</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+</td>
+<td class="foot-os">
+</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

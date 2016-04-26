@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+EPOLL_WAIT(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+EPOLL_WAIT(2)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+EPOLL_WAIT(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> epoll_wait, epoll_pwait - wait for an I/O event on an epoll file descriptor</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;sys/epoll.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int epoll_wait(int </b><i>epfd</i><b>, struct epoll_event *</b><i>events</i><b>,</b><br/>
+<b>               int </b><i>maxevents</i><b>, int </b><i>timeout</i><b>);</b><br/>
+<b>int epoll_pwait(int </b><i>epfd</i><b>, struct epoll_event *</b><i>events</i><b>,</b><br/>
+<b>               int </b><i>maxevents</i><b>, int </b><i>timeout</i><b>,</b><br/>
+<b>               const sigset_t *</b><i>sigmask</i><b>);</b><br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The <b>epoll_wait</b>() system call waits for events on the <b>epoll</b> instance referred to by the file descriptor <i>epfd</i>. The memory area pointed to by <i>events</i> will contain the events that will be available for the caller. Up to <i>maxevents</i> are returned by <b>epoll_wait</b>(). The <i>maxevents</i> argument must be greater than zero.<div style="height: 1.00em;">
+&#160;</div>
+The call waits for a maximum time of <i>timeout</i> milliseconds. Specifying a <i>timeout</i> of -1 makes <b>epoll_wait</b>() wait indefinitely, while specifying a <i>timeout</i> equal to zero makes <b>epoll_wait</b>() to return immediately even if no events are available (return code equal to zero).<div style="height: 1.00em;">
+&#160;</div>
+The <i>struct epoll_event</i> is defined as :<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+typedef union epoll_data {<br/>
+    void    *ptr;<br/>
+    int      fd;<br/>
+    uint32_t u32;<br/>
+    uint64_t u64;<br/>
+} epoll_data_t;<div class="spacer">
+</div>
+<br/>
+struct epoll_event {<br/>
+    uint32_t     events;    /* Epoll events */<br/>
+    epoll_data_t data;      /* User data variable */<br/>
+};<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The <i>data</i> of each returned structure will contain the same data the user set with an <b>epoll_ctl</b>(2) (<b>EPOLL_CTL_ADD</b>,<b>EPOLL_CTL_MOD</b>) while the <i>events</i> member will contain the returned event bit field.<div class="subsection">
+<h2>epoll_pwait()</h2> The relationship between <b>epoll_wait</b>() and <b>epoll_pwait</b>() is analogous to the relationship between <b>select</b>(2) and <b>pselect</b>(2): like <b>pselect</b>(2), <b>epoll_pwait</b>() allows an application to safely wait until either a file descriptor becomes ready or until a signal is caught.<div style="height: 1.00em;">
+&#160;</div>
+The following <b>epoll_pwait</b>() call:<div class="spacer">
+</div>
+<br/>
+    ready = epoll_pwait(epfd, &amp;events, maxevents, timeout, &amp;sigmask);<div class="spacer">
+</div>
+<br/>
+is equivalent to <i>atomically</i> executing the following calls:<div class="spacer">
+</div>
+<br/>
+    sigset_t origmask;<div class="spacer">
+</div>
+<br/>
+    sigprocmask(SIG_SETMASK, &amp;sigmask, &amp;origmask);<br/>
+    ready = epoll_wait(epfd, &amp;events, maxevents, timeout);<br/>
+    sigprocmask(SIG_SETMASK, &amp;origmask, NULL);<br/>
+<div class="spacer">
+</div>
+The <i>sigmask</i> argument may be specified as NULL, in which case <b>epoll_pwait</b>() is equivalent to <b>epoll_wait</b>().</div>
+</div>
+<div class="section">
+<h1>RETURN VALUE</h1> When successful, <b>epoll_wait</b>() returns the number of file descriptors ready for the requested I/O, or zero if no file descriptor became ready during the requested <i>timeout</i> milliseconds. When an error occurs, <b>epoll_wait</b>() returns -1 and <i>errno</i> is set appropriately.</div>
+<div class="section">
+<h1>ERRORS</h1><dl>
+<dt>
+<b>EBADF</b></dt>
+<dd>
+<i>epfd</i> is not a valid file descriptor.</dd>
+</dl>
+<dl>
+<dt>
+<b>EFAULT</b></dt>
+<dd>
+The memory area pointed to by <i>events</i> is not accessible with write permissions.</dd>
+</dl>
+<dl>
+<dt>
+<b>EINTR</b></dt>
+<dd>
+The call was interrupted by a signal handler before any of the requested events occurred or the <i>timeout</i> expired; see <b>signal</b>(7).</dd>
+</dl>
+<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+<i>epfd</i> is not an <b>epoll</b> file descriptor, or <i>maxevents</i> is less than or equal to zero.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>VERSIONS</h1> <b>epoll_wait</b>() was added to the kernel in version 2.6. Library support is provided in glibc starting with version 2.3.2.<div style="height: 1.00em;">
+&#160;</div>
+<b>epoll_pwait</b>() was added to Linux in kernel 2.6.19. Library support is provided in glibc starting with version 2.6.</div>
+<div class="section">
+<h1>CONFORMING TO</h1> <b>epoll_wait</b>() is Linux-specific.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>epoll_create</b>(2), <b>epoll_ctl</b>(2), <b>epoll</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2010-12-03</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

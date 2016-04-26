@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PCRECALLOUT(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PCRECALLOUT(3)</td>
+<td class="head-vol">
+Library Functions Manual</td>
+<td class="head-rtitle">
+PCRECALLOUT(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> PCRE - Perl-compatible regular expressions</div>
+<div class="section">
+<h1>PCRE CALLOUTS</h1> <b>int (*pcre_callout)(pcre_callout_block *);</b><div class="spacer">
+</div>
+<b>int (*pcre16_callout)(pcre16_callout_block *);</b><div class="spacer">
+</div>
+PCRE provides a feature called &quot;callout&quot;, which is a means of temporarily passing control to the caller of PCRE in the middle of pattern matching. The caller of PCRE provides an external function by putting its entry point in the global variable  <i>pcre_callout</i> (<i>pcre16_callout</i> for the 16-bit library). By default, this variable contains NULL, which disables all calling out.<div class="spacer">
+</div>
+Within a regular expression, (?C) indicates the points at which the external function is to be called. Different callout points can be identified by putting a number less than 256 after the letter C. The default value is zero. For example, this pattern has two callout points:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?C1)abc(?C2)def<div style="height: 1.00em;">
+&#160;</div>
+If the PCRE_AUTO_CALLOUT option bit is set when a pattern is compiled, PCRE automatically inserts callouts, all with number 255, before each item in the pattern. For example, if PCRE_AUTO_CALLOUT is used with the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  A(\d{2}|--)<div style="height: 1.00em;">
+&#160;</div>
+it is processed as if it were<div style="height: 1.00em;">
+&#160;</div>
+(?C255)A(?C255)((?C255)\d{2}(?C255)|(?C255)-(?C255)-(?C255))(?C255)<div style="height: 1.00em;">
+&#160;</div>
+Notice that there is a callout before and after each parenthesis and alternation bar. Automatic callouts can be used for tracking the progress of pattern matching. The  <b>pcretest</b> command has an option that sets automatic callouts; when it is used, the output indicates how the pattern is matched. This is useful information when you are trying to optimize the performance of a particular pattern.<div class="spacer">
+</div>
+The use of callouts in a pattern makes it ineligible for optimization by the just-in-time compiler. Studying such a pattern with the PCRE_STUDY_JIT_COMPILE option always fails.</div>
+<div class="section">
+<h1>MISSING CALLOUTS</h1> You should be aware that, because of optimizations in the way PCRE matches patterns by default, callouts sometimes do not happen. For example, if the pattern is<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ab(?C4)cd<div style="height: 1.00em;">
+&#160;</div>
+PCRE knows that any matching string must contain the letter &quot;d&quot;. If the subject string is &quot;abyz&quot;, the lack of &quot;d&quot; means that matching doesn't ever start, and the callout is never reached. However, with &quot;abyd&quot;, though the result is still no match, the callout is obeyed.<div class="spacer">
+</div>
+If the pattern is studied, PCRE knows the minimum length of a matching string, and will immediately give a &quot;no match&quot; return without actually running a match if the subject is not long enough, or, for unanchored patterns, if it has been scanned far enough.<div class="spacer">
+</div>
+You can disable these optimizations by passing the PCRE_NO_START_OPTIMIZE option to the matching function, or by starting the pattern with (*NO_START_OPT). This slows down the matching process, but does ensure that callouts such as the example above are obeyed.</div>
+<div class="section">
+<h1>THE CALLOUT INTERFACE</h1> During matching, when PCRE reaches a callout point, the external function defined by  <i>pcre_callout</i> or <i>pcre16_callout</i> is called (if it is set). This applies to both normal and DFA matching. The only argument to the callout function is a pointer to a  <b>pcre_callout</b> or <b>pcre16_callout</b> block. These structures contains the following fields:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  int           <i>version</i>;<br/>
+  int           <i>callout_number</i>;<br/>
+  int          *<i>offset_vector</i>;<br/>
+  const char   *<i>subject</i>;           (8-bit version)<br/>
+  PCRE_SPTR16   <i>subject</i>;           (16-bit version)<br/>
+  int           <i>subject_length</i>;<br/>
+  int           <i>start_match</i>;<br/>
+  int           <i>current_position</i>;<br/>
+  int           <i>capture_top</i>;<br/>
+  int           <i>capture_last</i>;<br/>
+  void         *<i>callout_data</i>;<br/>
+  int           <i>pattern_position</i>;<br/>
+  int           <i>next_item_length</i>;<br/>
+  const unsigned char *<i>mark</i>;       (8-bit version)<br/>
+  const PCRE_UCHAR16  *<i>mark</i>;       (16-bit version)<div style="height: 1.00em;">
+&#160;</div>
+The <i>version</i> field is an integer containing the version number of the block format. The initial version was 0; the current version is 2. The version number will change again in future if additional fields are added, but the intention is never to remove any of the existing fields.<div class="spacer">
+</div>
+The <i>callout_number</i> field contains the number of the callout, as compiled into the pattern (that is, the number after ?C for manual callouts, and 255 for automatically generated callouts).<div class="spacer">
+</div>
+The <i>offset_vector</i> field is a pointer to the vector of offsets that was passed by the caller to the matching function. When  <b>pcre_exec()</b> or  <b>pcre16_exec()</b> is used, the contents can be inspected, in order to extract substrings that have been matched so far, in the same way as for extracting substrings after a match has completed. For the DFA matching functions, this field is not useful.<div class="spacer">
+</div>
+The <i>subject</i> and <i>subject_length</i> fields contain copies of the values that were passed to the matching function.<div class="spacer">
+</div>
+The <i>start_match</i> field normally contains the offset within the subject at which the current match attempt started. However, if the escape sequence \K has been encountered, this value is changed to reflect the modified starting point. If the pattern is not anchored, the callout function may be called several times from the same point in the pattern for different starting points in the subject.<div class="spacer">
+</div>
+The <i>current_position</i> field contains the offset within the subject of the current match pointer.<div class="spacer">
+</div>
+When the <b>pcre_exec()</b> or <b>pcre16_exec()</b> is used, the  <i>capture_top</i> field contains one more than the number of the highest numbered captured substring so far. If no substrings have been captured, the value of  <i>capture_top</i> is one. This is always the case when the DFA functions are used, because they do not support captured substrings.<div class="spacer">
+</div>
+The <i>capture_last</i> field contains the number of the most recently captured substring. If no substrings have been captured, its value is -1. This is always the case for the DFA matching functions.<div class="spacer">
+</div>
+The <i>callout_data</i> field contains a value that is passed to a matching function specifically so that it can be passed back in callouts. It is passed in the  <i>callout_data</i> field of a <b>pcre_extra</b> or <b>pcre16_extra</b> data structure. If no such data was passed, the value of  <i>callout_data</i> in a callout block is NULL. There is a description of the  <b>pcre_extra</b> structure in the  <b>pcreapi</b> documentation.<div class="spacer">
+</div>
+The <i>pattern_position</i> field is present from version 1 of the callout structure. It contains the offset to the next item to be matched in the pattern string.<div class="spacer">
+</div>
+The <i>next_item_length</i> field is present from version 1 of the callout structure. It contains the length of the next item to be matched in the pattern string. When the callout immediately precedes an alternation bar, a closing parenthesis, or the end of the pattern, the length is zero. When the callout precedes an opening parenthesis, the length is that of the entire subpattern.<div class="spacer">
+</div>
+The <i>pattern_position</i> and <i>next_item_length</i> fields are intended to help in distinguishing between different automatic callouts, which all have the same callout number. However, they are set for all callouts.<div class="spacer">
+</div>
+The <i>mark</i> field is present from version 2 of the callout structure. In callouts from  <b>pcre_exec()</b> or <b>pcre16_exec()</b> it contains a pointer to the zero-terminated name of the most recently passed (*MARK), (*PRUNE), or (*THEN) item in the match, or NULL if no such items have been passed. Instances of (*PRUNE) or (*THEN) without a name do not obliterate a previous (*MARK). In callouts from the DFA matching functions this field always contains NULL.</div>
+<div class="section">
+<h1>RETURN VALUES</h1> The external callout function returns an integer to PCRE. If the value is zero, matching proceeds as normal. If the value is greater than zero, matching fails at the current point, but the testing of other matching possibilities goes ahead, just as if a lookahead assertion had failed. If the value is less than zero, the match is abandoned, the matching function returns the negative value.<div class="spacer">
+</div>
+Negative values should normally be chosen from the set of PCRE_ERROR_xxx values. In particular, PCRE_ERROR_NOMATCH forces a standard &quot;no match&quot; failure. The error number PCRE_ERROR_CALLOUT is reserved for use by callout functions; it will never be used by PCRE itself.</div>
+<div class="section">
+<h1>AUTHOR</h1><br/>
+Philip Hazel<br/>
+University Computing Service<br/>
+Cambridge CB2 3QH, England.<br/>
+</div>
+<div class="section">
+<h1>REVISION</h1><br/>
+Last updated: 08 Janurary 2012<br/>
+Copyright (c) 1997-2012 University of Cambridge.<br/>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+08 January 2012</td>
+<td class="foot-os">
+PCRE 8.30</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

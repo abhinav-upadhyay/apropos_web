@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Encode::Unicode(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Encode::Unicode(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+Encode::Unicode(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Encode::Unicode -- Various Unicode Transformation Formats</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    use Encode qw/encode decode/;<br/>
+    $ucs2 = encode(&quot;UCS-2BE&quot;, $utf8);<br/>
+    $utf8 = decode(&quot;UCS-2BE&quot;, $ucs2);<br/>
+</div>
+<div class="section">
+<h1>ABSTRACT</h1> This module implements all Character Encoding Schemes of Unicode that are officially documented by Unicode Consortium (except, of course, for UTF-8, which is a native format in perl).<dl>
+<dt>
+&lt;http://www.unicode.org/glossary/&gt; says:</dt>
+<dd>
+<i>Character Encoding Scheme</i> A character encoding form plus byte serialization. There are Seven character encoding schemes in Unicode: UTF-8, UTF-16, UTF-16BE, UTF-16LE, UTF-32 (UCS-4), UTF-32BE (UCS-4BE) and UTF-32LE (UCS-4LE), and UTF-7.<div style="height: 1.00em;">
+&#160;</div>
+Since UTF-7 is a 7-bit (re)encoded version of UTF-16BE, It is not part of Unicode's Character Encoding Scheme.  It is separately implemented in Encode::Unicode::UTF7.  For details see Encode::Unicode::UTF7.</dd>
+</dl>
+<dl>
+<dt>
+Quick Reference</dt>
+<dd>
+<br/>
+                Decodes from ord(N)           Encodes chr(N) to...<br/>
+       octet/char BOM S.P d800-dfff  ord &gt; 0xffff     \x{1abcd} ==<br/>
+  ---------------+-----------------+------------------------------<br/>
+  UCS-2BE       2   N   N  is bogus                  Not Available<br/>
+  UCS-2LE       2   N   N     bogus                  Not Available<br/>
+  UTF-16      2/4   Y   Y  is   S.P           S.P            BE/LE<br/>
+  UTF-16BE    2/4   N   Y       S.P           S.P    0xd82a,0xdfcd<br/>
+  UTF-16LE    2/4   N   Y       S.P           S.P    0x2ad8,0xcddf<br/>
+  UTF-32        4   Y   -  is bogus         As is            BE/LE<br/>
+  UTF-32BE      4   N   -     bogus         As is       0x0001abcd<br/>
+  UTF-32LE      4   N   -     bogus         As is       0xcdab0100<br/>
+  UTF-8       1-4   -   -     bogus   &gt;= 4 octets   \xf0\x9a\af\8d<br/>
+  ---------------+-----------------+------------------------------<br/>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Size, Endianness, and BOM</h1> You can categorize these CES by 3 criteria:  size of each character, endianness, and Byte Order Mark.<div class="subsection">
+<h2>by size</h2> UCS-2 is a fixed-length encoding with each character taking 16 bits. It  <b>does not</b> support <i>surrogate pairs</i>.  When a surrogate pair is encountered during  <i>decode()</i>, its place is filled with \x{FFFD} if  <i>CHECK</i> is 0, or the routine croaks if <i>CHECK</i> is 1.  When a character whose ord value is larger than 0xFFFF is encountered, its place is filled with \x{FFFD} if  <i>CHECK</i> is 0, or the routine croaks if  <i>CHECK</i> is 1.<div class="spacer">
+</div>
+UTF-16 is almost the same as UCS-2 but it supports <i>surrogate pairs</i>. When it encounters a high surrogate (0xD800-0xDBFF), it fetches the following low surrogate (0xDC00-0xDFFF) and &quot;desurrogate&quot;s them to form a character.  Bogus surrogates result in death.  When \x{10000} or above is encountered during  <i>encode()</i>, it &quot;ensurrogate&quot;s them and pushes the surrogate pair to the output stream.<div class="spacer">
+</div>
+UTF-32 (UCS-4) is a fixed-length encoding with each character taking 32 bits. Since it is 32-bit, there is no need for  <i>surrogate pairs</i>.</div>
+<div class="subsection">
+<h2>by endianness</h2> The first (and now failed) goal of Unicode was to map all character repertoires into a fixed-length integer so that programmers are happy. Since each character is either a  <i>short</i> or <i>long</i> in C, you have to pay attention to the endianness of each platform when you pass data to one another.<div class="spacer">
+</div>
+Anything marked as BE is Big Endian (or network byte order) and LE is Little Endian (aka VAX byte order).  For anything not marked either BE or LE, a character called Byte Order Mark (BOM) indicating the endianness is prepended to the string.<div class="spacer">
+</div>
+CAVEAT: Though BOM in utf8 (\xEF\xBB\xBF) is valid, it is meaningless and as of this writing Encode suite just leave it as is (\x{FeFF}).<dl>
+<dt>
+BOM as integer when fetched in network byte order</dt>
+<dd>
+<br/>
+              16         32 bits/char<br/>
+  -------------------------<br/>
+  BE      0xFeFF 0x0000FeFF<br/>
+  LE      0xFFFe 0xFFFe0000<br/>
+  -------------------------<br/>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+This modules handles the BOM as follows.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When BE or LE is explicitly stated as the name of encoding, BOM is simply treated as a normal character (ZERO WIDTH NO-BREAK SPACE).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When BE or LE is omitted during <i>decode()</i>, it checks if BOM is at the beginning of the string; if one is found, the endianness is set to what the BOM says.  If no BOM is found, the routine dies.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When BE or LE is omitted during <i>encode()</i>, it returns a BE-encoded string with BOM prepended.  So when you want to encode a whole text file, make sure you  <i>encode()</i> the whole text at once, not line by line or each line, not file, will have a BOM prepended.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;UCS-2&quot; is an exception.  Unlike others, this is an alias of UCS-2BE. UCS-2 is already registered by IANA and others that way.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Surrogate Pairs</h1> To say the least, surrogate pairs were the biggest mistake of the Unicode Consortium.  But according to the late Douglas Adams in  <i>The</i>  <i>Hitchhiker's Guide to the Galaxy</i> Trilogy, &quot;In the beginning the Universe was created. This has made a lot of people very angry and been widely regarded as a bad move&quot;.  Their mistake was not of this magnitude so let's forgive them.<div class="spacer">
+</div>
+(I don't dare make any comparison with Unicode Consortium and the Vogons here ;)  Or, comparing Encode to Babel Fish is completely appropriate -- if you can only stick this into your ear :)<div class="spacer">
+</div>
+Surrogate pairs were born when the Unicode Consortium finally admitted that 16 bits were not big enough to hold all the world's character repertoires.  But they already made UCS-2 16-bit.  What do we do?<div class="spacer">
+</div>
+Back then, the range 0xD800-0xDFFF was not allocated.  Let's split that range in half and use the first half to represent the &quot;upper half of a character&quot; and the second half to represent the &quot;lower half of a character&quot;.  That way, you can represent 1024 * 1024 = 1048576 more characters.  Now we can store character ranges up to \x{10ffff} even with 16-bit encodings.  This pair of half-character is now called a  <i>surrogate pair</i> and UTF-16 is the name of the encoding that embraces them.<div class="spacer">
+</div>
+Here is a formula to ensurrogate a Unicode character \x{10000} and above;<div class="spacer">
+</div>
+<br/>
+  $hi = ($uni - 0x10000) / 0x400 + 0xD800;<br/>
+  $lo = ($uni - 0x10000) % 0x400 + 0xDC00;<br/>
+<div class="spacer">
+</div>
+And to desurrogate;<div class="spacer">
+</div>
+<br/>
+ $uni = 0x10000 + ($hi - 0xD800) * 0x400 + ($lo - 0xDC00);<br/>
+<div class="spacer">
+</div>
+Note this move has made \x{D800}-\x{DFFF} into a forbidden zone but perl does not prohibit the use of characters within this range.  To perl, every one of \x{0000_0000} up to \x{ffff_ffff} (*) is  <i>a character</i>.<div class="spacer">
+</div>
+<br/>
+  (*) or \x{ffff_ffff_ffff_ffff} if your perl is compiled with 64-bit<br/>
+  integer support!<br/>
+</div>
+<div class="section">
+<h1>Error Checking</h1> Unlike most encodings which accept various ways to handle errors, Unicode encodings simply croaks.<div class="spacer">
+</div>
+<br/>
+  % perl -MEncode -e'$_ = &quot;\xfe\xff\xd8\xd9\xda\xdb\0\n&quot;' \<br/>
+         -e'Encode::from_to($_, &quot;utf16&quot;,&quot;shift_jis&quot;, 0); print'<br/>
+  UTF-16:Malformed LO surrogate d8d9 at /path/to/Encode.pm line 184.<br/>
+  % perl -MEncode -e'$a = &quot;BOM missing&quot;' \<br/>
+         -e' Encode::from_to($a, &quot;utf16&quot;, &quot;shift_jis&quot;, 0); print'<br/>
+  UTF-16:Unrecognised BOM 424f at /path/to/Encode.pm line 184.<br/>
+<div class="spacer">
+</div>
+Unlike other encodings where mappings are not one-to-one against Unicode, UTFs are supposed to map 100% against one another.  So Encode is more strict on UTFs.<div class="spacer">
+</div>
+Consider that &quot;division by zero&quot; of Encode :)</div>
+<div class="section">
+<h1>SEE ALSO</h1> Encode, Encode::Unicode::UTF7, &lt;http://www.unicode.org/glossary/&gt;, &lt;http://www.unicode.org/unicode/faq/utf_bom.html&gt;,<div class="spacer">
+</div>
+RFC 2781 &lt;http://www.ietf.org/rfc/rfc2781.txt&gt;,<div class="spacer">
+</div>
+The whole Unicode standard &lt;http://www.unicode.org/unicode/uni2book/u2.html&gt;<div class="spacer">
+</div>
+Ch. 15, pp. 403 of &quot;Programming Perl (3rd Edition)&quot; by Larry Wall, Tom Christiansen, Jon Orwant; O'Reilly &amp; Associates; ISBN 0-596-00027-8</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2010-12-30</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

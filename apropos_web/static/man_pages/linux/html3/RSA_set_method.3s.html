@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+RSA_set_method(3SSL)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+RSA_set_method(3SSL)</td>
+<td class="head-vol">
+OpenSSL</td>
+<td class="head-rtitle">
+RSA_set_method(3SSL)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> RSA_set_default_method, RSA_get_default_method, RSA_set_method, RSA_get_method, RSA_PKCS1_SSLeay, RSA_null_method, RSA_flags, RSA_new_method - select RSA method</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ #include &lt;openssl/rsa.h&gt;<br/>
+<br/>
+ void RSA_set_default_method(const RSA_METHOD *meth);<br/>
+<br/>
+ RSA_METHOD *RSA_get_default_method(void);<br/>
+<br/>
+ int RSA_set_method(RSA *rsa, const RSA_METHOD *meth);<br/>
+<br/>
+ RSA_METHOD *RSA_get_method(const RSA *rsa);<br/>
+<br/>
+ RSA_METHOD *RSA_PKCS1_SSLeay(void);<br/>
+<br/>
+ RSA_METHOD *RSA_null_method(void);<br/>
+<br/>
+ int RSA_flags(const RSA *rsa);<br/>
+<br/>
+ RSA *RSA_new_method(RSA_METHOD *method);<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> An  <b>RSA_METHOD</b> specifies the functions that OpenSSL uses for RSA operations. By modifying the method, alternative implementations such as hardware accelerators may be used. IMPORTANT: See the NOTES section for important information about how these RSA API functions are affected by the use of  <b>ENGINE</b> API calls.<div class="spacer">
+</div>
+Initially, the default RSA_METHOD is the OpenSSL internal implementation, as returned by  <i>RSA_PKCS1_SSLeay()</i>.<div class="spacer">
+</div>
+<i>RSA_set_default_method()</i> makes <b>meth</b> the default method for all RSA structures created later.  <b>NB</b>: This is true only whilst no ENGINE has been set as a default for RSA, so this function is no longer recommended.<div class="spacer">
+</div>
+<i>RSA_get_default_method()</i> returns a pointer to the current default RSA_METHOD. However, the meaningfulness of this result is dependent on whether the ENGINE API is being used, so this function is no longer recommended.<div class="spacer">
+</div>
+<i>RSA_set_method()</i> selects <b>meth</b> to perform all operations using the key  <b>rsa</b>. This will replace the RSA_METHOD used by the RSA key and if the previous method was supplied by an ENGINE, the handle to that ENGINE will be released during the change. It is possible to have RSA keys that only work with certain RSA_METHOD implementations (eg. from an ENGINE module that supports embedded hardware-protected keys), and in such cases attempting to change the RSA_METHOD for the key can have unexpected results.<div class="spacer">
+</div>
+<i>RSA_get_method()</i> returns a pointer to the RSA_METHOD being used by <b>rsa</b>. This method may or may not be supplied by an ENGINE implementation, but if it is, the return value can only be guaranteed to be valid as long as the RSA key itself is valid and does not have its implementation changed by  <i>RSA_set_method()</i>.<div class="spacer">
+</div>
+<i>RSA_flags()</i> returns the <b>flags</b> that are set for <b>rsa</b>'s current RSA_METHOD. See the BUGS section.<div class="spacer">
+</div>
+<i>RSA_new_method()</i> allocates and initializes an RSA structure so that  <b>engine</b> will be used for the RSA operations. If <b>engine</b> is NULL, the default ENGINE for RSA operations is used, and if no default ENGINE is set, the RSA_METHOD controlled by  <i>RSA_set_default_method()</i> is used.<div class="spacer">
+</div>
+<i>RSA_flags()</i> returns the <b>flags</b> that are set for <b>rsa</b>'s current method.<div class="spacer">
+</div>
+<i>RSA_new_method()</i> allocates and initializes an <b>RSA</b> structure so that  <b>method</b> will be used for the RSA operations. If <b>method</b> is <b>NULL</b>, the default method is used.</div>
+<div class="section">
+<h1>THE RSA_METHOD STRUCTURE</h1><br/>
+ typedef struct rsa_meth_st<br/>
+ {<br/>
+     /* name of the implementation */<br/>
+        const char *name;<br/>
+<br/>
+     /* encrypt */<br/>
+        int (*rsa_pub_enc)(int flen, unsigned char *from,<br/>
+          unsigned char *to, RSA *rsa, int padding);<br/>
+<br/>
+     /* verify arbitrary data */<br/>
+        int (*rsa_pub_dec)(int flen, unsigned char *from,<br/>
+          unsigned char *to, RSA *rsa, int padding);<br/>
+<br/>
+     /* sign arbitrary data */<br/>
+        int (*rsa_priv_enc)(int flen, unsigned char *from,<br/>
+          unsigned char *to, RSA *rsa, int padding);<br/>
+<br/>
+     /* decrypt */<br/>
+        int (*rsa_priv_dec)(int flen, unsigned char *from,<br/>
+          unsigned char *to, RSA *rsa, int padding);<br/>
+<br/>
+     /* compute r0 = r0 ^ I mod rsa-&gt;n (May be NULL for some<br/>
+                                        implementations) */<br/>
+        int (*rsa_mod_exp)(BIGNUM *r0, BIGNUM *I, RSA *rsa);<br/>
+<br/>
+     /* compute r = a ^ p mod m (May be NULL for some implementations) */<br/>
+        int (*bn_mod_exp)(BIGNUM *r, BIGNUM *a, const BIGNUM *p,<br/>
+          const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx);<br/>
+<br/>
+     /* called at RSA_new */<br/>
+        int (*init)(RSA *rsa);<br/>
+<br/>
+     /* called at RSA_free */<br/>
+        int (*finish)(RSA *rsa);<br/>
+<br/>
+     /* RSA_FLAG_EXT_PKEY        - rsa_mod_exp is called for private key<br/>
+      *                            operations, even if p,q,dmp1,dmq1,iqmp<br/>
+      *                            are NULL<br/>
+      * RSA_FLAG_SIGN_VER        - enable rsa_sign and rsa_verify<br/>
+      * RSA_METHOD_FLAG_NO_CHECK - don't check pub/private match<br/>
+      */<br/>
+        int flags;<br/>
+<br/>
+        char *app_data; /* ?? */<br/>
+<br/>
+     /* sign. For backward compatibility, this is used only<br/>
+      * if (flags &amp; RSA_FLAG_SIGN_VER)<br/>
+      */<br/>
+        int (*rsa_sign)(int type, unsigned char *m, unsigned int m_len,<br/>
+           unsigned char *sigret, unsigned int *siglen, RSA *rsa);<br/>
+<br/>
+     /* verify. For backward compatibility, this is used only<br/>
+      * if (flags &amp; RSA_FLAG_SIGN_VER)<br/>
+      */<br/>
+        int (*rsa_verify)(int type, unsigned char *m, unsigned int m_len,<br/>
+           unsigned char *sigbuf, unsigned int siglen, RSA *rsa);<br/>
+<br/>
+ } RSA_METHOD;<br/>
+</div>
+<div class="section">
+<h1>RETURN VALUES</h1>  <i>RSA_PKCS1_SSLeay()</i>, <i>RSA_PKCS1_null_method()</i>, <i>RSA_get_default_method()</i> and  <i>RSA_get_method()</i> return pointers to the respective RSA_METHODs.<div class="spacer">
+</div>
+<i>RSA_set_default_method()</i> returns no value.<div class="spacer">
+</div>
+<i>RSA_set_method()</i> returns a pointer to the old RSA_METHOD implementation that was replaced. However, this return value should probably be ignored because if it was supplied by an ENGINE, the pointer could be invalidated at any time if the ENGINE is unloaded (in fact it could be unloaded as a result of the  <i>RSA_set_method()</i> function releasing its handle to the ENGINE). For this reason, the return type may be replaced with a  <b>void</b> declaration in a future release.<div class="spacer">
+</div>
+<i>RSA_new_method()</i> returns NULL and sets an error code that can be obtained by  <i>ERR_get_error</i>(3) if the allocation fails. Otherwise it returns a pointer to the newly allocated structure.</div>
+<div class="section">
+<h1>NOTES</h1> As of version 0.9.7, RSA_METHOD implementations are grouped together with other algorithmic APIs (eg. DSA_METHOD, EVP_CIPHER, etc) into  <b>ENGINE</b> modules. If a default ENGINE is specified for RSA functionality using an ENGINE API function, that will override any RSA defaults set using the RSA API (ie.   <i>RSA_set_default_method()</i>). For this reason, the ENGINE API is the recommended way to control default implementations for use in RSA and other cryptographic algorithms.</div>
+<div class="section">
+<h1>BUGS</h1> The behaviour of  <i>RSA_flags()</i> is a mis-feature that is left as-is for now to avoid creating compatibility problems. RSA functionality, such as the encryption functions, are controlled by the  <b>flags</b> value in the RSA key itself, not by the  <b>flags</b> value in the RSA_METHOD attached to the RSA key (which is what this function returns). If the flags element of an RSA key is changed, the changes will be honoured by RSA functionality but will not be reflected in the return value of the  <i>RSA_flags()</i> function - in effect  <i>RSA_flags()</i> behaves more like an <i>RSA_default_flags()</i> function (which does not currently exist).</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <i>rsa</i>(3), <i>RSA_new</i>(3)</div>
+<div class="section">
+<h1>HISTORY</h1>  <i>RSA_new_method()</i> and <i>RSA_set_default_method()</i> appeared in SSLeay 0.8.  <i>RSA_get_default_method()</i>, <i>RSA_set_method()</i> and <i>RSA_get_method()</i> as well as the rsa_sign and rsa_verify components of RSA_METHOD were added in OpenSSL 0.9.4.<div class="spacer">
+</div>
+<i>RSA_set_default_openssl_method()</i> and <i>RSA_get_default_openssl_method()</i> replaced  <i>RSA_set_default_method()</i> and <i>RSA_get_default_method()</i> respectively, and  <i>RSA_set_method()</i> and <i>RSA_new_method()</i> were altered to use  <b>ENGINE</b>s rather than <b>RSA_METHOD</b>s during development of the engine version of OpenSSL 0.9.6. For 0.9.7, the handling of defaults in the ENGINE API was restructured so that this change was reversed, and behaviour of the other functions resembled more closely the previous behaviour. The behaviour of defaults in the ENGINE API now transparently overrides the behaviour of defaults in the RSA API without requiring changing these function prototypes.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2007-11-19</td>
+<td class="foot-os">
+1.0.1</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

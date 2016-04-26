@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Sub::Exporter(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Sub::Exporter(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Sub::Exporter(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Sub::Exporter - a sophisticated exporter for custom-built routines</div>
+<div class="section">
+<h1>VERSION</h1> version 0.982</div>
+<div class="section">
+<h1>SYNOPSIS</h1> Sub::Exporter must be used in two places.  First, in an exporting module:<div class="spacer">
+</div>
+<br/>
+  # in the exporting module:<br/>
+  package Text::Tweaker;<br/>
+  use Sub::Exporter -setup =&gt; {<br/>
+    exports =&gt; [<br/>
+      qw(squish titlecase), # always works the same way<br/>
+      reformat =&gt; \&amp;build_reformatter, # generator to build exported function<br/>
+      trim     =&gt; \&amp;build_trimmer,<br/>
+      indent   =&gt; \&amp;build_indenter,<br/>
+    ],<br/>
+    collectors =&gt; [ 'defaults' ],<br/>
+  };<br/>
+<div class="spacer">
+</div>
+Then, in an importing module:<div class="spacer">
+</div>
+<br/>
+  # in the importing module:<br/>
+  use Text::Tweaker<br/>
+    'squish',<br/>
+    indent   =&gt; { margin =&gt; 5 },<br/>
+    reformat =&gt; { width =&gt; 79, justify =&gt; 'full', -as =&gt; 'prettify_text' },<br/>
+    defaults =&gt; { eol =&gt; 'CRLF' };<br/>
+<div class="spacer">
+</div>
+With this setup, the importing module ends up with three routines: &quot;squish&quot;, &quot;indent&quot;, and &quot;prettify_text&quot;.  The latter two have been built to the specifications of the importer -- they are not just copies of the code in the exporting package.</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <b>ACHTUNG!</b>  If you're not familiar with Exporter or exporting, read Sub::Exporter::Tutorial first!<div class="subsection">
+<h2>Why Generators?</h2> The biggest benefit of Sub::Exporter over existing exporters (including the ubiquitous Exporter.pm) is its ability to build new coderefs for export, rather than to simply export code identical to that found in the exporting package.<div class="spacer">
+</div>
+If your module's consumers get a routine that works like this:<div class="spacer">
+</div>
+<br/>
+  use Data::Analyze qw(analyze);<br/>
+  my $value = analyze($data, $tolerance, $passes);<br/>
+<div class="spacer">
+</div>
+and they constantly pass only one or two different set of values for the non-$data arguments, your code can benefit from Sub::Exporter.  By writing a simple generator, you can let them do this, instead:<div class="spacer">
+</div>
+<br/>
+  use Data::Analyze<br/>
+    analyze =&gt; { tolerance =&gt; 0.10, passes =&gt; 10, -as =&gt; analyze10 },<br/>
+    analyze =&gt; { tolerance =&gt; 0.15, passes =&gt; 50, -as =&gt; analyze50 };<br/>
+<br/>
+  my $value = analyze10($data);<br/>
+<div class="spacer">
+</div>
+The generator for that would look something like this:<div class="spacer">
+</div>
+<br/>
+  sub build_analyzer {<br/>
+    my ($class, $name, $arg) = @_;<br/>
+<br/>
+    return sub {<br/>
+      my $data      = shift;<br/>
+      my $tolerance = shift || $arg-&gt;{tolerance}; <br/>
+      my $passes    = shift || $arg-&gt;{passes}; <br/>
+<br/>
+      analyze($data, $tolerance, $passes);<br/>
+    }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+Your module's user now has to do less work to benefit from it -- and remember, you're often your own user!  Investing in customized subroutines is an investment in future laziness.<div class="spacer">
+</div>
+This also avoids a common form of ugliness seen in many modules: package-level configuration.  That is, you might have seen something like the above implemented like so:<div class="spacer">
+</div>
+<br/>
+  use Data::Analyze qw(analyze);<br/>
+  $Data::Analyze::default_tolerance = 0.10;<br/>
+  $Data::Analyze::default_passes    = 10;<br/>
+<div class="spacer">
+</div>
+This might save time, until you have multiple modules using Data::Analyze. Because there is only one global configuration, they step on each other's toes and your code begins to have mysterious errors.<div class="spacer">
+</div>
+Generators can also allow you to export class methods to be called as subroutines:<div class="spacer">
+</div>
+<br/>
+  package Data::Methodical;<br/>
+  use Sub::Exporter -setup =&gt; { exports =&gt; { some_method =&gt; \&amp;_curry_class } };<br/>
+<br/>
+  sub _curry_class {<br/>
+    my ($class, $name) = @_;<br/>
+    sub { $class-&gt;$name(@_); };<br/>
+  }<br/>
+<div class="spacer">
+</div>
+Because of the way that exporters and Sub::Exporter work, any package that inherits from Data::Methodical can inherit its exporter and override its &quot;some_method&quot;.  If a user imports &quot;some_method&quot; from that package, he'll receive a subroutine that calls the method on the subclass, rather than on Data::Methodical itself.</div>
+<div class="subsection">
+<h2>Other Customizations</h2> Building custom routines with generators isn't the only way that Sub::Exporters allows the importing code to refine its use of the exported routines.  They may also be renamed to avoid naming collisions.<div class="spacer">
+</div>
+Consider the following code:<div class="spacer">
+</div>
+<br/>
+  # this program determines to which circle of Hell you will be condemned<br/>
+  use Morality qw(sin virtue); # for calculating viciousness<br/>
+  use Math::Trig qw(:all);     # for dealing with circles<br/>
+<div class="spacer">
+</div>
+The programmer has inadvertantly imported two &quot;sin&quot; routines.  The solution, in Exporter.pm-based modules, would be to import only one and then call the other by its fully-qualified name.  Alternately, the importer could write a routine that did so, or could mess about with typeglobs.<div class="spacer">
+</div>
+How much easier to write:<div class="spacer">
+</div>
+<br/>
+  # this program determines to which circle of Hell you will be condemned<br/>
+  use Morality qw(virtue), sin =&gt; { -as =&gt; 'offense' };<br/>
+  use Math::Trig -all =&gt; { -prefix =&gt; 'trig_' };<br/>
+<div class="spacer">
+</div>
+and to have at one's disposal &quot;offense&quot; and &quot;trig_sin&quot; -- not to mention &quot;trig_cos&quot; and &quot;trig_tan&quot;.</div>
+</div>
+<div class="section">
+<h1>EXPORTER CONFIGURATION</h1> You can configure an exporter for your package by using Sub::Exporter like so:<div class="spacer">
+</div>
+<br/>
+  package Tools;<br/>
+  use Sub::Exporter<br/>
+    -setup =&gt; { exports =&gt; [ qw(function1 function2 function3) ] };<br/>
+<div class="spacer">
+</div>
+This is the simplest way to use the exporter, and is basically equivalent to this:<div class="spacer">
+</div>
+<br/>
+  package Tools;<br/>
+  use base qw(Exporter);<br/>
+  our @EXPORT_OK = qw(function1 function2 function2);<br/>
+<div class="spacer">
+</div>
+Any basic use of Sub::Exporter will look like this:<div class="spacer">
+</div>
+<br/>
+  package Tools;<br/>
+  use Sub::Exporter -setup =&gt; \%config;<br/>
+<div class="spacer">
+</div>
+The following keys are valid in %config:<div class="spacer">
+</div>
+<br/>
+  exports - a list of routines to provide for exporting; each routine may be<br/>
+            followed by generator<br/>
+  groups  - a list of groups to provide for exporting; each must be followed by<br/>
+            either (a) a list of exports, possibly with arguments for each<br/>
+            export, or (b) a generator<br/>
+<br/>
+  collectors - a list of names into which values are collected for use in<br/>
+               routine generation; each name may be followed by a validator<br/>
+<div class="spacer">
+</div>
+In addition to the basic options above, a few more advanced options may be passed:<div class="spacer">
+</div>
+<br/>
+  into_level - how far up the caller stack to look for a target (default 0)<br/>
+  into       - an explicit target (package) into which to export routines<br/>
+<div class="spacer">
+</div>
+In other words: Sub::Exporter installs a &quot;import&quot; routine which, when called, exports routines to the calling namespace.  The &quot;into&quot; and &quot;into_level&quot; options change where those exported routines are installed.<div class="spacer">
+</div>
+<br/>
+  generator  - a callback used to produce the code that will be installed<br/>
+               default: Sub::Exporter::default_generator<br/>
+<br/>
+  installer  - a callback used to install the code produced by the generator<br/>
+               default: Sub::Exporter::default_installer<br/>
+<div class="spacer">
+</div>
+For information on how these callbacks are used, see the documentation for &quot;default_generator&quot; and &quot;default_installer&quot;.<div class="subsection">
+<h2>Export Configuration</h2> The &quot;exports&quot; list may be provided as an array reference or a hash reference. The list is processed in such a way that the following are equivalent:<div class="spacer">
+</div>
+<br/>
+  { exports =&gt; [ qw(foo bar baz), quux =&gt; \&amp;quux_generator ] }<br/>
+<br/>
+  { exports =&gt;<br/>
+    { foo =&gt; undef, bar =&gt; undef, baz =&gt; undef, quux =&gt; \&amp;quux_generator } }<br/>
+<div class="spacer">
+</div>
+Generators are code that return coderefs.  They are called with four parameters:<div class="spacer">
+</div>
+<br/>
+  $class - the class whose exporter has been called (the exporting class)<br/>
+  $name  - the name of the export for which the routine is being build<br/>
+ \%arg   - the arguments passed for this export<br/>
+ \%col   - the collections for this import<br/>
+<div class="spacer">
+</div>
+Given the configuration in the &quot;SYNOPSIS&quot;, the following &quot;use&quot; statement:<div class="spacer">
+</div>
+<br/>
+  use Text::Tweaker<br/>
+    reformat =&gt; { -as =&gt; 'make_narrow', width =&gt; 33 },<br/>
+    defaults =&gt; { eol =&gt; 'CR' };<br/>
+<div class="spacer">
+</div>
+would result in the following call to &amp;build_reformatter:<div class="spacer">
+</div>
+<br/>
+  my $code = build_reformatter(<br/>
+    'Text::Tweaker',<br/>
+    'reformat',<br/>
+    { width =&gt; 33 }, # note that -as is not passed in<br/>
+    { defaults =&gt; { eol =&gt; 'CR' } },<br/>
+  );<br/>
+<div class="spacer">
+</div>
+The returned coderef ($code) would then be installed as &quot;make_narrow&quot; in the calling package.<div class="spacer">
+</div>
+Instead of providing a coderef in the configuration, a reference to a method name may be provided.  This method will then be called on the invocant of the &quot;import&quot; method.  (In this case, we do not pass the $class parameter, as it would be redundant.)</div>
+<div class="subsection">
+<h2>Group Configuration</h2> The &quot;groups&quot; list can be passed in the same forms as &quot;exports&quot;.  Groups must have values to be meaningful, which may either list exports that make up the group (optionally with arguments) or may provide a way to build the group.<div class="spacer">
+</div>
+The simpler case is the first: a group definition is a list of exports.  Here's the example that could go in exporter in the &quot;SYNOPSIS&quot;.<div class="spacer">
+</div>
+<br/>
+  groups  =&gt; {<br/>
+    default    =&gt; [ qw(reformat) ],<br/>
+    shorteners =&gt; [ qw(squish trim) ],<br/>
+    email_safe =&gt; [<br/>
+      'indent',<br/>
+      reformat =&gt; { -as =&gt; 'email_format', width =&gt; 72 }<br/>
+    ],<br/>
+  },<br/>
+<div class="spacer">
+</div>
+Groups are imported by specifying their name prefixed be either a dash or a colon.  This line of code would import the &quot;shorteners&quot; group:<div class="spacer">
+</div>
+<br/>
+  use Text::Tweaker qw(-shorteners);<br/>
+<div class="spacer">
+</div>
+Arguments passed to a group when importing are merged into the groups options and passed to any relevant generators.  Groups can contain other groups, but looping group structures are ignored.<div class="spacer">
+</div>
+The other possible value for a group definition, a coderef, allows one generator to build several exportable routines simultaneously.  This is useful when many routines must share enclosed lexical variables.  The coderef must return a hash reference.  The keys will be used as export names and the values are the subs that will be exported.<div class="spacer">
+</div>
+This example shows a simple use of the group generator.<div class="spacer">
+</div>
+<br/>
+  package Data::Crypto;<br/>
+  use Sub::Exporter -setup =&gt; { groups =&gt; { cipher =&gt; \&amp;build_cipher_group } };<br/>
+<br/>
+  sub build_cipher_group {<br/>
+    my ($class, $group, $arg) = @_;<br/>
+    my ($encode, $decode) = build_codec($arg-&gt;{secret});<br/>
+    return { cipher =&gt; $encode, decipher =&gt; $decode };<br/>
+  }<br/>
+<div class="spacer">
+</div>
+The &quot;cipher&quot; and &quot;decipher&quot; routines are built in a group because they are built together by code which encloses their secret in their environment.<div class="spacer">
+</div>
+<i>Default Groups</i><div class="spacer">
+</div>
+If a module that uses Sub::Exporter is &quot;use&quot;d with no arguments, it will try to export the group named &quot;default&quot;.  If that group has not been specifically configured, it will be empty, and nothing will happen.<div class="spacer">
+</div>
+Another group is also created if not defined: &quot;all&quot;.  The &quot;all&quot; group contains all the exports from the exports list.</div>
+<div class="subsection">
+<h2>Collector Configuration</h2> The &quot;collectors&quot; entry in the exporter configuration gives names which, when found in the import call, have their values collected and passed to every generator.<div class="spacer">
+</div>
+For example, the &quot;build_analyzer&quot; generator that we saw above could be rewritten as:<div class="spacer">
+</div>
+<br/>
+ sub build_analyzer {<br/>
+   my ($class, $name, $arg, $col) = @_;<br/>
+<br/>
+   return sub {<br/>
+     my $data      = shift;<br/>
+     my $tolerance = shift || $arg-&gt;{tolerance} || $col-&gt;{defaults}{tolerance}; <br/>
+     my $passes    = shift || $arg-&gt;{passes}    || $col-&gt;{defaults}{passes}; <br/>
+<br/>
+     analyze($data, $tolerance, $passes);<br/>
+   }<br/>
+ }<br/>
+<div class="spacer">
+</div>
+That would allow the import to specify global defaults for his imports:<div class="spacer">
+</div>
+<br/>
+  use Data::Analyze<br/>
+    'analyze',<br/>
+    analyze  =&gt; { tolerance =&gt; 0.10, -as =&gt; analyze10 },<br/>
+    analyze  =&gt; { tolerance =&gt; 0.15, passes =&gt; 50, -as =&gt; analyze50 },<br/>
+    defaults =&gt; { passes =&gt; 10 };<br/>
+<br/>
+  my $A = analyze10($data);     # equivalent to analyze($data, 0.10, 10);<br/>
+  my $C = analyze50($data);     # equivalent to analyze($data, 0.15, 10);<br/>
+  my $B = analyze($data, 0.20); # equivalent to analyze($data, 0.20, 10);<br/>
+<div class="spacer">
+</div>
+If values are provided in the &quot;collectors&quot; list during exporter setup, they must be code references, and are used to validate the importer's values.  The validator is called when the collection is found, and if it returns false, an exception is thrown.  We could ensure that no one tries to set a global data default easily:<div class="spacer">
+</div>
+<br/>
+  collectors =&gt; { defaults =&gt; sub { return (exists $_[0]-&gt;{data}) ? 0 : 1 } }<br/>
+<div class="spacer">
+</div>
+Collector coderefs can also be used as hooks to perform arbitrary actions before anything is exported.<div class="spacer">
+</div>
+When the coderef is called, it is passed the value of the collection and a hashref containing the following entries:<div class="spacer">
+</div>
+<br/>
+  name        - the name of the collector<br/>
+  config      - the exporter configuration (hashref)<br/>
+  import_args - the arguments passed to the exporter, sans collections (aref)<br/>
+  class       - the package on which the importer was called<br/>
+  into        - the package into which exports will be exported<br/>
+<div class="spacer">
+</div>
+Collectors with all-caps names (that is, made up of underscore or capital A through Z) are reserved for special use.  The only currently implemented special collector is &quot;INIT&quot;, whose hook (if present in the exporter configuration) is always run before any other hook.</div>
+</div>
+<div class="section">
+<h1>CALLING THE EXPORTER</h1> Arguments to the exporter (that is, the arguments after the module name in a &quot;use&quot; statement) are parsed as follows:<div class="spacer">
+</div>
+First, the collectors gather any collections found in the arguments.  Any reference type may be given as the value for a collector.  For each collection given in the arguments, its validator (if any) is called.<div class="spacer">
+</div>
+Next, groups are expanded.  If the group is implemented by a group generator, the generator is called.  There are two special arguments which, if given to a group, have special meaning:<div class="spacer">
+</div>
+<br/>
+  -prefix - a string to prepend to any export imported from this group<br/>
+  -suffix - a string to append to any export imported from this group<br/>
+<div class="spacer">
+</div>
+Finally, individual export generators are called and all subs, generated or otherwise, are installed in the calling package.  There is only one special argument for export generators:<div class="spacer">
+</div>
+<br/>
+  -as     - where to install the exported sub<br/>
+<div class="spacer">
+</div>
+Normally, &quot;-as&quot; will contain an alternate name for the routine.  It may, however, contain a reference to a scalar.  If that is the case, a reference the generated routine will be placed in the scalar referenced by &quot;-as&quot;.  It will not be installed into the calling package.<div class="subsection">
+<h2>Special Exporter Arguments</h2> The generated exporter accept some special options, which may be passed as the first argument, in a hashref.<div class="spacer">
+</div>
+These options are:<div class="spacer">
+</div>
+<br/>
+  into_level<br/>
+  into<br/>
+  generator<br/>
+  installer<br/>
+<div class="spacer">
+</div>
+These override the same-named configuration options described in &quot;EXPORTER CONFIGURATION&quot;.</div>
+</div>
+<div class="section">
+<h1>SUBROUTINES</h1><div class="subsection">
+<h2>setup_exporter</h2> This routine builds and installs an &quot;import&quot; routine.  It is called with one argument, a hashref containing the exporter configuration.  Using this, it builds an exporter and installs it into the calling package with the name &quot;import.&quot;  In addition to the normal exporter configuration, a few named arguments may be passed in the hashref:<div class="spacer">
+</div>
+<br/>
+  into       - into what package should the exporter be installed<br/>
+  into_level - into what level up the stack should the exporter be installed<br/>
+  as         - what name should the installed exporter be given<br/>
+<div class="spacer">
+</div>
+By default the exporter is installed with the name &quot;import&quot; into the immediate caller of &quot;setup_exporter&quot;.  In other words, if your package calls &quot;setup_exporter&quot; without providing any of the three above arguments, it will have an &quot;import&quot; routine installed.<div class="spacer">
+</div>
+Providing both &quot;into&quot; and &quot;into_level&quot; will cause an exception to be thrown.<div class="spacer">
+</div>
+The exporter is built by &quot;build_exporter&quot;.</div>
+<div class="subsection">
+<h2>build_exporter</h2> Given a standard exporter configuration, this routine builds and returns an exporter -- that is, a subroutine that can be installed as a class method to perform exporting on request.<div class="spacer">
+</div>
+Usually, this method is called by &quot;setup_exporter&quot;, which then installs the exporter as a package's import routine.</div>
+<div class="subsection">
+<h2>default_generator</h2> This is Sub::Exporter's default generator.  It takes bits of configuration that have been gathered during the import and turns them into a coderef that can be installed.<div class="spacer">
+</div>
+<br/>
+  my $code = default_generator(\%arg);<br/>
+<div class="spacer">
+</div>
+Passed arguments are:<div class="spacer">
+</div>
+<br/>
+  class - the class on which the import method was called<br/>
+  name  - the name of the export being generated<br/>
+  arg   - the arguments to the generator<br/>
+  col   - the collections<br/>
+<br/>
+  generator - the generator to be used to build the export (code or scalar ref)<br/>
+</div>
+<div class="subsection">
+<h2>default_installer</h2> This is Sub::Exporter's default installer.  It does what Sub::Exporter promises: it installs code into the target package.<div class="spacer">
+</div>
+<br/>
+  default_installer(\%arg, \@to_export);<br/>
+<div class="spacer">
+</div>
+Passed arguments are:<div class="spacer">
+</div>
+<br/>
+  into - the package into which exports should be delivered<br/>
+<div class="spacer">
+</div>
+@to_export is a list of name/value pairs.  The default exporter assigns code (the values) to named slots (the names) in the given package.  If the name is a scalar reference, the scalar reference is made to point to the code reference instead.</div>
+</div>
+<div class="section">
+<h1>EXPORTS</h1> Sub::Exporter also offers its own exports: the &quot;setup_exporter&quot; and &quot;build_exporter&quot; routines described above.  It also provides a special &quot;setup&quot; collector, which will set up an exporter using the parameters passed to it.<div class="spacer">
+</div>
+Note that the &quot;setup&quot; collector (seen in examples like the &quot;SYNOPSIS&quot; above) uses &quot;build_exporter&quot;, not &quot;setup_exporter&quot;.  This means that the special arguments like &quot;into&quot; and &quot;as&quot; for &quot;setup_exporter&quot; are not accepted here. Instead, you may write something like:<div class="spacer">
+</div>
+<br/>
+  use Sub::Exporter<br/>
+    { into =&gt; 'Target::Package' },<br/>
+    -setup =&gt; {<br/>
+      -as     =&gt; 'do_import',<br/>
+      exports =&gt; [ ... ],<br/>
+    }<br/>
+  ;<br/>
+<div class="spacer">
+</div>
+Finding a good reason for wanting to do this is left as as exercise for the reader.</div>
+<div class="section">
+<h1>COMPARISONS</h1> There are a whole mess of exporters on the CPAN.  The features included in Sub::Exporter set it apart from any existing Exporter.  Here's a summary of some other exporters and how they compare.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Exporter and co.<div style="height: 1.00em;">
+&#160;</div>
+This is the standard Perl exporter.  Its interface is a little clunky, but it's fast and ubiquitous.  It can do some things that Sub::Exporter can't:  it can export things other than routines, it can import &quot;everything in this group except this symbol,&quot; and some other more esoteric things.  These features seem to go nearly entirely unused.<div style="height: 1.00em;">
+&#160;</div>
+It always exports things exactly as they appear in the exporting module; it can't rename or customize routines.  Its groups (&quot;tags&quot;) can't be nested.<div style="height: 1.00em;">
+&#160;</div>
+Exporter::Lite is a whole lot like Exporter, but it does significantly less: it supports exporting symbols, but not groups, pattern matching, or negation.<div style="height: 1.00em;">
+&#160;</div>
+The fact that Sub::Exporter can't export symbols other than subroutines is a good idea, not a missing feature.<div style="height: 1.00em;">
+&#160;</div>
+For simple uses, setting up Sub::Exporter is about as easy as Exporter.  For complex uses, Sub::Exporter makes hard things possible, which would not be possible with Exporter.<div style="height: 1.00em;">
+&#160;</div>
+When using a module that uses Sub::Exporter, users familiar with Exporter will probably see no difference in the basics.  These two lines do about the same thing in whether the exporting module uses Exporter or Sub::Exporter.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  use Some::Module qw(foo bar baz);<br/>
+  use Some::Module qw(foo :bar baz);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The definition for exporting in Exporter.pm might look like this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  package Some::Module;<br/>
+  use base qw(Exporter);<br/>
+  our @EXPORT_OK   = qw(foo bar baz quux);<br/>
+  our %EXPORT_TAGS = (bar =&gt; [ qw(bar baz) ]);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Using Sub::Exporter, it would look like this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  package Some::Module;<br/>
+  use Sub::Exporter -setup =&gt; {<br/>
+    exports =&gt; [ qw(foo bar baz quux) ],<br/>
+    groups  =&gt; { bar =&gt; [ qw(bar baz) ]}<br/>
+  };<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Sub::Exporter respects inheritance, so that a package may export inherited routines, and will export the most inherited version.  Exporting methods without currying away the invocant is a bad idea, but Sub::Exporter allows you to do just that -- and anyway, there are other uses for this feature, like packages of exported subroutines which use inheritance specifically to allow more specialized, but similar, packages.<div style="height: 1.00em;">
+&#160;</div>
+Exporter::Easy provides a wrapper around the standard Exporter.  It makes it simpler to build groups, but doesn't provide any more functionality.  Because it is a front-end to Exporter, it will store your exporter's configuration in global package variables.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Attribute-Based Exporters<div style="height: 1.00em;">
+&#160;</div>
+Some exporters use attributes to mark variables to export.  Exporter::Simple supports exporting any kind of symbol, and supports groups.  Using a module like Exporter or Sub::Exporter, it's easy to look at one place and see what is exported, but it's impossible to look at a variable definition and see whether it is exported by that alone.  Exporter::Simple makes this trade in reverse: each variable's declaration includes its export definition, but there is no one place to look to find a manifest of exports.<div style="height: 1.00em;">
+&#160;</div>
+More importantly, Exporter::Simple does not add any new features to those of Exporter.  In fact, like Exporter::Easy, it is just a front-end to Exporter, so it ends up storing its configuration in global package variables.  (This means that there is one place to look for your exporter's manifest, actually.  You can inspect the @EXPORT package variables, and other related package variables, at runtime.)<div style="height: 1.00em;">
+&#160;</div>
+Perl6::Export isn't actually attribute based, but looks similar.  Its syntax is borrowed from Perl 6, and implemented by a source filter.  It is a prototype of an interface that is still being designed.  It should probably be avoided for production work.  On the other hand, Perl6::Export::Attrs implements Perl 6-like exporting, but translates it into Perl 5 by providing attributes.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Other Exporters<div style="height: 1.00em;">
+&#160;</div>
+Exporter::Renaming wraps the standard Exporter to allow it to export symbols with changed names.<div style="height: 1.00em;">
+&#160;</div>
+Class::Exporter performs a special kind of routine generation, giving each importing package an instance of your class, and then exporting the instance's methods as normal routines.  (Sub::Exporter, of course, can easily emulate this behavior, as shown above.)<div style="height: 1.00em;">
+&#160;</div>
+Exporter::Tidy implements a form of renaming (using its &quot;_map&quot; argument) and of prefixing, and implements groups.  It also avoids using package variables for its configuration.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>TODO</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+write a set of longer, more demonstrative examples</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+solidify the &quot;custom exporter&quot; interface (see &amp;default_exporter)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+add an &quot;always&quot; group</dd>
+</dl>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Ricardo SIGNES, &quot;&lt;rjbs@cpan.org&gt;&quot;</div>
+<div class="section">
+<h1>THANKS</h1> Hans Dieter Pearcey provided helpful advice while I was writing Sub::Exporter. Ian Langworth and Shawn Sorichetti asked some good questions and hepled me improve my documentation quite a bit.  Yuval Kogman helped me find a bunch of little problems.<div class="spacer">
+</div>
+Thanks, guys!</div>
+<div class="section">
+<h1>BUGS</h1> Please report any bugs or feature requests through the web interface at &lt;http://rt.cpan.org&gt;. I will be notified, and then you'll automatically be notified of progress on your bug as I make changes.</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright 2006-2007, Ricardo SIGNES.  This program is free software;  you can redistribute it and/or modify it under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2009-01-16</td>
+<td class="foot-os">
+perl v5.10.1</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

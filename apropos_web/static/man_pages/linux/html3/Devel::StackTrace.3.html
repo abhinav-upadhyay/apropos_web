@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Devel::StackTrace(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Devel::StackTrace(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Devel::StackTrace(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Devel::StackTrace - An object representing a stack trace</div>
+<div class="section">
+<h1>VERSION</h1> version 1.27</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  use Devel::StackTrace;<br/>
+<br/>
+  my $trace = Devel::StackTrace-&gt;new;<br/>
+<br/>
+  print $trace-&gt;as_string; # like carp<br/>
+<br/>
+  # from top (most recent) of stack to bottom.<br/>
+  while (my $frame = $trace-&gt;next_frame) {<br/>
+      print &quot;Has args\n&quot; if $frame-&gt;hasargs;<br/>
+  }<br/>
+<br/>
+  # from bottom (least recent) of stack to top.<br/>
+  while (my $frame = $trace-&gt;prev_frame) {<br/>
+      print &quot;Sub: &quot;, $frame-&gt;subroutine, &quot;\n&quot;;<br/>
+  }<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The Devel::StackTrace module contains two classes, Devel::StackTrace and Devel::StackTrace::Frame.  The goal of this object is to encapsulate the information that can found through using the  <i>caller()</i> function, as well as providing a simple interface to this data.<div class="spacer">
+</div>
+The Devel::StackTrace object contains a set of Devel::StackTrace::Frame objects, one for each level of the stack.  The frames contain all the data available from &quot;caller()&quot;.<div class="spacer">
+</div>
+This code was created to support my Exception::Class::Base class (part of Exception::Class) but may be useful in other contexts.</div>
+<div class="section">
+<h1>'TOP' AND 'BOTTOM' OF THE STACK</h1> When describing the methods of the trace object, I use the words 'top' and 'bottom'.  In this context, the 'top' frame on the stack is the most recent frame and the 'bottom' is the least recent.<div class="spacer">
+</div>
+Here's an example:<div class="spacer">
+</div>
+<br/>
+  foo();  # bottom frame is here<br/>
+<br/>
+  sub foo {<br/>
+     bar();<br/>
+  }<br/>
+<br/>
+  sub bar {<br/>
+     Devel::StackTrace-&gt;new;  # top frame is here.<br/>
+  }<br/>
+</div>
+<div class="section">
+<h1>Devel::StackTrace METHODS</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Devel::StackTrace-&gt;new(%named_params)<div style="height: 1.00em;">
+&#160;</div>
+Returns a new Devel::StackTrace object.<div style="height: 1.00em;">
+&#160;</div>
+Takes the following parameters:</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+frame_filter =&gt; $sub<div style="height: 1.00em;">
+&#160;</div>
+By default, Devel::StackTrace will include all stack frames before the call to its its constructor.<div style="height: 1.00em;">
+&#160;</div>
+However, you may want to filter out some frames with more granularity than 'ignore_package' or 'ignore_class' allow.<div style="height: 1.00em;">
+&#160;</div>
+You can provide a subroutine which is called with the raw frame data for each frame. This is a hash reference with two keys, &quot;caller&quot;, and &quot;args&quot;, both of which are array references. The &quot;caller&quot; key is the raw data as returned by Perl's &quot;caller()&quot; function, and the &quot;args&quot; key are the subroutine arguments found in @DB::args.<div style="height: 1.00em;">
+&#160;</div>
+The filter should return true if the frame should be included, or false if it should be skipped.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+ignore_package =&gt; $package_name OR \@package_names<div style="height: 1.00em;">
+&#160;</div>
+Any frames where the package is one of these packages will not be on the stack.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+ignore_class =&gt; $package_name OR \@package_names<div style="height: 1.00em;">
+&#160;</div>
+Any frames where the package is a subclass of one of these packages (or is the same package) will not be on the stack.<div style="height: 1.00em;">
+&#160;</div>
+Devel::StackTrace internally adds itself to the 'ignore_package' parameter, meaning that the Devel::StackTrace package is  <b>ALWAYS</b> ignored.  However, if you create a subclass of Devel::StackTrace it will not be ignored.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+no_refs =&gt; $boolean<div style="height: 1.00em;">
+&#160;</div>
+If this parameter is true, then Devel::StackTrace will not store references internally when generating stacktrace frames.  This lets your objects go out of scope.<div style="height: 1.00em;">
+&#160;</div>
+Devel::StackTrace replaces any references with their stringified representation.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+respect_overload =&gt; $boolean<div style="height: 1.00em;">
+&#160;</div>
+By default, Devel::StackTrace will call &quot;overload::AddrRef()&quot; to get the underlying string representation of an object, instead of respecting the object's stringification overloading.  If you would prefer to see the overloaded representation of objects in stack traces, then set this parameter to true.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+max_arg_length =&gt; $integer<div style="height: 1.00em;">
+&#160;</div>
+By default, Devel::StackTrace will display the entire argument for each subroutine call. Setting this parameter causes it to truncate the argument's string representation if it is longer than this number of characters.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+message =&gt; $string<div style="height: 1.00em;">
+&#160;</div>
+By default, Devel::StackTrace will use 'Trace begun' as the message for the first stack frame when you call &quot;as_string&quot;. You can supply an alternative message using this option.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+indent =&gt; $boolean<div style="height: 1.00em;">
+&#160;</div>
+If this parameter is true, each stack frame after the first will start with a tab character, just like &quot;Carp::confess()&quot;.</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+</div>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$trace-&gt;next_frame<div style="height: 1.00em;">
+&#160;</div>
+Returns the next Devel::StackTrace::Frame object down on the stack.  If it hasn't been called before it returns the first frame.  It returns undef when it reaches the bottom of the stack and then resets its pointer so the next call to &quot;next_frame&quot; or &quot;prev_frame&quot; will work properly.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$trace-&gt;prev_frame<div style="height: 1.00em;">
+&#160;</div>
+Returns the next Devel::StackTrace::Frame object up on the stack.  If it hasn't been called before it returns the last frame.  It returns undef when it reaches the top of the stack and then resets its pointer so pointer so the next call to &quot;next_frame&quot; or &quot;prev_frame&quot; will work properly.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$trace-&gt;reset_pointer<div style="height: 1.00em;">
+&#160;</div>
+Resets the pointer so that the next call &quot;next_frame&quot; or &quot;prev_frame&quot; will start at the top or bottom of the stack, as appropriate.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$trace-&gt;frames<div style="height: 1.00em;">
+&#160;</div>
+Returns a list of Devel::StackTrace::Frame objects.  The order they are returned is from top (most recent) to bottom.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$trace-&gt;frame ($index)<div style="height: 1.00em;">
+&#160;</div>
+Given an index, returns the relevant frame or undef if there is not frame at that index.  The index is exactly like a Perl array.  The first frame is 0 and negative indexes are allowed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$trace-&gt;frame_count<div style="height: 1.00em;">
+&#160;</div>
+Returns the number of frames in the trace object.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$trace-&gt;as_string<div style="height: 1.00em;">
+&#160;</div>
+Calls as_string on each frame from top to bottom, producing output quite similar to the Carp module's cluck/confess methods.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SUPPORT</h1> Please submit bugs to the CPAN RT system at http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Devel%3A%3AStackTrace or via email at bug-devel-stacktrace@rt.cpan.org.</div>
+<div class="section">
+<h1>AUTHOR</h1> Dave Rolsky &lt;autarch@urth.org&gt;</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> This software is Copyright (c) 2011 by Dave Rolsky.<div class="spacer">
+</div>
+This is free software, licensed under:<div class="spacer">
+</div>
+<br/>
+  The Artistic License 2.0 (GPL Compatible)<br/>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-01-16</td>
+<td class="foot-os">
+perl v5.10.1</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

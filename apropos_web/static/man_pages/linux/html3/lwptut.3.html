@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+lwptut(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+lwptut(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+lwptut(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> lwptut -- An LWP Tutorial</div>
+<div class="section">
+<h1>DESCRIPTION</h1> LWP (short for &quot;Library for WWW in Perl&quot;) is a very popular group of Perl modules for accessing data on the Web. Like most Perl module-distributions, each of LWP's component modules comes with documentation that is a complete reference to its interface. However, there are so many modules in LWP that it's hard to know where to start looking for information on how to do even the simplest most common things.<div class="spacer">
+</div>
+Really introducing you to using LWP would require a whole book -- a book that just happens to exist, called  <i>Perl &amp; LWP</i>. But this article should give you a taste of how you can go about some common tasks with LWP.<div class="subsection">
+<h2>Getting documents with LWP::Simple</h2> If you just want to get what's at a particular URL, the simplest way to do it is LWP::Simple's functions.<div class="spacer">
+</div>
+In a Perl program, you can call its &quot;get($url)&quot; function.  It will try getting that URL's content.  If it works, then it'll return the content; but if there's some error, it'll return undef.<div class="spacer">
+</div>
+<br/>
+  my $url = 'http://www.npr.org/programs/fa/?todayDate=current';<br/>
+    # Just an example: the URL for the most recent /Fresh Air/ show<br/>
+<br/>
+  use LWP::Simple;<br/>
+  my $content = get $url;<br/>
+  die &quot;Couldn't get $url&quot; unless defined $content;<br/>
+<br/>
+  # Then go do things with $content, like this:<br/>
+<br/>
+  if($content =~ m/jazz/i) {<br/>
+    print &quot;They're talking about jazz today on Fresh Air!\n&quot;;<br/>
+  }<br/>
+  else {<br/>
+    print &quot;Fresh Air is apparently jazzless today.\n&quot;;<br/>
+  }<br/>
+<div class="spacer">
+</div>
+The handiest variant on &quot;get&quot; is &quot;getprint&quot;, which is useful in Perl one-liners.  If it can get the page whose URL you provide, it sends it to STDOUT; otherwise it complains to STDERR.<div class="spacer">
+</div>
+<br/>
+  % perl -MLWP::Simple -e &quot;getprint 'http://www.cpan.org/RECENT'&quot;<br/>
+<div class="spacer">
+</div>
+That is the URL of a plain text file that lists new files in CPAN in the past two weeks.  You can easily make it part of a tidy little shell command, like this one that mails you the list of new &quot;Acme::&quot; modules:<div class="spacer">
+</div>
+<br/>
+  % perl -MLWP::Simple -e &quot;getprint 'http://www.cpan.org/RECENT'&quot;  \<br/>
+     | grep &quot;/by-module/Acme&quot; | mail -s &quot;New Acme modules! Joy!&quot; $USER<br/>
+<div class="spacer">
+</div>
+There are other useful functions in LWP::Simple, including one function for running a HEAD request on a URL (useful for checking links, or getting the last-revised time of a URL), and two functions for saving/mirroring a URL to a local file. See the LWP::Simple documentation for the full details, or chapter 2 of  <i>Perl</i>  <i>&amp; LWP</i> for more examples.</div>
+<div class="subsection">
+<h2>The Basics of the LWP Class Model</h2> LWP::Simple's functions are handy for simple cases, but its functions don't support cookies or authorization, don't support setting header lines in the HTTP request, generally don't support reading header lines in the HTTP response (notably the full HTTP error message, in case of an error). To get at all those features, you'll have to use the full LWP class model.<div class="spacer">
+</div>
+While LWP consists of dozens of classes, the main two that you have to understand are LWP::UserAgent and HTTP::Response. LWP::UserAgent is a class for &quot;virtual browsers&quot; which you use for performing requests, and HTTP::Response is a class for the responses (or error messages) that you get back from those requests.<div class="spacer">
+</div>
+The basic idiom is &quot;$response = $browser-&gt;get($url)&quot;, or more fully illustrated:<div class="spacer">
+</div>
+<br/>
+  # Early in your program:<br/>
+  <br/>
+  use LWP 5.64; # Loads all important LWP classes, and makes<br/>
+                #  sure your version is reasonably recent.<br/>
+<br/>
+  my $browser = LWP::UserAgent-&gt;new;<br/>
+  <br/>
+  ...<br/>
+  <br/>
+  # Then later, whenever you need to make a get request:<br/>
+  my $url = 'http://www.npr.org/programs/fa/?todayDate=current';<br/>
+  <br/>
+  my $response = $browser-&gt;get( $url );<br/>
+  die &quot;Can't get $url -- &quot;, $response-&gt;status_line<br/>
+   unless $response-&gt;is_success;<br/>
+<br/>
+  die &quot;Hey, I was expecting HTML, not &quot;, $response-&gt;content_type<br/>
+   unless $response-&gt;content_type eq 'text/html';<br/>
+     # or whatever content-type you're equipped to deal with<br/>
+<br/>
+  # Otherwise, process the content somehow:<br/>
+  <br/>
+  if($response-&gt;decoded_content =~ m/jazz/i) {<br/>
+    print &quot;They're talking about jazz today on Fresh Air!\n&quot;;<br/>
+  }<br/>
+  else {<br/>
+    print &quot;Fresh Air is apparently jazzless today.\n&quot;;<br/>
+  }<br/>
+<div class="spacer">
+</div>
+There are two objects involved: $browser, which holds an object of class LWP::UserAgent, and then the $response object, which is of class HTTP::Response. You really need only one browser object per program; but every time you make a request, you get back a new HTTP::Response object, which will have some interesting attributes:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A status code indicating success or failure (which you can test with &quot;$response-&gt;is_success&quot;).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+An HTTP status line that is hopefully informative if there's failure (which you can see with &quot;$response-&gt;status_line&quot;, returning something like &quot;404 Not Found&quot;).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A MIME content-type like &quot;text/html&quot;, &quot;image/gif&quot;, &quot;application/xml&quot;, etc., which you can see with &quot;$response-&gt;content_type&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The actual content of the response, in &quot;$response-&gt;decoded_content&quot;. If the response is HTML, that's where the HTML source will be; if it's a GIF, then &quot;$response-&gt;decoded_content&quot; will be the binary GIF data.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+And dozens of other convenient and more specific methods that are documented in the docs for HTTP::Response, and its superclasses HTTP::Message and HTTP::Headers.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Adding Other HTTP Request Headers</h2> The most commonly used syntax for requests is &quot;$response = $browser-&gt;get($url)&quot;, but in truth, you can add extra HTTP header lines to the request by adding a list of key-value pairs after the URL, like so:<div class="spacer">
+</div>
+<br/>
+  $response = $browser-&gt;get( $url, $key1, $value1, $key2, $value2, ... );<br/>
+<div class="spacer">
+</div>
+For example, here's how to send some more Netscape-like headers, in case you're dealing with a site that would otherwise reject your request:<div class="spacer">
+</div>
+<br/>
+  my @ns_headers = (<br/>
+   'User-Agent' =&gt; 'Mozilla/4.76 [en] (Win98; U)',<br/>
+   'Accept' =&gt; 'image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, image/png, */*',<br/>
+   'Accept-Charset' =&gt; 'iso-8859-1,*,utf-8',<br/>
+   'Accept-Language' =&gt; 'en-US',<br/>
+  );<br/>
+<br/>
+  ...<br/>
+  <br/>
+  $response = $browser-&gt;get($url, @ns_headers);<br/>
+<div class="spacer">
+</div>
+If you weren't reusing that array, you could just go ahead and do this:<div class="spacer">
+</div>
+<br/>
+  $response = $browser-&gt;get($url,<br/>
+   'User-Agent' =&gt; 'Mozilla/4.76 [en] (Win98; U)',<br/>
+   'Accept' =&gt; 'image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, image/png, */*',<br/>
+   'Accept-Charset' =&gt; 'iso-8859-1,*,utf-8',<br/>
+   'Accept-Language' =&gt; 'en-US',<br/>
+  );<br/>
+<div class="spacer">
+</div>
+If you were only ever changing the 'User-Agent' line, you could just change the $browser object's default line from &quot;libwww-perl/5.65&quot; (or the like) to whatever you like, using the LWP::UserAgent &quot;agent&quot; method:<div class="spacer">
+</div>
+<br/>
+   $browser-&gt;agent('Mozilla/4.76 [en] (Win98; U)');<br/>
+</div>
+<div class="subsection">
+<h2>Enabling Cookies</h2> A default LWP::UserAgent object acts like a browser with its cookies support turned off. There are various ways of turning it on, by setting its &quot;cookie_jar&quot; attribute. A &quot;cookie jar&quot; is an object representing a little database of all the HTTP cookies that a browser can know about. It can correspond to a file on disk (the way Netscape uses its  <i>cookies.txt</i> file), or it can be just an in-memory object that starts out empty, and whose collection of cookies will disappear once the program is finished running.<div class="spacer">
+</div>
+To give a browser an in-memory empty cookie jar, you set its &quot;cookie_jar&quot; attribute like so:<div class="spacer">
+</div>
+<br/>
+  $browser-&gt;cookie_jar({});<br/>
+<div class="spacer">
+</div>
+To give it a copy that will be read from a file on disk, and will be saved to it when the program is finished running, set the &quot;cookie_jar&quot; attribute like this:<div class="spacer">
+</div>
+<br/>
+  use HTTP::Cookies;<br/>
+  $browser-&gt;cookie_jar( HTTP::Cookies-&gt;new(<br/>
+    'file' =&gt; '/some/where/cookies.lwp',<br/>
+        # where to read/write cookies<br/>
+    'autosave' =&gt; 1,<br/>
+        # save it to disk when done<br/>
+  ));<br/>
+<div class="spacer">
+</div>
+That file will be an LWP-specific format. If you want to be access the cookies in your Netscape cookies file, you can use the HTTP::Cookies::Netscape class:<div class="spacer">
+</div>
+<br/>
+  use HTTP::Cookies;<br/>
+    # yes, loads HTTP::Cookies::Netscape too<br/>
+  <br/>
+  $browser-&gt;cookie_jar( HTTP::Cookies::Netscape-&gt;new(<br/>
+    'file' =&gt; 'c:/Program Files/Netscape/Users/DIR-NAME-HERE/cookies.txt',<br/>
+        # where to read cookies<br/>
+  ));<br/>
+<div class="spacer">
+</div>
+You could add an &quot;'autosave' =&gt; 1&quot; line as further above, but at time of writing, it's uncertain whether Netscape might discard some of the cookies you could be writing back to disk.</div>
+<div class="subsection">
+<h2>Posting Form Data</h2> Many HTML forms send data to their server using an HTTP POST request, which you can send with this syntax:<div class="spacer">
+</div>
+<br/>
+ $response = $browser-&gt;post( $url,<br/>
+   [<br/>
+     formkey1 =&gt; value1, <br/>
+     formkey2 =&gt; value2, <br/>
+     ...<br/>
+   ],<br/>
+ );<br/>
+<div class="spacer">
+</div>
+Or if you need to send HTTP headers:<div class="spacer">
+</div>
+<br/>
+ $response = $browser-&gt;post( $url,<br/>
+   [<br/>
+     formkey1 =&gt; value1, <br/>
+     formkey2 =&gt; value2, <br/>
+     ...<br/>
+   ],<br/>
+   headerkey1 =&gt; value1, <br/>
+   headerkey2 =&gt; value2, <br/>
+ );<br/>
+<div class="spacer">
+</div>
+For example, the following program makes a search request to AltaVista (by sending some form data via an HTTP POST request), and extracts from the HTML the report of the number of matches:<div class="spacer">
+</div>
+<br/>
+  use strict;<br/>
+  use warnings;<br/>
+  use LWP 5.64;<br/>
+  my $browser = LWP::UserAgent-&gt;new;<br/>
+<br/>
+  my $word = 'tarragon';<br/>
+<br/>
+  my $url = 'http://search.yahoo.com/yhs/search';<br/>
+  my $response = $browser-&gt;post( $url,<br/>
+    [ 'q' =&gt; $word,  # the Altavista query string<br/>
+      'fr' =&gt; 'altavista', 'pg' =&gt; 'q', 'avkw' =&gt; 'tgz', 'kl' =&gt; 'XX',<br/>
+    ]<br/>
+  );<br/>
+  die &quot;$url error: &quot;, $response-&gt;status_line<br/>
+   unless $response-&gt;is_success;<br/>
+  die &quot;Weird content type at $url -- &quot;, $response-&gt;content_type<br/>
+   unless $response-&gt;content_is_html;<br/>
+<br/>
+  if( $response-&gt;decoded_content =~ m{([0-9,]+)(?:&lt;.*?&gt;)? results for} ) {<br/>
+    # The substring will be like &quot;996,000&lt;/strong&gt; results for&quot;<br/>
+    print &quot;$word: $1\n&quot;;<br/>
+  }<br/>
+  else {<br/>
+    print &quot;Couldn't find the match-string in the response\n&quot;;<br/>
+  }<br/>
+</div>
+<div class="subsection">
+<h2>Sending GET Form Data</h2> Some HTML forms convey their form data not by sending the data in an HTTP POST request, but by making a normal GET request with the data stuck on the end of the URL.  For example, if you went to &quot;www.imdb.com&quot; and ran a search on &quot;Blade Runner&quot;, the URL you'd see in your browser window would be:<div class="spacer">
+</div>
+<br/>
+  http://www.imdb.com/find?s=all&amp;q=Blade+Runner<br/>
+<div class="spacer">
+</div>
+To run the same search with LWP, you'd use this idiom, which involves the URI class:<div class="spacer">
+</div>
+<br/>
+  use URI;<br/>
+  my $url = URI-&gt;new( 'http://www.imdb.com/find' );<br/>
+    # makes an object representing the URL<br/>
+<br/>
+  $url-&gt;query_form(  # And here the form data pairs:<br/>
+    'q' =&gt; 'Blade Runner',<br/>
+    's' =&gt; 'all',<br/>
+  );<br/>
+<br/>
+  my $response = $browser-&gt;get($url);<br/>
+<div class="spacer">
+</div>
+See chapter 5 of <i>Perl &amp; LWP</i> for a longer discussion of HTML forms and of form data, and chapters 6 through 9 for a longer discussion of extracting data from HTML.</div>
+<div class="subsection">
+<h2>Absolutizing URLs</h2> The URI class that we just mentioned above provides all sorts of methods for accessing and modifying parts of URLs (such as asking sort of URL it is with &quot;$url-&gt;scheme&quot;, and asking what host it refers to with &quot;$url-&gt;host&quot;, and so on, as described in the docs for the URI class.  However, the methods of most immediate interest are the &quot;query_form&quot; method seen above, and now the &quot;new_abs&quot; method for taking a probably-relative URL string (like &quot;../foo.html&quot;) and getting back an absolute URL (like &quot;http://www.perl.com/stuff/foo.html&quot;), as shown here:<div class="spacer">
+</div>
+<br/>
+  use URI;<br/>
+  $abs = URI-&gt;new_abs($maybe_relative, $base);<br/>
+<div class="spacer">
+</div>
+For example, consider this program that matches URLs in the HTML list of new modules in CPAN:<div class="spacer">
+</div>
+<br/>
+  use strict;<br/>
+  use warnings;<br/>
+  use LWP;<br/>
+  my $browser = LWP::UserAgent-&gt;new;<br/>
+  <br/>
+  my $url = 'http://www.cpan.org/RECENT.html';<br/>
+  my $response = $browser-&gt;get($url);<br/>
+  die &quot;Can't get $url -- &quot;, $response-&gt;status_line<br/>
+   unless $response-&gt;is_success;<br/>
+  <br/>
+  my $html = $response-&gt;decoded_content;<br/>
+  while( $html =~ m/&lt;A HREF=\&quot;(.*?)\&quot;/g ) {<br/>
+    print &quot;$1\n&quot;;<br/>
+  }<br/>
+<div class="spacer">
+</div>
+When run, it emits output that starts out something like this:<div class="spacer">
+</div>
+<br/>
+  MIRRORING.FROM<br/>
+  RECENT<br/>
+  RECENT.html<br/>
+  authors/00whois.html<br/>
+  authors/01mailrc.txt.gz<br/>
+  authors/id/A/AA/AASSAD/CHECKSUMS<br/>
+  ...<br/>
+<div class="spacer">
+</div>
+However, if you actually want to have those be absolute URLs, you can use the URI module's &quot;new_abs&quot; method, by changing the &quot;while&quot; loop to this:<div class="spacer">
+</div>
+<br/>
+  while( $html =~ m/&lt;A HREF=\&quot;(.*?)\&quot;/g ) {<br/>
+    print URI-&gt;new_abs( $1, $response-&gt;base ) ,&quot;\n&quot;;<br/>
+  }<br/>
+<div class="spacer">
+</div>
+(The &quot;$response-&gt;base&quot; method from HTTP::Message is for returning what URL should be used for resolving relative URLs -- it's usually just the same as the URL that you requested.)<div class="spacer">
+</div>
+That program then emits nicely absolute URLs:<div class="spacer">
+</div>
+<br/>
+  http://www.cpan.org/MIRRORING.FROM<br/>
+  http://www.cpan.org/RECENT<br/>
+  http://www.cpan.org/RECENT.html<br/>
+  http://www.cpan.org/authors/00whois.html<br/>
+  http://www.cpan.org/authors/01mailrc.txt.gz<br/>
+  http://www.cpan.org/authors/id/A/AA/AASSAD/CHECKSUMS<br/>
+  ...<br/>
+<div class="spacer">
+</div>
+See chapter 4 of <i>Perl &amp; LWP</i> for a longer discussion of URI objects.<div class="spacer">
+</div>
+Of course, using a regexp to match hrefs is a bit simplistic, and for more robust programs, you'll probably want to use an HTML-parsing module like HTML::LinkExtor or HTML::TokeParser or even maybe HTML::TreeBuilder.</div>
+<div class="subsection">
+<h2>Other Browser Attributes</h2> LWP::UserAgent objects have many attributes for controlling how they work.  Here are a few notable ones:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;$browser-&gt;timeout(15);&quot;<div style="height: 1.00em;">
+&#160;</div>
+This sets this browser object to give up on requests that don't answer within 15 seconds.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;$browser-&gt;protocols_allowed( [ 'http', 'gopher'] );&quot;<div style="height: 1.00em;">
+&#160;</div>
+This sets this browser object to not speak any protocols other than HTTP and gopher. If it tries accessing any other kind of URL (like an &quot;ftp:&quot; or &quot;mailto:&quot; or &quot;news:&quot; URL), then it won't actually try connecting, but instead will immediately return an error code 500, with a message like &quot;Access to 'ftp' URIs has been disabled&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;use LWP::ConnCache; $browser-&gt;conn_cache(LWP::ConnCache-&gt;new());&quot;<div style="height: 1.00em;">
+&#160;</div>
+This tells the browser object to try using the HTTP/1.1 &quot;Keep-Alive&quot; feature, which speeds up requests by reusing the same socket connection for multiple requests to the same server.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;$browser-&gt;agent( 'SomeName/1.23 (more info here maybe)' )&quot;<div style="height: 1.00em;">
+&#160;</div>
+This changes how the browser object will identify itself in the default &quot;User-Agent&quot; line is its HTTP requests.  By default, it'll send &quot;libwww-perl/ <i>versionnumber</i>&quot;, like &quot;libwww-perl/5.65&quot;.  You can change that to something more descriptive like this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $browser-&gt;agent( 'SomeName/3.14 (contact@robotplexus.int)' );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Or if need be, you can go in disguise, like this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $browser-&gt;agent( 'Mozilla/4.0 (compatible; MSIE 5.12; Mac_PowerPC)' );<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;push @{ $ua-&gt;requests_redirectable }, 'POST';&quot;<div style="height: 1.00em;">
+&#160;</div>
+This tells this browser to obey redirection responses to POST requests (like most modern interactive browsers), even though the HTTP RFC says that should not normally be done.</dd>
+</dl>
+<div class="spacer">
+</div>
+For more options and information, see the full documentation for LWP::UserAgent.</div>
+<div class="subsection">
+<h2>Writing Polite Robots</h2> If you want to make sure that your LWP-based program respects  <i>robots.txt</i> files and doesn't make too many requests too fast, you can use the LWP::RobotUA class instead of the LWP::UserAgent class.<div class="spacer">
+</div>
+LWP::RobotUA class is just like LWP::UserAgent, and you can use it like so:<div class="spacer">
+</div>
+<br/>
+  use LWP::RobotUA;<br/>
+  my $browser = LWP::RobotUA-&gt;new('YourSuperBot/1.34', 'you@yoursite.com');<br/>
+    # Your bot's name and your email address<br/>
+<br/>
+  my $response = $browser-&gt;get($url);<br/>
+<div class="spacer">
+</div>
+But HTTP::RobotUA adds these features:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If the <i>robots.txt</i> on $url's server forbids you from accessing $url, then the $browser object (assuming it's of class LWP::RobotUA) won't actually request it, but instead will give you back (in $response) a 403 error with a message &quot;Forbidden by robots.txt&quot;.  That is, if you have this line:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  die &quot;$url -- &quot;, $response-&gt;status_line, &quot;\nAborted&quot;<br/>
+   unless $response-&gt;is_success;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+then the program would die with an error message like this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  http://whatever.site.int/pith/x.html -- 403 Forbidden by robots.txt<br/>
+  Aborted at whateverprogram.pl line 1234<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If this $browser object sees that the last time it talked to $url's server was too recently, then it will pause (via &quot;sleep&quot;) to avoid making too many requests too often. How long it will pause for, is by default one minute -- but you can control it with the &quot;$browser-&gt;delay(  <i>minutes</i> )&quot; attribute.<div style="height: 1.00em;">
+&#160;</div>
+For example, this code:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $browser-&gt;delay( 7/60 );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+...means that this browser will pause when it needs to avoid talking to any given server more than once every 7 seconds.</dd>
+</dl>
+<div class="spacer">
+</div>
+For more options and information, see the full documentation for LWP::RobotUA.</div>
+<div class="subsection">
+<h2>Using Proxies</h2> In some cases, you will want to (or will have to) use proxies for accessing certain sites and/or using certain protocols. This is most commonly the case when your LWP program is running (or could be running) on a machine that is behind a firewall.<div class="spacer">
+</div>
+To make a browser object use proxies that are defined in the usual environment variables (&quot;HTTP_PROXY&quot;, etc.), just call the &quot;env_proxy&quot; on a user-agent object before you go making any requests on it. Specifically:<div class="spacer">
+</div>
+<br/>
+  use LWP::UserAgent;<br/>
+  my $browser = LWP::UserAgent-&gt;new;<br/>
+  <br/>
+  # And before you go making any requests:<br/>
+  $browser-&gt;env_proxy;<br/>
+<div class="spacer">
+</div>
+For more information on proxy parameters, see the LWP::UserAgent documentation, specifically the &quot;proxy&quot;, &quot;env_proxy&quot;, and &quot;no_proxy&quot; methods.</div>
+<div class="subsection">
+<h2>HTTP Authentication</h2> Many web sites restrict access to documents by using &quot;HTTP Authentication&quot;. This isn't just any form of &quot;enter your password&quot; restriction, but is a specific mechanism where the HTTP server sends the browser an HTTP code that says &quot;That document is part of a protected 'realm', and you can access it only if you re-request it and add some special authorization headers to your request&quot;.<div class="spacer">
+</div>
+For example, the Unicode.org admins stop email-harvesting bots from harvesting the contents of their mailing list archives, by protecting them with HTTP Authentication, and then publicly stating the username and password (at &quot;http://www.unicode.org/mail-arch/&quot;) -- namely username &quot;unicode-ml&quot; and password &quot;unicode&quot;.<div class="spacer">
+</div>
+For example, consider this URL, which is part of the protected area of the web site:<div class="spacer">
+</div>
+<br/>
+  http://www.unicode.org/mail-arch/unicode-ml/y2002-m08/0067.html<br/>
+<div class="spacer">
+</div>
+If you access that with a browser, you'll get a prompt like &quot;Enter username and password for 'Unicode-MailList-Archives' at server 'www.unicode.org'&quot;.<div class="spacer">
+</div>
+In LWP, if you just request that URL, like this:<div class="spacer">
+</div>
+<br/>
+  use LWP;<br/>
+  my $browser = LWP::UserAgent-&gt;new;<br/>
+<br/>
+  my $url =<br/>
+   'http://www.unicode.org/mail-arch/unicode-ml/y2002-m08/0067.html';<br/>
+  my $response = $browser-&gt;get($url);<br/>
+<br/>
+  die &quot;Error: &quot;, $response-&gt;header('WWW-Authenticate') || 'Error accessing',<br/>
+    #  ('WWW-Authenticate' is the realm-name)<br/>
+    &quot;\n &quot;, $response-&gt;status_line, &quot;\n at $url\n Aborting&quot;<br/>
+   unless $response-&gt;is_success;<br/>
+<div class="spacer">
+</div>
+Then you'll get this error:<div class="spacer">
+</div>
+<br/>
+  Error: Basic realm=&quot;Unicode-MailList-Archives&quot;<br/>
+   401 Authorization Required<br/>
+   at http://www.unicode.org/mail-arch/unicode-ml/y2002-m08/0067.html<br/>
+   Aborting at auth1.pl line 9.  [or wherever]<br/>
+<div class="spacer">
+</div>
+...because the $browser doesn't know any the username and password for that realm (&quot;Unicode-MailList-Archives&quot;) at that host (&quot;www.unicode.org&quot;).  The simplest way to let the browser know about this is to use the &quot;credentials&quot; method to let it know about a username and password that it can try using for that realm at that host.  The syntax is:<div class="spacer">
+</div>
+<br/>
+  $browser-&gt;credentials(<br/>
+    'servername:portnumber',<br/>
+    'realm-name',<br/>
+   'username' =&gt; 'password'<br/>
+  );<br/>
+<div class="spacer">
+</div>
+In most cases, the port number is 80, the default TCP/IP port for HTTP; and you usually call the &quot;credentials&quot; method before you make any requests. For example:<div class="spacer">
+</div>
+<br/>
+  $browser-&gt;credentials(<br/>
+    'reports.mybazouki.com:80',<br/>
+    'web_server_usage_reports',<br/>
+    'plinky' =&gt; 'banjo123'<br/>
+  );<br/>
+<div class="spacer">
+</div>
+So if we add the following to the program above, right after the &quot;$browser = LWP::UserAgent-&gt;new;&quot; line...<div class="spacer">
+</div>
+<br/>
+  $browser-&gt;credentials(  # add this to our $browser 's &quot;key ring&quot;<br/>
+    'www.unicode.org:80',<br/>
+    'Unicode-MailList-Archives',<br/>
+    'unicode-ml' =&gt; 'unicode'<br/>
+  );<br/>
+<div class="spacer">
+</div>
+...then when we run it, the request succeeds, instead of causing the &quot;die&quot; to be called.</div>
+<div class="subsection">
+<h2>Accessing HTTPS URLs</h2> When you access an HTTPS URL, it'll work for you just like an HTTP URL would -- if your LWP installation has HTTPS support (via an appropriate Secure Sockets Layer library).  For example:<div class="spacer">
+</div>
+<br/>
+  use LWP;<br/>
+  my $url = 'https://www.paypal.com/';   # Yes, HTTPS!<br/>
+  my $browser = LWP::UserAgent-&gt;new;<br/>
+  my $response = $browser-&gt;get($url);<br/>
+  die &quot;Error at $url\n &quot;, $response-&gt;status_line, &quot;\n Aborting&quot;<br/>
+   unless $response-&gt;is_success;<br/>
+  print &quot;Whee, it worked!  I got that &quot;,<br/>
+   $response-&gt;content_type, &quot; document!\n&quot;;<br/>
+<div class="spacer">
+</div>
+If your LWP installation doesn't have HTTPS support set up, then the response will be unsuccessful, and you'll get this error message:<div class="spacer">
+</div>
+<br/>
+  Error at https://www.paypal.com/<br/>
+   501 Protocol scheme 'https' is not supported<br/>
+   Aborting at paypal.pl line 7.   [or whatever program and line]<br/>
+<div class="spacer">
+</div>
+If your LWP installation <i>does</i> have HTTPS support installed, then the response should be successful, and you should be able to consult $response just like with any normal HTTP response.<div class="spacer">
+</div>
+For information about installing HTTPS support for your LWP installation, see the helpful  <i>README.SSL</i> file that comes in the libwww-perl distribution.</div>
+<div class="subsection">
+<h2>Getting Large Documents</h2> When you're requesting a large (or at least potentially large) document, a problem with the normal way of using the request methods (like &quot;$response = $browser-&gt;get($url)&quot;) is that the response object in memory will have to hold the whole document --  <i>in memory</i>. If the response is a thirty megabyte file, this is likely to be quite an imposition on this process's memory usage.<div class="spacer">
+</div>
+A notable alternative is to have LWP save the content to a file on disk, instead of saving it up in memory.  This is the syntax to use:<div class="spacer">
+</div>
+<br/>
+  $response = $ua-&gt;get($url,<br/>
+                         ':content_file' =&gt; $filespec,<br/>
+                      );<br/>
+<div class="spacer">
+</div>
+For example,<div class="spacer">
+</div>
+<br/>
+  $response = $ua-&gt;get('http://search.cpan.org/',<br/>
+                         ':content_file' =&gt; '/tmp/sco.html'<br/>
+                      );<br/>
+<div class="spacer">
+</div>
+When you use this &quot;:content_file&quot; option, the $response will have all the normal header lines, but &quot;$response-&gt;content&quot; will be empty.<div class="spacer">
+</div>
+Note that this &quot;:content_file&quot; option isn't supported under older versions of LWP, so you should consider adding &quot;use LWP 5.66;&quot; to check the LWP version, if you think your program might run on systems with older versions.<div class="spacer">
+</div>
+If you need to be compatible with older LWP versions, then use this syntax, which does the same thing:<div class="spacer">
+</div>
+<br/>
+  use HTTP::Request::Common;<br/>
+  $response = $ua-&gt;request( GET($url), $filespec );<br/>
+</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> Remember, this article is just the most rudimentary introduction to LWP -- to learn more about LWP and LWP-related tasks, you really must read from the following:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+LWP::Simple -- simple functions for getting/heading/mirroring URLs</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+LWP -- overview of the libwww-perl modules</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+LWP::UserAgent -- the class for objects that represent &quot;virtual browsers&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+HTTP::Response -- the class for objects that represent the response to a LWP response, as in &quot;$response = $browser-&gt;get(...)&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+HTTP::Message and HTTP::Headers -- classes that provide more methods to HTTP::Response.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+URI -- class for objects that represent absolute or relative URLs</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+URI::Escape -- functions for URL-escaping and URL-unescaping strings (like turning &quot;this &amp; that&quot; to and from &quot;this%20%26%20that&quot;).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+HTML::Entities -- functions for HTML-escaping and HTML-unescaping strings (like turning &quot;C. &amp; E. Brontee&quot; to and from &quot;C. &amp;amp; E. Bront&amp;euml;&quot;)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+HTML::TokeParser and HTML::TreeBuilder -- classes for parsing HTML</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+HTML::LinkExtor -- class for finding links in HTML documents</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The book <i>Perl &amp; LWP</i> by Sean M. Burke.  O'Reilly &amp; Associates, 2002.  ISBN: 0-596-00178-9, &lt;http://oreilly.com/catalog/perllwp/&gt;.  The whole book is also available free online: &lt;http://lwp.interglacial.com&gt;.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright 2002, Sean M. Burke.  You can redistribute this document and/or modify it, but only under the same terms as Perl itself.</div>
+<div class="section">
+<h1>AUTHOR</h1> Sean M. Burke &quot;sburke@cpan.org&quot;</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-05-01</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

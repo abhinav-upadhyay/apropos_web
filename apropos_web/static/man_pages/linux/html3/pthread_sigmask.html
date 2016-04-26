@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PTHREAD_SIGMASK(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PTHREAD_SIGMASK(3)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+PTHREAD_SIGMASK(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> pthread_sigmask - examine and change mask of blocked signals</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;signal.h&gt;</b><div class="spacer">
+</div>
+<br/>
+<b>int pthread_sigmask(int </b><i>how</i><b>, const sigset_t *</b><i>set</i><b>, sigset_t *</b><i>oldset</i><b>);</b><br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Compile and link with <i>-pthread</i>.</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The <b>pthread_sigmask</b>() function is just like <b>sigprocmask</b>(2), with the difference that its use in multithreaded programs is explicitly specified by POSIX.1-2001. Other differences are noted in this page.<div style="height: 1.00em;">
+&#160;</div>
+For a description of the arguments and operation of this function, see <b>sigprocmask</b>(2).</div>
+<div class="section">
+<h1>RETURN VALUE</h1> On success, <b>pthread_sigmask</b>() returns 0; on error, it returns an error number.</div>
+<div class="section">
+<h1>ERRORS</h1> See <b>sigprocmask</b>(2).</div>
+<div class="section">
+<h1>CONFORMING TO</h1> POSIX.1-2001.</div>
+<div class="section">
+<h1>NOTES</h1> A new thread inherits a copy of its creator's signal mask.</div>
+<div class="section">
+<h1>EXAMPLE</h1> The program below blocks some signals in the main thread, and then creates a dedicated thread to fetch those signals via <b>sigwait</b>(3). The following shell session demonstrates its use:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+$<b> ./a.out &amp;</b><br/>
+[1] 5423<br/>
+$<b> kill -QUIT %1</b><br/>
+Signal handling thread got signal 3<br/>
+$<b> kill -USR1 %1</b><br/>
+Signal handling thread got signal 10<br/>
+$<b> kill -TERM %1</b><br/>
+[1]+  Terminated              ./a.out<br/>
+<br/>
+<div class="subsection">
+<h2>Program source</h2> <br/>
+#include &lt;pthread.h&gt;<br/>
+#include &lt;stdio.h&gt;<br/>
+#include &lt;stdlib.h&gt;<br/>
+#include &lt;unistd.h&gt;<br/>
+#include &lt;signal.h&gt;<br/>
+#include &lt;errno.h&gt;<div class="spacer">
+</div>
+<br/>
+/* Simple error handling functions */<div class="spacer">
+</div>
+<br/>
+#define handle_error_en(en, msg) \<br/>
+        do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)<div class="spacer">
+</div>
+<br/>
+static void *<br/>
+sig_thread(void *arg)<br/>
+{<br/>
+    sigset_t *set = (sigset_t *) arg;<br/>
+    int s, sig;<div class="spacer">
+</div>
+<br/>
+    for (;;) {<br/>
+        s = sigwait(set, &amp;sig);<br/>
+        if (s != 0)<br/>
+            handle_error_en(s, &quot;sigwait&quot;);<br/>
+        printf(&quot;Signal handling thread got signal %d\n&quot;, sig);<br/>
+    }<br/>
+}<div class="spacer">
+</div>
+<br/>
+int<br/>
+main(int argc, char *argv[])<br/>
+{<br/>
+    pthread_t thread;<br/>
+    sigset_t set;<br/>
+    int s;<div class="spacer">
+</div>
+<br/>
+    /* Block SIGINT; other threads created by main() will inherit<br/>
+       a copy of the signal mask. */<div class="spacer">
+</div>
+<br/>
+    sigemptyset(&amp;set);<br/>
+    sigaddset(&amp;set, SIGQUIT);<br/>
+    sigaddset(&amp;set, SIGUSR1);<br/>
+    s = pthread_sigmask(SIG_BLOCK, &amp;set, NULL);<br/>
+    if (s != 0)<br/>
+        handle_error_en(s, &quot;pthread_sigmask&quot;);<div class="spacer">
+</div>
+<br/>
+    s = pthread_create(&amp;thread, NULL, &amp;sig_thread, (void *) &amp;set);<br/>
+    if (s != 0)<br/>
+        handle_error_en(s, &quot;pthread_create&quot;);<div class="spacer">
+</div>
+<br/>
+    /* Main thread carries on to create other threads and/or do<br/>
+       other work */<div class="spacer">
+</div>
+<br/>
+    pause();            /* Dummy pause so we can test program */<br/>
+}<br/>
+</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>sigaction</b>(2), <b>sigpending</b>(2), <b>sigprocmask</b>(2) <b>pthread_create</b>(3), <b>pthread_kill</b>(3), <b>sigsetops</b>(3), <b>pthreads</b>(7), <b>signal</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2009-01-25</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

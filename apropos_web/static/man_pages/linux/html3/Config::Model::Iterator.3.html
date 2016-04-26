@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Config::Model::Iterator(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Config::Model::Iterator(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Config::Model::Iterator(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Config::Model::Iterator - Iterates forward or backward a configuration tree</div>
+<div class="section">
+<h1>VERSION</h1> version 2.005</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ use Config::Model;<br/>
+ use Log::Log4perl qw(:easy);<br/>
+ Log::Log4perl-&gt;easy_init($WARN);<br/>
+<br/>
+ # define configuration tree object<br/>
+ my $model = Config::Model-&gt;new;<br/>
+ $model-&gt;create_config_class(<br/>
+    name    =&gt; &quot;Foo&quot;,<br/>
+    element =&gt; [<br/>
+        [qw/bar baz/] =&gt; {<br/>
+            type       =&gt; 'leaf',<br/>
+            value_type =&gt; 'string',<br/>
+            level =&gt; 'important' ,<br/>
+        },<br/>
+    ]<br/>
+ );<br/>
+ $model-&gt;create_config_class(<br/>
+    name    =&gt; &quot;MyClass&quot;,<br/>
+    element =&gt; [<br/>
+        foo_nodes =&gt; {<br/>
+            type       =&gt; 'hash',     # hash id<br/>
+            index_type =&gt; 'string',<br/>
+            level =&gt; 'important' ,<br/>
+            cargo      =&gt; {<br/>
+                type              =&gt; 'node',<br/>
+                config_class_name =&gt; 'Foo'<br/>
+            },<br/>
+        },<br/>
+    ],<br/>
+ );<br/>
+<br/>
+ my $inst = $model-&gt;instance( root_class_name =&gt; 'MyClass' );<br/>
+ # create some Foo objects<br/>
+ $inst-&gt;config_root-&gt;load(&quot;foo_nodes:foo1 - foo_nodes:foo2  &quot;) ;<br/>
+<br/>
+ my $my_leaf_cb = sub {<br/>
+    my ($iter, $data_r,$node,$element,$index, $leaf_object) = @_ ;<br/>
+    print &quot;leaf_cb called for &quot;,$leaf_object-&gt;location,&quot;\n&quot; ;<br/>
+ } ;<br/>
+ my $my_hash_cb = sub {<br/>
+    my ($iter, $data_r,$node,$element,@keys) = @_ ;<br/>
+    print &quot;hash_element_cb called for element $element with keys @keys\n&quot; ;<br/>
+ } ;<br/>
+<br/>
+ my $iterator = $inst -&gt; iterator ( <br/>
+    leaf_cb         =&gt; $my_leaf_cb,<br/>
+    hash_element_cb =&gt; $my_hash_cb , <br/>
+ );<br/>
+<br/>
+ $iterator-&gt;start ;<br/>
+ ### prints<br/>
+ # hash_element_cb called for element foo_nodes with keys foo1 foo2<br/>
+ # leaf_cb called for foo_nodes:foo1 bar<br/>
+ # leaf_cb called for foo_nodes:foo1 baz<br/>
+ # leaf_cb called for foo_nodes:foo2 bar<br/>
+ # leaf_cb called for foo_nodes:foo2 baz<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This module provides a class that is able to iterate forward or backward a configuration tree. The iterator will stop and call back user defined subroutines on one of the following condition:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A configuration item contains an error (mostly undefined mandatory values)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A configuration item contains warnings and the constructor's argument &quot;call_back_on_warning&quot; was set.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A configuration item has a &quot;important&quot; level and the constructor's argument &quot;call_back_on_important&quot; was set.. See level parameter for details.</dd>
+</dl>
+<div class="spacer">
+</div>
+By default, the iterator will only stop on element with an &quot;intermediate&quot; experience.<div class="spacer">
+</div>
+The iterator supports going forward and backward (to support &quot;back&quot; and &quot;next&quot; buttons on a wizard widget).</div>
+<div class="section">
+<h1>CONSTRUCTOR</h1> The constructor should be used only by Config::Model::Instance with the iterator method.</div>
+<div class="section">
+<h1>Creating an iterator</h1> A iterator requires at least two kind of call-back: a call-back for leaf elements and a call-back for hash elements (which will be also used for list elements).<div class="spacer">
+</div>
+These call-back must be passed when creating the iterator (the parameters are named &quot;leaf_cb&quot; and &quot;hash_element_cb&quot;)<div class="spacer">
+</div>
+Here are the the parameters accepted by &quot;iterator&quot;:<div class="subsection">
+<h2>call_back_on_important</h2> Whether to call back when an important element is found (default 0).</div>
+<div class="subsection">
+<h2>call_back_on_warning</h2> Whether to call back when an item with warnings is found (default 0).</div>
+<div class="subsection">
+<h2>experience</h2> Specifies the experience of the element scanned by the wizard (default 'intermediate').</div>
+<div class="subsection">
+<h2>status</h2> Specifies the status of the element scanned by the wizard (default 'standard').</div>
+<div class="subsection">
+<h2>leaf_cb</h2> Subroutine called backed for leaf elements. See &quot;Callback prototypes&quot; in Config::Model::ObjTreeScanner for signature and details. (mandatory)</div>
+<div class="subsection">
+<h2>hash_element_cb</h2> Subroutine called backed for hash elements. See &quot;Callback prototypes&quot; in Config::Model::ObjTreeScanner for signature and details. (mandatory)</div>
+</div>
+<div class="section">
+<h1>Custom callbacks</h1> By default, &quot;leaf_cb&quot; will be called for all types of leaf elements (i.e enum. integer, strings, ...). But you can provide dedicated call-back for each type of leaf:<div class="spacer">
+</div>
+<br/>
+ enum_value_cb, integer_value_cb, number_value_cb, boolean_value_cb,<br/>
+ uniline_value_cb, string_value_cb<br/>
+<div class="spacer">
+</div>
+Likewise, you can also provide a call-back dedicated to list elements with &quot;list_element_cb&quot;</div>
+<div class="section">
+<h1>Methods</h1><div class="subsection">
+<h2>start</h2> Start the scan and perform call-back when needed. This function will return when the scan is completely done.</div>
+<div class="subsection">
+<h2>bail_out</h2> When called, a variable is set so that all call_backs will return as soon as possible. Used to abort wizard.</div>
+<div class="subsection">
+<h2>go_forward</h2> Set wizard in forward (default) mode.</div>
+<div class="subsection">
+<h2>go_backward</h2> Set wizard in backward mode.</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Dominique Dumont, (ddumont at cpan dot org)</div>
+<div class="section">
+<h1>SEE ALSO</h1> Config::Model, Config::Model::Instance, Config::Model::Node, Config::Model::HashId, Config::Model::ListId, Config::Model::Value, Config::Model::CheckList, Config::Model::ObjTreeScanner,</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2012-02-24</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+mro(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+mro(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+mro(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> mro - Method Resolution Order</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  use mro; # enables next::method and friends globally<br/>
+<br/>
+  use mro 'dfs'; # enable DFS MRO for this class (Perl default)<br/>
+  use mro 'c3'; # enable C3 MRO for this class<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The &quot;mro&quot; namespace provides several utilities for dealing with method resolution order and method caching in general.<div class="spacer">
+</div>
+These interfaces are only available in Perl 5.9.5 and higher. See MRO::Compat on CPAN for a mostly forwards compatible implementation for older Perls.</div>
+<div class="section">
+<h1>OVERVIEW</h1> It's possible to change the MRO of a given class either by using &quot;use mro&quot; as shown in the synopsis, or by using the &quot;mro::set_mro&quot; function below.<div class="spacer">
+</div>
+The special methods &quot;next::method&quot;, &quot;next::can&quot;, and &quot;maybe::next::method&quot; are not available until this &quot;mro&quot; module has been loaded via &quot;use&quot; or &quot;require&quot;.</div>
+<div class="section">
+<h1>The C3 MRO</h1> In addition to the traditional Perl default MRO (depth first search, called &quot;DFS&quot; here), Perl now offers the C3 MRO as well.  Perl's support for C3 is based on the work done in Stevan Little's module Class::C3, and most of the C3-related documentation here is ripped directly from there.<div class="subsection">
+<h2>What is C3?</h2> C3 is the name of an algorithm which aims to provide a sane method resolution order under multiple inheritance. It was first introduced in the language Dylan (see links in the &quot;SEE ALSO&quot; section), and then later adopted as the preferred MRO (Method Resolution Order) for the new-style classes in Python 2.3. Most recently it has been adopted as the &quot;canonical&quot; MRO for Perl 6 classes, and the default MRO for Parrot objects as well.</div>
+<div class="subsection">
+<h2>How does C3 work</h2> C3 works by always preserving local precedence ordering. This essentially means that no class will appear before any of its subclasses. Take, for instance, the classic diamond inheritance pattern:<div class="spacer">
+</div>
+<br/>
+     &lt;A&gt;<br/>
+    /   \<br/>
+  &lt;B&gt;   &lt;C&gt;<br/>
+    \   /<br/>
+     &lt;D&gt;<br/>
+<div class="spacer">
+</div>
+The standard Perl 5 MRO would be (D, B, A, C). The result being that <b>A</b> appears before  <b>C</b>, even though <b>C</b> is the subclass of <b>A</b>. The C3 MRO algorithm however, produces the following order: (D, B, C, A), which does not have this issue.<div class="spacer">
+</div>
+This example is fairly trivial; for more complex cases and a deeper explanation, see the links in the &quot;SEE ALSO&quot; section.</div>
+</div>
+<div class="section">
+<h1>Functions</h1><div class="subsection">
+<h2>mro::get_linear_isa($classname[, $type])</h2> Returns an arrayref which is the linearized MRO of the given class. Uses whichever MRO is currently in effect for that class by default, or the given MRO (either &quot;c3&quot; or &quot;dfs&quot; if specified as $type).<div class="spacer">
+</div>
+The linearized MRO of a class is an ordered array of all of the classes one would search when resolving a method on that class, starting with the class itself.<div class="spacer">
+</div>
+If the requested class doesn't yet exist, this function will still succeed, and return &quot;[ $classname ]&quot;<div class="spacer">
+</div>
+Note that &quot;UNIVERSAL&quot; (and any members of &quot;UNIVERSAL&quot;'s MRO) are not part of the MRO of a class, even though all classes implicitly inherit methods from &quot;UNIVERSAL&quot; and its parents.</div>
+<div class="subsection">
+<h2>mro::set_mro ($classname, $type)</h2> Sets the MRO of the given class to the $type argument (either &quot;c3&quot; or &quot;dfs&quot;).</div>
+<div class="subsection">
+<h2>mro::get_mro($classname)</h2> Returns the MRO of the given class (either &quot;c3&quot; or &quot;dfs&quot;).</div>
+<div class="subsection">
+<h2>mro::get_isarev($classname)</h2> Gets the &quot;mro_isarev&quot; for this class, returned as an arrayref of class names.  These are every class that &quot;isa&quot; the given class name, even if the isa relationship is indirect.  This is used internally by the MRO code to keep track of method/MRO cache invalidations.<div class="spacer">
+</div>
+As with &quot;mro::get_linear_isa&quot; above, &quot;UNIVERSAL&quot; is special. &quot;UNIVERSAL&quot; (and parents') isarev lists do not include every class in existence, even though all classes are effectively descendants for method inheritance purposes.</div>
+<div class="subsection">
+<h2>mro::is_universal($classname)</h2> Returns a boolean status indicating whether or not the given classname is either &quot;UNIVERSAL&quot; itself, or one of &quot;UNIVERSAL&quot;'s parents by @ISA inheritance.<div class="spacer">
+</div>
+Any class for which this function returns true is &quot;universal&quot; in the sense that all classes potentially inherit methods from it.</div>
+<div class="subsection">
+<h2><i>mro::invalidate_all_method_caches()</i></h2> Increments &quot;PL_sub_generation&quot;, which invalidates method caching in all packages.</div>
+<div class="subsection">
+<h2>mro::method_changed_in($classname)</h2> Invalidates the method cache of any classes dependent on the given class.  This is not normally necessary.  The only known case where pure perl code can confuse the method cache is when you manually install a new constant subroutine by using a readonly scalar value, like the internals of constant do.  If you find another case, please report it so we can either fix it or document the exception here.</div>
+<div class="subsection">
+<h2>mro::get_pkg_gen($classname)</h2> Returns an integer which is incremented every time a real local method in the package $classname changes, or the local @ISA of $classname is modified.<div class="spacer">
+</div>
+This is intended for authors of modules which do lots of class introspection, as it allows them to very quickly check if anything important about the local properties of a given class have changed since the last time they looked.  It does not increment on method/@ISA changes in superclasses.<div class="spacer">
+</div>
+It's still up to you to seek out the actual changes, and there might not actually be any.  Perhaps all of the changes since you last checked cancelled each other out and left the package in the state it was in before.<div class="spacer">
+</div>
+This integer normally starts off at a value of 1 when a package stash is instantiated.  Calling it on packages whose stashes do not exist at all will return 0.  If a package stash is completely deleted (not a normal occurence, but it can happen if someone does something like &quot;undef %PkgName::&quot;), the number will be reset to either 0 or 1, depending on how completely package was wiped out.</div>
+<div class="subsection">
+<h2>next::method</h2> This is somewhat like &quot;SUPER&quot;, but it uses the C3 method resolution order to get better consistency in multiple inheritance situations.  Note that while inheritance in general follows whichever MRO is in effect for the given class, &quot;next::method&quot; only uses the C3 MRO.<div class="spacer">
+</div>
+One generally uses it like so:<div class="spacer">
+</div>
+<br/>
+  sub some_method {<br/>
+    my $self = shift;<br/>
+    my $superclass_answer = $self-&gt;next::method(@_);<br/>
+    return $superclass_answer + 1;<br/>
+  }<br/>
+<div class="spacer">
+</div>
+Note that you don't (re-)specify the method name. It forces you to always use the same method name as the method you started in.<div class="spacer">
+</div>
+It can be called on an object or a class, of course.<div class="spacer">
+</div>
+The way it resolves which actual method to call is:<dl>
+<dt>
+1.</dt>
+<dd>
+First, it determines the linearized C3 MRO of the object or class it is being called on.</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+Then, it determines the class and method name of the context it was invoked from.</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+Finally, it searches down the C3 MRO list until it reaches the contextually enclosing class, then searches further down the MRO list for the next method with the same name as the contextually enclosing method.</dd>
+</dl>
+<div class="spacer">
+</div>
+Failure to find a next method will result in an exception being thrown (see below for alternatives).<div class="spacer">
+</div>
+This is substantially different than the behavior of &quot;SUPER&quot; under complex multiple inheritance. (This becomes obvious when one realizes that the common superclasses in the C3 linearizations of a given class and one of its parents will not always be ordered the same for both.)<div class="spacer">
+</div>
+<b>Caveat</b>: Calling &quot;next::method&quot; from methods defined outside the class:<div class="spacer">
+</div>
+There is an edge case when using &quot;next::method&quot; from within a subroutine which was created in a different module than the one it is called from. It sounds complicated, but it really isn't. Here is an example which will not work correctly:<div class="spacer">
+</div>
+<br/>
+  *Foo::foo = sub { (shift)-&gt;next::method(@_) };<br/>
+<div class="spacer">
+</div>
+The problem exists because the anonymous subroutine being assigned to the *Foo::foo glob will show up in the call stack as being called &quot;__ANON__&quot; and not &quot;foo&quot; as you might expect. Since &quot;next::method&quot; uses &quot;caller&quot; to find the name of the method it was called in, it will fail in this case.<div class="spacer">
+</div>
+But fear not, there's a simple solution. The module &quot;Sub::Name&quot; will reach into the perl internals and assign a name to an anonymous subroutine for you. Simply do this:<div class="spacer">
+</div>
+<br/>
+  use Sub::Name 'subname';<br/>
+  *Foo::foo = subname 'Foo::foo' =&gt; sub { (shift)-&gt;next::method(@_) };<br/>
+<div class="spacer">
+</div>
+and things will Just Work.</div>
+<div class="subsection">
+<h2>next::can</h2> This is similar to &quot;next::method&quot;, but just returns either a code reference or &quot;undef&quot; to indicate that no further methods of this name exist.</div>
+<div class="subsection">
+<h2>maybe::next::method</h2> In simple cases, it is equivalent to:<div class="spacer">
+</div>
+<br/>
+   $self-&gt;next::method(@_) if $self-&gt;next::can;<br/>
+<div class="spacer">
+</div>
+But there are some cases where only this solution works (like &quot;goto &amp;maybe::next::method&quot;);</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1><div class="subsection">
+<h2>The original Dylan paper</h2><dl>
+<dt>
+http://www.webcom.com/haahr/dylan/linearization-oopsla96.html &lt;http://www.webcom.com/haahr/dylan/linearization-oopsla96.html&gt;</dt>
+<dd>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Pugs</h2> The Pugs prototype Perl 6 Object Model uses C3</div>
+<div class="subsection">
+<h2>Parrot</h2> Parrot now uses C3<dl>
+<dt>
+http://aspn.activestate.com/ASPN/Mail/Message/perl6-internals/2746631 &lt;http://aspn.activestate.com/ASPN/Mail/Message/perl6-internals/2746631&gt;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&lt;http://use.perl.org/~autrijus/journal/25768&gt;</dt>
+<dd>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Python 2.3 MRO related links</h2><dl>
+<dt>
+&lt;http://www.python.org/2.3/mro.html&gt;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&lt;http://www.python.org/2.2.2/descrintro.html#mro&gt;</dt>
+<dd>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>C3 for TinyCLOS</h2><dl>
+<dt>
+http://www.call-with-current-continuation.org/eggs/c3.html &lt;http://www.call-with-current-continuation.org/eggs/c3.html&gt;</dt>
+<dd>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Class::C3</h2><dl>
+<dt>
+Class::C3</dt>
+<dd>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Brandon L. Black, &lt;blblack@gmail.com&gt;<div class="spacer">
+</div>
+Based on Stevan Little's Class::C3</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

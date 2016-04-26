@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Moose::Cookbook::Basics::Recipe4(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Moose::Cookbook::Basics::Recipe4(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Moose::Cookbook::Basics::Recipe4(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Moose::Cookbook::Basics::Recipe4 - Subtypes, and modeling a simple Company class hierarchy</div>
+<div class="section">
+<h1>VERSION</h1> version 2.0401</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  package Address;<br/>
+  use Moose;<br/>
+  use Moose::Util::TypeConstraints;<br/>
+<br/>
+  use Locale::US;<br/>
+  use Regexp::Common 'zip';<br/>
+<br/>
+  my $STATES = Locale::US-&gt;new;<br/>
+  subtype 'USState'<br/>
+      =&gt; as Str<br/>
+      =&gt; where {<br/>
+             (    exists $STATES-&gt;{code2state}{ uc($_) }<br/>
+               || exists $STATES-&gt;{state2code}{ uc($_) } );<br/>
+         };<br/>
+<br/>
+  subtype 'USZipCode'<br/>
+      =&gt; as Value<br/>
+      =&gt; where {<br/>
+             /^$RE{zip}{US}{-extended =&gt; 'allow'}$/;<br/>
+         };<br/>
+<br/>
+  has 'street'   =&gt; ( is =&gt; 'rw', isa =&gt; 'Str' );<br/>
+  has 'city'     =&gt; ( is =&gt; 'rw', isa =&gt; 'Str' );<br/>
+  has 'state'    =&gt; ( is =&gt; 'rw', isa =&gt; 'USState' );<br/>
+  has 'zip_code' =&gt; ( is =&gt; 'rw', isa =&gt; 'USZipCode' );<br/>
+<br/>
+  package Company;<br/>
+  use Moose;<br/>
+  use Moose::Util::TypeConstraints;<br/>
+<br/>
+  has 'name' =&gt; ( is =&gt; 'rw', isa =&gt; 'Str', required =&gt; 1 );<br/>
+  has 'address'   =&gt; ( is =&gt; 'rw', isa =&gt; 'Address' );<br/>
+  has 'employees' =&gt; (<br/>
+      is      =&gt; 'rw',<br/>
+      isa     =&gt; 'ArrayRef[Employee]',<br/>
+      default =&gt; sub { [] },<br/>
+  );<br/>
+<br/>
+  sub BUILD {<br/>
+      my ( $self, $params ) = @_;<br/>
+      foreach my $employee ( @{ $self-&gt;employees } ) {<br/>
+          $employee-&gt;employer($self);<br/>
+      }<br/>
+  }<br/>
+<br/>
+  after 'employees' =&gt; sub {<br/>
+      my ( $self, $employees ) = @_;<br/>
+      return unless $employees;<br/>
+      foreach my $employee ( @$employees ) {<br/>
+          $employee-&gt;employer($self);<br/>
+      }<br/>
+  };<br/>
+<br/>
+  package Person;<br/>
+  use Moose;<br/>
+<br/>
+  has 'first_name' =&gt; ( is =&gt; 'rw', isa =&gt; 'Str', required =&gt; 1 );<br/>
+  has 'last_name'  =&gt; ( is =&gt; 'rw', isa =&gt; 'Str', required =&gt; 1 );<br/>
+  has 'middle_initial' =&gt; (<br/>
+      is        =&gt; 'rw', isa =&gt; 'Str',<br/>
+      predicate =&gt; 'has_middle_initial'<br/>
+  );<br/>
+  has 'address' =&gt; ( is =&gt; 'rw', isa =&gt; 'Address' );<br/>
+<br/>
+  sub full_name {<br/>
+      my $self = shift;<br/>
+      return $self-&gt;first_name<br/>
+          . (<br/>
+          $self-&gt;has_middle_initial<br/>
+          ? ' ' . $self-&gt;middle_initial . '. '<br/>
+          : ' '<br/>
+          ) . $self-&gt;last_name;<br/>
+  }<br/>
+<br/>
+  package Employee;<br/>
+  use Moose;<br/>
+<br/>
+  extends 'Person';<br/>
+<br/>
+  has 'title'    =&gt; ( is =&gt; 'rw', isa =&gt; 'Str',     required =&gt; 1 );<br/>
+  has 'employer' =&gt; ( is =&gt; 'rw', isa =&gt; 'Company', weak_ref =&gt; 1 );<br/>
+<br/>
+  override 'full_name' =&gt; sub {<br/>
+      my $self = shift;<br/>
+      super() . ', ' . $self-&gt;title;<br/>
+  };<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This recipe introduces the &quot;subtype&quot; sugar function from Moose::Util::TypeConstraints. The &quot;subtype&quot; function lets you declaratively create type constraints without building an entire class.<div class="spacer">
+</div>
+In the recipe we also make use of Locale::US and Regexp::Common to build constraints, showing how constraints can make use of existing CPAN tools for data validation.<div class="spacer">
+</div>
+Finally, we introduce the &quot;required&quot; attribute option.<div class="spacer">
+</div>
+In the &quot;Address&quot; class we define two subtypes. The first uses the Locale::US module to check the validity of a state. It accepts either a state abbreviation of full name.<div class="spacer">
+</div>
+A state will be passed in as a string, so we make our &quot;USState&quot; type a subtype of Moose's builtin &quot;Str&quot; type. This is done using the &quot;as&quot; sugar. The actual constraint is defined using &quot;where&quot;. This function accepts a single subroutine reference. That subroutine will be called with the value to be checked in $_ (1). It is expected to return a true or false value indicating whether the value is valid for the type.<div class="spacer">
+</div>
+We can now use the &quot;USState&quot; type just like Moose's builtin types:<div class="spacer">
+</div>
+<br/>
+  has 'state'    =&gt; ( is =&gt; 'rw', isa =&gt; 'USState' );<br/>
+<div class="spacer">
+</div>
+When the &quot;state&quot; attribute is set, the value is checked against the &quot;USState&quot; constraint. If the value is not valid, an exception will be thrown.<div class="spacer">
+</div>
+The next &quot;subtype&quot;, &quot;USZipCode&quot;, uses Regexp::Common. Regexp::Common includes a regex for validating US zip codes. We use this constraint for the &quot;zip_code&quot; attribute.<div class="spacer">
+</div>
+<br/>
+  subtype 'USZipCode'<br/>
+      =&gt; as Value<br/>
+      =&gt; where {<br/>
+             /^$RE{zip}{US}{-extended =&gt; 'allow'}$/;<br/>
+         };<br/>
+<div class="spacer">
+</div>
+Using a subtype instead of requiring a class for each type greatly simplifies the code. We don't really need a class for these types, as they're just strings, but we do want to ensure that they're valid.<div class="spacer">
+</div>
+The type constraints we created are reusable. Type constraints are stored by name in a global registry, which means that we can refer to them in other classes. Because the registry is global, we do recommend that you use some sort of namespacing in real applications, like &quot;MyApp::Type::USState&quot; (just as you would do with class names).<div class="spacer">
+</div>
+These two subtypes allow us to define a simple &quot;Address&quot; class.<div class="spacer">
+</div>
+Then we define our &quot;Company&quot; class, which has an address. As we saw in earlier recipes, Moose automatically creates a type constraint for each our classes, so we can use that for the &quot;Company&quot; class's &quot;address&quot; attribute:<div class="spacer">
+</div>
+<br/>
+  has 'address'   =&gt; ( is =&gt; 'rw', isa =&gt; 'Address' );<br/>
+<div class="spacer">
+</div>
+A company also needs a name:<div class="spacer">
+</div>
+<br/>
+  has 'name' =&gt; ( is =&gt; 'rw', isa =&gt; 'Str', required =&gt; 1 );<br/>
+<div class="spacer">
+</div>
+This introduces a new attribute option, &quot;required&quot;. If an attribute is required, then it must be passed to the class's constructor, or an exception will be thrown. It's important to understand that a &quot;required&quot; attribute can still be false or &quot;undef&quot;, if its type constraint allows that.<div class="spacer">
+</div>
+The next attribute, &quot;employees&quot;, uses a <i>parameterized</i> type constraint:<div class="spacer">
+</div>
+<br/>
+  has 'employees' =&gt; (<br/>
+      is      =&gt; 'rw',<br/>
+      isa     =&gt; 'ArrayRef[Employee]'<br/>
+      default =&gt; sub { [] },<br/>
+  );<br/>
+<div class="spacer">
+</div>
+This constraint says that &quot;employees&quot; must be an array reference where each element of the array is an &quot;Employee&quot; object. It's worth noting that an  <i>empty</i> array reference also satisfies this constraint, such as the value given as the default here.<div class="spacer">
+</div>
+Parameterizable type constraints (or &quot;container types&quot;), such as &quot;ArrayRef[`a]&quot;, can be made more specific with a type parameter. In fact, we can arbitrarily nest these types, producing something like &quot;HashRef[ArrayRef[Int]]&quot;. However, you can also just use the type by itself, so &quot;ArrayRef&quot; is legal. (2)<div class="spacer">
+</div>
+If you jump down to the definition of the &quot;Employee&quot; class, you will see that it has an &quot;employer&quot; attribute.<div class="spacer">
+</div>
+When we set the &quot;employees&quot; for a &quot;Company&quot; we want to make sure that each of these employee objects refers back to the right &quot;Company&quot; in its &quot;employer&quot; attribute.<div class="spacer">
+</div>
+To do that, we need to hook into object construction. Moose lets us do this by writing a &quot;BUILD&quot; method in our class. When your class defines a &quot;BUILD&quot; method, it will be called by the constructor immediately after object construction, but before the object is returned to the caller. Note that all &quot;BUILD&quot; methods in your class hierarchy will be called automatically; there is no need to (and you should not) call the superclass &quot;BUILD&quot; method.<div class="spacer">
+</div>
+The &quot;Company&quot; class uses the &quot;BUILD&quot; method to ensure that each employee of a company has the proper &quot;Company&quot; object in its &quot;employer&quot; attribute:<div class="spacer">
+</div>
+<br/>
+  sub BUILD {<br/>
+      my ( $self, $params ) = @_;<br/>
+      foreach my $employee ( @{ $self-&gt;employees } ) {<br/>
+          $employee-&gt;employer($self);<br/>
+      }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+The &quot;BUILD&quot; method is executed after type constraints are checked, so it is safe to assume that if &quot;$self-&gt;employees&quot; has a value, it will be an array reference, and that the elements of that array reference will be &quot;Employee&quot; objects.<div class="spacer">
+</div>
+We also want to make sure that whenever the &quot;employees&quot; attribute for a &quot;Company&quot; is changed, we also update the &quot;employer&quot; for each employee.<div class="spacer">
+</div>
+To do this we can use an &quot;after&quot; modifier:<div class="spacer">
+</div>
+<br/>
+  after 'employees' =&gt; sub {<br/>
+      my ( $self, $employees ) = @_;<br/>
+      return unless $employees;<br/>
+      foreach my $employee ( @$employees ) {<br/>
+          $employee-&gt;employer($self);<br/>
+      }<br/>
+  };<br/>
+<div class="spacer">
+</div>
+Again, as with the &quot;BUILD&quot; method, we know that the type constraint check has already happened, so we know that if $employees is defined it will contain an array reference of &quot;Employee&quot; objects.<div class="spacer">
+</div>
+Note that &quot;employees&quot; is a read/write accessor, so we must return early if it's called as a reader.<div class="spacer">
+</div>
+The <b>Person</b> class does not really demonstrate anything new. It has several &quot;required&quot; attributes. It also has a &quot;predicate&quot; method, which we first used in recipe 3.<div class="spacer">
+</div>
+The only new feature in the &quot;Employee&quot; class is the &quot;override&quot; method modifier:<div class="spacer">
+</div>
+<br/>
+  override 'full_name' =&gt; sub {<br/>
+      my $self = shift;<br/>
+      super() . ', ' . $self-&gt;title;<br/>
+  };<br/>
+<div class="spacer">
+</div>
+This is just a sugary alternative to Perl's built in &quot;SUPER::&quot; feature. However, there is one difference. You cannot pass any arguments to &quot;super&quot;. Instead, Moose simply passes the same parameters that were passed to the method.<div class="spacer">
+</div>
+A more detailed example of usage can be found in  <i>t/recipes/moose_cookbook_basics_recipe4.t</i>.</div>
+<div class="section">
+<h1>CONCLUSION</h1> This recipe was intentionally longer and more complex. It illustrates how Moose classes can be used together with type constraints, as well as the density of information that you can get out of a small amount of typing when using Moose.<div class="spacer">
+</div>
+This recipe also introduced the &quot;subtype&quot; function, the &quot;required&quot; attribute, and the &quot;override&quot; method modifier.<div class="spacer">
+</div>
+We will revisit type constraints in future recipes, and cover type coercion as well.</div>
+<div class="section">
+<h1>FOOTNOTES</h1><dl>
+<dt>
+(1)</dt>
+<dd>
+The value being checked is also passed as the first argument to the &quot;where&quot; block, so it can be accessed as $_[0].</dd>
+</dl>
+<dl>
+<dt>
+(2)</dt>
+<dd>
+Note that &quot;ArrayRef[]&quot; will not work. Moose will not parse this as a container type, and instead you will have a new type named &quot;ArrayRef[]&quot;, which doesn't make any sense.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Moose is maintained by the Moose Cabal, along with the help of many contributors. See &quot;CABAL&quot; in Moose and &quot;CONTRIBUTORS&quot; in Moose for details.</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> This software is copyright (c) 2011 by Infinity Interactive, Inc..<div class="spacer">
+</div>
+This is free software; you can redistribute it and/or modify it under the same terms as the Perl 5 programming language system itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-11-17</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

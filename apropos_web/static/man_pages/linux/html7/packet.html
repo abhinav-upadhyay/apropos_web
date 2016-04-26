@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PACKET(7)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PACKET(7)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+PACKET(7)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> packet, AF_PACKET - packet interface on device level.</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;sys/socket.h&gt;</b><div style="height: 0.00em;">
+&#160;</div>
+<b>#include &lt;netpacket/packet.h&gt;</b><div style="height: 0.00em;">
+&#160;</div>
+<b>#include &lt;net/ethernet.h&gt; /* the L2 protocols */</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>packet_socket = socket(AF_PACKET, int </b><i>socket_type</i><b>, int </b><i>protocol</i><b>);</b><br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Packet sockets are used to receive or send raw packets at the device driver (OSI Layer 2) level. They allow the user to implement protocol modules in user space on top of the physical layer.<div style="height: 1.00em;">
+&#160;</div>
+The <i>socket_type</i> is either <b>SOCK_RAW</b> for raw packets including the link level header or <b>SOCK_DGRAM</b> for cooked packets with the link level header removed. The link level header information is available in a common format in a <i>sockaddr_ll</i>. <i>protocol</i> is the IEEE 802.3 protocol number in network order. See the <i>&lt;linux/if_ether.h&gt;</i> include file for a list of allowed protocols. When protocol is set to <b>htons(ETH_P_ALL)</b> then all protocols are received. All incoming packets of that protocol type will be passed to the packet socket before they are passed to the protocols implemented in the kernel.<div style="height: 1.00em;">
+&#160;</div>
+Only processes with effective UID 0 or the <b>CAP_NET_RAW</b> capability may open packet sockets.<div style="height: 1.00em;">
+&#160;</div>
+<b>SOCK_RAW</b> packets are passed to and from the device driver without any changes in the packet data. When receiving a packet, the address is still parsed and passed in a standard <i>sockaddr_ll</i> address structure. When transmitting a packet, the user supplied buffer should contain the physical layer header. That packet is then queued unmodified to the network driver of the interface defined by the destination address. Some device drivers always add other headers. <b>SOCK_RAW</b> is similar to but not compatible with the obsolete <b>AF_INET/SOCK_PACKET</b> of Linux 2.0.<div style="height: 1.00em;">
+&#160;</div>
+<b>SOCK_DGRAM</b> operates on a slightly higher level. The physical header is removed before the packet is passed to the user. Packets sent through a <b>SOCK_DGRAM</b> packet socket get a suitable physical layer header based on the information in the <i>sockaddr_ll</i> destination address before they are queued.<div style="height: 1.00em;">
+&#160;</div>
+By default all packets of the specified protocol type are passed to a packet socket. To only get packets from a specific interface use <b>bind</b>(2) specifying an address in a <i>struct sockaddr_ll</i> to bind the packet socket to an interface. Only the <i>sll_protocol</i> and the <i>sll_ifindex</i> address fields are used for purposes of binding.<div style="height: 1.00em;">
+&#160;</div>
+The <b>connect</b>(2) operation is not supported on packet sockets.<div style="height: 1.00em;">
+&#160;</div>
+When the <b>MSG_TRUNC</b> flag is passed to <b>recvmsg</b>(2), <b>recv</b>(2), <b>recvfrom</b>(2) the real length of the packet on the wire is always returned, even when it is longer than the buffer.<div class="subsection">
+<h2>Address Types</h2> The sockaddr_ll is a device independent physical layer address.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+struct sockaddr_ll {<br/>
+    unsigned short sll_family;   /* Always AF_PACKET */<br/>
+    unsigned short sll_protocol; /* Physical layer protocol */<br/>
+    int            sll_ifindex;  /* Interface number */<br/>
+    unsigned short sll_hatype;   /* Header type */<br/>
+    unsigned char  sll_pkttype;  /* Packet type */<br/>
+    unsigned char  sll_halen;    /* Length of address */<br/>
+    unsigned char  sll_addr[8];  /* Physical layer address */<br/>
+};<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<i>sll_protocol</i> is the standard ethernet protocol type in network order as defined in the <i>&lt;linux/if_ether.h&gt;</i> include file. It defaults to the socket's protocol. <i>sll_ifindex</i> is the interface index of the interface (see <b>netdevice</b>(7)); 0 matches any interface (only permitted for binding). <i>sll_hatype</i> is a ARP type as defined in the <i>&lt;linux/if_arp.h&gt;</i> include file. <i>sll_pkttype</i> contains the packet type. Valid types are <b>PACKET_HOST</b> for a packet addressed to the local host, <b>PACKET_BROADCAST</b> for a physical layer broadcast packet, <b>PACKET_MULTICAST</b> for a packet sent to a physical layer multicast address, <b>PACKET_OTHERHOST</b> for a packet to some other host that has been caught by a device driver in promiscuous mode, and <b>PACKET_OUTGOING</b> for a packet originated from the local host that is looped back to a packet socket. These types make only sense for receiving. <i>sll_addr</i> and <i>sll_halen</i> contain the physical layer (e.g., IEEE 802.3) address and its length. The exact interpretation depends on the device.<div style="height: 1.00em;">
+&#160;</div>
+When you send packets it is enough to specify <i>sll_family</i>, <i>sll_addr</i>, <i>sll_halen</i>, <i>sll_ifindex</i>. The other fields should be 0. <i>sll_hatype</i> and <i>sll_pkttype</i> are set on received packets for your information. For bind only <i>sll_protocol</i> and <i>sll_ifindex</i> are used.</div>
+<div class="subsection">
+<h2>Socket Options</h2> Packet sockets can be used to configure physical layer multicasting and promiscuous mode. It works by calling <b>setsockopt</b>(2) on a packet socket for <b>SOL_PACKET</b> and one of the options <b>PACKET_ADD_MEMBERSHIP</b> to add a binding or <b>PACKET_DROP_MEMBERSHIP</b> to drop it. They both expect a <b>packet_mreq</b> structure as argument:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+struct packet_mreq {<br/>
+    int            mr_ifindex;    /* interface index */<br/>
+    unsigned short mr_type;       /* action */<br/>
+    unsigned short mr_alen;       /* address length */<br/>
+    unsigned char  mr_address[8]; /* physical layer address */<br/>
+};<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<b>mr_ifindex</b> contains the interface index for the interface whose status should be changed. The <b>mr_type</b> parameter specifies which action to perform. <b>PACKET_MR_PROMISC</b> enables receiving all packets on a shared medium (often known as &quot;promiscuous mode&quot;), <b>PACKET_MR_MULTICAST</b> binds the socket to the physical layer multicast group specified in <b>mr_address</b> and <b>mr_alen</b>, and <b>PACKET_MR_ALLMULTI</b> sets the socket up to receive all multicast packets arriving at the interface.<div style="height: 1.00em;">
+&#160;</div>
+In addition the traditional ioctls <b>SIOCSIFFLAGS</b>, <b>SIOCADDMULTI</b>, <b>SIOCDELMULTI</b> can be used for the same purpose.</div>
+<div class="subsection">
+<h2>Ioctls</h2> <b>SIOCGSTAMP</b> can be used to receive the timestamp of the last received packet. Argument is a <i>struct timeval.</i><div style="height: 1.00em;">
+&#160;</div>
+In addition all standard ioctls defined in <b>netdevice</b>(7) and <b>socket</b>(7) are valid on packet sockets.</div>
+<div class="subsection">
+<h2>Error Handling</h2> Packet sockets do no error handling other than errors occurred while passing the packet to the device driver. They don't have the concept of a pending error.</div>
+</div>
+<div class="section">
+<h1>ERRORS</h1><dl>
+<dt>
+<b>EADDRNOTAVAIL</b></dt>
+<dd>
+Unknown multicast group address passed.</dd>
+</dl>
+<dl>
+<dt>
+<b>EFAULT</b></dt>
+<dd>
+User passed invalid memory address.</dd>
+</dl>
+<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+Invalid argument.</dd>
+</dl>
+<dl>
+<dt>
+<b>EMSGSIZE</b></dt>
+<dd>
+Packet is bigger than interface MTU.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENETDOWN</b></dt>
+<dd>
+Interface is not up.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOBUFS</b></dt>
+<dd>
+Not enough memory to allocate the packet.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENODEV</b></dt>
+<dd>
+Unknown device name or interface index specified in interface address.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOENT</b></dt>
+<dd>
+No packet received.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOTCONN</b></dt>
+<dd>
+No interface address passed.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENXIO</b></dt>
+<dd>
+Interface address contained an invalid interface index.</dd>
+</dl>
+<dl>
+<dt>
+<b>EPERM</b></dt>
+<dd>
+User has insufficient privileges to carry out this operation.<div style="height: 1.00em;">
+&#160;</div>
+In addition other errors may be generated by the low-level driver.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>VERSIONS</h1> <b>AF_PACKET</b> is a new feature in Linux 2.2. Earlier Linux versions supported only <b>SOCK_PACKET</b>.<div class="spacer">
+</div>
+The include file <i>&lt;netpacket/packet.h&gt;</i> is present since glibc 2.1. Older systems need:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+#include &lt;asm/types.h&gt;<br/>
+#include &lt;linux/if_packet.h&gt;<br/>
+#include &lt;linux/if_ether.h&gt;  /* The L2 protocols */<br/>
+<br/>
+</div>
+<div class="section">
+<h1>NOTES</h1> For portable programs it is suggested to use <b>AF_PACKET</b> via <b>pcap</b>(3); although this only covers a subset of the <b>AF_PACKET</b> features.<div style="height: 1.00em;">
+&#160;</div>
+The <b>SOCK_DGRAM</b> packet sockets make no attempt to create or parse the IEEE 802.2 LLC header for a IEEE 802.3 frame. When <b>ETH_P_802_3</b> is specified as protocol for sending the kernel creates the 802.3 frame and fills out the length field; the user has to supply the LLC header to get a fully conforming packet. Incoming 802.3 packets are not multiplexed on the DSAP/SSAP protocol fields; instead they are supplied to the user as protocol <b>ETH_P_802_2</b> with the LLC header prepended. It is thus not possible to bind to <b>ETH_P_802_3</b>; bind to <b>ETH_P_802_2</b> instead and do the protocol multiplex yourself. The default for sending is the standard Ethernet DIX encapsulation with the protocol filled in.<div style="height: 1.00em;">
+&#160;</div>
+Packet sockets are not subject to the input or output firewall chains.<div class="subsection">
+<h2>Compatibility</h2> In Linux 2.0, the only way to get a packet socket was by calling <b>socket(AF_INET, SOCK_PACKET, </b><i>protocol</i><b>).</b> This is still supported but strongly deprecated. The main difference between the two methods is that <b>SOCK_PACKET</b> uses the old <i>struct sockaddr_pkt</i> to specify an interface, which doesn't provide physical layer independence.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+struct sockaddr_pkt {<br/>
+    unsigned short spkt_family;<br/>
+    unsigned char  spkt_device[14];<br/>
+    unsigned short spkt_protocol;<br/>
+};<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<i>spkt_family</i> contains the device type, <i>spkt_protocol</i> is the IEEE 802.3 protocol type as defined in <i>&lt;sys/if_ether.h&gt;</i> and <i>spkt_device</i> is the device name as a null-terminated string, for example, eth0.<div style="height: 1.00em;">
+&#160;</div>
+This structure is obsolete and should not be used in new code.</div>
+</div>
+<div class="section">
+<h1>BUGS</h1> glibc 2.1 does not have a define for <b>SOL_PACKET</b>. The suggested workaround is to use:<br/>
+<div class="spacer">
+</div>
+<br/>
+#ifndef SOL_PACKET<br/>
+#define SOL_PACKET 263<br/>
+#endif<div class="spacer">
+</div>
+<br/>
+<br/>
+This is fixed in later glibc versions and also does not occur on libc5 systems.<div style="height: 1.00em;">
+&#160;</div>
+The IEEE 802.2/803.3 LLC handling could be considered as a bug.<div style="height: 1.00em;">
+&#160;</div>
+Socket filters are not documented.<div style="height: 1.00em;">
+&#160;</div>
+The <b>MSG_TRUNC</b> <b>recvmsg</b>(2) extension is an ugly hack and should be replaced by a control message. There is currently no way to get the original destination address of packets via <b>SOCK_DGRAM</b>.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>socket</b>(2), <b>pcap</b>(3), <b>capabilities</b>(7), <b>ip</b>(7), <b>raw</b>(7), <b>socket</b>(7)<div style="height: 1.00em;">
+&#160;</div>
+RFC&#160;894 for the standard IP Ethernet encapsulation.<div style="height: 1.00em;">
+&#160;</div>
+RFC&#160;1700 for the IEEE 802.3 IP encapsulation.<div style="height: 1.00em;">
+&#160;</div>
+The <i>&lt;linux/if_ether.h&gt;</i> include file for physical layer protocols.</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2008-08-08</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+MOVE_PAGES(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+MOVE_PAGES(2)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+MOVE_PAGES(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> move_pages - move individual pages of a process to another node</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;numaif.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>long move_pages(int </b><i>pid</i><b>, unsigned long count, void **</b><i>pages</i><b>,</b><br/>
+<b>                const int *</b><i>nodes</i><b>, int *</b><i>status</i><b>, int </b><i>flags</i><b>);</b><br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Link with <i>-lnuma</i>.</div>
+<div class="section">
+<h1>DESCRIPTION</h1> <b>move_pages</b>() moves the specified <i>pages</i> of the process <i>pid</i> to the memory nodes specified by <i>nodes</i>. The result of the move is reflected in <i>status</i>. The <i>flags</i> indicate constraints on the pages to be moved.<div style="height: 1.00em;">
+&#160;</div>
+<i>pid</i> is the ID of the process in which pages are to be moved. To move pages in another process, the caller must be privileged (<b>CAP_SYS_NICE</b>) or the real or effective user ID of the calling process must match the real or saved-set user ID of the target process. If <i>pid</i> is 0, then <b>move_pages</b>() moves pages of the calling process.<div style="height: 1.00em;">
+&#160;</div>
+<i>count</i> is the number of pages to move. It defines the size of the three arrays <i>pages</i>, <i>nodes</i>, and <i>status</i>.<div style="height: 1.00em;">
+&#160;</div>
+<i>pages</i> is an array of pointers to the pages that should be moved. These are pointers that should be aligned to page boundaries. Addresses are specified as seen by the process specified by <i>pid</i>.<div style="height: 1.00em;">
+&#160;</div>
+<i>nodes</i> is an array of integers that specify the desired location for each page. Each element in the array is a node number. <i>nodes</i> can also be NULL, in which case <b>move_pages</b>() does not move any pages but instead will return the node where each page currently resides, in the <i>status</i> array. Obtaining the status of each page may be necessary to determine pages that need to be moved.<div style="height: 1.00em;">
+&#160;</div>
+<i>status</i> is an array of integers that return the status of each page. The array only contains valid values if <b>move_pages</b>() did not return an error.<div style="height: 1.00em;">
+&#160;</div>
+<i>flags</i> specify what types of pages to move. <b>MPOL_MF_MOVE</b> means that only pages that are in exclusive use by the process are to be moved. <b>MPOL_MF_MOVE_ALL</b> means that pages shared between multiple processes can also be moved. The process must be privileged (<b>CAP_SYS_NICE</b>) to use <b>MPOL_MF_MOVE_ALL</b>.</div>
+<div class="section">
+<h1>Page states in the status array</h1> The following values can be returned in each element of the <i>status</i> array.<dl>
+<dt>
+<b>0..MAX_NUMNODES</b></dt>
+<dd>
+Identifies the node on which the page resides.</dd>
+</dl>
+<dl>
+<dt>
+<b>-EACCES</b></dt>
+<dd>
+The page is mapped by multiple processes and can only be moved if <b>MPOL_MF_MOVE_ALL</b> is specified.</dd>
+</dl>
+<dl>
+<dt>
+<b>-EBUSY</b></dt>
+<dd>
+The page is currently busy and cannot be moved. Try again later. This occurs if a page is undergoing I/O or another kernel subsystem is holding a reference to the page.</dd>
+</dl>
+<dl>
+<dt>
+<b>-EFAULT</b></dt>
+<dd>
+This is a zero page or the memory area is not mapped by the process.</dd>
+</dl>
+<dl>
+<dt>
+<b>-EIO</b></dt>
+<dd>
+Unable to write back a page. The page has to be written back in order to move it since the page is dirty and the file system does not provide a migration function that would allow the move of dirty pages.</dd>
+</dl>
+<dl>
+<dt>
+<b>-EINVAL</b></dt>
+<dd>
+A dirty page cannot be moved. The file system does not provide a migration function and has no ability to write back pages.</dd>
+</dl>
+<dl>
+<dt>
+<b>-ENOENT</b></dt>
+<dd>
+The page is not present.</dd>
+</dl>
+<dl>
+<dt>
+<b>-ENOMEM</b></dt>
+<dd>
+Unable to allocate memory on target node.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>RETURN VALUE</h1> On success <b>move_pages</b>() returns zero. On error, it returns -1, and sets <i>errno</i> to indicate the error.</div>
+<div class="section">
+<h1>ERRORS</h1><dl>
+<dt>
+<b>E2BIG</b></dt>
+<dd>
+Too many pages to move.</dd>
+</dl>
+<dl>
+<dt>
+<b>EACCES</b></dt>
+<dd>
+One of the target nodes is not allowed by the current cpuset.</dd>
+</dl>
+<dl>
+<dt>
+<b>EFAULT</b></dt>
+<dd>
+Parameter array could not be accessed.</dd>
+</dl>
+<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+Flags other than <b>MPOL_MF_MOVE</b> and <b>MPOL_MF_MOVE_ALL</b> was specified or an attempt was made to migrate pages of a kernel thread.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENODEV</b></dt>
+<dd>
+One of the target nodes is not online.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOENT</b></dt>
+<dd>
+No pages were found that require moving. All pages are either already on the target node, not present, had an invalid address or could not be moved because they were mapped by multiple processes.</dd>
+</dl>
+<dl>
+<dt>
+<b>EPERM</b></dt>
+<dd>
+The caller specified <b>MPOL_MF_MOVE_ALL</b> without sufficient privileges (<b>CAP_SYS_NICE</b>). Or, the caller attempted to move pages of a process belonging to another user but did not have privilege to do so (<b>CAP_SYS_NICE</b>).</dd>
+</dl>
+<dl>
+<dt>
+<b>ESRCH</b></dt>
+<dd>
+Process does not exist.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>VERSIONS</h1> <b>move_pages</b>() first appeared on Linux in version 2.6.18.</div>
+<div class="section">
+<h1>CONFORMING TO</h1> This system call is Linux-specific.</div>
+<div class="section">
+<h1>NOTES</h1> For information on library support, see <b>numa</b>(7).<div style="height: 1.00em;">
+&#160;</div>
+Use <b>get_mempolicy</b>(2) with the <b>MPOL_F_MEMS_ALLOWED</b> flag to obtain the set of nodes that are allowed by the current cpuset. Note that this information is subject to change at any time by manual or automatic reconfiguration of the cpuset.<div style="height: 1.00em;">
+&#160;</div>
+Use of this function may result in pages whose location (node) violates the memory policy established for the specified addresses (See <b>mbind</b>(2)) and/or the specified process (See <b>set_mempolicy</b>(2)). That is, memory policy does not constrain the destination nodes used by <b>move_pages</b>().<div style="height: 1.00em;">
+&#160;</div>
+The <i>&lt;numaif.h&gt;</i> header is not included with glibc, but requires installing <i>libnuma-devel</i> or a similar package.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>get_mempolicy</b>(2), <b>mbind</b>(2), <b>set_mempolicy</b>(2), <b>numa</b>(3), <b>numa_maps</b>(5), <b>cpuset</b>(7), <b>numa</b>(7), <b>migratepages</b>(8), <b>numa_stat</b>(8)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2010-06-11</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

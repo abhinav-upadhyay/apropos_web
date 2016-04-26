@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+bignum(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+bignum(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+bignum(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> bignum - Transparent BigNumber support for Perl</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  use bignum;<br/>
+<br/>
+  $x = 2 + 4.5,&quot;\n&quot;;                    # BigFloat 6.5<br/>
+  print 2 ** 512 * 0.1,&quot;\n&quot;;            # really is what you think it is<br/>
+  print inf * inf,&quot;\n&quot;;                 # prints inf<br/>
+  print NaN * 3,&quot;\n&quot;;                   # prints NaN<br/>
+<br/>
+  {<br/>
+    no bignum;<br/>
+    print 2 ** 256,&quot;\n&quot;;                # a normal Perl scalar now<br/>
+  }<br/>
+<br/>
+  # for older Perls, note that this will be global:<br/>
+  use bignum qw/hex oct/;<br/>
+  print hex(&quot;0x1234567890123490&quot;),&quot;\n&quot;;<br/>
+  print oct(&quot;01234567890123490&quot;),&quot;\n&quot;;<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> All operators (including basic math operations) are overloaded. Integer and floating-point constants are created as proper BigInts or BigFloats, respectively.<div class="spacer">
+</div>
+If you do<div class="spacer">
+</div>
+<br/>
+        use bignum;<br/>
+<div class="spacer">
+</div>
+at the top of your script, Math::BigFloat and Math::BigInt will be loaded and any constant number will be converted to an object (Math::BigFloat for floats like 3.1415 and Math::BigInt for integers like 1234).<div class="spacer">
+</div>
+So, the following line:<div class="spacer">
+</div>
+<br/>
+        $x = 1234;<br/>
+<div class="spacer">
+</div>
+creates actually a Math::BigInt and stores a reference to in $x. This happens transparently and behind your back, so to speak.<div class="spacer">
+</div>
+You can see this with the following:<div class="spacer">
+</div>
+<br/>
+        perl -Mbignum -le 'print ref(1234)'<br/>
+<div class="spacer">
+</div>
+Don't worry if it says Math::BigInt::Lite, bignum and friends will use Lite if it is installed since it is faster for some operations. It will be automatically upgraded to BigInt whenever necessary:<div class="spacer">
+</div>
+<br/>
+        perl -Mbignum -le 'print ref(2**255)'<br/>
+<div class="spacer">
+</div>
+This also means it is a bad idea to check for some specific package, since the actual contents of $x might be something unexpected. Due to the transparent way of bignum &quot;ref()&quot; should not be necessary, anyway.<div class="spacer">
+</div>
+Since Math::BigInt and BigFloat also overload the normal math operations, the following line will still work:<div class="spacer">
+</div>
+<br/>
+        perl -Mbignum -le 'print ref(1234+1234)'<br/>
+<div class="spacer">
+</div>
+Since numbers are actually objects, you can call all the usual methods from BigInt/BigFloat on them. This even works to some extent on expressions:<div class="spacer">
+</div>
+<br/>
+        perl -Mbignum -le '$x = 1234; print $x-&gt;bdec()'<br/>
+        perl -Mbignum -le 'print 1234-&gt;copy()-&gt;binc();'<br/>
+        perl -Mbignum -le 'print 1234-&gt;copy()-&gt;binc-&gt;badd(6);'<br/>
+        perl -Mbignum -le 'print +(1234)-&gt;copy()-&gt;binc()'<br/>
+<div class="spacer">
+</div>
+(Note that print doesn't do what you expect if the expression starts with '(' hence the &quot;+&quot;)<div class="spacer">
+</div>
+You can even chain the operations together as usual:<div class="spacer">
+</div>
+<br/>
+        perl -Mbignum -le 'print 1234-&gt;copy()-&gt;binc-&gt;badd(6);'<br/>
+        1241<br/>
+<div class="spacer">
+</div>
+Under bignum (or bigint or bigrat), Perl will &quot;upgrade&quot; the numbers appropriately. This means that:<div class="spacer">
+</div>
+<br/>
+        perl -Mbignum -le 'print 1234+4.5'<br/>
+        1238.5<br/>
+<div class="spacer">
+</div>
+will work correctly. These mixed cases don't do always work when using Math::BigInt or Math::BigFloat alone, or at least not in the way normal Perl scalars work.<div class="spacer">
+</div>
+If you do want to work with large integers like under &quot;use integer;&quot;, try &quot;use bigint;&quot;:<div class="spacer">
+</div>
+<br/>
+        perl -Mbigint -le 'print 1234.5+4.5'<br/>
+        1238<br/>
+<div class="spacer">
+</div>
+There is also &quot;use bigrat;&quot; which gives you big rationals:<div class="spacer">
+</div>
+<br/>
+        perl -Mbigrat -le 'print 1234+4.1'<br/>
+        12381/10<br/>
+<div class="spacer">
+</div>
+The entire upgrading/downgrading is still experimental and might not work as you expect or may even have bugs. You might get errors like this:<div class="spacer">
+</div>
+<br/>
+        Can't use an undefined value as an ARRAY reference at<br/>
+        /usr/local/lib/perl5/5.8.0/Math/BigInt/Calc.pm line 864<br/>
+<div class="spacer">
+</div>
+This means somewhere a routine got a BigFloat/Lite but expected a BigInt (or vice versa) and the upgrade/downgrad path was missing. This is a bug, please report it so that we can fix it.<div class="spacer">
+</div>
+You might consider using just Math::BigInt or Math::BigFloat, since they allow you finer control over what get's done in which module/space. For instance, simple loop counters will be Math::BigInts under &quot;use bignum;&quot; and this is slower than keeping them as Perl scalars:<div class="spacer">
+</div>
+<br/>
+        perl -Mbignum -le 'for ($i = 0; $i &lt; 10; $i++) { print ref($i); }'<br/>
+<div class="spacer">
+</div>
+Please note the following does not work as expected (prints nothing), since overloading of '..' is not yet possible in Perl (as of v5.8.0):<div class="spacer">
+</div>
+<br/>
+        perl -Mbignum -le 'for (1..2) { print ref($_); }'<br/>
+<div class="subsection">
+<h2>Options</h2> bignum recognizes some options that can be passed while loading it via use. The options can (currently) be either a single letter form, or the long form. The following options exist:<dl>
+<dt>
+a or accuracy</dt>
+<dd>
+This sets the accuracy for all math operations. The argument must be greater than or equal to zero. See Math::BigInt's  <i>bround()</i> function for details.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        perl -Mbignum=a,50 -le 'print sqrt(20)'<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Note that setting precision and accuracy at the same time is not possible.</dd>
+</dl>
+<dl>
+<dt>
+p or precision</dt>
+<dd>
+This sets the precision for all math operations. The argument can be any integer. Negative values mean a fixed number of digits after the dot, while a positive value rounds to this digit left from the dot. 0 or 1 mean round to integer. See Math::BigInt's  <i>bfround()</i> function for details.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        perl -Mbignum=p,-50 -le 'print sqrt(20)'<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Note that setting precision and accuracy at the same time is not possible.</dd>
+</dl>
+<dl>
+<dt>
+t or trace</dt>
+<dd>
+This enables a trace mode and is primarily for debugging bignum or Math::BigInt/Math::BigFloat.</dd>
+</dl>
+<dl>
+<dt>
+l or lib</dt>
+<dd>
+Load a different math lib, see &quot;Math Library&quot;.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        perl -Mbignum=l,GMP -e 'print 2 ** 512'<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Currently there is no way to specify more than one library on the command line. This means the following does not work:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        perl -Mbignum=l,GMP,Pari -e 'print 2 ** 512'<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This will be hopefully fixed soon ;)</dd>
+</dl>
+<dl>
+<dt>
+hex</dt>
+<dd>
+Override the built-in <i>hex()</i> method with a version that can handle big integers. Note that under Perl older than v5.9.4, this will be global and cannot be disabled with &quot;no bigint;&quot;.</dd>
+</dl>
+<dl>
+<dt>
+oct</dt>
+<dd>
+Override the built-in <i>oct()</i> method with a version that can handle big integers. Note that under Perl older than v5.9.4, this will be global and cannot be disabled with &quot;no bigint;&quot;.</dd>
+</dl>
+<dl>
+<dt>
+v or version</dt>
+<dd>
+This prints out the name and version of all modules used and then exits.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        perl -Mbignum=v<br/>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Methods</h2> Beside  <i>import()</i> and <i>AUTOLOAD()</i> there are only a few other methods.<div class="spacer">
+</div>
+Since all numbers are now objects, you can use all functions that are part of the BigInt or BigFloat API. It is wise to use only the  <i>bxxx()</i> notation, and not the  <i>fxxx()</i> notation, though. This makes it possible that the underlying object might morph into a different class than BigFloat.</div>
+<div class="subsection">
+<h2>Caveats</h2> But a warning is in order. When using the following to make a copy of a number, only a shallow copy will be made.<div class="spacer">
+</div>
+<br/>
+        $x = 9; $y = $x;<br/>
+        $x = $y = 7;<br/>
+<div class="spacer">
+</div>
+If you want to make a real copy, use the following:<div class="spacer">
+</div>
+<br/>
+        $y = $x-&gt;copy();<br/>
+<div class="spacer">
+</div>
+Using the copy or the original with overloaded math is okay, e.g. the following work:<div class="spacer">
+</div>
+<br/>
+        $x = 9; $y = $x;<br/>
+        print $x + 1, &quot; &quot;, $y,&quot;\n&quot;;     # prints 10 9<br/>
+<div class="spacer">
+</div>
+but calling any method that modifies the number directly will result in  <b>both</b> the original and the copy being destroyed:<div class="spacer">
+</div>
+<br/>
+        $x = 9; $y = $x;<br/>
+        print $x-&gt;badd(1), &quot; &quot;, $y,&quot;\n&quot;;        # prints 10 10<br/>
+<br/>
+        $x = 9; $y = $x;<br/>
+        print $x-&gt;binc(1), &quot; &quot;, $y,&quot;\n&quot;;        # prints 10 10<br/>
+<br/>
+        $x = 9; $y = $x;<br/>
+        print $x-&gt;bmul(2), &quot; &quot;, $y,&quot;\n&quot;;        # prints 18 18<br/>
+<div class="spacer">
+</div>
+Using methods that do not modify, but test the contents works:<div class="spacer">
+</div>
+<br/>
+        $x = 9; $y = $x;<br/>
+        $z = 9 if $x-&gt;is_zero();                # works fine<br/>
+<div class="spacer">
+</div>
+See the documentation about the copy constructor and &quot;=&quot; in overload, as well as the documentation in BigInt for further details.<dl>
+<dt>
+<i>inf()</i></dt>
+<dd>
+A shortcut to return Math::BigInt-&gt;<i>binf()</i>. Useful because Perl does not always handle bareword &quot;inf&quot; properly.</dd>
+</dl>
+<dl>
+<dt>
+<i>NaN()</i></dt>
+<dd>
+A shortcut to return Math::BigInt-&gt;<i>bnan()</i>. Useful because Perl does not always handle bareword &quot;NaN&quot; properly.</dd>
+</dl>
+<dl>
+<dt>
+e</dt>
+<dd>
+<br/>
+        # perl -Mbignum=e -wle 'print e'<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Returns Euler's number &quot;e&quot;, aka <i>exp</i>(1).</dd>
+</dl>
+<dl>
+<dt>
+<i>PI()</i></dt>
+<dd>
+<br/>
+        # perl -Mbignum=PI -wle 'print PI'<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Returns PI.</dd>
+</dl>
+<dl>
+<dt>
+<i>bexp()</i></dt>
+<dd>
+<br/>
+        bexp($power,$accuracy);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Returns Euler's number &quot;e&quot; raised to the appropriate power, to the wanted accuracy.<div style="height: 1.00em;">
+&#160;</div>
+Example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        # perl -Mbignum=bexp -wle 'print bexp(1,80)'<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<i>bpi()</i></dt>
+<dd>
+<br/>
+        bpi($accuracy);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Returns PI to the wanted accuracy.<div style="height: 1.00em;">
+&#160;</div>
+Example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        # perl -Mbignum=bpi -wle 'print bpi(80)'<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<i>upgrade()</i></dt>
+<dd>
+Return the class that numbers are upgraded to, is in fact returning $Math::BigInt::upgrade.</dd>
+</dl>
+<dl>
+<dt>
+<i>in_effect()</i></dt>
+<dd>
+<br/>
+        use bignum;<br/>
+<br/>
+        print &quot;in effect\n&quot; if bignum::in_effect;       # true<br/>
+        {<br/>
+          no bignum;<br/>
+          print &quot;in effect\n&quot; if bignum::in_effect;     # false<br/>
+        }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Returns true or false if &quot;bignum&quot; is in effect in the current scope.<div style="height: 1.00em;">
+&#160;</div>
+This method only works on Perl v5.9.4 or later.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Math Library</h2> Math with the numbers is done (by default) by a module called Math::BigInt::Calc. This is equivalent to saying:<div class="spacer">
+</div>
+<br/>
+        use bignum lib =&gt; 'Calc';<br/>
+<div class="spacer">
+</div>
+You can change this by using:<div class="spacer">
+</div>
+<br/>
+        use bignum lib =&gt; 'GMP';<br/>
+<div class="spacer">
+</div>
+The following would first try to find Math::BigInt::Foo, then Math::BigInt::Bar, and when this also fails, revert to Math::BigInt::Calc:<div class="spacer">
+</div>
+<br/>
+        use bignum lib =&gt; 'Foo,Math::BigInt::Bar';<br/>
+<div class="spacer">
+</div>
+Please see respective module documentation for further details.<div class="spacer">
+</div>
+Using &quot;lib&quot; warns if none of the specified libraries can be found and Math::BigInt did fall back to one of the default libraries. To suppress this warning, use &quot;try&quot; instead:<div class="spacer">
+</div>
+<br/>
+        use bignum try =&gt; 'GMP';<br/>
+<div class="spacer">
+</div>
+If you want the code to die instead of falling back, use &quot;only&quot; instead:<div class="spacer">
+</div>
+<br/>
+        use bignum only =&gt; 'GMP';<br/>
+</div>
+<div class="subsection">
+<h2>INTERNAL FORMAT</h2> The numbers are stored as objects, and their internals might change at anytime, especially between math operations. The objects also might belong to different classes, like Math::BigInt, or Math::BigFLoat. Mixing them together, even with normal scalars is not extraordinary, but normal and expected.<div class="spacer">
+</div>
+You should not depend on the internal format, all accesses must go through accessor methods. E.g. looking at $x-&gt;{sign} is not a bright idea since there is no guaranty that the object in question has such a hashkey, nor is a hash underneath at all.</div>
+<div class="subsection">
+<h2>SIGN</h2> The sign is either '+', '-', 'NaN', '+inf' or '-inf' and stored separately. You can access it with the  <i>sign()</i> method.<div class="spacer">
+</div>
+A sign of 'NaN' is used to represent the result when input arguments are not numbers or as a result of 0/0. '+inf' and '-inf' represent plus respectively minus infinity. You will get '+inf' when dividing a positive number by 0, and '-inf' when dividing any negative number by 0.</div>
+</div>
+<div class="section">
+<h1>CAVEATS</h1><dl>
+<dt>
+<i>in_effect()</i></dt>
+<dd>
+This method only works on Perl v5.9.4 or later.</dd>
+</dl>
+<dl>
+<dt>
+<i>hex()</i>/<i>oct()</i></dt>
+<dd>
+&quot;bigint&quot; overrides these routines with versions that can also handle big integer values. Under Perl prior to version v5.9.4, however, this will not happen unless you specifically ask for it with the two import tags &quot;hex&quot; and &quot;oct&quot; - and then it will be global and cannot be disabled inside a scope with &quot;no bigint&quot;:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        use bigint qw/hex oct/;<br/>
+<br/>
+        print hex(&quot;0x1234567890123456&quot;);<br/>
+        {<br/>
+                no bigint;<br/>
+                print hex(&quot;0x1234567890123456&quot;);<br/>
+        }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The second call to <i>hex()</i> will warn about a non-portable constant.<div style="height: 1.00em;">
+&#160;</div>
+Compare this to:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        use bigint;<br/>
+<br/>
+        # will warn only under older than v5.9.4<br/>
+        print hex(&quot;0x1234567890123456&quot;);<br/>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1>MODULES USED</h1> &quot;bignum&quot; is just a thin wrapper around various modules of the Math::BigInt family. Think of it as the head of the family, who runs the shop, and orders the others to do the work.<div class="spacer">
+</div>
+The following modules are currently used by bignum:<div class="spacer">
+</div>
+<br/>
+        Math::BigInt::Lite      (for speed, and only if it is loadable)<br/>
+        Math::BigInt<br/>
+        Math::BigFloat<br/>
+</div>
+<div class="section">
+<h1>EXAMPLES</h1> Some cool command line examples to impress the Python crowd ;)<div class="spacer">
+</div>
+<br/>
+        perl -Mbignum -le 'print sqrt(33)'<br/>
+        perl -Mbignum -le 'print 2*255'<br/>
+        perl -Mbignum -le 'print 4.5+2*255'<br/>
+        perl -Mbignum -le 'print 3/7 + 5/7 + 8/3'<br/>
+        perl -Mbignum -le 'print 123-&gt;is_odd()'<br/>
+        perl -Mbignum -le 'print log(2)'<br/>
+        perl -Mbignum -le 'print exp(1)'<br/>
+        perl -Mbignum -le 'print 2 ** 0.5'<br/>
+        perl -Mbignum=a,65 -le 'print 2 ** 0.2'<br/>
+        perl -Mbignum=a,65,l,GMP -le 'print 7 ** 7777'<br/>
+</div>
+<div class="section">
+<h1>LICENSE</h1> This program is free software; you may redistribute it and/or modify it under the same terms as Perl itself.</div>
+<div class="section">
+<h1>SEE ALSO</h1> Especially bigrat as in &quot;perl -Mbigrat -le 'print 1/3+1/4'&quot;.<div class="spacer">
+</div>
+Math::BigFloat, Math::BigInt, Math::BigRat and Math::Big as well as Math::BigInt::BitVect, Math::BigInt::Pari and  Math::BigInt::GMP.</div>
+<div class="section">
+<h1>AUTHORS</h1> (C) by Tels &lt;http://bloodgate.com/&gt; in early 2002 - 2007.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

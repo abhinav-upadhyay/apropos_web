@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+TAP::Parser::IteratorFactory(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+TAP::Parser::IteratorFactory(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+TAP::Parser::IteratorFactory(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> TAP::Parser::IteratorFactory - Figures out which SourceHandler objects to use for a given Source</div>
+<div class="section">
+<h1>VERSION</h1> Version 3.23</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  use TAP::Parser::IteratorFactory;<br/>
+  my $factory = TAP::Parser::IteratorFactory-&gt;new({ %config });<br/>
+  my $iterator  = $factory-&gt;make_iterator( $filename );<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This is a factory class that takes a TAP::Parser::Source and runs it through all the registered TAP::Parser::SourceHandlers to see which one should handle the source.<div class="spacer">
+</div>
+If you're a plugin author, you'll be interested in how to &quot;register_handler&quot;s, how &quot;detect_source&quot; works.</div>
+<div class="section">
+<h1>METHODS</h1><div class="subsection">
+<h2>Class Methods</h2>  <i></i><i>&quot;new&quot;</i><i></i><div class="spacer">
+</div>
+Creates a new factory class:<div class="spacer">
+</div>
+<br/>
+  my $sf = TAP::Parser::IteratorFactory-&gt;new( $config );<br/>
+<div class="spacer">
+</div>
+$config is optional.  If given, sets &quot;config&quot; and calls &quot;load_handlers&quot;.<div class="spacer">
+</div>
+<i></i><i>&quot;register_handler&quot;</i><i></i><div class="spacer">
+</div>
+Registers a new TAP::Parser::SourceHandler with this factory.<div class="spacer">
+</div>
+<br/>
+  __PACKAGE__-&gt;register_handler( $handler_class );<br/>
+<div class="spacer">
+</div>
+<i></i><i>&quot;handlers&quot;</i><i></i><div class="spacer">
+</div>
+List of handlers that have been registered.</div>
+<div class="subsection">
+<h2>Instance Methods</h2>  <i></i><i>&quot;config&quot;</i><i></i><div class="spacer">
+</div>
+<br/>
+ my $cfg = $sf-&gt;config;<br/>
+ $sf-&gt;config({ Perl =&gt; { %config } });<br/>
+<div class="spacer">
+</div>
+Chaining getter/setter for the configuration of the available source handlers. This is a hashref keyed on handler class whose values contain config to be passed onto the handlers during detection &amp; creation.  Class names may be fully qualified or abbreviated, eg:<div class="spacer">
+</div>
+<br/>
+  # these are equivalent<br/>
+  $sf-&gt;config({ 'TAP::Parser::SourceHandler::Perl' =&gt; { %config } });<br/>
+  $sf-&gt;config({ 'Perl' =&gt; { %config } });<br/>
+<div class="spacer">
+</div>
+<i></i><i>&quot;load_handlers&quot;</i><i></i><div class="spacer">
+</div>
+<br/>
+ $sf-&gt;load_handlers;<br/>
+<div class="spacer">
+</div>
+Loads the handler classes defined in &quot;config&quot;.  For example, given a config:<div class="spacer">
+</div>
+<br/>
+  $sf-&gt;config({<br/>
+    MySourceHandler =&gt; { some =&gt; 'config' },<br/>
+  });<br/>
+<div class="spacer">
+</div>
+&quot;load_handlers&quot; will attempt to load the &quot;MySourceHandler&quot; class by looking in @INC for it in this order:<div class="spacer">
+</div>
+<br/>
+  TAP::Parser::SourceHandler::MySourceHandler<br/>
+  MySourceHandler<br/>
+<div class="spacer">
+</div>
+&quot;croak&quot;s on error.<div class="spacer">
+</div>
+<i></i><i>&quot;make_iterator&quot;</i><i></i><div class="spacer">
+</div>
+<br/>
+  my $iterator = $src_factory-&gt;make_iterator( $source );<br/>
+<div class="spacer">
+</div>
+Given a TAP::Parser::Source, finds the most suitable TAP::Parser::SourceHandler to use to create a TAP::Parser::Iterator (see &quot;detect_source&quot;).  Dies on error.<div class="spacer">
+</div>
+<i></i><i>&quot;detect_source&quot;</i><i></i><div class="spacer">
+</div>
+Given a TAP::Parser::Source, detects what kind of source it is and returns  <i>one</i> TAP::Parser::SourceHandler (the most confident one).  Dies on error.<div class="spacer">
+</div>
+The detection algorithm works something like this:<div class="spacer">
+</div>
+<br/>
+  for (@registered_handlers) {<br/>
+    # ask them how confident they are about handling this source<br/>
+    $confidence{$handler} = $handler-&gt;can_handle( $source )<br/>
+  }<br/>
+  # choose the most confident handler<br/>
+<div class="spacer">
+</div>
+Ties are handled by choosing the first handler.</div>
+</div>
+<div class="section">
+<h1>SUBCLASSING</h1> Please see &quot;SUBCLASSING&quot; in TAP::Parser for a subclassing overview.<div class="subsection">
+<h2>Example</h2> If we've done things right, you'll probably want to write a new source, rather than sub-classing this (see TAP::Parser::SourceHandler for that).<div class="spacer">
+</div>
+But in case you find the need to...<div class="spacer">
+</div>
+<br/>
+  package MyIteratorFactory;<br/>
+<br/>
+  use strict;<br/>
+  use vars '@ISA';<br/>
+<br/>
+  use TAP::Parser::IteratorFactory;<br/>
+<br/>
+  @ISA = qw( TAP::Parser::IteratorFactory );<br/>
+<br/>
+  # override source detection algorithm<br/>
+  sub detect_source {<br/>
+    my ($self, $raw_source_ref, $meta) = @_;<br/>
+    # do detective work, using $meta and whatever else...<br/>
+  }<br/>
+<br/>
+  1;<br/>
+</div>
+</div>
+<div class="section">
+<h1>AUTHORS</h1> Steve Purkis</div>
+<div class="section">
+<h1>ATTRIBUTION</h1> Originally ripped off from Test::Harness.<div class="spacer">
+</div>
+Moved out of TAP::Parser &amp; converted to a factory class to support extensible TAP source detective work by Steve Purkis.</div>
+<div class="section">
+<h1>SEE ALSO</h1> TAP::Object, TAP::Parser, TAP::Parser::SourceHandler, TAP::Parser::SourceHandler::File, TAP::Parser::SourceHandler::Perl, TAP::Parser::SourceHandler::RawTAP, TAP::Parser::SourceHandler::Handle, TAP::Parser::SourceHandler::Executable</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-19</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

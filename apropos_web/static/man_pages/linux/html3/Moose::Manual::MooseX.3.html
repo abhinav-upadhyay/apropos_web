@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Moose::Manual::MooseX(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Moose::Manual::MooseX(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Moose::Manual::MooseX(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Moose::Manual::MooseX - Recommended Moose extensions</div>
+<div class="section">
+<h1>VERSION</h1> version 2.0401</div>
+<div class="section">
+<h1>MooseX?</h1> It's easy to extend and change Moose, and this is part of what makes Moose so powerful. You can use the MOP API to do things your own way, add new features, and generally customize your Moose.<div class="spacer">
+</div>
+Writing your own extensions does require a good understanding of the meta-model. You can start learning about this with the Moose::Manual::MOP docs. There are also several extension recipes in the Moose::Cookbook.<div class="spacer">
+</div>
+Explaining how to write extensions is beyond the scope of this manual. Fortunately, lots of people have already written extensions and put them on CPAN for you.<div class="spacer">
+</div>
+This document covers a few of the ones we like best.</div>
+<div class="section">
+<h1>MooseX::AttributeHelpers</h1> The functionality of this MooseX module has been moved into Moose core. See Moose::Meta::Attribute::Native.</div>
+<div class="section">
+<h1>Moose::Autobox</h1> MooseX::AttributeHelpers, but turned inside out, Moose::Autobox provides methods on both arrays/hashes/etc. but also references to them, using Moose roles, allowing you do to things like:<div class="spacer">
+</div>
+<br/>
+  use Moose::Autobox;<br/>
+<br/>
+  $somebody_elses_object-&gt;orders-&gt;push($order);<br/>
+<div class="spacer">
+</div>
+Lexically scoped and not to everybody's taste, but very handy for sugaring up other people's APIs and your own code.</div>
+<div class="section">
+<h1>MooseX::StrictConstructor</h1> By default, Moose lets you pass any old junk into a class's constructor. If you load MooseX::StrictConstructor, your class will throw an error if it sees something it doesn't recognize;<div class="spacer">
+</div>
+<br/>
+  package User;<br/>
+<br/>
+  use Moose;<br/>
+  use MooseX::StrictConstructor;<br/>
+<br/>
+  has 'name';<br/>
+  has 'email';<br/>
+<br/>
+  User-&gt;new( name =&gt; 'Bob', emali =&gt; 'bob@example.com' );<br/>
+<div class="spacer">
+</div>
+With MooseX::StrictConstructor, that typo (&quot;emali&quot;) will cause a runtime error. With plain old Moose, the &quot;emali&quot; attribute would be silently ignored.</div>
+<div class="section">
+<h1>MooseX::Params::Validate</h1> We have high hopes for the future of MooseX::Method::Signatures and MooseX::Declare. However, these modules, while used regularly in production by some of the more insane members of the community, are still marked alpha just in case backwards incompatible changes need to be made.<div class="spacer">
+</div>
+If you don't want to risk that, for now we recommend the decidedly more clunky (but also faster and simpler) MooseX::Params::Validate. This module lets you apply Moose types and coercions to any method arguments.<div class="spacer">
+</div>
+<br/>
+  package User;<br/>
+<br/>
+  use Moose;<br/>
+  use MooseX::Params::Validate;<br/>
+<br/>
+  sub login {<br/>
+      my $self = shift;<br/>
+      my ($password)<br/>
+          = validated_list( \@_, password =&gt; { isa =&gt; 'Str', required =&gt; 1 } );<br/>
+<br/>
+      ...<br/>
+  }<br/>
+</div>
+<div class="section">
+<h1>MooseX::Getopt</h1> This is a role which adds a &quot;new_with_options&quot; method to your class. This is a constructor that takes the command line options and uses them to populate attributes.<div class="spacer">
+</div>
+This makes writing a command-line application as a module trivially simple:<div class="spacer">
+</div>
+<br/>
+  package App::Foo;<br/>
+<br/>
+  use Moose;<br/>
+  with 'MooseX::Getopt';<br/>
+<br/>
+  has 'input' =&gt; (<br/>
+      is       =&gt; 'ro',<br/>
+      isa      =&gt; 'Str',<br/>
+      required =&gt; 1<br/>
+  );<br/>
+<br/>
+  has 'output' =&gt; (<br/>
+      is       =&gt; 'ro',<br/>
+      isa      =&gt; 'Str',<br/>
+      required =&gt; 1<br/>
+  );<br/>
+<br/>
+  sub run { ... }<br/>
+<div class="spacer">
+</div>
+Then in the script that gets run we have:<div class="spacer">
+</div>
+<br/>
+  use App::Foo;<br/>
+<br/>
+  App::Foo-&gt;new_with_options-&gt;run;<br/>
+<div class="spacer">
+</div>
+From the command line, someone can execute the script:<div class="spacer">
+</div>
+<br/>
+  foo@example&gt; foo --input /path/to/input --output /path/to/output<br/>
+</div>
+<div class="section">
+<h1>MooseX::Singleton</h1> To be honest, using a singleton is just a way to have a magic global variable in languages that don't actually have global variables.<div class="spacer">
+</div>
+In perl, you can just as easily use a global. However, if your colleagues are Java-infected, they might prefer a singleton. Also, if you have an existing class that  <i>isn't</i> a singleton but should be, using MooseX::Singleton is the easiest way to convert it.<div class="spacer">
+</div>
+<br/>
+  package Config;<br/>
+<br/>
+  use MooseX::Singleton; # instead of Moose<br/>
+<br/>
+  has 'cache_dir' =&gt; ( ... );<br/>
+<div class="spacer">
+</div>
+It's that simple.</div>
+<div class="section">
+<h1>EXTENSIONS TO CONSIDER</h1> There are literally dozens of other extensions on CPAN. This is a list of extensions that you might find useful, but we're not quite ready to endorse just yet.<div class="subsection">
+<h2>MooseX::Declare</h2> Extends Perl with Moose-based keywords using &quot;Devel::Declare&quot;. Very cool, but still new and experimental.<div class="spacer">
+</div>
+<br/>
+  class User {<br/>
+<br/>
+      has 'name'  =&gt; ( ... );<br/>
+      has 'email' =&gt; ( ... );<br/>
+<br/>
+      method login (Str $password) { ... }<br/>
+  }<br/>
+</div>
+<div class="subsection">
+<h2>MooseX::Types</h2> This extension helps you build a type library for your application. It also lets you predeclare type names and use them as barewords.<div class="spacer">
+</div>
+<br/>
+  use MooseX::Types -declare =&gt; ['PositiveInt'];<br/>
+  use MooseX::Types::Moose 'Int';<br/>
+<br/>
+  subtype PositiveInt,<br/>
+      as Int,<br/>
+      where { $_ &gt; 0 },<br/>
+      message { &quot;Int is not larger than 0&quot; };<br/>
+<div class="spacer">
+</div>
+One nice feature is that those bareword names are actually namespaced in Moose's type registry, so multiple applications can use the same bareword names, even if the type definitions differ.</div>
+<div class="subsection">
+<h2>MooseX::Types::Structured</h2> This extension builds on top of MooseX::Types to let you declare complex data structure types.<div class="spacer">
+</div>
+<br/>
+  use MooseX::Types -declare =&gt; [ qw( Name Color ) ];<br/>
+  use MooseX::Types::Moose qw(Str Int);<br/>
+  use MooseX::Types::Structured qw(Dict Tuple Optional);<br/>
+<br/>
+  subtype Name<br/>
+      =&gt; as Dict[ first =&gt; Str, middle =&gt; Optional[Str], last =&gt; Str ];<br/>
+<br/>
+  subtype Color<br/>
+      =&gt; as Tuple[ Int, Int, Int, Optional[Int] ];<br/>
+<div class="spacer">
+</div>
+Of course, you could always use objects to represent these sorts of things too.</div>
+<div class="subsection">
+<h2>MooseX::ClassAttribute</h2> This extension provides class attributes for Moose classes. The declared class attributes are introspectable just like regular Moose attributes.<div class="spacer">
+</div>
+<br/>
+  package User;<br/>
+<br/>
+  use Moose;<br/>
+  use MooseX::ClassAttribute;<br/>
+<br/>
+  has 'name' =&gt; ( ... );<br/>
+<br/>
+  class_has 'Cache' =&gt; ( ... );<br/>
+<div class="spacer">
+</div>
+Note however that this class attribute does <i>not</i> inherit like a Class::Data::Inheritable or similar attribute - calling<div class="spacer">
+</div>
+<br/>
+  $subclass-&gt;Cache($cache);<br/>
+<div class="spacer">
+</div>
+will set it for the superclass as well. Additionally, class data is usually The Wrong Thing To Do in a strongly OO program since it makes testing a lot harder - consider carefully whether you'd be better off with an object that's passed around instead.</div>
+<div class="subsection">
+<h2>MooseX::Daemonize</h2> This is a role that provides a number of methods useful for creating a daemon, including methods for starting and stopping, managing a PID file, and signal handling.</div>
+<div class="subsection">
+<h2>MooseX::Role::Parameterized</h2> If you find yourself wanting a role that customizes itself for each consumer, this is the tool for you. With this module, you can create a role that accepts parameters and generates attributes, methods, etc. on a customized basis for each consumer.</div>
+<div class="subsection">
+<h2>MooseX::POE</h2> This is a small wrapper that ties together a Moose class with &quot;POE::Session&quot;, and gives you an &quot;event&quot; sugar function to declare event handlers.</div>
+<div class="subsection">
+<h2>MooseX::FollowPBP</h2> Automatically names all accessors  <i>Perl Best Practices</i>-style, &quot;get_size&quot; and &quot;set_size&quot;.</div>
+<div class="subsection">
+<h2>MooseX::SemiAffordanceAccessor</h2> Automatically names all accessors with an explicit set and implicit get, &quot;size&quot; and &quot;set_size&quot;.</div>
+<div class="subsection">
+<h2>MooseX::NonMoose</h2> MooseX::NonMoose allows for easily subclassing non-Moose classes with Moose, taking care of the annoying details connected with doing this, such as setting up proper inheritance from Moose::Object and installing (and inlining, at make_immutable time) a constructor that makes sure things like BUILD methods are called.</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Moose is maintained by the Moose Cabal, along with the help of many contributors. See &quot;CABAL&quot; in Moose and &quot;CONTRIBUTORS&quot; in Moose for details.</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> This software is copyright (c) 2011 by Infinity Interactive, Inc..<div class="spacer">
+</div>
+This is free software; you can redistribute it and/or modify it under the same terms as the Perl 5 programming language system itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-11-17</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

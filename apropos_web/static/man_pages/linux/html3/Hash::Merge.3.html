@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Merge(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Merge(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Merge(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Hash::Merge - Merges arbitrarily deep hashes into a single hash</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    use Hash::Merge qw( merge );<br/>
+    my %a = ( <br/>
+                'foo'    =&gt; 1,<br/>
+            'bar'    =&gt; [ qw( a b e ) ],<br/>
+            'querty' =&gt; { 'bob' =&gt; 'alice' },<br/>
+        );<br/>
+    my %b = ( <br/>
+                'foo'     =&gt; 2, <br/>
+                'bar'    =&gt; [ qw(c d) ],<br/>
+                'querty' =&gt; { 'ted' =&gt; 'margeret' }, <br/>
+        );<br/>
+<br/>
+    my %c = %{ merge( \%a, \%b ) };<br/>
+<br/>
+    Hash::Merge::set_behavior( 'RIGHT_PRECEDENT' );<br/>
+<br/>
+    # This is the same as above<br/>
+<br/>
+        Hash::Merge::specify_behavior(<br/>
+            {<br/>
+                        'SCALAR' =&gt; {<br/>
+                                'SCALAR' =&gt; sub { $_[1] },<br/>
+                                'ARRAY'  =&gt; sub { [ $_[0], @{$_[1]} ] },<br/>
+                                'HASH'   =&gt; sub { $_[1] },<br/>
+                        },<br/>
+                        'ARRAY =&gt; {<br/>
+                                'SCALAR' =&gt; sub { $_[1] },<br/>
+                                'ARRAY'  =&gt; sub { [ @{$_[0]}, @{$_[1]} ] },<br/>
+                                'HASH'   =&gt; sub { $_[1] }, <br/>
+                        },<br/>
+                        'HASH' =&gt; {<br/>
+                                'SCALAR' =&gt; sub { $_[1] },<br/>
+                                'ARRAY'  =&gt; sub { [ values %{$_[0]}, @{$_[1]} ] },<br/>
+                                'HASH'   =&gt; sub { Hash::Merge::_merge_hashes( $_[0], $_[1] ) }, <br/>
+                        },<br/>
+                }, <br/>
+                'My Behavior', <br/>
+        );<br/>
+        <br/>
+        # Also there is OO interface.<br/>
+        <br/>
+        my $merge = Hash::Merge-&gt;new( 'LEFT_PRECEDENT' );<br/>
+        my %c = %{ $merge-&gt;merge( \%a, \%b ) };<br/>
+        <br/>
+        # All behavioral changes (e.g. $merge-&gt;set_behavior(...)), called on an object remain specific to that object<br/>
+        # The legacy &quot;Global Setting&quot; behavior is respected only when new called as a non-OO function.<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Hash::Merge merges two arbitrarily deep hashes into a single hash.  That is, at any level, it will add non-conflicting key-value pairs from one hash to the other, and follows a set of specific rules when there are key value conflicts (as outlined below).  The hash is followed recursively, so that deeply nested hashes that are at the same level will be merged when the parent hashes are merged.   <b>Please note that self-referencing</b>  <b>hashes, or recursive references, are not handled well by this method.</b><div class="spacer">
+</div>
+Values in hashes are considered to be either ARRAY references, HASH references, or otherwise are treated as SCALARs.  By default, the data passed to the merge function will be cloned using the Clone module; however, if necessary, this behavior can be changed to use as many of the original values as possible.  (See &quot;set_clone_behavior&quot;).<div class="spacer">
+</div>
+Because there are a number of possible ways that one may want to merge values when keys are conflicting, Hash::Merge provides several preset methods for your convenience, as well as a way to define you own. These are (currently):<dl>
+<dt>
+Left Precedence</dt>
+<dd>
+This is the default behavior.<div style="height: 1.00em;">
+&#160;</div>
+The values buried in the left hash will never be lost; any values that can be added from the right hash will be attempted.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   my $merge = Hash::Merge-&gt;new();<br/>
+   my $merge = Hash::Merge-&gt;new('LEFT_PRECEDENT');<br/>
+   $merge-&gt;set_set_behavior('LEFT_PRECEDENT')<br/>
+   Hash::Merge::set_set_behavior('LEFT_PRECEDENT')<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+Right Precedence</dt>
+<dd>
+Same as Left Precedence, but with the right hash values never being lost<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   my $merge = Hash::Merge-&gt;new('RIGHT_PRECEDENT');<br/>
+   $merge-&gt;set_set_behavior('RIGHT_PRECEDENT')<br/>
+   Hash::Merge::set_set_behavior('RIGHT_PRECEDENT')<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+Storage Precedence</dt>
+<dd>
+If conflicting keys have two different storage mediums, the 'bigger' medium will win; arrays are preferred over scalars, hashes over either.  The other medium will try to be fitted in the other, but if this isn't possible, the data is dropped.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   my $merge = Hash::Merge-&gt;new('STORAGE_PRECEDENT');<br/>
+   $merge-&gt;set_set_behavior('STORAGE_PRECEDENT')<br/>
+   Hash::Merge::set_set_behavior('STORAGE_PRECEDENT')<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+Retainment Precedence</dt>
+<dd>
+No data will be lost; scalars will be joined with arrays, and scalars and arrays will be 'hashified' to fit them into a hash.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   my $merge = Hash::Merge-&gt;new('RETAINMENT_PRECEDENT');<br/>
+   $merge-&gt;set_set_behavior('RETAINMENT_PRECEDENT')<br/>
+   Hash::Merge::set_set_behavior('RETAINMENT_PRECEDENT')<br/>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+Specific descriptions of how these work are detailed below.<dl>
+<dt>
+merge ( &lt;hashref&gt;, &lt;hashref&gt; )</dt>
+<dd>
+Merges two hashes given the rules specified.  Returns a reference to the new hash.</dd>
+</dl>
+<dl>
+<dt>
+_hashify( &lt;scalar&gt;|&lt;arrayref&gt; ) -- INTERNAL FUNCTION</dt>
+<dd>
+Returns a reference to a hash created from the scalar or array reference, where, for the scalar value, or each item in the array, there is a key and it's value equal to that specific value.  Example, if you pass scalar '3', the hash will be { 3 =&gt; 3 }.</dd>
+</dl>
+<dl>
+<dt>
+_merge_hashes( &lt;hashref&gt;, &lt;hashref&gt; ) -- INTERNAL FUNCTION</dt>
+<dd>
+Actually does the key-by-key evaluation of two hashes and returns the new merged hash.  Note that this recursively calls &quot;merge&quot;.</dd>
+</dl>
+<dl>
+<dt>
+set_clone_behavior( &lt;scalar&gt; )</dt>
+<dd>
+Sets how the data cloning is handled by Hash::Merge.  If this is true, then data will be cloned; if false, then original data will be used whenever possible.  By default, cloning is on (set to true).</dd>
+</dl>
+<dl>
+<dt>
+get_clone_behavior( )</dt>
+<dd>
+Returns the current behavior for data cloning.</dd>
+</dl>
+<dl>
+<dt>
+set_behavior( &lt;scalar&gt; )</dt>
+<dd>
+Specify which built-in behavior for merging that is desired.  The scalar must be one of those given below.</dd>
+</dl>
+<dl>
+<dt>
+get_behavior( )</dt>
+<dd>
+Returns the behavior that is currently in use by Hash::Merge.</dd>
+</dl>
+<dl>
+<dt>
+specify_behavior( &lt;hashref&gt;, [&lt;name&gt;] )</dt>
+<dd>
+Specify a custom merge behavior for Hash::Merge.  This must be a hashref defined with (at least) 3 keys, SCALAR, ARRAY, and HASH; each of those keys must have another hashref with (at least) the same 3 keys defined. Furthermore, the values in those hashes must be coderefs.  These will be called with two arguments, the left and right values for the merge. Your coderef should return either a scalar or an array or hash reference as per your planned behavior.  If necessary, use the functions _hashify and _merge_hashes as helper functions for these.  For example, if you want to add the left SCALAR to the right ARRAY, you can have your behavior specification include:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   %spec = ( ...SCALAR =&gt; { ARRAY =&gt; sub { [ $_[0], @$_[1] ] }, ... } } );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Note that you can import _hashify and _merge_hashes into your program's namespace with the 'custom' tag.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>BUILT-IN BEHAVIORS</h1> Here is the specifics on how the current internal behaviors are called, and what each does.  Assume that the left value is given as $a, and the right as $b (these are either scalars or appropriate references)<div class="spacer">
+</div>
+<br/>
+        LEFT TYPE   RIGHT TYPE      LEFT_PRECEDENT       RIGHT_PRECEDENT<br/>
+         SCALAR      SCALAR            $a                   $b<br/>
+         SCALAR      ARRAY             $a                   ( $a, @$b )<br/>
+         SCALAR      HASH              $a                   %$b<br/>
+         ARRAY       SCALAR            ( @$a, $b )          $b<br/>
+         ARRAY       ARRAY             ( @$a, @$b )         ( @$a, @$b )<br/>
+         ARRAY       HASH              ( @$a, values %$b )  %$b <br/>
+         HASH        SCALAR            %$a                  $b<br/>
+         HASH        ARRAY             %$a                  ( values %$a, @$b )<br/>
+         HASH        HASH              merge( %$a, %$b )    merge( %$a, %$b )<br/>
+<br/>
+        LEFT TYPE   RIGHT TYPE  STORAGE_PRECEDENT   RETAINMENT_PRECEDENT<br/>
+         SCALAR      SCALAR     $a                  ( $a ,$b )<br/>
+         SCALAR      ARRAY      ( $a, @$b )         ( $a, @$b )<br/>
+         SCALAR      HASH       %$b                 merge( hashify( $a ), %$b )<br/>
+         ARRAY       SCALAR     ( @$a, $b )         ( @$a, $b )<br/>
+         ARRAY       ARRAY      ( @$a, @$b )        ( @$a, @$b )<br/>
+         ARRAY       HASH       %$b                 merge( hashify( @$a ), %$b )<br/>
+         HASH        SCALAR     %$a                 merge( %$a, hashify( $b ) )<br/>
+         HASH        ARRAY      %$a                 merge( %$a, hashify( @$b ) )<br/>
+         HASH        HASH       merge( %$a, %$b )   merge( %$a, %$b )<br/>
+<div class="spacer">
+</div>
+(*) note that merge calls _merge_hashes, hashify calls _hashify.</div>
+<div class="section">
+<h1>CAVEATS</h1> This will not handle self-referencing/recursion within hashes well. Plans for a future version include incorporate deep recursion protection.<div class="spacer">
+</div>
+As of Feb 16, 2002, ActiveState Perl's PPM of Clone.pm is only at 0.09.  This version does not support the cloning of scalars if passed to the function.  This is fixed by 0.10 (and currently, Clone.pm is at 0.13).  So while most other users can upgrade their Clone.pm appropriately (and I could put this as a requirement into the Makefile.PL), those using ActiveState would lose out on the ability to use this module.  (Clone.pm is not pure perl, so it's not simply a matter of moving the newer file into place).  Thus, for the time being, a check is done at the start of loading of this module to see if a newer version of clone is around.  Then, all cloning calls have been wrapped in the internal _my_clone function to block any scalar clones if Clone.pm is too old.  However, this also prevents the cloning of anything that isn't a hash or array under the same conditions.  Once ActiveState updates their Clone, I'll remove this wrapper.</div>
+<div class="section">
+<h1>AUTHOR</h1> Michael K. Neylon &lt;mneylon-pm@masemware.com&gt;</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright (c) 2001,2002 Michael K. Neylon. All rights reserved.<div class="spacer">
+</div>
+This library is free software.  You can redistribute it and/or modify it under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2010-02-15</td>
+<td class="foot-os">
+perl v5.12.4</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

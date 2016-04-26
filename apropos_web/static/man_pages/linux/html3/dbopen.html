@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+DBOPEN(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+DBOPEN(3)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+DBOPEN(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> dbopen - database access methods</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;sys/types.h&gt;</b> <b>#include &lt;limits.h&gt;</b> <b>#include &lt;db.h&gt;</b> <b>#include &lt;fcntl.h&gt;</b><div class="spacer">
+</div>
+<br/>
+<b>DB *dbopen(const char *</b><i>file</i><b>, int </b><i>flags</i><b>, int </b><i>mode</i><b>, DBTYPE </b><i>type</i><b>,</b><br/>
+<b>           const void *</b><i>openinfo</i><b>);</b><br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> <b>dbopen</b>() is the library interface to database files. The supported file formats are btree, hashed and UNIX file oriented. The btree format is a representation of a sorted, balanced tree structure. The hashed format is an extensible, dynamic hashing scheme. The flat-file format is a byte stream file with fixed or variable length records. The formats and file format specific information are described in detail in their respective manual pages <b>btree</b>(3), <b>hash</b>(3) and <b>recno</b>(3).<div class="spacer">
+</div>
+<b>dbopen</b>() opens <i>file</i> for reading and/or writing. Files never intended to be preserved on disk may be created by setting the <i>file</i> argument to NULL.<div class="spacer">
+</div>
+The <i>flags</i> and <i>mode</i> arguments are as specified to the <b>open</b>(2) routine, however, only the <b>O_CREAT</b>, <b>O_EXCL</b>, <b>O_EXLOCK</b>, <b>O_NONBLOCK</b>, <b>O_RDONLY</b>, <b>O_RDWR</b>, <b>O_SHLOCK</b>, and <b>O_TRUNC</b> flags are meaningful. (Note, opening a database file <b>O_WRONLY</b> is not possible.)<div class="spacer">
+</div>
+The <i>type</i> argument is of type <i>DBTYPE</i> (as defined in the <i>&lt;db.h&gt;</i> include file) and may be set to <b>DB_BTREE</b>, <b>DB_HASH</b>, or <b>DB_RECNO</b>.<div class="spacer">
+</div>
+The <i>openinfo</i> argument is a pointer to an access method specific structure described in the access method's manual page. If <i>openinfo</i> is NULL, each access method will use defaults appropriate for the system and the access method.<div class="spacer">
+</div>
+<b>dbopen</b>() returns a pointer to a <i>DB</i> structure on success and NULL on error. The <i>DB</i> structure is defined in the <i>&lt;db.h&gt;</i> include file, and contains at least the following fields:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+typedef struct {<br/>
+    DBTYPE type;<br/>
+    int (*close)(const DB *db);<br/>
+    int (*del)(const DB *db, const DBT *key, unsigned int flags);<br/>
+    int (*fd)(const DB *db);<br/>
+    int (*get)(const DB *db, DBT *key, DBT *data,<br/>
+               unsigned int flags);<br/>
+    int (*put)(const DB *db, DBT *key, const DBT *data,<br/>
+               unsigned int flags);<br/>
+    int (*sync)(const DB *db, unsigned int flags);<br/>
+    int (*seq)(const DB *db, DBT *key, DBT *data,<br/>
+               unsigned int flags);<br/>
+} DB;<br/>
+<br/>
+<div class="spacer">
+</div>
+These elements describe a database type and a set of functions performing various actions. These functions take a pointer to a structure as returned by <b>dbopen</b>(), and sometimes one or more pointers to key/data structures and a flag value.<dl>
+<dt>
+<i>type</i></dt>
+<dd>
+The type of the underlying access method (and file format).</dd>
+</dl>
+<dl>
+<dt>
+<i>close</i></dt>
+<dd>
+A pointer to a routine to flush any cached information to disk, free any allocated resources, and close the underlying file(s). Since key/data pairs may be cached in memory, failing to sync the file with a <i>close</i> or <i>sync</i> function may result in inconsistent or lost information. <i>close</i> routines return -1 on error (setting <i>errno</i>) and 0 on success.</dd>
+</dl>
+<dl>
+<dt>
+<i>del</i></dt>
+<dd>
+A pointer to a routine to remove key/data pairs from the database.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+The argument <i>flag</i> may be set to the following value:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>R_CURSOR</b></dt>
+<dd>
+Delete the record referenced by the cursor. The cursor must have previously been initialized.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+</dt>
+<dd>
+<i>delete</i> routines return -1 on error (setting <i>errno</i>), 0 on success, and 1 if the specified <i>key</i> was not in the file.</dd>
+</dl>
+<dl>
+<dt>
+<i>fd</i></dt>
+<dd>
+A pointer to a routine which returns a file descriptor representative of the underlying database. A file descriptor referencing the same file will be returned to all processes which call <b>dbopen</b>() with the same <i>file</i> name. This file descriptor may be safely used as an argument to the <b>fcntl</b>(2) and <b>flock</b>(2) locking functions. The file descriptor is not necessarily associated with any of the underlying files used by the access method. No file descriptor is available for in memory databases. <i>fd</i> routines return -1 on error (setting <i>errno</i>), and the file descriptor on success.</dd>
+</dl>
+<dl>
+<dt>
+<i>get</i></dt>
+<dd>
+A pointer to a routine which is the interface for keyed retrieval from the database. The address and length of the data associated with the specified <i>key</i> are returned in the structure referenced by <i>data</i>. <i>get</i> routines return -1 on error (setting <i>errno</i>), 0 on success, and 1 if the <i>key</i> was not in the file.</dd>
+</dl>
+<dl>
+<dt>
+<i>put</i></dt>
+<dd>
+A pointer to a routine to store key/data pairs in the database.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+The argument <i>flag</i> may be set to one of the following values:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>R_CURSOR</b></dt>
+<dd>
+Replace the key/data pair referenced by the cursor. The cursor must have previously been initialized.</dd>
+</dl>
+<dl>
+<dt>
+<b>R_IAFTER</b></dt>
+<dd>
+Append the data immediately after the data referenced by <i>key</i>, creating a new key/data pair. The record number of the appended key/data pair is returned in the <i>key</i> structure. (Applicable only to the <b>DB_RECNO</b> access method.)</dd>
+</dl>
+<dl>
+<dt>
+<b>R_IBEFORE</b></dt>
+<dd>
+Insert the data immediately before the data referenced by <i>key</i>, creating a new key/data pair. The record number of the inserted key/data pair is returned in the <i>key</i> structure. (Applicable only to the <b>DB_RECNO</b> access method.)</dd>
+</dl>
+<dl>
+<dt>
+<b>R_NOOVERWRITE</b></dt>
+<dd>
+Enter the new key/data pair only if the key does not previously exist.</dd>
+</dl>
+<dl>
+<dt>
+<b>R_SETCURSOR</b></dt>
+<dd>
+Store the key/data pair, setting or initializing the position of the cursor to reference it. (Applicable only to the <b>DB_BTREE</b> and <b>DB_RECNO</b> access methods.)</dd>
+</dl>
+</div>
+<dl>
+<dt>
+</dt>
+<dd>
+<b>R_SETCURSOR</b> is available only for the <b>DB_BTREE</b> and <b>DB_RECNO</b> access methods because it implies that the keys have an inherent order which does not change.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+<b>R_IAFTER</b> and <b>R_IBEFORE</b> are available only for the <b>DB_RECNO</b> access method because they each imply that the access method is able to create new keys. This is only true if the keys are ordered and independent, record numbers for example.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+The default behavior of the <i>put</i> routines is to enter the new key/data pair, replacing any previously existing key.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+<i>put</i> routines return -1 on error (setting <i>errno</i>), 0 on success, and 1 if the <b>R_NOOVERWRITE</b> <i>flag</i> was set and the key already exists in the file.</dd>
+</dl>
+<dl>
+<dt>
+<i>seq</i></dt>
+<dd>
+A pointer to a routine which is the interface for sequential retrieval from the database. The address and length of the key are returned in the structure referenced by <i>key</i>, and the address and length of the data are returned in the structure referenced by <i>data</i>.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+Sequential key/data pair retrieval may begin at any time, and the position of the &quot;cursor&quot; is not affected by calls to the <i>del</i>, <i>get</i>, <i>put</i>, or <i>sync</i> routines. Modifications to the database during a sequential scan will be reflected in the scan, that is, records inserted behind the cursor will not be returned while records inserted in front of the cursor will be returned.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+The flag value <b>must</b> be set to one of the following values:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>R_CURSOR</b></dt>
+<dd>
+The data associated with the specified key is returned. This differs from the <i>get</i> routines in that it sets or initializes the cursor to the location of the key as well. (Note, for the <b>DB_BTREE</b> access method, the returned key is not necessarily an exact match for the specified key. The returned key is the smallest key greater than or equal to the specified key, permitting partial key matches and range searches.)</dd>
+</dl>
+<dl>
+<dt>
+<b>R_FIRST</b></dt>
+<dd>
+The first key/data pair of the database is returned, and the cursor is set or initialized to reference it.</dd>
+</dl>
+<dl>
+<dt>
+<b>R_LAST</b></dt>
+<dd>
+The last key/data pair of the database is returned, and the cursor is set or initialized to reference it. (Applicable only to the <b>DB_BTREE</b> and <b>DB_RECNO</b> access methods.)</dd>
+</dl>
+<dl>
+<dt>
+<b>R_NEXT</b></dt>
+<dd>
+Retrieve the key/data pair immediately after the cursor. If the cursor is not yet set, this is the same as the <b>R_FIRST</b> flag.</dd>
+</dl>
+<dl>
+<dt>
+<b>R_PREV</b></dt>
+<dd>
+Retrieve the key/data pair immediately before the cursor. If the cursor is not yet set, this is the same as the <b>R_LAST</b> flag. (Applicable only to the <b>DB_BTREE</b> and <b>DB_RECNO</b> access methods.)</dd>
+</dl>
+</div>
+<dl>
+<dt>
+</dt>
+<dd>
+<b>R_LAST</b> and <b>R_PREV</b> are available only for the <b>DB_BTREE</b> and <b>DB_RECNO</b> access methods because they each imply that the keys have an inherent order which does not change.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+<i>seq</i> routines return -1 on error (setting <i>errno</i>), 0 on success and 1 if there are no key/data pairs less than or greater than the specified or current key. If the <b>DB_RECNO</b> access method is being used, and if the database file is a character special file and no complete key/data pairs are currently available, the <i>seq</i> routines return 2.</dd>
+</dl>
+<dl>
+<dt>
+<i>sync</i></dt>
+<dd>
+A pointer to a routine to flush any cached information to disk. If the database is in memory only, the <i>sync</i> routine has no effect and will always succeed.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+The flag value may be set to the following value:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>R_RECNOSYNC</b></dt>
+<dd>
+If the <b>DB_RECNO</b> access method is being used, this flag causes the sync routine to apply to the btree file which underlies the recno file, not the recno file itself. (See the <i>bfname</i> field of the <b>recno</b>(3) manual page for more information.)</dd>
+</dl>
+</div>
+<dl>
+<dt>
+</dt>
+<dd>
+<i>sync</i> routines return -1 on error (setting <i>errno</i>) and 0 on success.</dd>
+</dl>
+<div class="subsection">
+<h2>Key/Data Pairs</h2> Access to all file types is based on key/data pairs. Both keys and data are represented by the following data structure:<br/>
+<div class="spacer">
+</div>
+<br/>
+typedef struct {<br/>
+    void  *data;<br/>
+    size_t size;<br/>
+} DBT;<br/>
+<br/>
+<div class="spacer">
+</div>
+The elements of the <i>DBT</i> structure are defined as follows:<dl>
+<dt>
+<i>data</i></dt>
+<dd>
+A pointer to a byte string.</dd>
+</dl>
+<dl>
+<dt>
+<i>size</i></dt>
+<dd>
+The length of the byte string.</dd>
+</dl>
+<div class="spacer">
+</div>
+Key and data byte strings may reference strings of essentially unlimited length although any two of them must fit into available memory at the same time. It should be noted that the access methods provide no guarantees about byte string alignment.</div>
+</div>
+<div class="section">
+<h1>ERRORS</h1> The <b>dbopen</b>() routine may fail and set <i>errno</i> for any of the errors specified for the library routines <b>open</b>(2) and <b>malloc</b>(3) or the following:<dl>
+<dt>
+<b>EFTYPE</b></dt>
+<dd>
+A file is incorrectly formatted.</dd>
+</dl>
+<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+A parameter has been specified (hash function, pad byte etc.) that is incompatible with the current file specification or which is not meaningful for the function (for example, use of the cursor without prior initialization) or there is a mismatch between the version number of file and the software.</dd>
+</dl>
+<div class="spacer">
+</div>
+The <i>close</i> routines may fail and set <i>errno</i> for any of the errors specified for the library routines <b>close</b>(2), <b>read</b>(2), <b>write</b>(2), <b>free</b>(3), or <b>fsync</b>(2).<div class="spacer">
+</div>
+The <i>del</i>, <i>get</i>, <i>put</i> and <i>seq</i> routines may fail and set <i>errno</i> for any of the errors specified for the library routines <b>read</b>(2), <b>write</b>(2), <b>free</b>(3) or <b>malloc</b>(3).<div class="spacer">
+</div>
+The <i>fd</i> routines will fail and set <i>errno</i> to <b>ENOENT</b> for in memory databases.<div class="spacer">
+</div>
+The <i>sync</i> routines may fail and set <i>errno</i> for any of the errors specified for the library routine <b>fsync</b>(2).</div>
+<div class="section">
+<h1>BUGS</h1> The typedef <i>DBT</i> is a mnemonic for &quot;data base thang&quot;, and was used because no-one could think of a reasonable name that wasn't already used.<div class="spacer">
+</div>
+The file descriptor interface is a kludge and will be deleted in a future version of the interface.<div class="spacer">
+</div>
+None of the access methods provide any form of concurrent access, locking, or transactions.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>btree</b>(3), <b>hash</b>(3), <b>mpool</b>(3), <b>recno</b>(3)<div style="height: 1.00em;">
+&#160;</div>
+<i>LIBTP: Portable, Modular Transactions for UNIX</i>, Margo Seltzer, Michael Olson, USENIX proceedings, Winter 1992.</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+1994-01-02</td>
+<td class="foot-os">
+4.4 Berkeley Distribution</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

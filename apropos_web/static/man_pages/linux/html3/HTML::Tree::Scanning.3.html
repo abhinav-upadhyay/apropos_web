@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+HTML::Tree::Scanning(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+HTML::Tree::Scanning(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+HTML::Tree::Scanning(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> HTML::Tree::Scanning -- article: &quot;Scanning HTML&quot;</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  # This an article, not a module.<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The following article by Sean M. Burke first appeared in  <i>The Perl</i>  <i>Journal</i> #19 and is copyright 2000 The Perl Journal. It appears courtesy of Jon Orwant and The Perl Journal.  This document may be distributed under the same terms as Perl itself.<div class="spacer">
+</div>
+(Note that this is discussed in chapters 6 through 10 of the book  <i>Perl and LWP</i> &lt;http://lwp.interglacial.com/&gt; which was written after the following documentation, and which is available free online.)</div>
+<div class="section">
+<h1>Scanning HTML</h1> -- Sean M. Burke<div class="spacer">
+</div>
+In <i>The Perl Journal</i> issue 17, Ken MacFarlane's article &quot;Parsing HTML with HTML::Parser&quot; describes how the HTML::Parser module scans HTML source as a stream of start-tags, end-tags, text, comments, etc. In TPJ #18, my &quot;Trees&quot; article kicked around the idea of tree-shaped data structures.  Now I'll try to tie it together, in a discussion of HTML trees.<div class="spacer">
+</div>
+The CPAN module HTML::TreeBuilder takes the tags that HTML::Parser picks out, and builds a parse tree -- a tree-shaped network of objects...<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+Footnote: And if you need a quick explanation of objects, see my TPJ17 article &quot;A User's View of Object-Oriented Modules&quot;; or go whole hog and get Damian Conway's excellent book  <i>Object-Oriented Perl</i>, from Manning Publications.</div>
+<div class="spacer">
+</div>
+...representing the structured content of the HTML document.  And once the document is parsed as a tree, you'll find the common tasks of extracting data from that HTML document/tree to be quite straightforward.<div class="subsection">
+<h2>HTML::Parser, HTML::TreeBuilder, and HTML::Element</h2> You use HTML::TreeBuilder to make a parse tree out of an HTML source file, by simply saying:<div class="spacer">
+</div>
+<br/>
+  use HTML::TreeBuilder;<br/>
+  my $tree = HTML::TreeBuilder-&gt;new();<br/>
+  $tree-&gt;parse_file('foo.html');<br/>
+<div class="spacer">
+</div>
+and then $tree contains a parse tree built from the HTML source from the file &quot;foo.html&quot;.  The way this parse tree is represented is with a network of objects -- $tree is the root, an element with tag-name &quot;html&quot;, and its children typically include a &quot;head&quot; and &quot;body&quot; element, and so on.  Elements in the tree are objects of the class HTML::Element.<div class="spacer">
+</div>
+So, if you take this source:<div class="spacer">
+</div>
+<br/>
+  &lt;html&gt;&lt;head&gt;&lt;title&gt;Doc 1&lt;/title&gt;&lt;/head&gt;<br/>
+  &lt;body&gt;<br/>
+  Stuff &lt;hr&gt; 2000-08-17<br/>
+  &lt;/body&gt;&lt;/html&gt;<br/>
+<div class="spacer">
+</div>
+and feed it to HTML::TreeBuilder, it'll return a tree of objects that looks like this:<div class="spacer">
+</div>
+<br/>
+               html<br/>
+             /      \<br/>
+         head        body<br/>
+        /          /   |  \<br/>
+     title    &quot;Stuff&quot;  hr  &quot;2000-08-17&quot;<br/>
+       |<br/>
+    &quot;Doc 1&quot;<br/>
+<div class="spacer">
+</div>
+This is a pretty simple document, but if it were any more complex, it'd be a bit hard to draw in that style, since it's sprawl left and right.  The same tree can be represented a bit more easily sideways, with indenting:<div class="spacer">
+</div>
+<br/>
+  . html<br/>
+     . head<br/>
+        . title<br/>
+           . &quot;Doc 1&quot;<br/>
+     . body<br/>
+        . &quot;Stuff&quot;<br/>
+        . hr<br/>
+        . &quot;2000-08-17&quot;<br/>
+<div class="spacer">
+</div>
+Either way expresses the same structure.  In that structure, the root node is an object of the class HTML::Element<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+Footnote: Well actually, the root is of the class HTML::TreeBuilder, but that's just a subclass of HTML::Element, plus the few extra methods like &quot;parse_file&quot; that elaborate the tree</div>
+<div class="spacer">
+</div>
+, with the tag name &quot;html&quot;, and with two children: an HTML::Element object whose tag names are &quot;head&quot; and &quot;body&quot;.  And each of those elements have children, and so on down.  Not all elements (as we'll call the objects of class HTML::Element) have children -- the &quot;hr&quot; element doesn't.  And note all nodes in the tree are elements -- the text nodes (&quot;Doc 1&quot;, &quot;Stuff&quot;, and &quot;2000-08-17&quot;) are just strings.<div class="spacer">
+</div>
+Objects of the class HTML::Element each have three noteworthy attributes:<dl>
+<dt>
+&quot;_tag&quot; -- (best accessed as &quot;$e-&gt;tag&quot;) this element's tag-name, lowercased (e.g., &quot;em&quot; for an &quot;em&quot; element).</dt>
+<dd>
+</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<div style="margin-left: 4.00ex;">
+Footnote: Yes, this is misnamed.  In proper SGML terminology, this is instead called a &quot;GI&quot;, short for &quot;generic identifier&quot;; and the term &quot;tag&quot; is used for a token of SGML source that represents either the start of an element (a start-tag like &quot;&lt;em lang='fr'&gt;&quot;) or the end of an element (an end-tag like &quot;&lt;/em&gt;&quot;.  However, since more people claim to have been abducted by aliens than to have ever seen the SGML standard, and since both encounters typically involve a feeling of &quot;missing time&quot;, it's not surprising that the terminology of the SGML standard is not closely followed.</div>
+</div>
+<div style="margin-left: 4.00ex;">
+</div>
+<dl>
+<dt>
+&quot;_parent&quot; -- (best accessed as &quot;$e-&gt;parent&quot;) the element that is $obj's parent, or undef if this element is the root of its tree.</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;_content&quot; -- (best accessed as &quot;$e-&gt;content_list&quot;) the list of nodes (i.e., elements or text segments) that are $e's children.</dt>
+<dd>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+Moreover, if an element object has any attributes in the SGML sense of the word, then those are readable as &quot;$e-&gt;attr('name')&quot; -- for example, with the object built from having parsed &quot;&lt;a  <b>id='foo'</b>&gt;bar&lt;/a&gt;&quot;, &quot;$e-&gt;attr('id')&quot; will return the string &quot;foo&quot;.  Moreover, &quot;$e-&gt;tag&quot; on that object returns the string &quot;a&quot;, &quot;$e-&gt;content_list&quot; returns a list consisting of just the single scalar &quot;bar&quot;, and &quot;$e-&gt;parent&quot; returns the object that's this node's parent -- which may be, for example, a &quot;p&quot; element.<div class="spacer">
+</div>
+And that's all that there is to it -- you throw HTML source at TreeBuilder, and it returns a tree built of HTML::Element objects and some text strings.<div class="spacer">
+</div>
+However, what do you <i>do</i> with a tree of objects?  People code information into HTML trees not for the fun of arranging elements, but to represent the structure of specific text and images -- some text is in this &quot;li&quot; element, some other text is in that heading, some images are in that other table cell that has those attributes, and so on.<div class="spacer">
+</div>
+Now, it may happen that you're rendering that whole HTML tree into some layout format.  Or you could be trying to make some systematic change to the HTML tree before dumping it out as HTML source again.  But, in my experience, by far the most common programming task that Perl programmers face with HTML is in trying to extract some piece of information from a larger document.  Since that's so common (and also since it involves concepts that are basic to more complex tasks), that is what the rest of this article will be about.</div>
+<div class="subsection">
+<h2>Scanning HTML trees</h2> Suppose you have a thousand HTML documents, each of them a press release.  They all start out:<div class="spacer">
+</div>
+<br/>
+  [...lots of leading images and junk...]<br/>
+  &lt;h1&gt;ConGlomCo to Open New Corporate Office in Ougadougou&lt;/h1&gt;<br/>
+  BAKERSFIELD, CA, 2000-04-24 -- ConGlomCo's vice president in charge<br/>
+  of world conquest, Rock Feldspar, announced today the opening of a<br/>
+  new office in Ougadougou, the capital city of Burkino Faso, gateway<br/>
+  to the bustling &quot;Silicon Sahara&quot; of Africa...<br/>
+  [...etc...]<br/>
+<div class="spacer">
+</div>
+...and what you've got to do is, for each document, copy whatever text is in the &quot;h1&quot; element, so that you can, for example, make a table of contents of it.  Now, there are three ways to do this:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+You can just use a regexp to scan the file for a text pattern.<div style="height: 1.00em;">
+&#160;</div>
+For many very simple tasks, this will do fine.  Many HTML documents are, in practice, very consistently formatted as far as placement of linebreaks and whitespace, so you could just get away with scanning the file like so:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  sub get_heading {<br/>
+    my $filename = $_[0];<br/>
+    local *HTML;<br/>
+    open(HTML, $filename)<br/>
+      or die &quot;Couldn't open $filename);<br/>
+    my $heading;<br/>
+   Line:<br/>
+    while(&lt;HTML&gt;) {<br/>
+      if( m{&lt;h1&gt;(.*?)&lt;/h1&gt;}i ) {  # match it!<br/>
+        $heading = $1;<br/>
+        last Line;<br/>
+      }<br/>
+    }<br/>
+    close(HTML);<br/>
+    warn &quot;No heading in $filename?&quot;<br/>
+     unless defined $heading;<br/>
+    return $heading;<br/>
+  }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This is quick and fast, but awfully fragile -- if there's a newline in the middle of a heading's text, it won't match the above regexp, and you'll get an error.  The regexp will also fail if the &quot;h1&quot; element's start-tag has any attributes.  If you have to adapt your code to fit more kinds of start-tags, you'll end up basically reinventing part of HTML::Parser, at which point you should probably just stop, and use HTML::Parser itself:</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+You can use HTML::Parser to scan the file for an &quot;h1&quot; start-tag token, then capture all the text tokens until the &quot;h1&quot; close-tag.  This approach is extensively covered in the Ken MacFarlane's TPJ17 article &quot;Parsing HTML with HTML::Parser&quot;.  (A variant of this approach is to use HTML::TokeParser, which presents a different and rather handier interface to the tokens that HTML::Parser picks out.)<div style="height: 1.00em;">
+&#160;</div>
+Using HTML::Parser is less fragile than our first approach, since it's not sensitive to the exact internal formatting of the start-tag (much less whether it's split across two lines).  However, when you need more information about the context of the &quot;h1&quot; element, or if you're having to deal with any of the tricky bits of HTML, such as parsing of tables, you'll find out the flat list of tokens that HTML::Parser returns isn't immediately useful.  To get something useful out of those tokens, you'll need to write code that knows some things about what elements take no content (as with &quot;hr&quot; elements), and that a &quot;&lt;/p&gt;&quot; end-tags are omissible, so a &quot;&lt;p&gt;&quot; will end any currently open paragraph -- and you're well on your way to pointlessly reinventing much of the code in HTML::TreeBuilder</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+Footnote: And, as the person who last rewrote that module, I can attest that it wasn't terribly easy to get right!  Never underestimate the perversity of people coding HTML.</div>
+</div>
+<div style="margin-left: 4.00ex;">
+<div style="height: 1.00em;">
+&#160;</div>
+, at which point you should probably just stop, and use HTML::TreeBuilder itself:</div>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+You can use HTML::Treebuilder, and scan the tree of element objects that you get back.</dd>
+</dl>
+<div class="spacer">
+</div>
+The last approach, using HTML::TreeBuilder, is the diametric opposite of first approach:  The first approach involves just elementary Perl and one regexp, whereas the TreeBuilder approach involves being at home with the concept of tree-shaped data structures and modules with object-oriented interfaces, as well as with the particular interfaces that HTML::TreeBuilder and HTML::Element provide.<div class="spacer">
+</div>
+However, what the TreeBuilder approach has going for it is that it's the most robust, because it involves dealing with HTML in its &quot;native&quot; format -- it deals with the tree structure that HTML code represents, without any consideration of how the source is coded and with what tags omitted.<div class="spacer">
+</div>
+So, to extract the text from the &quot;h1&quot; elements of an HTML document:<div class="spacer">
+</div>
+<br/>
+  sub get_heading {<br/>
+    my $tree = HTML::TreeBuilder-&gt;new;<br/>
+    $tree-&gt;parse_file($_[0]);   # !<br/>
+    my $heading;<br/>
+    my $h1 = $tree-&gt;look_down('_tag', 'h1');  # !<br/>
+    if($h1) {<br/>
+      $heading = $h1-&gt;as_text;   # !<br/>
+    } else {<br/>
+      warn &quot;No heading in $_[0]?&quot;;<br/>
+    }<br/>
+    $tree-&gt;delete; # clear memory!<br/>
+    return $heading;<br/>
+  }<br/>
+<div class="spacer">
+</div>
+This uses some unfamiliar methods that need explaining.  The &quot;parse_file&quot; method that we've seen before, builds a tree based on source from the file given.  The &quot;delete&quot; method is for marking a tree's contents as available for garbage collection, when you're done with the tree.  The &quot;as_text&quot; method returns a string that contains all the text bits that are children (or otherwise descendants) of the given node -- to get the text content of the $h1 object, we could just say:<div class="spacer">
+</div>
+<br/>
+  $heading = join '', $h1-&gt;content_list;<br/>
+<div class="spacer">
+</div>
+but that will work only if we're sure that the &quot;h1&quot; element's children will be only text bits -- if the document contained:<div class="spacer">
+</div>
+<br/>
+  &lt;h1&gt;Local Man Sees &lt;cite&gt;Blade&lt;/cite&gt; Again&lt;/h1&gt;<br/>
+<div class="spacer">
+</div>
+then the sub-tree would be:<div class="spacer">
+</div>
+<br/>
+  . h1<br/>
+    . &quot;Local Man Sees &quot;<br/>
+    . cite<br/>
+      . &quot;Blade&quot;<br/>
+    . &quot; Again'<br/>
+<div class="spacer">
+</div>
+so &quot;join '', $h1-&gt;content_list&quot; will be something like:<div class="spacer">
+</div>
+<br/>
+  Local Man Sees HTML::Element=HASH(0x15424040) Again<br/>
+<div class="spacer">
+</div>
+whereas &quot;$h1-&gt;as_text&quot; would yield:<div class="spacer">
+</div>
+<br/>
+  Local Man Sees Blade Again<br/>
+<div class="spacer">
+</div>
+and depending on what you're doing with the heading text, you might want the &quot;as_HTML&quot; method instead.  It returns the (sub)tree represented as HTML source.  &quot;$h1-&gt;as_HTML&quot; would yield:<div class="spacer">
+</div>
+<br/>
+  &lt;h1&gt;Local Man Sees &lt;cite&gt;Blade&lt;/cite&gt; Again&lt;/h1&gt;<br/>
+<div class="spacer">
+</div>
+However, if you wanted the contents of $h1 as HTML, but not the $h1 itself, you could say:<div class="spacer">
+</div>
+<br/>
+  join '',<br/>
+    map(<br/>
+      ref($_) ? $_-&gt;as_HTML : $_,<br/>
+      $h1-&gt;content_list<br/>
+    )<br/>
+<div class="spacer">
+</div>
+This &quot;map&quot; iterates over the nodes in $h1's list of children; and for each node that's just a text bit (as &quot;Local Man Sees &quot; is), it just passes through that string value, and for each node that's an actual object (causing &quot;ref&quot; to be true), &quot;as_HTML&quot; will used instead of the string value of the object itself (which would be something quite useless, as most object values are).  So that &quot;as_HTML&quot; for the &quot;cite&quot; element will be the string &quot;&lt;cite&gt;Blade&lt;/cite&gt;&quot;.  And then, finally, &quot;join&quot; just puts into one string all the strings that the &quot;map&quot; returns.<div class="spacer">
+</div>
+Last but not least, the most important method in our &quot;get_heading&quot; sub is the &quot;look_down&quot; method.  This method looks down at the subtree starting at the given object ($h1), looking for elements that meet criteria you provide.<div class="spacer">
+</div>
+The criteria are specified in the method's argument list.  Each criterion can consist of two scalars, a key and a value, which express that you want elements that have that attribute (like &quot;_tag&quot;, or &quot;src&quot;) with the given value (&quot;h1&quot;); or the criterion can be a reference to a subroutine that, when called on the given element, returns true if that is a node you're looking for.  If you specify several criteria, then that's taken to mean that you want all the elements that each satisfy  <i>all</i> the criteria.  (In other words, there's an &quot;implicit AND&quot;.)<div class="spacer">
+</div>
+And finally, there's a bit of an optimization -- if you call the &quot;look_down&quot; method in a scalar context, you get just the  <i>first</i> node (or undef if none) -- and, in fact, once &quot;look_down&quot; finds that first matching element, it doesn't bother looking any further.<div class="spacer">
+</div>
+So the example:<div class="spacer">
+</div>
+<br/>
+  $h1 = $tree-&gt;look_down('_tag', 'h1');<br/>
+<div class="spacer">
+</div>
+returns the first element at-or-under $tree whose &quot;_tag&quot; attribute has the value &quot;h1&quot;.</div>
+<div class="subsection">
+<h2>Complex Criteria in Tree Scanning</h2> Now, the above &quot;look_down&quot; code looks like a lot of bother, with barely more benefit than just grepping the file!  But consider if your criteria were more complicated -- suppose you found that some of the press releases that you were scanning had several &quot;h1&quot; elements, possibly before or after the one you actually want.  For example:<div class="spacer">
+</div>
+<br/>
+  &lt;h1&gt;&lt;center&gt;Visit Our Corporate Partner<br/>
+   &lt;br&gt;&lt;a href=&quot;/dyna/clickthru&quot;<br/>
+     &gt;&lt;img src=&quot;/dyna/vend_ad&quot;&gt;&lt;/a&gt;<br/>
+  &lt;/center&gt;&lt;/h1&gt;<br/>
+  &lt;h1&gt;&lt;center&gt;ConGlomCo President Schreck to Visit Regional HQ<br/>
+   &lt;br&gt;&lt;a href=&quot;/photos/Schreck_visit_large.jpg&quot;<br/>
+     &gt;&lt;img src=&quot;/photos/Schreck_visit.jpg&quot;&gt;&lt;/a&gt;<br/>
+  &lt;/center&gt;&lt;/h1&gt;<br/>
+<div class="spacer">
+</div>
+Here, you want to ignore the first &quot;h1&quot; element because it contains an ad, and you want the text from the second &quot;h1&quot;.  The problem is in formalizing the way you know that it's an ad.  Since ad banners are always entreating you to &quot;visit&quot; the sponsoring site, you could exclude &quot;h1&quot; elements that contain the word &quot;visit&quot; under them:<div class="spacer">
+</div>
+<br/>
+  my $real_h1 = $tree-&gt;look_down(<br/>
+    '_tag', 'h1',<br/>
+    sub {<br/>
+      $_[0]-&gt;as_text !~ m/\bvisit/i<br/>
+    }<br/>
+  );<br/>
+<div class="spacer">
+</div>
+The first criterion looks for &quot;h1&quot; elements, and the second criterion limits those to only the ones whose text content doesn't match &quot;m/\bvisit/&quot;.  But unfortunately, that won't work for our example, since the second &quot;h1&quot; mentions &quot;ConGlomCo President Schreck to  <i>Visit</i> Regional HQ&quot;.<div class="spacer">
+</div>
+Instead you could try looking for the first &quot;h1&quot; element that doesn't contain an image:<div class="spacer">
+</div>
+<br/>
+  my $real_h1 = $tree-&gt;look_down(<br/>
+    '_tag', 'h1',<br/>
+    sub {<br/>
+      not $_[0]-&gt;look_down('_tag', 'img')<br/>
+    }<br/>
+  );<br/>
+<div class="spacer">
+</div>
+This criterion sub might seem a bit odd, since it calls &quot;look_down&quot; as part of a larger &quot;look_down&quot; operation, but that's fine.  Note that when considered as a boolean value, a &quot;look_down&quot; in a scalar context value returns false (specifically, undef) if there's no matching element at or under the given element; and it returns the first matching element (which, being a reference and object, is always a true value), if any matches.  So, here,<div class="spacer">
+</div>
+<br/>
+  sub {<br/>
+    not $_[0]-&gt;look_down('_tag', 'img')<br/>
+  }<br/>
+<div class="spacer">
+</div>
+means &quot;return true only if this element has no 'img' element as descendants (and isn't an 'img' element itself).&quot;<div class="spacer">
+</div>
+This correctly filters out the first &quot;h1&quot; that contains the ad, but it also incorrectly filters out the second &quot;h1&quot; that contains a non-advertisement photo besides the headline text you want.<div class="spacer">
+</div>
+There clearly are detectable differences between the first and second &quot;h1&quot; elements -- the only second one contains the string &quot;Schreck&quot;, and we could just test for that:<div class="spacer">
+</div>
+<br/>
+  my $real_h1 = $tree-&gt;look_down(<br/>
+    '_tag', 'h1',<br/>
+    sub {<br/>
+      $_[0]-&gt;as_text =~ m{Schreck}<br/>
+    }<br/>
+  );<br/>
+<div class="spacer">
+</div>
+And that works fine for this one example, but unless all thousand of your press releases have &quot;Schreck&quot; in the headline, that's just not a general solution.  However, if all the ads-in-&quot;h1&quot;s that you want to exclude involve a link whose URL involves &quot;/dyna/&quot;, then you can use that:<div class="spacer">
+</div>
+<br/>
+  my $real_h1 = $tree-&gt;look_down(<br/>
+    '_tag', 'h1',<br/>
+    sub {<br/>
+      my $link = $_[0]-&gt;look_down('_tag','a');<br/>
+      return 1 unless $link;<br/>
+        # no link means it's fine<br/>
+      return 0 if $link-&gt;attr('href') =~ m{/dyna/};<br/>
+        # a link to there is bad<br/>
+      return 1; # otherwise okay<br/>
+    }<br/>
+  );<br/>
+<div class="spacer">
+</div>
+Or you can look at it another way and say that you want the first &quot;h1&quot; element that either contains no images, or else whose image has a &quot;src&quot; attribute whose value contains &quot;/photos/&quot;:<div class="spacer">
+</div>
+<br/>
+  my $real_h1 = $tree-&gt;look_down(<br/>
+    '_tag', 'h1',<br/>
+    sub {<br/>
+      my $img = $_[0]-&gt;look_down('_tag','img');<br/>
+      return 1 unless $img;<br/>
+        # no image means it's fine<br/>
+      return 1 if $img-&gt;attr('src') =~ m{/photos/};<br/>
+        # good if a photo<br/>
+      return 0; # otherwise bad<br/>
+    }<br/>
+  );<br/>
+<div class="spacer">
+</div>
+Recall that this use of &quot;look_down&quot; in a scalar context means to return the first element at or under $tree that matches all the criteria. But if you notice that you can formulate criteria that'll match several possible &quot;h1&quot; elements, some of which may be bogus but the  <i>last</i> one of which is always the one you want, then you can use &quot;look_down&quot; in a list context, and just use the last element of that list:<div class="spacer">
+</div>
+<br/>
+  my @h1s = $tree-&gt;look_down(<br/>
+    '_tag', 'h1',<br/>
+    ...maybe more criteria...<br/>
+  );<br/>
+  die &quot;What, no h1s here?&quot; unless @h1s;<br/>
+  my $real_h1 = $h1s[-1]; # last or only<br/>
+</div>
+<div class="subsection">
+<h2>A Case Study: Scanning Yahoo News's HTML</h2> The above (somewhat contrived) case involves extracting data from a bunch of pre-existing HTML files.  In that sort of situation, if your code works for all the files, then you know that the code  <i>works</i> -- since the data it's meant to handle won't go changing or growing; and, typically, once you've used the program, you'll never need to use it again.<div class="spacer">
+</div>
+The other kind of situation faced in many data extraction tasks is where the program is used recurringly to handle new data -- such as from ever-changing Web pages.  As a real-world example of this, consider a program that you could use (suppose it's crontabbed) to extract headline-links from subsections of Yahoo News (&quot;http://dailynews.yahoo.com/&quot;).<div class="spacer">
+</div>
+Yahoo News has several subsections:<dl>
+<dt>
+http://dailynews.yahoo.com/h/tc/ for technology news</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+http://dailynews.yahoo.com/h/sc/ for science news</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+http://dailynews.yahoo.com/h/hl/ for health news</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+http://dailynews.yahoo.com/h/wl/ for world news</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+http://dailynews.yahoo.com/h/en/ for entertainment news</dt>
+<dd>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+and others.  All of them are built on the same basic HTML template -- and a scarily complicated template it is, especially when you look at it with an eye toward making up rules that will select where the real headline-links are, while screening out all the links to other parts of Yahoo, other news services, etc.  You will need to puzzle over the HTML source, and scrutinize the output of &quot;$tree-&gt;dump&quot; on the parse tree of that HTML.<div class="spacer">
+</div>
+Sometimes the only way to pin down what you're after is by position in the tree. For example, headlines of interest may be in the third column of the second row of the second table element in a page:<div class="spacer">
+</div>
+<br/>
+  my $table = ( $tree-&gt;look_down('_tag','table') )[1];<br/>
+  my $row2  = ( $table-&gt;look_down('_tag', 'tr' ) )[1];<br/>
+  my $col3  = ( $row2-&gt;look-down('_tag', 'td')   )[2];<br/>
+  ...then do things with $col3...<br/>
+<div class="spacer">
+</div>
+Or they may be all the links in a &quot;p&quot; element that has at least three &quot;br&quot; elements as children:<div class="spacer">
+</div>
+<br/>
+  my $p = $tree-&gt;look_down(<br/>
+    '_tag', 'p',<br/>
+    sub {<br/>
+      2 &lt; grep { ref($_) and $_-&gt;tag eq 'br' }<br/>
+               $_[0]-&gt;content_list<br/>
+    }<br/>
+  );<br/>
+  @links = $p-&gt;look_down('_tag', 'a');<br/>
+<div class="spacer">
+</div>
+But almost always, you can get away with looking for properties of the of the thing itself, rather than just looking for contexts.  Now, if you're lucky, the document you're looking through has clear semantic tagging, such is as useful in CSS -- note the class=&quot;headlinelink&quot; bit here:<div class="spacer">
+</div>
+<br/>
+  &lt;a href=&quot;...long_news_url...&quot; class=&quot;headlinelink&quot;&gt;Elvis<br/>
+  seen in tortilla&lt;/a&gt;<br/>
+<div class="spacer">
+</div>
+If you find anything like that, you could leap right in and select links with:<div class="spacer">
+</div>
+<br/>
+  @links = $tree-&gt;look_down('class','headlinelink');<br/>
+<div class="spacer">
+</div>
+Regrettably, your chances of seeing any sort of semantic markup principles really being followed with actual HTML are pretty thin.<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+Footnote: In fact, your chances of finding a page that is simply free of HTML errors are even thinner.  And surprisingly, sites like Amazon or Yahoo are typically worse as far as quality of code than personal sites whose entire production cycle involves simply being saved and uploaded from Netscape Composer.</div>
+<div class="spacer">
+</div>
+The code may be sort of &quot;accidentally semantic&quot;, however -- for example, in a set of pages I was scanning recently, I found that looking for &quot;td&quot; elements with a &quot;width&quot; attribute value of &quot;375&quot; got me exactly what I wanted.  No-one designing that page ever conceived of &quot;width=375&quot; as  <i>meaning</i> &quot;this is a headline&quot;, but if you impute it to mean that, it works.<div class="spacer">
+</div>
+An approach like this happens to work for the Yahoo News code, because the headline-links are distinguished by the fact that they (and they alone) contain a &quot;b&quot; element:<div class="spacer">
+</div>
+<br/>
+  &lt;a href=&quot;...long_news_url...&quot;&gt;&lt;b&gt;Elvis seen in tortilla&lt;/b&gt;&lt;/a&gt;<br/>
+<div class="spacer">
+</div>
+or, diagrammed as a part of the parse tree:<div class="spacer">
+</div>
+<br/>
+  . a  [href=&quot;...long_news_url...&quot;]<br/>
+    . b<br/>
+      . &quot;Elvis seen in tortilla&quot;<br/>
+<div class="spacer">
+</div>
+A rule that matches these can be formalized as &quot;look for any 'a' element that has only one daugher node, which must be a 'b' element&quot;. And this is what it looks like when cooked up as a &quot;look_down&quot; expression and prefaced with a bit of code that retrieves the text of the given Yahoo News page and feeds it to TreeBuilder:<div class="spacer">
+</div>
+<br/>
+  use strict;<br/>
+  use HTML::TreeBuilder 2.97;<br/>
+  use LWP::UserAgent;<br/>
+  sub get_headlines {<br/>
+    my $url = $_[0] || die &quot;What URL?&quot;;<br/>
+    <br/>
+    my $response = LWP::UserAgent-&gt;new-&gt;request(<br/>
+      HTTP::Request-&gt;new( GET =&gt; $url )<br/>
+    );<br/>
+    unless($response-&gt;is_success) {<br/>
+      warn &quot;Couldn't get $url: &quot;, $response-&gt;status_line, &quot;\n&quot;;<br/>
+      return;<br/>
+    }<br/>
+    <br/>
+    my $tree = HTML::TreeBuilder-&gt;new();<br/>
+    $tree-&gt;parse($response-&gt;content);<br/>
+    $tree-&gt;eof;<br/>
+    <br/>
+    my @out;<br/>
+    foreach my $link (<br/>
+      $tree-&gt;look_down(   # !<br/>
+        '_tag', 'a',<br/>
+        sub {<br/>
+          return unless $_[0]-&gt;attr('href');<br/>
+          my @c = $_[0]-&gt;content_list;<br/>
+          @c == 1 and ref $c[0] and $c[0]-&gt;tag eq 'b';<br/>
+        }<br/>
+      )<br/>
+    ) {<br/>
+      push @out, [ $link-&gt;attr('href'), $link-&gt;as_text ];<br/>
+    }<br/>
+    <br/>
+    warn &quot;Odd, fewer than 6 stories in $url!&quot; if @out &lt; 6;<br/>
+    $tree-&gt;delete;<br/>
+    return @out;<br/>
+  }<br/>
+<div class="spacer">
+</div>
+...and add a bit of code to actually call that routine and display the results...<div class="spacer">
+</div>
+<br/>
+  foreach my $section (qw[tc sc hl wl en]) {<br/>
+    my @links = get_headlines(<br/>
+      &quot;http://dailynews.yahoo.com/h/$section/&quot;<br/>
+    );<br/>
+    print<br/>
+      $section, &quot;: &quot;, scalar(@links), &quot; stories\n&quot;,<br/>
+      map((&quot;  &quot;, $_-&gt;[0], &quot; : &quot;, $_-&gt;[1], &quot;\n&quot;), @links),<br/>
+      &quot;\n&quot;;<br/>
+  }<br/>
+<div class="spacer">
+</div>
+And we've got our own headline-extractor service!  This in and of itself isn't no amazingly useful (since if you want to see the headlines, you  <i>can</i> just look at the Yahoo News pages), but it could easily be the basis for quite useful features like filtering the headlines for matching certain keywords of interest to you.<div class="spacer">
+</div>
+Now, one of these days, Yahoo News will decide to change its HTML template.  When this happens, this will appear to the above program as there being no links that meet the given criteria; or, less likely, dozens of erroneous links will meet the criteria.  In either case, the criteria will have to be changed for the new template; they may just need adjustment, or you may need to scrap them and start over.</div>
+<div class="subsection">
+<h2><i>Regardez, duvet!</i></h2> It's often quite a challenge to write criteria to match the desired parts of an HTML parse tree.  Very often you  <i>can</i> pull it off with a simple &quot;$tree-&gt;look_down('_tag', 'h1')&quot;, but sometimes you do have to keep adding and refining criteria, until you might end up with complex filters like what I've shown in this article.  The benefit to learning how to deal with HTML parse trees is that one main search tool, the &quot;look_down&quot; method, can do most of the work, making simple things easy, while still making hard things possible.<div class="spacer">
+</div>
+<b>[end body of article]</b></div>
+<div class="subsection">
+<h2>[Author Credit]</h2> Sean M. Burke (&quot;sburke@cpan.org&quot;) is the current maintainer of &quot;HTML::TreeBuilder&quot; and &quot;HTML::Element&quot;, both originally by Gisle Aas.<div class="spacer">
+</div>
+Sean adds: &quot;I'd like to thank the folks who listened to me ramble incessantly about HTML::TreeBuilder and HTML::Element at this year's Yet Another Perl Conference and O'Reilly Open Source Software Convention.&quot;</div>
+</div>
+<div class="section">
+<h1>BACK</h1> Return to the HTML::Tree docs.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-04-30</td>
+<td class="foot-os">
+perl v5.10.1</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Class::MOP::Attribute(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Class::MOP::Attribute(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Class::MOP::Attribute(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Class::MOP::Attribute - Attribute Meta Object</div>
+<div class="section">
+<h1>VERSION</h1> version 2.0401</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  Class::MOP::Attribute-&gt;new(<br/>
+      foo =&gt; (<br/>
+          accessor  =&gt; 'foo',           # dual purpose get/set accessor<br/>
+          predicate =&gt; 'has_foo',       # predicate check for defined-ness<br/>
+          init_arg  =&gt; '-foo',          # class-&gt;new will look for a -foo key<br/>
+          default   =&gt; 'BAR IS BAZ!'    # if no -foo key is provided, use this<br/>
+      )<br/>
+  );<br/>
+<br/>
+  Class::MOP::Attribute-&gt;new(<br/>
+      bar =&gt; (<br/>
+          reader    =&gt; 'bar',           # getter<br/>
+          writer    =&gt; 'set_bar',       # setter<br/>
+          predicate =&gt; 'has_bar',       # predicate check for defined-ness<br/>
+          init_arg  =&gt; ':bar',          # class-&gt;new will look for a :bar key<br/>
+                                        # no default value means it is undef<br/>
+      )<br/>
+  );<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The Attribute Protocol is almost entirely an invention of &quot;Class::MOP&quot;. Perl 5 does not have a consistent notion of attributes. There are so many ways in which this is done, and very few (if any) are easily discoverable by this module.<div class="spacer">
+</div>
+With that said, this module attempts to inject some order into this chaos, by introducing a consistent API which can be used to create object attributes.</div>
+<div class="section">
+<h1>METHODS</h1><div class="subsection">
+<h2>Creation</h2><dl>
+<dt>
+<b>Class::MOP::Attribute-&gt;new($name, ?%options)</b></dt>
+<dd>
+An attribute must (at the very least), have a $name. All other %options are added as key-value pairs.</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+init_arg<div style="height: 1.00em;">
+&#160;</div>
+This is a string value representing the expected key in an initialization hash. For instance, if we have an &quot;init_arg&quot; value of &quot;-foo&quot;, then the following code will Just Work.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  MyClass-&gt;meta-&gt;new_object( -foo =&gt; 'Hello There' );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If an init_arg is not assigned, it will automatically use the attribute's name. If &quot;init_arg&quot; is explicitly set to &quot;undef&quot;, the attribute cannot be specified during initialization.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+builder<div style="height: 1.00em;">
+&#160;</div>
+This provides the name of a method that will be called to initialize the attribute. This method will be called on the object after it is constructed. It is expected to return a valid value for the attribute.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+default<div style="height: 1.00em;">
+&#160;</div>
+This can be used to provide an explicit default for initializing the attribute. If the default you provide is a subroutine reference, then this reference will be called  <i>as a method</i> on the object.<div style="height: 1.00em;">
+&#160;</div>
+If the value is a simple scalar (string or number), then it can be just passed as is. However, if you wish to initialize it with a HASH or ARRAY ref, then you need to wrap that inside a subroutine reference:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  Class::MOP::Attribute-&gt;new(<br/>
+      'foo' =&gt; (<br/>
+          default =&gt; sub { [] },<br/>
+      )<br/>
+  );<br/>
+<br/>
+  # or ...<br/>
+<br/>
+  Class::MOP::Attribute-&gt;new(<br/>
+      'foo' =&gt; (<br/>
+          default =&gt; sub { {} },<br/>
+      )<br/>
+  );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If you wish to initialize an attribute with a subroutine reference itself, then you need to wrap that in a subroutine as well:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  Class::MOP::Attribute-&gt;new(<br/>
+      'foo' =&gt; (<br/>
+          default =&gt; sub {<br/>
+              sub { print &quot;Hello World&quot; }<br/>
+          },<br/>
+      )<br/>
+  );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+And lastly, if the value of your attribute is dependent upon some other aspect of the instance structure, then you can take advantage of the fact that when the &quot;default&quot; value is called as a method:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  Class::MOP::Attribute-&gt;new(<br/>
+      'object_identity' =&gt; (<br/>
+          default =&gt; sub { Scalar::Util::refaddr( $_[0] ) },<br/>
+      )<br/>
+  );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Note that there is no guarantee that attributes are initialized in any particular order, so you cannot rely on the value of some other attribute when generating the default.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+initializer<div style="height: 1.00em;">
+&#160;</div>
+This option can be either a method name or a subroutine reference. This method will be called when setting the attribute's value in the constructor. Unlike &quot;default&quot; and &quot;builder&quot;, the initializer is only called when a value is provided to the constructor. The initializer allows you to munge this value during object construction.<div style="height: 1.00em;">
+&#160;</div>
+The initializer is called as a method with three arguments. The first is the value that was passed to the constructor. The second is a subroutine reference that can be called to actually set the attribute's value, and the last is the associated &quot;Class::MOP::Attribute&quot; object.<div style="height: 1.00em;">
+&#160;</div>
+This contrived example shows an initializer that sets the attribute to twice the given value.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  Class::MOP::Attribute-&gt;new(<br/>
+      'doubled' =&gt; (<br/>
+          initializer =&gt; sub {<br/>
+              my ( $self, $value, $set, $attr ) = @_;<br/>
+              $set-&gt;( $value * 2 );<br/>
+          },<br/>
+      )<br/>
+  );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Since an initializer can be a method name, you can easily make attribute initialization use the writer:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  Class::MOP::Attribute-&gt;new(<br/>
+      'some_attr' =&gt; (<br/>
+          writer      =&gt; 'some_attr',<br/>
+          initializer =&gt; 'some_attr',<br/>
+      )<br/>
+  );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Your writer (actually, a wrapper around the writer, using method modifications) will need to examine @_ and determine under which context it is being called:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  around 'some_attr' =&gt; sub {<br/>
+      my $orig = shift;<br/>
+      my $self = shift;<br/>
+      # $value is not defined if being called as a reader<br/>
+      # $setter and $attr are only defined if being called as an initializer<br/>
+      my ($value, $setter, $attr) = @_;<br/>
+<br/>
+      # the reader behaves normally<br/>
+      return $self-&gt;$orig if not @_;<br/>
+<br/>
+      # mutate $value as desired<br/>
+      # $value = &lt;something($value);<br/>
+<br/>
+      # if called as an initializer, set the value and we're done<br/>
+      return $setter-&gt;($row) if $setter;<br/>
+<br/>
+      # otherwise, call the real writer with the new value<br/>
+      $self-&gt;$orig($row);<br/>
+  };<br/>
+</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+<div style="height: 1.00em;">
+&#160;</div>
+The &quot;accessor&quot;, &quot;reader&quot;, &quot;writer&quot;, &quot;predicate&quot; and &quot;clearer&quot; options all accept the same parameters. You can provide the name of the method, in which case an appropriate default method will be generated for you. Or instead you can also provide hash reference containing exactly one key (the method name) and one value. The value should be a subroutine reference, which will be installed as the method itself.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+accessor<div style="height: 1.00em;">
+&#160;</div>
+An &quot;accessor&quot; is a standard Perl-style read/write accessor. It will return the value of the attribute, and if a value is passed as an argument, it will assign that value to the attribute.<div style="height: 1.00em;">
+&#160;</div>
+Note that &quot;undef&quot; is a legitimate value, so this will work:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $object-&gt;set_something(undef);<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+reader<div style="height: 1.00em;">
+&#160;</div>
+This is a basic read-only accessor. It returns the value of the attribute.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+writer<div style="height: 1.00em;">
+&#160;</div>
+This is a basic write accessor, it accepts a single argument, and assigns that value to the attribute.<div style="height: 1.00em;">
+&#160;</div>
+Note that &quot;undef&quot; is a legitimate value, so this will work:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $object-&gt;set_something(undef);<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+predicate<div style="height: 1.00em;">
+&#160;</div>
+The predicate method returns a boolean indicating whether or not the attribute has been explicitly set.<div style="height: 1.00em;">
+&#160;</div>
+Note that the predicate returns true even if the attribute was set to a false value (0 or &quot;undef&quot;).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+clearer<div style="height: 1.00em;">
+&#160;</div>
+This method will uninitialize the attribute. After an attribute is cleared, its &quot;predicate&quot; will return false.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+definition_context<div style="height: 1.00em;">
+&#160;</div>
+Mostly, this exists as a hook for the benefit of Moose.<div style="height: 1.00em;">
+&#160;</div>
+This option should be a hash reference containing several keys which will be used when inlining the attribute's accessors. The keys should include &quot;line&quot;, the line number where the attribute was created, and either &quot;file&quot; or &quot;description&quot;.<div style="height: 1.00em;">
+&#160;</div>
+This information will ultimately be used when eval'ing inlined accessor code so that error messages report a useful line and file name.</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+</div>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;clone(%options)</b></dt>
+<dd>
+This clones the attribute. Any options you provide will override the settings of the original attribute. You can change the name of the new attribute by passing a &quot;name&quot; key in %options.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Informational</h2> These are all basic read-only accessors for the values passed into the constructor.<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;name</b></dt>
+<dd>
+Returns the attribute's name.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;accessor</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;reader</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;writer</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;predicate</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;clearer</b></dt>
+<dd>
+The &quot;accessor&quot;, &quot;reader&quot;, &quot;writer&quot;, &quot;predicate&quot;, and &quot;clearer&quot; methods all return exactly what was passed to the constructor, so it can be either a string containing a method name, or a hash reference.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;initializer</b></dt>
+<dd>
+Returns the initializer as passed to the constructor, so this may be either a method name or a subroutine reference.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;init_arg</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;is_default_a_coderef</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;default($instance)</b></dt>
+<dd>
+The $instance argument is optional. If you don't pass it, the return value for this method is exactly what was passed to the constructor, either a simple scalar or a subroutine reference.<div style="height: 1.00em;">
+&#160;</div>
+If you <i>do</i> pass an $instance and the default is a subroutine reference, then the reference is called as a method on the $instance and the generated value is returned.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;slots</b></dt>
+<dd>
+Return a list of slots required by the attribute. This is usually just one, the name of the attribute.<div style="height: 1.00em;">
+&#160;</div>
+A slot is the name of the hash key used to store the attribute in an object instance.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;get_read_method</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;get_write_method</b></dt>
+<dd>
+Returns the name of a method suitable for reading or writing the value of the attribute in the associated class.<div style="height: 1.00em;">
+&#160;</div>
+If an attribute is read- or write-only, then these methods can return &quot;undef&quot; as appropriate.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_read_method</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_write_method</b></dt>
+<dd>
+This returns a boolean indicating whether the attribute has a <i>named</i> read or write method.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;get_read_method_ref</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;get_write_method_ref</b></dt>
+<dd>
+Returns the subroutine reference of a method suitable for reading or writing the attribute's value in the associated class. These methods always return a subroutine reference, regardless of whether or not the attribute is read- or write-only.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;insertion_order</b></dt>
+<dd>
+If this attribute has been inserted into a class, this returns a zero based index regarding the order of insertion.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Informational predicates</h2> These are all basic predicate methods for the values passed into &quot;new&quot;.<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_accessor</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_reader</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_writer</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_predicate</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_clearer</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_initializer</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_init_arg</b></dt>
+<dd>
+This will be <i>false</i> if the &quot;init_arg&quot; was set to &quot;undef&quot;.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_default</b></dt>
+<dd>
+This will be <i>false</i> if the &quot;default&quot; was set to &quot;undef&quot;, since &quot;undef&quot; is the default &quot;default&quot; anyway.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_builder</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_insertion_order</b></dt>
+<dd>
+This will be <i>false</i> if this attribute has not be inserted into a class</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Value management</h2> These methods are basically &quot;back doors&quot; to the instance, and can be used to bypass the regular accessors, but still stay within the MOP.<div class="spacer">
+</div>
+These methods are not for general use, and should only be used if you really know what you are doing.<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;initialize_instance_slot($meta_instance, </b><b><i>$instance</i></b><b>, </b><b>$params</b><b>)</b></dt>
+<dd>
+This method is used internally to initialize the attribute's slot in the object $instance.<div style="height: 1.00em;">
+&#160;</div>
+The $params is a hash reference of the values passed to the object constructor.<div style="height: 1.00em;">
+&#160;</div>
+It's unlikely that you'll need to call this method yourself.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;set_value($instance, </b><b><i>$value</i></b><b>)</b></dt>
+<dd>
+Sets the value without going through the accessor. Note that this works even with read-only attributes.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;set_raw_value($instance, </b><b><i>$value</i></b><b>)</b></dt>
+<dd>
+Sets the value with no side effects such as a trigger.<div style="height: 1.00em;">
+&#160;</div>
+This doesn't actually apply to Class::MOP attributes, only to subclasses.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;set_initial_value($instance, </b><b><i>$value</i></b><b>)</b></dt>
+<dd>
+Sets the value without going through the accessor. This method is only called when the instance is first being initialized.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;get_value($instance)</b></dt>
+<dd>
+Returns the value without going through the accessor. Note that this works even with write-only accessors.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;get_raw_value($instance)</b></dt>
+<dd>
+Returns the value without any side effects such as lazy attributes.<div style="height: 1.00em;">
+&#160;</div>
+Doesn't actually apply to Class::MOP attributes, only to subclasses.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;has_value($instance)</b></dt>
+<dd>
+Return a boolean indicating whether the attribute has been set in $instance. This how the default &quot;predicate&quot; method works.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;clear_value($instance)</b></dt>
+<dd>
+This will clear the attribute's value in $instance. This is what the default &quot;clearer&quot; calls.<div style="height: 1.00em;">
+&#160;</div>
+Note that this works even if the attribute does not have any associated read, write or clear methods.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Class association</h2> These methods allow you to manage the attributes association with the class that contains it. These methods should not be used lightly, nor are they very magical, they are mostly used internally and by metaclass instances.<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;associated_class</b></dt>
+<dd>
+This returns the &quot;Class::MOP::Class&quot; with which this attribute is associated, if any.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;attach_to_class($metaclass)</b></dt>
+<dd>
+This method stores a weakened reference to the $metaclass object internally.<div style="height: 1.00em;">
+&#160;</div>
+This method does not remove the attribute from its old class, nor does it create any accessors in the new class.<div style="height: 1.00em;">
+&#160;</div>
+It is probably best to use the Class::MOP::Class &quot;add_attribute&quot; method instead.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;detach_from_class</b></dt>
+<dd>
+This method removes the associate metaclass object from the attribute it has one.<div style="height: 1.00em;">
+&#160;</div>
+This method does not remove the attribute itself from the class, or remove its accessors.<div style="height: 1.00em;">
+&#160;</div>
+It is probably best to use the Class::MOP::Class &quot;remove_attribute&quot; method instead.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Attribute Accessor generation</h2><dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;accessor_metaclass</b></dt>
+<dd>
+Accessor methods are generated using an accessor metaclass. By default, this is Class::MOP::Method::Accessor. This method returns the name of the accessor metaclass that this attribute uses.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;associate_method($method)</b></dt>
+<dd>
+This associates a Class::MOP::Method object with the attribute. Typically, this is called internally when an attribute generates its accessors.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;associated_methods</b></dt>
+<dd>
+This returns the list of methods which have been associated with the attribute.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;install_accessors</b></dt>
+<dd>
+This method generates and installs code the attributes various accessors. It is typically called from the Class::MOP::Class &quot;add_attribute&quot; method.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;remove_accessors</b></dt>
+<dd>
+This method removes all of the accessors associated with the attribute.<div style="height: 1.00em;">
+&#160;</div>
+This does not currently remove methods from the list returned by &quot;associated_methods&quot;.</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;inline_get</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;inline_set</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;inline_has</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b></b><b>$attr</b><b>-&gt;inline_clear</b></dt>
+<dd>
+These methods return a code snippet suitable for inlining the relevant operation. They expect strings containing variable names to be used in the inlining, like '$self' or '$_[1]'.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Introspection</h2><dl>
+<dt>
+<b>Class::MOP::Attribute-&gt;meta</b></dt>
+<dd>
+This will return a Class::MOP::Class instance for this class.<div style="height: 1.00em;">
+&#160;</div>
+It should also be noted that Class::MOP will actually bootstrap this module by installing a number of attribute meta-objects into its metaclass.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Moose is maintained by the Moose Cabal, along with the help of many contributors. See &quot;CABAL&quot; in Moose and &quot;CONTRIBUTORS&quot; in Moose for details.</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> This software is copyright (c) 2011 by Infinity Interactive, Inc..<div class="spacer">
+</div>
+This is free software; you can redistribute it and/or modify it under the same terms as the Perl 5 programming language system itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-11-17</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

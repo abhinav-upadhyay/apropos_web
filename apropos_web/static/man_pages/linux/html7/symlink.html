@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+SYMLINK(7)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SYMLINK(7)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+SYMLINK(7)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> symlink - symbolic link handling</div>
+<div class="section">
+<h1>SYMBOLIC LINK HANDLING</h1> Symbolic links are files that act as pointers to other files. To understand their behavior, you must first understand how hard links work.<div style="height: 1.00em;">
+&#160;</div>
+A hard link to a file is indistinguishable from the original file because it is a reference to the object underlying the original filename. (To be precise: each of the hard links to a file is a reference to the same <i>i-node number</i>, where an i-node number is an index into the i-node table, which contains metadata about all files on a file system. See <b>stat</b>(2).) Changes to a file are independent of the name used to reference the file. Hard links may not refer to directories (to prevent the possibility of loops within the file system tree, which would confuse many programs) and may not refer to files on different file systems (because i-node numbers are not unique across file systems).<div style="height: 1.00em;">
+&#160;</div>
+A symbolic link is a special type of file whose contents are a string that is the pathname another file, the file to which the link refers. In other words, a symbolic link is a pointer to another name, and not to an underlying object. For this reason, symbolic links may refer to directories and may cross file system boundaries.<div style="height: 1.00em;">
+&#160;</div>
+There is no requirement that the pathname referred to by a symbolic link should exist. A symbolic link that refers to a pathname that does not exist is said to be a <i>dangling link</i>.<div style="height: 1.00em;">
+&#160;</div>
+Because a symbolic link and its referenced object coexist in the file system name space, confusion can arise in distinguishing between the link itself and the referenced object. On historical systems, commands and system calls adopted their own link-following conventions in a somewhat ad-hoc fashion. Rules for a more uniform approach, as they are implemented on Linux and other systems, are outlined here. It is important that site-local applications also conform to these rules, so that the user interface can be as consistent as possible.<div class="subsection">
+<h2>Symbolic link ownership, permissions, and timestamps</h2> The owner and group of an existing symbolic link can be changed using <b>lchown</b>(2). The only time that the ownership of a symbolic link matters is when the link is being removed or renamed in a directory that has the sticky bit set (see <b>stat</b>(2)).<div style="height: 1.00em;">
+&#160;</div>
+The last access and last modification timestamps of a symbolic link can be changed using <b>utimensat</b>(2) or <b>lutimes</b>(3).<div style="height: 1.00em;">
+&#160;</div>
+On Linux, the permissions of a symbolic link are not used in any operations; the permissions are always 0777 (read, write, and execute for all user categories), and can't be changed.</div>
+<div class="subsection">
+<h2>Handling of symbolic links by system calls and commands</h2> Symbolic links are handled either by operating on the link itself, or by operating on the object referred to by the link. In the latter case, an application or system call is said to <i>follow</i> the link. Symbolic links may refer to other symbolic links, in which case the links are dereferenced until an object that is not a symbolic link is found, a symbolic link that refers to a file which does not exist is found, or a loop is detected. (Loop detection is done by placing an upper limit on the number of links that may be followed, and an error results if this limit is exceeded.)<div style="height: 1.00em;">
+&#160;</div>
+There are three separate areas that need to be discussed. They are as follows:<dl>
+<dt>
+1.</dt>
+<dd>
+Symbolic links used as filename arguments for system calls.</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+Symbolic links specified as command-line arguments to utilities that are not traversing a file tree.</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+Symbolic links encountered by utilities that are traversing a file tree (either specified on the command line or encountered as part of the file hierarchy walk).</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>System calls</h2> The first area is symbolic links used as filename arguments for system calls.<div style="height: 1.00em;">
+&#160;</div>
+Except as noted below, all system calls follow symbolic links. For example, if there were a symbolic link <i>slink</i> which pointed to a file named <i>afile</i>, the system call <i>open(&quot;slink&quot; ...)</i> would return a file descriptor referring to the file <i>afile</i>.<div style="height: 1.00em;">
+&#160;</div>
+Various system calls do not follow links, and operate on the symbolic link itself. They are: <b>lchown</b>(2), <b>lgetxattr</b>(2), <b>llistxattr</b>(2), <b>lremovexattr</b>(2), <b>lsetxattr</b>(2), <b>lstat</b>(2), <b>readlink</b>(2), <b>rename</b>(2), <b>rmdir</b>(2), and <b>unlink</b>(2). Certain other system calls optionally follow symbolic links. They are: <b>faccessat</b>(2), <b>fchownat</b>(2), <b>fstatat</b>(2), <b>linkat</b>(2), <b>open</b>(2), <b>openat</b>(2), and <b>utimensat</b>(2); see their manual pages for details. Because <b>remove</b>(3) is an alias for <b>unlink</b>(2), that library function also does not follow symbolic links. When <b>rmdir</b>(2) is applied to a symbolic link, it fails with the error <b>ENOTDIR</b>. The <b>link</b>(2) warrants special discussion. POSIX.1-2001 specifies that <b>link</b>(2) should dereference <i>oldpath</i> if it is a symbolic link. However, Linux does not do this. (By default Solaris is the same, but the POSIX.1-2001 specified behavior can be obtained with suitable compiler options.) The upcoming POSIX.1 revision changes the specification to allow either behavior in an implementation.</div>
+<div class="subsection">
+<h2>Commands not traversing a file tree</h2> The second area is symbolic links, specified as command-line filename arguments, to commands which are not traversing a file tree.<div style="height: 1.00em;">
+&#160;</div>
+Except as noted below, commands follow symbolic links named as command-line arguments. For example, if there were a symbolic link <i>slink</i> which pointed to a file named <i>afile</i>, the command <i>cat slink</i> would display the contents of the file <i>afile</i>.<div style="height: 1.00em;">
+&#160;</div>
+It is important to realize that this rule includes commands which may optionally traverse file trees, e.g., the command <i>chown file</i> is included in this rule, while the command <i>chown&#160;-R file</i>, which performs a tree traversal, is not. (The latter is described in the third area, below.)<div style="height: 1.00em;">
+&#160;</div>
+If it is explicitly intended that the command operate on the symbolic link instead of following the symbolic link, e.g., it is desired that <i>chown slink</i> change the ownership of the file that <i>slink</i> is, whether it is a symbolic link or not, the <i>-h</i> option should be used. In the above example, <i>chown root slink</i> would change the ownership of the file referred to by <i>slink</i>, while <i>chown&#160;-h root slink</i> would change the ownership of <i>slink</i> itself.<div style="height: 1.00em;">
+&#160;</div>
+There are some exceptions to this rule:<dl>
+<dt>
+*</dt>
+<dd>
+The <b>mv</b>(1) and <b>rm</b>(1) commands do not follow symbolic links named as arguments, but respectively attempt to rename and delete them. (Note, if the symbolic link references a file via a relative path, moving it to another directory may very well cause it to stop working, since the path may no longer be correct.)</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+The <b>ls</b>(1) command is also an exception to this rule. For compatibility with historic systems (when <b>ls</b>(1) is not doing a tree walk, i.e., the <i>-R</i> option is not specified), the <b>ls</b>(1) command follows symbolic links named as arguments if the <i>-H</i> or <i>-L</i> option is specified, or if the <i>-F</i>, <i>-d</i>, or <i>-l</i> options are not specified. (The <b>ls</b>(1) command is the only command where the <i>-H</i> and <i>-L</i> options affect its behavior even though it is not doing a walk of a file tree.)</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+The <b>file</b>(1) command is also an exception to this rule. The <b>file</b>(1) command does not follow symbolic links named as argument by default. The <b>file</b>(1) command does follow symbolic links named as argument if the <i>-L</i> option is specified.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Commands traversing a file tree</h2> The following commands either optionally or always traverse file trees: <b>chgrp</b>(1), <b>chmod</b>(1), <b>chown</b>(1), <b>cp</b>(1), <b>du</b>(1), <b>find</b>(1), <b>ls</b>(1), <b>pax</b>(1), <b>rm</b>(1), and <b>tar</b>(1).<div style="height: 1.00em;">
+&#160;</div>
+It is important to realize that the following rules apply equally to symbolic links encountered during the file tree traversal and symbolic links listed as command-line arguments.<div style="height: 1.00em;">
+&#160;</div>
+The <i>first rule</i> applies to symbolic links that reference files other than directories. Operations that apply to symbolic links are performed on the links themselves, but otherwise the links are ignored.<div style="height: 1.00em;">
+&#160;</div>
+The command <i>rm&#160;-r slink directory</i> will remove <i>slink</i>, as well as any symbolic links encountered in the tree traversal of <i>directory</i>, because symbolic links may be removed. In no case will <b>rm</b>(1) affect the file referred to by <i>slink</i>.<div style="height: 1.00em;">
+&#160;</div>
+The <i>second rule</i> applies to symbolic links that refer to directories. Symbolic links that refer to directories are never followed by default. This is often referred to as a &quot;physical&quot; walk, as opposed to a &quot;logical&quot; walk (where symbolic links the refer to directories are followed).<div style="height: 1.00em;">
+&#160;</div>
+Certain conventions are (should be) followed as consistently as possible by commands that perform file tree walks:<dl>
+<dt>
+*</dt>
+<dd>
+A command can be made to follow any symbolic links named on the command line, regardless of the type of file they reference, by specifying the <i>-H</i> (for &quot;half-logical&quot;) flag. This flag is intended to make the command-line name space look like the logical name space. (Note, for commands that do not always do file tree traversals, the <i>-H</i> flag will be ignored if the <i>-R</i> flag is not also specified.)<div style="height: 1.00em;">
+&#160;</div>
+For example, the command <i>chown&#160;-HR user slink</i> will traverse the file hierarchy rooted in the file pointed to by <i>slink</i>. Note, the <i>-H</i> is not the same as the previously discussed <i>-h</i> flag. The <i>-H</i> flag causes symbolic links specified on the command line to be dereferenced for the purposes of both the action to be performed and the tree walk, and it is as if the user had specified the name of the file to which the symbolic link pointed.</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+A command can be made to follow any symbolic links named on the command line, as well as any symbolic links encountered during the traversal, regardless of the type of file they reference, by specifying the <i>-L</i> (for &quot;logical&quot;) flag. This flag is intended to make the entire name space look like the logical name space. (Note, for commands that do not always do file tree traversals, the <i>-L</i> flag will be ignored if the <i>-R</i> flag is not also specified.)<div style="height: 1.00em;">
+&#160;</div>
+For example, the command <i>chown&#160;-LR user slink</i> will change the owner of the file referred to by <i>slink</i>. If <i>slink</i> refers to a directory, <b>chown</b> will traverse the file hierarchy rooted in the directory that it references. In addition, if any symbolic links are encountered in any file tree that <b>chown</b> traverses, they will be treated in the same fashion as <i>slink</i>.</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+A command can be made to provide the default behavior by specifying the <i>-P</i> (for &quot;physical&quot;) flag. This flag is intended to make the entire name space look like the physical name space.</dd>
+</dl>
+<div class="spacer">
+</div>
+For commands that do not by default do file tree traversals, the <i>-H</i>, <i>-L</i>, and <i>-P</i> flags are ignored if the <i>-R</i> flag is not also specified. In addition, you may specify the <i>-H</i>, <i>-L</i>, and <i>-P</i> options more than once; the last one specified determines the command's behavior. This is intended to permit you to alias commands to behave one way or the other, and then override that behavior on the command line.<div style="height: 1.00em;">
+&#160;</div>
+The <b>ls</b>(1) and <b>rm</b>(1) commands have exceptions to these rules:<dl>
+<dt>
+*</dt>
+<dd>
+The <b>rm</b>(1) command operates on the symbolic link, and not the file it references, and therefore never follows a symbolic link. The <b>rm</b>(1) command does not support the <i>-H</i>, <i>-L</i>, or <i>-P</i> options.</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+To maintain compatibility with historic systems, the <b>ls</b>(1) command acts a little differently. If you do not specify the <i>-F</i>, <i>-d</i> or <i>-l</i> options, <b>ls</b>(1) will follow symbolic links specified on the command line. If the <i>-L</i> flag is specified, <b>ls</b>(1) follows all symbolic links, regardless of their type, whether specified on the command line or encountered in the tree walk.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>chgrp</b>(1), <b>chmod</b>(1), <b>find</b>(1), <b>ln</b>(1), <b>ls</b>(1), <b>mv</b>(1), <b>rm</b>(1), <b>lchown</b>(2), <b>link</b>(2), <b>lstat</b>(2), <b>readlink</b>(2), <b>rename</b>(2), <b>symlink</b>(2), <b>unlink</b>(2), <b>utimensat</b>(2), <b>lutimes</b>(3), <b>path_resolution</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2008-06-18</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Config::Model::WarpedNode(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Config::Model::WarpedNode(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Config::Model::WarpedNode(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Config::Model::WarpedNode - Node that change config class properties</div>
+<div class="section">
+<h1>VERSION</h1> version 2.005</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ use Config::Model;<br/>
+ use Log::Log4perl qw(:easy);<br/>
+ Log::Log4perl-&gt;easy_init($WARN);<br/>
+<br/>
+ my $model = Config::Model-&gt;new;<br/>
+ foreach (qw/X Y/) {<br/>
+    $model-&gt;create_config_class(<br/>
+        name    =&gt; &quot;Class$_&quot;,<br/>
+        element =&gt; [ foo =&gt; {qw/type leaf value_type string/} ]<br/>
+    );<br/>
+ }<br/>
+ $model-&gt;create_config_class(<br/>
+    name =&gt; &quot;MyClass&quot;,<br/>
+<br/>
+    element =&gt; [<br/>
+        master_switch =&gt; {<br/>
+            type       =&gt; 'leaf',<br/>
+            value_type =&gt; 'enum',<br/>
+            choice     =&gt; [qw/cX cY/]<br/>
+        },<br/>
+<br/>
+        'a_warped_node' =&gt; {<br/>
+            type   =&gt; 'warped_node',<br/>
+            follow =&gt; { ms =&gt; '! master_switch' },<br/>
+            rules  =&gt; [<br/>
+                '$ms eq &quot;cX&quot;' =&gt; { config_class_name =&gt; 'ClassX' },<br/>
+                '$ms eq &quot;cY&quot;' =&gt; { config_class_name =&gt; 'ClassY' },<br/>
+            ]<br/>
+        },<br/>
+<br/>
+    ],<br/>
+ );<br/>
+<br/>
+ my $inst = $model-&gt;instance(root_class_name =&gt; 'MyClass' );<br/>
+ my $root = $inst-&gt;config_root ;<br/>
+<br/>
+ print &quot;Visible elements: &quot;,join(' ',$root-&gt;get_element_name),&quot;\n&quot; ;<br/>
+ # Visible elements: master_switch<br/>
+<br/>
+ $root-&gt;load( step =&gt; 'master_switch=cX' );<br/>
+ print &quot;Visible elements: &quot;,join(' ',$root-&gt;get_element_name),&quot;\n&quot; ;<br/>
+ # Visible elements: master_switch a_warped_node<br/>
+<br/>
+ my $node = $root-&gt;grab('a_warped_node') ;<br/>
+ print &quot;a_warped_node class: &quot;,$node-&gt;config_class_name,&quot;\n&quot; ;<br/>
+ # a_warped_node class: ClassX<br/>
+<br/>
+ $root-&gt;load( step =&gt; 'master_switch=cY' );<br/>
+ print &quot;a_warped_node class: &quot;,$node-&gt;config_class_name,&quot;\n&quot; ;<br/>
+ # a_warped_node class: ClassY<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This class provides a way to change dynamically the configuration class (or some other properties) of a node. The changes are done according to the model declaration.<div class="spacer">
+</div>
+This declaration will specify one (or several) leaf in the configuration tree that will trigger the actual property change of the warped node. This leaf is also referred as  <i>warp master</i>.<div class="spacer">
+</div>
+When the warp master(s) value(s) changes, &quot;WarpedNode&quot; will create an instance of the new class required by the warp master.<div class="spacer">
+</div>
+If the morph parameter is set, the values held by the old object are (if possible) copied to the new instance of the object using copy_from method.<div class="spacer">
+</div>
+Warped node can alter the following properties:<div class="spacer">
+</div>
+<br/>
+ config_class_name<br/>
+ experience<br/>
+ level<br/>
+</div>
+<div class="section">
+<h1>Constructor</h1> &quot;WarpedNode&quot; should not be created directly.</div>
+<div class="section">
+<h1>Warped node model declaration</h1><div class="subsection">
+<h2>Parameter overview</h2> A warped node must be declared with the following parameters:<dl>
+<dt>
+type</dt>
+<dd>
+Always set to &quot;warped_node&quot;.</dd>
+</dl>
+<dl>
+<dt>
+follow</dt>
+<dd>
+Grab string leading to the &quot;Config::Model::Value&quot; warp master. See &quot;Warp follow argument&quot; in Config::Model::WarpedThing for details.</dd>
+</dl>
+<dl>
+<dt>
+morph</dt>
+<dd>
+boolean. If 1, &quot;WarpedNode&quot; will try to recursively copy the value from the old object to the new object using copy_from method. When a copy is not possible, undef values will be assigned to object elements.</dd>
+</dl>
+<dl>
+<dt>
+rules</dt>
+<dd>
+Hash or array ref that specify the property change rules according to the warp master(s) value(s). See &quot;Warp rules argument&quot; in Config::Model::WarpedThing for details on how to specify the warp master values (or combination of values).</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Effect declaration</h2> For a warped node, the effects are declared with these parameters:<dl>
+<dt>
+<b>config_class_name</b></dt>
+<dd>
+When requested by the warp master,the &quot;WarpedNode&quot; will create a new object of the type specified by this parameter:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  XZ =&gt; { config_class_name =&gt; 'SlaveZ' }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If you pass an array ref, the array will contain the class name and constructor arguments :<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  XY  =&gt; { config_class_name =&gt; ['SlaveY', foo =&gt; 'bar' ], },<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>experience</b></dt>
+<dd>
+Switch the experience of the slot when the object is warped in.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Forwarded methods</h1> The following methods are forwarded to contained node:<div class="spacer">
+</div>
+fetch_element config_class_name get_element_name has_element is_element_available element_type load fetch_element_value get_type get_cargo_type describe</div>
+<div class="section">
+<h1>Methods</h1><div class="subsection">
+<h2>name</h2> Return the name of the node (even if warped out).</div>
+<div class="subsection">
+<h2>is_accessible</h2> Returns true if the node hidden behind this warped node is accessible, i.e. the warp master have values so a node was warped in.</div>
+<div class="subsection">
+<h2>get_actual_node</h2> Returns the node object hidden behind the warped node. Croaks if the node is not accessible.</div>
+<div class="subsection">
+<h2>load_data ( hash_ref )</h2> Load configuration data with a hash ref. The hash ref key must match the available elements of the node carried by the warped node.</div>
+</div>
+<div class="section">
+<h1>EXAMPLE</h1><br/>
+ $model -&gt;create_config_class <br/>
+  (<br/>
+   experience =&gt; [ bar =&gt; 'advanced'] ,<br/>
+   element =&gt;<br/>
+    [<br/>
+     tree_macro =&gt; { type =&gt; 'leaf',<br/>
+                     value_type =&gt; 'enum',<br/>
+                     choice     =&gt; [qw/XX XY XZ ZZ/]<br/>
+                   },<br/>
+     bar =&gt;  {<br/>
+               type =&gt; 'warped_node',<br/>
+               follow =&gt; '! tree_macro', <br/>
+               morph =&gt; 1,<br/>
+               rules =&gt; [<br/>
+                         XX =&gt; { config_class_name <br/>
+                                   =&gt; [ 'ClassX', 'foo' ,'bar' ]}<br/>
+                         XY =&gt; { config_class_name =&gt; 'ClassY'},<br/>
+                         XZ =&gt; { config_class_name =&gt; 'ClassZ'}<br/>
+                        ]<br/>
+             }<br/>
+    ]<br/>
+  );<br/>
+<div class="spacer">
+</div>
+In the example above we see that:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The 'bar' slot can refer to a &quot;ClassX&quot;, &quot;ClassZ&quot; or &quot;ClassY&quot; object.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The warper object is the &quot;tree_macro&quot; attribute of the root of the object tree.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When &quot;tree_macro&quot; is set to &quot;ZZ&quot;, &quot;bar&quot; will not be available. Trying to access bar will raise an exception.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When &quot;tree_macro&quot; is changed from &quot;ZZ&quot; to &quot;XX&quot;, &quot;bar&quot; will refer to a brand new &quot;ClassX&quot; object constructed with &quot;ClassX-&gt;new(foo =&gt; 'bar')&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Then, if &quot;tree_macro&quot; is changed from &quot;XX&quot; to &quot;XY&quot;, &quot;bar&quot; will refer to a brand new &quot;ClassY&quot; object. But in this case, the object will be initialized with most if not all the attributes of &quot;ClassX&quot;. This copy will be done whenever &quot;tree_macro&quot; is changed.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Dominique Dumont, (ddumont at cpan dot org)</div>
+<div class="section">
+<h1>SEE ALSO</h1> Config::Model::Instance, Config::Model, Config::Model::HashId, Config::Model::ListId, Config::Model::AnyThing, Config::Model::WarpedThing, Config::Model::WarpedNode, Config::Model::Value</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2012-02-24</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

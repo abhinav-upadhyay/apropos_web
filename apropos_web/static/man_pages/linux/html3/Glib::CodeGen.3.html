@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Glib::CodeGen(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Glib::CodeGen(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Glib::CodeGen(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Glib::CodeGen - code generation utilities for Glib-based bindings.</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ # usually in Makefile.PL<br/>
+ use Glib::CodeGen;<br/>
+<br/>
+ # most common, use all defaults<br/>
+ Glib::CodeGen-&gt;parse_maps ('myprefix');<br/>
+ Glib::CodeGen-&gt;write_boot;<br/>
+<br/>
+ # more exotic, change everything<br/>
+ Glib::CodeGen-&gt;parse_maps ('foo',<br/>
+                            input =&gt; 'foo.maps',<br/>
+                            header =&gt; 'foo-autogen.h',<br/>
+                            typemap =&gt; 'foo.typemap',<br/>
+                            register =&gt; 'register-foo.xsh');<br/>
+ Glib::CodeGen-&gt;write_boot (filename =&gt; 'bootfoo.xsh',<br/>
+                            glob =&gt; 'Foo*.xs',<br/>
+                            ignore =&gt; '^(Foo|Foo::Bar)$');<br/>
+<br/>
+ # add a custom type handler (rarely necessary)<br/>
+ Glib::CodeGen-&gt;add_type_handler (FooType =&gt; \&amp;gen_foo_stuff);<br/>
+ # (see the section EXTENDING TYPE SUPPORT for more info.)<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This module packages some of the boilerplate code needed for performing code generation typically used by perl bindings for gobject-based libraries, using the Glib module as a base.<div class="spacer">
+</div>
+The default output filenames are in the subdirectory 'build', which usually will be present if you are using ExtUtils::Depends (as most Glib-based extensions probably should).<div class="subsection">
+<h2>METHODS</h2><dl>
+<dt>
+Glib::CodeGen-&gt;write_boot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+Glib::CodeGen-&gt;write_boot (KEY =&gt; VAL, ...)</dt>
+<dd>
+Many GObject-based libraries to be bound to perl will be too large to put in a single XS file; however, a single PM file typically only bootstraps one XS file's code.  &quot;write_boot&quot; generates an XSH file to be included from the BOOT section of that one bootstrapped module, calling the boot code for all the other XS files in the project.<div style="height: 1.00em;">
+&#160;</div>
+Options are passed to the function in a set of key/val pairs, and all options may default.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  filename     the name of the output file to be created.<br/>
+               the default is 'build/boot.xsh'.<br/>
+<br/>
+  glob         a glob pattern that specifies the names of<br/>
+               the xs files to scan for MODULE lines.<br/>
+               the default is 'xs/*.xs'.<br/>
+<br/>
+  xs_files     use this to supply an explicit list of file<br/>
+               names (as an array reference) to use instead<br/>
+               of a glob pattern.  the default is to use<br/>
+               the glob pattern.<br/>
+<br/>
+  ignore       regular expression matching any and all <br/>
+               module names which should be ignored, i.e.<br/>
+               NOT included in the list of symbols to boot.<br/>
+               this parameter is extremely important for<br/>
+               avoiding infinite loops at startup; see the<br/>
+               discussion for an explanation and rationale.<br/>
+               the default is '^[^:]+$', or, any name that<br/>
+               contains no colons, i.e., any toplevel<br/>
+               package name.<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This function performs a glob (using perl's builtin glob operator) on the pattern specified by the 'glob' option to retrieve a list of file names. It then scans each file in that list for lines matching the pattern &quot;^MODULE&quot; -- that is, the MODULE directive in an XS file.  The module name is pulled out and matched against the regular expression specified by the ignore parameter.  If this module is not to be ignored, we next check to see if the name has been seen.  If not, the name will be converted to a boot symbol (basically, s/:/_/ and prepend &quot;boot_&quot;) and this symbol will be added to a call to GPERL_CALL_BOOT in the generated file; it is then marked as seen so we don't call it again.<div style="height: 1.00em;">
+&#160;</div>
+What is this all about, you ask?  In order to bind an XSub to perl, the C function must be registered with the interpreter.  This is the function of the &quot;boot&quot; code, which is typically called in the bootstrapping process.  However, when multiple XS files are used with only one PM file, some other mechanism must call the boot code from each XS file before any of the function therein will be available.<div style="height: 1.00em;">
+&#160;</div>
+A typical setup for a multiple-XS, single-PM module will be to call the various bits of boot code from the BOOT: section of the toplevel module's XS file.<div style="height: 1.00em;">
+&#160;</div>
+To use Gtk2 as an example, when you do 'use Gtk2', Gtk2.pm calls bootstrap on Gtk2, which calls the C function boot_Gtk2.  This function calls the boot symbols for all the other xs files in the module.  The distinction is that the toplevel module, Gtk2, has no colons in its name.<div style="height: 1.00em;">
+&#160;</div>
+&quot;xsubpp&quot; generates the boot function's name by replacing the colons in the MODULE name with underscores and prepending &quot;boot_&quot;. We need to be careful not to include the boot code for the bootstrapped module, (say Toplevel, or Gtk2, or whatever) because the bootstrap code in Toplevel.pm will call boot_Toplevel when loaded, and boot_Toplevel should actually include the file we are creating here.<div style="height: 1.00em;">
+&#160;</div>
+The default value for the ignore parameter ignores any name not containing colons, because it is assumed that this will be a toplevel module, and any other packages/modules it boots will be  <i>below</i> this namespace, i.e., they will contain colons.  This assumption holds true for Gtk2 and Gnome2, but obviously fails for something like Gnome2::Canvas.  To boot that module properly, you must use a regular expression such as &quot;^Gnome2::Canvas$&quot;.<div style="height: 1.00em;">
+&#160;</div>
+Note that you can, of course, match more than just one name, e.g. &quot;^(Foo|Foo::Bar)$&quot;, if you wanted to have Foo::Bar be included in the same dynamically loaded object but only be booted when absolutely necessary. (If you get that to work, more power to you.)<div style="height: 1.00em;">
+&#160;</div>
+Also, since this code scans for ^MODULE, you must comment the MODULE section out with leading # marks if you want to hide it from &quot;write_boot&quot;.</dd>
+</dl>
+<dl>
+<dt>
+Glib::CodeGen-&gt;parse_maps (PREFIX, [KEY =&gt; VAL, ...])</dt>
+<dd>
+Convention within Glib/Gtk2 and friends is to use preprocessor macros in the style of SvMyType and newSVMyType to get values in and out of perl, and to use those same macros from both hand-written code as well as the typemaps. However, if you have a lot of types in your library (such as the nearly 200 types in Gtk+ 2.x), then writing those macros becomes incredibly tedious, especially so when you factor in all of the variants and such.<div style="height: 1.00em;">
+&#160;</div>
+So, this function can turn a flat file containing terse descriptions of the types into a header containing all the cast macros, a typemap file using them, and an XSH file containing the proper code to register each of those types (to be included by your module's BOOT code).<div style="height: 1.00em;">
+&#160;</div>
+The <i>PREFIX</i> is mandatory, and is used in some of the resulting filenames, You can also override the defaults by providing key=&gt;val pairs:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  input    input file name.  default is 'maps'.  if this<br/>
+           key's value is an array reference, all the<br/>
+           filenames in the array will be scanned.<br/>
+  header   name of the header file to create, default is<br/>
+           build/$prefix-autogen.h<br/>
+  typemap  name of the typemap file to create, default is<br/>
+           build/$prefix.typemap<br/>
+  register name of the xsh file to contain all of the <br/>
+           type registrations, default is build/register.xsh<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+the maps file is a table of type descriptions, one per line, with fields separated by whitespace.  the fields should be:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  TYPE macro    e.g., GTK_TYPE_WIDGET <br/>
+  class name    e.g. GtkWidget, name of the C type<br/>
+  base type     one of GObject, GBoxed, GEnum, GFlags.<br/>
+                To support other base types, see <br/>
+                EXTENDING TYPE SUPPORT for info on<br/>
+                on how to add a custom type handler.<br/>
+  package       name of the perl package to which this<br/>
+                class name should be mapped, e.g.<br/>
+                Gtk2::Widget<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+As a special case, you can also use this same format to register error domains; in this case two of the four columns take on slightly different meanings:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  domain macro     e.g., GDK_PIXBUF_ERROR<br/>
+  enum type macro  e.g., GDK_TYPE_PIXBUF_ERROR<br/>
+  base type        GError<br/>
+  package          name of the Perl package to which this<br/>
+                   class name should be mapped, e.g.,<br/>
+                   Gtk2::Gdk::Pixbuf::Error.<br/>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>EXTENDING TYPE SUPPORT</h1> &quot;parse_maps&quot; uses the base type entry in each maps record to decide how to generate output for that type.  In the base module, type support is included for the base types provided by Glib.  It is easy to add support for your own types, by merely adding a type handler.  This type handler will call utility functions to add typemaps, BOOT lines, and header lines.<dl>
+<dt>
+Glib::CodeGen-&gt;add_type_handler ($base_type =&gt; $handler)</dt>
+<dd>
+</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+$base_type (string) C name of the base type to handle.</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+$handler (subroutine) Callback used to handle this type.</dt>
+<dd>
+</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+<div style="height: 1.00em;">
+&#160;</div>
+Use <i></i><i>$handler</i><i></i> to generate output for records whose base type is  <i></i><i>$base_type</i><i></i>.  <i></i><i>$base_type</i><i></i> is the C type name as found in the third column of a maps file entry.<div style="height: 1.00em;">
+&#160;</div>
+<i></i><i>$handler</i><i></i> will be called with the (possibly preprocessed) contents of the current maps file record, and should call the &quot;add_typemap&quot;, &quot;add_register&quot;, and &quot;add_header&quot; functions to set up the necessary C/XS glue for that type.<div style="height: 1.00em;">
+&#160;</div>
+For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  Glib::CodeGen-&gt;add_type_handler (CoolThing =&gt; sub {<br/>
+      my ($typemacro, $classname, $base, $package) = @_;<br/>
+      <br/>
+      # $typemacro is the C type macro, like COOL_TYPE_THING.<br/>
+      # $classname is the actual C type name, like CoolFooThing.<br/>
+      # $base is the C name of the base type.  If CoolFooThing<br/>
+      #     isa CoolThing, $base will be CoolThing.  This<br/>
+      #     parameter is useful when using the same type handler<br/>
+      #     for multiple base types.<br/>
+      # $package is the package name that corresponds to<br/>
+      #     $classname, as specified in the maps file.<br/>
+      <br/>
+      ...<br/>
+  });<br/>
+</div>
+<dl>
+<dt>
+add_typemap $type, $typemap [, $input, $output]</dt>
+<dd>
+Add a typemap entry for $type, named $typemap.  If <i></i><i>$input</i><i></i> and/or  <i></i><i>$output</i><i></i> are defined, their text will be used as the &quot;INPUT&quot; and/or &quot;OUTPUT&quot; typemap implementations (respectively) for  <i></i><i>$typemap</i><i></i>.  Note that in general, you'll use &quot;T_GPERL_GENERIC_WRAPPER&quot; or some other existing typemap for  <i></i><i>$typemap</i><i></i>, so <i></i><i>$input</i><i></i> and <i></i><i>$output</i><i></i> are very rarely used.<div style="height: 1.00em;">
+&#160;</div>
+Example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  # map $classname pointers and all their variants to the generic<br/>
+  # wrapper typemap.<br/>
+  add_typemap &quot;$classname *&quot;, &quot;T_GPERL_GENERIC_WRAPPER&quot;;<br/>
+  add_typemap &quot;const $classname *&quot;, &quot;T_GPERL_GENERIC_WRAPPER&quot;;<br/>
+  add_typemap &quot;$classname\_ornull *&quot;, &quot;T_GPERL_GENERIC_WRAPPER&quot;;<br/>
+  add_typemap &quot;const $classname\_ornull *&quot;, &quot;T_GPERL_GENERIC_WRAPPER&quot;;<br/>
+  add_typemap &quot;$classname\_own *&quot;, &quot;T_GPERL_GENERIC_WRAPPER&quot;;<br/>
+  add_typemap &quot;$classname\_copy *&quot;, &quot;T_GPERL_GENERIC_WRAPPER&quot;;<br/>
+  add_typemap &quot;$classname\_own_ornull *&quot;, &quot;T_GPERL_GENERIC_WRAPPER&quot;;<br/>
+<br/>
+  # custom code for an int-like enum:<br/>
+  add_typemap $class =&gt; T_FOO,<br/>
+              &quot;\$var = foo_unwrap (\$arg);&quot;, # input<br/>
+              &quot;\$arg = foo_wrap (\$var);&quot;; # output<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+add_register $text</dt>
+<dd>
+Add <i></i><i>$text</i><i></i> to the generated &quot;register.xsh&quot;.  This is usually used for registering types with the bindings, e.g.:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   add_register &quot;#ifdef $typemacro\n&quot;<br/>
+          . &quot;gperl_register_object ($typemacro, \&quot;$package\&quot;);\n&quot;<br/>
+          . &quot;#endif /* $typemacro */&quot;;<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+add_header $text</dt>
+<dd>
+Add <i></i><i>$text</i><i></i> to the generated C header.  You'll put variant typedefs and wrap/unwrap macros in the header, and will usually want to wrap the declarations in &quot;#ifdef $typemacro&quot; for safety.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>BUGS</h1> GInterfaces are mostly just ignored.<div class="spacer">
+</div>
+The code is ugly.</div>
+<div class="section">
+<h1>AUTHOR</h1> muppet &lt;scott at asofyet dot org&gt;</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright (C) 2003-2005 by the gtk2-perl team (see the file AUTHORS for the full list)<div class="spacer">
+</div>
+This library is free software; you can redistribute it and/or modify it under the terms of the GNU Library General Public License as published by the Free Software Foundation; either version 2.1 of the License, or (at your option) any later version.<div class="spacer">
+</div>
+This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Library General Public License for more details.<div class="spacer">
+</div>
+You should have received a copy of the GNU Library General Public License along with this library; if not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307  USA.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-11-18</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

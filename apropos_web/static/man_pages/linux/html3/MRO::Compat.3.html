@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+MRO::Compat(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+MRO::Compat(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+MRO::Compat(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> MRO::Compat - mro::* interface compatibility for Perls &lt; 5.9.5</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+   package FooClass; use base qw/X Y Z/;<br/>
+   package X;        use base qw/ZZZ/;<br/>
+   package Y;        use base qw/ZZZ/;<br/>
+   package Z;        use base qw/ZZZ/;<br/>
+<br/>
+   package main;<br/>
+   use MRO::Compat;<br/>
+   my $linear = mro::get_linear_isa('FooClass');<br/>
+   print join(q{, }, @$linear);<br/>
+<br/>
+   # Prints: &quot;FooClass, X, ZZZ, Y, Z&quot;<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The &quot;mro&quot; namespace provides several utilities for dealing with method resolution order and method caching in general in Perl 5.9.5 and higher.<div class="spacer">
+</div>
+This module provides those interfaces for earlier versions of Perl (back to 5.6.0 anyways).<div class="spacer">
+</div>
+It is a harmless no-op to use this module on 5.9.5+.  That is to say, code which properly uses MRO::Compat will work unmodified on both older Perls and 5.9.5+.<div class="spacer">
+</div>
+If you're writing a piece of software that would like to use the parts of 5.9.5+'s mro:: interfaces that are supported here, and you want compatibility with older Perls, this is the module for you.<div class="spacer">
+</div>
+Some parts of this code will work better and/or faster with Class::C3::XS installed (which is an optional prereq of Class::C3, which is in turn a prereq of this package), but it's not a requirement.<div class="spacer">
+</div>
+This module never exports any functions.  All calls must be fully qualified with the &quot;mro::&quot; prefix.<div class="spacer">
+</div>
+The interface documentation here serves only as a quick reference of what the function basically does, and what differences between MRO::Compat and 5.9.5+ one should look out for.  The main docs in 5.9.5's mro are the real interface docs, and contain a lot of other useful information.</div>
+<div class="section">
+<h1>Functions</h1><div class="subsection">
+<h2>mro::get_linear_isa($classname[, $type])</h2> Returns an arrayref which is the linearized &quot;ISA&quot; of the given class. Uses whichever MRO is currently in effect for that class by default, or the given MRO (either &quot;c3&quot; or &quot;dfs&quot; if specified as $type).<div class="spacer">
+</div>
+The linearized ISA of a class is a single ordered list of all of the classes that would be visited in the process of resolving a method on the given class, starting with itself.  It does not include any duplicate entries.<div class="spacer">
+</div>
+Note that &quot;UNIVERSAL&quot; (and any members of &quot;UNIVERSAL&quot;'s MRO) are not part of the MRO of a class, even though all classes implicitly inherit methods from &quot;UNIVERSAL&quot; and its parents.</div>
+<div class="subsection">
+<h2>mro::import</h2> This allows the &quot;use mro 'dfs'&quot; and &quot;use mro 'c3'&quot; syntaxes, providing you &quot;use MRO::Compat&quot; first.  Please see the &quot;USING C3&quot; section for additional details.</div>
+<div class="subsection">
+<h2>mro::set_mro($classname, $type)</h2> Sets the mro of $classname to one of the types &quot;dfs&quot; or &quot;c3&quot;.  Please see the &quot;USING C3&quot; section for additional details.</div>
+<div class="subsection">
+<h2>mro::get_mro($classname)</h2> Returns the MRO of the given class (either &quot;c3&quot; or &quot;dfs&quot;).<div class="spacer">
+</div>
+It considers any Class::C3-using class to have C3 MRO even before  <i>Class::C3::initialize()</i> is called.</div>
+<div class="subsection">
+<h2>mro::get_isarev($classname)</h2> Returns an arrayref of classes who are subclasses of the given classname.  In other words, classes in whose @ISA hierarchy we appear, no matter how indirectly.<div class="spacer">
+</div>
+This is much slower on pre-5.9.5 Perls with MRO::Compat than it is on 5.9.5+, as it has to search the entire package namespace.</div>
+<div class="subsection">
+<h2>mro::is_universal($classname)</h2> Returns a boolean status indicating whether or not the given classname is either &quot;UNIVERSAL&quot; itself, or one of &quot;UNIVERSAL&quot;'s parents by @ISA inheritance.<div class="spacer">
+</div>
+Any class for which this function returns true is &quot;universal&quot; in the sense that all classes potentially inherit methods from it.</div>
+<div class="subsection">
+<h2>mro::invalidate_all_method_caches</h2> Increments &quot;PL_sub_generation&quot;, which invalidates method caching in all packages.<div class="spacer">
+</div>
+Please note that this is rarely necessary, unless you are dealing with a situation which is known to confuse Perl's method caching.</div>
+<div class="subsection">
+<h2>mro::method_changed_in($classname)</h2> Invalidates the method cache of any classes dependent on the given class.  In MRO::Compat on pre-5.9.5 Perls, this is an alias for &quot;mro::invalidate_all_method_caches&quot; above, as pre-5.9.5 Perls have no other way to do this.  It will still enforce the requirement that you pass it a classname, for compatibility.<div class="spacer">
+</div>
+Please note that this is rarely necessary, unless you are dealing with a situation which is known to confuse Perl's method caching.</div>
+<div class="subsection">
+<h2>mro::get_pkg_gen($classname)</h2> Returns an integer which is incremented every time a local method of or the @ISA of the given package changes on Perl 5.9.5+.  On earlier Perls with this MRO::Compat module, it will probably increment a lot more often than necessary.</div>
+</div>
+<div class="section">
+<h1>USING C3</h1> While this module makes the 5.9.5+ syntaxes &quot;use mro 'c3'&quot; and &quot;mro::set_mro(&quot;Foo&quot;, 'c3')&quot; available on older Perls, it does so merely by passing off the work to Class::C3.<div class="spacer">
+</div>
+It does not remove the need for you to call &quot;Class::C3::initialize()&quot;, &quot;Class::C3::reinitialize()&quot;, and/or &quot;Class::C3::uninitialize()&quot; at the appropriate times as documented in the Class::C3 docs.  These three functions are always provided by MRO::Compat, either via Class::C3 itself on older Perls, or directly as no-ops on 5.9.5+.</div>
+<div class="section">
+<h1>SEE ALSO</h1> Class::C3<div class="spacer">
+</div>
+mro</div>
+<div class="section">
+<h1>AUTHOR</h1> Brandon L. Black, &lt;blblack@gmail.com&gt;</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> Copyright 2007-2008 Brandon L. Black &lt;blblack@gmail.com&gt;<div class="spacer">
+</div>
+This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2009-05-27</td>
+<td class="foot-os">
+perl v5.10.0</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

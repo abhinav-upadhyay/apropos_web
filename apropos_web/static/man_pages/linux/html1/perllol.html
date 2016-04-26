@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PERLLOL(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERLLOL(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+PERLLOL(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perllol - Manipulating Arrays of Arrays in Perl</div>
+<div class="section">
+<h1>DESCRIPTION</h1><div class="subsection">
+<h2>Declaration and Access of Arrays of Arrays</h2> The simplest two-level data structure to build in Perl is an array of arrays, sometimes casually called a list of lists.  It's reasonably easy to understand, and almost everything that applies here will also be applicable later on with the fancier data structures.<div class="spacer">
+</div>
+An array of an array is just a regular old array @AoA that you can get at with two subscripts, like $AoA[3][2].  Here's a declaration of the array:<div class="spacer">
+</div>
+<br/>
+    use 5.010;  # so we can use say()<br/>
+<br/>
+    # assign to our array, an array of array references<br/>
+    @AoA = (<br/>
+           [ &quot;fred&quot;, &quot;barney&quot;, &quot;pebbles&quot;, &quot;bambam&quot;, &quot;dino&quot;, ],<br/>
+           [ &quot;george&quot;, &quot;jane&quot;, &quot;elroy&quot;, &quot;judy&quot;, ],<br/>
+           [ &quot;homer&quot;, &quot;bart&quot;, &quot;marge&quot;, &quot;maggie&quot;, ],<br/>
+    );<br/>
+    say $AoA[2][1];<br/>
+  bart<br/>
+<div class="spacer">
+</div>
+Now you should be very careful that the outer bracket type is a round one, that is, a parenthesis.  That's because you're assigning to an @array, so you need parentheses.  If you wanted there  <i>not</i> to be an @AoA, but rather just a reference to it, you could do something more like this:<div class="spacer">
+</div>
+<br/>
+    # assign a reference to array of array references<br/>
+    $ref_to_AoA = [<br/>
+        [ &quot;fred&quot;, &quot;barney&quot;, &quot;pebbles&quot;, &quot;bambam&quot;, &quot;dino&quot;, ],<br/>
+        [ &quot;george&quot;, &quot;jane&quot;, &quot;elroy&quot;, &quot;judy&quot;, ],<br/>
+        [ &quot;homer&quot;, &quot;bart&quot;, &quot;marge&quot;, &quot;maggie&quot;, ],<br/>
+    ];<br/>
+    say $ref_to_AoA-&gt;[2][1];<br/>
+  bart<br/>
+<div class="spacer">
+</div>
+Notice that the outer bracket type has changed, and so our access syntax has also changed.  That's because unlike C, in perl you can't freely interchange arrays and references thereto.  $ref_to_AoA is a reference to an array, whereas @AoA is an array proper.  Likewise, $AoA[2] is not an array, but an array ref.  So how come you can write these:<div class="spacer">
+</div>
+<br/>
+    $AoA[2][2]<br/>
+    $ref_to_AoA-&gt;[2][2]<br/>
+<div class="spacer">
+</div>
+instead of having to write these:<div class="spacer">
+</div>
+<br/>
+    $AoA[2]-&gt;[2]<br/>
+    $ref_to_AoA-&gt;[2]-&gt;[2]<br/>
+<div class="spacer">
+</div>
+Well, that's because the rule is that on adjacent brackets only (whether square or curly), you are free to omit the pointer dereferencing arrow. But you cannot do so for the very first one if it's a scalar containing a reference, which means that $ref_to_AoA always needs it.</div>
+<div class="subsection">
+<h2>Growing Your Own</h2> That's all well and good for declaration of a fixed data structure, but what if you wanted to add new elements on the fly, or build it up entirely from scratch?<div class="spacer">
+</div>
+First, let's look at reading it in from a file.  This is something like adding a row at a time.  We'll assume that there's a flat file in which each line is a row and each word an element.  If you're trying to develop an @AoA array containing all these, here's the right way to do that:<div class="spacer">
+</div>
+<br/>
+    while (&lt;&gt;) {<br/>
+        @tmp = split;<br/>
+        push @AoA, [ @tmp ];<br/>
+    }<br/>
+<div class="spacer">
+</div>
+You might also have loaded that from a function:<div class="spacer">
+</div>
+<br/>
+    for $i ( 1 .. 10 ) {<br/>
+        $AoA[$i] = [ somefunc($i) ];<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Or you might have had a temporary variable sitting around with the array in it.<div class="spacer">
+</div>
+<br/>
+    for $i ( 1 .. 10 ) {<br/>
+        @tmp = somefunc($i);<br/>
+        $AoA[$i] = [ @tmp ];<br/>
+    }<br/>
+<div class="spacer">
+</div>
+It's important you make sure to use the &quot;[ ]&quot; array reference constructor.  That's because this wouldn't work:<div class="spacer">
+</div>
+<br/>
+    $AoA[$i] = @tmp;   # WRONG!<br/>
+<div class="spacer">
+</div>
+The reason that doesn't do what you want is because assigning a named array like that to a scalar is taking an array in scalar context, which means just counts the number of elements in @tmp.<div class="spacer">
+</div>
+If you are running under &quot;use strict&quot; (and if you aren't, why in the world aren't you?), you'll have to add some declarations to make it happy:<div class="spacer">
+</div>
+<br/>
+    use strict;<br/>
+    my(@AoA, @tmp);<br/>
+    while (&lt;&gt;) {<br/>
+        @tmp = split;<br/>
+        push @AoA, [ @tmp ];<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Of course, you don't need the temporary array to have a name at all:<div class="spacer">
+</div>
+<br/>
+    while (&lt;&gt;) {<br/>
+        push @AoA, [ split ];<br/>
+    }<br/>
+<div class="spacer">
+</div>
+You also don't have to use <i>push()</i>.  You could just make a direct assignment if you knew where you wanted to put it:<div class="spacer">
+</div>
+<br/>
+    my (@AoA, $i, $line);<br/>
+    for $i ( 0 .. 10 ) {<br/>
+        $line = &lt;&gt;;<br/>
+        $AoA[$i] = [ split &quot; &quot;, $line ];<br/>
+    }<br/>
+<div class="spacer">
+</div>
+or even just<div class="spacer">
+</div>
+<br/>
+    my (@AoA, $i);<br/>
+    for $i ( 0 .. 10 ) {<br/>
+        $AoA[$i] = [ split &quot; &quot;, &lt;&gt; ];<br/>
+    }<br/>
+<div class="spacer">
+</div>
+You should in general be leery of using functions that could potentially return lists in scalar context without explicitly stating such.  This would be clearer to the casual reader:<div class="spacer">
+</div>
+<br/>
+    my (@AoA, $i);<br/>
+    for $i ( 0 .. 10 ) {<br/>
+        $AoA[$i] = [ split &quot; &quot;, scalar(&lt;&gt;) ];<br/>
+    }<br/>
+<div class="spacer">
+</div>
+If you wanted to have a $ref_to_AoA variable as a reference to an array, you'd have to do something like this:<div class="spacer">
+</div>
+<br/>
+    while (&lt;&gt;) {<br/>
+        push @$ref_to_AoA, [ split ];<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Now you can add new rows.  What about adding new columns?  If you're dealing with just matrices, it's often easiest to use simple assignment:<div class="spacer">
+</div>
+<br/>
+    for $x (1 .. 10) {<br/>
+        for $y (1 .. 10) {<br/>
+            $AoA[$x][$y] = func($x, $y);<br/>
+        }<br/>
+    }<br/>
+<br/>
+    for $x ( 3, 7, 9 ) {<br/>
+        $AoA[$x][20] += func2($x);<br/>
+    }<br/>
+<div class="spacer">
+</div>
+It doesn't matter whether those elements are already there or not: it'll gladly create them for you, setting intervening elements to &quot;undef&quot; as need be.<div class="spacer">
+</div>
+If you wanted just to append to a row, you'd have to do something a bit funnier looking:<div class="spacer">
+</div>
+<br/>
+    # add new columns to an existing row<br/>
+    push @{ $AoA[0] }, &quot;wilma&quot;, &quot;betty&quot;;   # explicit deref<br/>
+<div class="spacer">
+</div>
+Prior to Perl 5.14, this wouldn't even compile:<div class="spacer">
+</div>
+<br/>
+    push $AoA[0], &quot;wilma&quot;, &quot;betty&quot;;        # implicit deref<br/>
+<div class="spacer">
+</div>
+How come?  Because once upon a time, the argument to <i>push()</i> had to be be a real array, not just a reference to one. That's no longer true.  In fact, the line marked &quot;implicit deref&quot; above works just fine--in this instance--to do what the one that says explicit deref did.<div class="spacer">
+</div>
+The reason I said &quot;in this instance&quot; is because that <i>only</i> works because $AoA[0] already held an array reference.  If you try that on an undefined variable, you'll take an exception.  That's because the implicit derefererence will never autovivify an undefined variable the way &quot;@{ }&quot; always will:<div class="spacer">
+</div>
+<br/>
+    my $aref = undef;<br/>
+    push $aref,  qw(some more values);  # WRONG!<br/>
+    push @$aref, qw(a few more);        # ok<br/>
+<div class="spacer">
+</div>
+If you want to take advantage of this new implicit dereferencing behavior, go right ahead: it makes code easier on the eye and wrist.  Just understand that older releases will choke on it during compilation.  Whenever you make use of something that works only in some given release of Perl and later, but not earlier, you should place a prominent<div class="spacer">
+</div>
+<br/>
+    use v5.14;   # needed for implicit deref of array refs by array ops<br/>
+<div class="spacer">
+</div>
+directive at the top of the file that needs it.  That way when somebody tries to run the new code under an old perl, rather than getting an error like<div class="spacer">
+</div>
+<br/>
+    Type of arg 1 to push must be array (not array element) at /tmp/a line 8, near &quot;&quot;betty&quot;;&quot;<br/>
+    Execution of /tmp/a aborted due to compilation errors.<br/>
+<div class="spacer">
+</div>
+they'll be politely informed that<div class="spacer">
+</div>
+<br/>
+    Perl v5.14.0 required--this is only v5.12.3, stopped at /tmp/a line 1.<br/>
+    BEGIN failed--compilation aborted at /tmp/a line 1.<br/>
+</div>
+<div class="subsection">
+<h2>Access and Printing</h2> Now it's time to print your data structure out.  How are you going to do that?  Well, if you want only one of the elements, it's trivial:<div class="spacer">
+</div>
+<br/>
+    print $AoA[0][0];<br/>
+<div class="spacer">
+</div>
+If you want to print the whole thing, though, you can't say<div class="spacer">
+</div>
+<br/>
+    print @AoA;         # WRONG<br/>
+<div class="spacer">
+</div>
+because you'll get just references listed, and perl will never automatically dereference things for you.  Instead, you have to roll yourself a loop or two.  This prints the whole structure, using the shell-style  <i>for()</i> construct to loop across the outer set of subscripts.<div class="spacer">
+</div>
+<br/>
+    for $aref ( @AoA ) {<br/>
+        say &quot;\t [ @$aref ],&quot;;<br/>
+    }<br/>
+<div class="spacer">
+</div>
+If you wanted to keep track of subscripts, you might do this:<div class="spacer">
+</div>
+<br/>
+    for $i ( 0 .. $#AoA ) {<br/>
+        say &quot;\t elt $i is [ @{$AoA[$i]} ],&quot;;<br/>
+    }<br/>
+<div class="spacer">
+</div>
+or maybe even this.  Notice the inner loop.<div class="spacer">
+</div>
+<br/>
+    for $i ( 0 .. $#AoA ) {<br/>
+        for $j ( 0 .. $#{$AoA[$i]} ) {<br/>
+            say &quot;elt $i $j is $AoA[$i][$j]&quot;;<br/>
+        }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+As you can see, it's getting a bit complicated.  That's why sometimes is easier to take a temporary on your way through:<div class="spacer">
+</div>
+<br/>
+    for $i ( 0 .. $#AoA ) {<br/>
+        $aref = $AoA[$i];<br/>
+        for $j ( 0 .. $#{$aref} ) {<br/>
+            say &quot;elt $i $j is $AoA[$i][$j]&quot;;<br/>
+        }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Hmm... that's still a bit ugly.  How about this:<div class="spacer">
+</div>
+<br/>
+    for $i ( 0 .. $#AoA ) {<br/>
+        $aref = $AoA[$i];<br/>
+        $n = @$aref - 1;<br/>
+        for $j ( 0 .. $n ) {<br/>
+            say &quot;elt $i $j is $AoA[$i][$j]&quot;;<br/>
+        }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+When you get tired of writing a custom print for your data structures, you might look at the standard Dumpvalue or Data::Dumper modules. The former is what the Perl debugger uses, while the latter generates parsable Perl code.  For example:<div class="spacer">
+</div>
+<br/>
+    use v5.14;     # using the + prototype, new to v5.14<br/>
+<br/>
+    sub show(+) {<br/>
+        require Dumpvalue;<br/>
+        state $prettily = new Dumpvalue::<br/>
+                            tick        =&gt; q(&quot;),<br/>
+                            compactDump =&gt; 1,  # comment these two lines out<br/>
+                            veryCompact =&gt; 1,  # if you want a bigger dump<br/>
+                        ;<br/>
+        dumpValue $prettily @_;<br/>
+    }<br/>
+<br/>
+    # Assign a list of array references to an array.<br/>
+    my @AoA = (<br/>
+           [ &quot;fred&quot;, &quot;barney&quot; ],<br/>
+           [ &quot;george&quot;, &quot;jane&quot;, &quot;elroy&quot; ],<br/>
+           [ &quot;homer&quot;, &quot;marge&quot;, &quot;bart&quot; ],<br/>
+    );<br/>
+    push $AoA[0], &quot;wilma&quot;, &quot;betty&quot;;<br/>
+    show @AoA;<br/>
+<div class="spacer">
+</div>
+will print out:<div class="spacer">
+</div>
+<br/>
+    0  0..3  &quot;fred&quot; &quot;barney&quot; &quot;wilma&quot; &quot;betty&quot;<br/>
+    1  0..2  &quot;george&quot; &quot;jane&quot; &quot;elroy&quot;<br/>
+    2  0..2  &quot;homer&quot; &quot;marge&quot; &quot;bart&quot;<br/>
+<div class="spacer">
+</div>
+Whereas if you comment out the two lines I said you might wish to, then it shows it to you this way instead:<div class="spacer">
+</div>
+<br/>
+    0  ARRAY(0x8031d0)<br/>
+       0  &quot;fred&quot;<br/>
+       1  &quot;barney&quot;<br/>
+       2  &quot;wilma&quot;<br/>
+       3  &quot;betty&quot;<br/>
+    1  ARRAY(0x803d40)<br/>
+       0  &quot;george&quot;<br/>
+       1  &quot;jane&quot;<br/>
+       2  &quot;elroy&quot;<br/>
+    2  ARRAY(0x803e10)<br/>
+       0  &quot;homer&quot;<br/>
+       1  &quot;marge&quot;<br/>
+       2  &quot;bart&quot;<br/>
+</div>
+<div class="subsection">
+<h2>Slices</h2> If you want to get at a slice (part of a row) in a multidimensional array, you're going to have to do some fancy subscripting.  That's because while we have a nice synonym for single elements via the pointer arrow for dereferencing, no such convenience exists for slices.<div class="spacer">
+</div>
+Here's how to do one operation using a loop.  We'll assume an @AoA variable as before.<div class="spacer">
+</div>
+<br/>
+    @part = ();<br/>
+    $x = 4;<br/>
+    for ($y = 7; $y &lt; 13; $y++) {<br/>
+        push @part, $AoA[$x][$y];<br/>
+    }<br/>
+<div class="spacer">
+</div>
+That same loop could be replaced with a slice operation:<div class="spacer">
+</div>
+<br/>
+    @part = @{$AoA[4]}[7..12];<br/>
+<div class="spacer">
+</div>
+or spaced out a bit:<div class="spacer">
+</div>
+<br/>
+    @part = @{ $AoA[4] } [ 7..12 ];<br/>
+<div class="spacer">
+</div>
+But as you might well imagine, this can get pretty rough on the reader.<div class="spacer">
+</div>
+Ah, but what if you wanted a <i>two-dimensional slice</i>, such as having $x run from 4..8 and $y run from 7 to 12?  Hmm... here's the simple way:<div class="spacer">
+</div>
+<br/>
+    @newAoA = ();<br/>
+    for ($startx = $x = 4; $x &lt;= 8; $x++) {<br/>
+        for ($starty = $y = 7; $y &lt;= 12; $y++) {<br/>
+            $newAoA[$x - $startx][$y - $starty] = $AoA[$x][$y];<br/>
+        }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+We can reduce some of the looping through slices<div class="spacer">
+</div>
+<br/>
+    for ($x = 4; $x &lt;= 8; $x++) {<br/>
+        push @newAoA, [ @{ $AoA[$x] } [ 7..12 ] ];<br/>
+    }<br/>
+<div class="spacer">
+</div>
+If you were into Schwartzian Transforms, you would probably have selected map for that<div class="spacer">
+</div>
+<br/>
+    @newAoA = map { [ @{ $AoA[$_] } [ 7..12 ] ] } 4 .. 8;<br/>
+<div class="spacer">
+</div>
+Although if your manager accused you of seeking job security (or rapid insecurity) through inscrutable code, it would be hard to argue. :-) If I were you, I'd put that in a function:<div class="spacer">
+</div>
+<br/>
+    @newAoA = splice_2D( \@AoA, 4 =&gt; 8, 7 =&gt; 12 );<br/>
+    sub splice_2D {<br/>
+        my $lrr = shift;        # ref to array of array refs!<br/>
+        my ($x_lo, $x_hi,<br/>
+            $y_lo, $y_hi) = @_;<br/>
+<br/>
+        return map {<br/>
+            [ @{ $lrr-&gt;[$_] } [ $y_lo .. $y_hi ] ]<br/>
+        } $x_lo .. $x_hi;<br/>
+    }<br/>
+</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> perldata, perlref, perldsc</div>
+<div class="section">
+<h1>AUTHOR</h1> Tom Christiansen &lt; <i>tchrist@perl.com</i>&gt;<div class="spacer">
+</div>
+Last update: Tue Apr 26 18:30:55 MDT 2011</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

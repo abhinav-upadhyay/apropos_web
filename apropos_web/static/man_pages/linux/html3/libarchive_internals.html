@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+LIBARCHIVE(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">libarchive_internals</b> &#8212; <span class="desc">description of libarchive internal interfaces</span></div>
+<div class="section">
+<h1 id="x4f56455256494557">OVERVIEW</h1> The <b class="name">libarchive</b> library provides a flexible interface for reading and writing streaming archive files such as tar and cpio. Internally, it follows a modular layered design that should make it easy to add new archive and compression formats.</div>
+<div class="section">
+<h1 id="x47454e4552414c20415243484954454354555245">GENERAL ARCHITECTURE</h1> Externally, libarchive exposes most operations through an opaque, object-style interface. The <a class="link-man" href="/man/linux/3/archive_entry">archive_entry(3)</a> objects store information about a single filesystem object. The rest of the library provides facilities to write <a class="link-man" href="/man/linux/3/archive_entry">archive_entry(3)</a> objects to archive files, read them from archive files, and write them to disk. (There are plans to add a facility to read <a class="link-man" href="/man/linux/3/archive_entry">archive_entry(3)</a> objects from disk as well.)<div class="spacer">
+</div>
+The read and write APIs each have four layers: a public API layer, a format layer that understands the archive file format, a compression layer, and an I/O layer. The I/O layer is completely exposed to clients who can replace it entirely with their own functions.<div class="spacer">
+</div>
+In order to provide as much consistency as possible for clients, some public functions are virtualized. Eventually, it should be possible for clients to open an archive or disk writer, and then use a single set of code to select and write entries, regardless of the target.</div>
+<div class="section">
+<h1 id="x5245414420415243484954454354555245">READ ARCHITECTURE</h1> From the outside, clients use the <a class="link-man" href="/man/linux/3/archive_read">archive_read(3)</a> API to manipulate an <b class="name">archive</b> object to read entries and bodies from an archive stream. Internally, the <b class="name">archive</b> object is cast to an <b class="name">archive_read</b> object, which holds all read-specific data. The API has four layers: The lowest layer is the I/O layer. This layer can be overridden by clients, but most clients use the packaged I/O callbacks provided, for example, by <a class="link-man" href="/man/linux/3/archive_read_open_memory">archive_read_open_memory(3)</a>, and <a class="link-man" href="/man/linux/3/archive_read_open_fd">archive_read_open_fd(3)</a>. The compression layer calls the I/O layer to read bytes and decompresses them for the format layer. The format layer unpacks a stream of uncompressed bytes and creates <b class="name">archive_entry</b> objects from the incoming data. The API layer tracks overall state (for example, it prevents clients from reading data before reading a header) and invokes the format and compression layer operations through registered function pointers. In particular, the API layer drives the format-detection process: When opening the archive, it reads an initial block of data and offers it to each registered compression handler. The one with the highest bid is initialized with the first block. Similarly, the format handlers are polled to see which handler is the best for each archive. (Prior to 2.4.0, the format bidders were invoked for each entry, but this design hindered error recovery.)<div class="subsection">
+<h2 id="x492f4f204c6179657220616e6420436c69656e742043616c6c6261636b73">I/O Layer and Client Callbacks</h2> The read API goes to some lengths to be nice to clients. As a result, there are few restrictions on the behavior of the client callbacks.<div class="spacer">
+</div>
+The client read callback is expected to provide a block of data on each call. A zero-length return does indicate end of file, but otherwise blocks may be as small as one byte or as large as the entire file. In particular, blocks may be of different sizes.<div class="spacer">
+</div>
+The client skip callback returns the number of bytes actually skipped, which may be much smaller than the skip requested. The only requirement is that the skip not be larger. In particular, clients are allowed to return zero for any skip that they don't want to handle. The skip callback must never be invoked with a negative value.<div class="spacer">
+</div>
+Keep in mind that not all clients are reading from disk: clients reading from networks may provide different-sized blocks on every request and cannot skip at all; advanced clients may use <a class="link-man" href="/man/linux/2/mmap">mmap(2)</a> to read the entire file into memory at once and return the entire file to libarchive as a single block; other clients may begin asynchronous I/O operations for the next block on each request.</div>
+<div class="subsection">
+<h2 id="x4465636f6d707265737373696f6e204c61796572">Decompresssion Layer</h2> The decompression layer not only handles decompression, it also buffers data so that the format handlers see a much nicer I/O model. The decompression API is a two stage peek/consume model. A read_ahead request specifies a minimum read amount; the decompression layer must provide a pointer to at least that much data. If more data is immediately available, it should return more: the format layer handles bulk data reads by asking for a minimum of one byte and then copying as much data as is available.<div class="spacer">
+</div>
+A subsequent call to the <b class="fname">consume</b>() function advances the read pointer. Note that data returned from a <b class="fname">read_ahead</b>() call is guaranteed to remain in place until the next call to <b class="fname">read_ahead</b>(). Intervening calls to <b class="fname">consume</b>() should not cause the data to move.<div class="spacer">
+</div>
+Skip requests must always be handled exactly. Decompression handlers that cannot seek forward should not register a skip handler; the API layer fills in a generic skip handler that reads and discards data.<div class="spacer">
+</div>
+A decompression handler has a specific lifecycle:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+Registration/Configuration</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When the client invokes the public support function, the decompression handler invokes the internal <b class="fname">__archive_read_register_compression</b>() function to provide bid and initialization functions. This function returns <b class="flag">NULL</b> on error or else a pointer to a <b class="flag">struct decompressor_t</b>. This structure contains a <b class="var">void * config</b> slot that can be used for storing any customization information.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+Bid</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The bid function is invoked with a pointer and size of a block of data. The decompressor can access its config data through the <b class="var">decompressor</b> element of the <b class="flag">archive_read</b> object. The bid function is otherwise stateless. In particular, it must not perform any I/O operations.<div class="spacer">
+</div>
+The value returned by the bid function indicates its suitability for handling this data stream. A bid of zero will ensure that this decompressor is never invoked. Return zero if magic number checks fail. Otherwise, your initial implementation should return the number of bits actually checked. For example, if you verify two full bytes and three bits of another byte, bid 19. Note that the initial block may be very short; be careful to only inspect the data you are given. (The current decompressors require two bytes for correct bidding.)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+Initialize</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The winning bidder will have its init function called. This function should initialize the remaining slots of the <b class="var">struct decompressor_t</b> object pointed to by the <b class="var">decompressor</b> element of the <b class="var">archive_read</b> object. In particular, it should allocate any working data it needs in the <b class="var">data</b> slot of that structure. The init function is called with the block of data that was used for tasting. At this point, the decompressor is responsible for all I/O requests to the client callbacks. The decompressor is free to read more data as and when necessary.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+Satisfy I/O requests</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The format handler will invoke the <b class="var">read_ahead</b>, <b class="var">consume</b>, and <b class="var">skip</b> functions as needed.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+Finish</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The finish method is called only once when the archive is closed. It should release anything stored in the <b class="var">data</b> and <b class="var">config</b> slots of the <b class="var">decompressor</b> object. It should not invoke the client close callback.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x466f726d6174204c61796572">Format Layer</h2> The read formats have a similar lifecycle to the decompression handlers:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+Registration</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Allocate your private data and initialize your pointers.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+Bid</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Formats bid by invoking the <b class="fname">read_ahead</b>() decompression method but not calling the <b class="fname">consume</b>() method. This allows each bidder to look ahead in the input stream. Bidders should not look further ahead than necessary, as long look aheads put pressure on the decompression layer to buffer lots of data. Most formats only require a few hundred bytes of look ahead; look aheads of a few kilobytes are reasonable. (The ISO9660 reader sometimes looks ahead by 48k, which should be considered an upper limit.)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+Read header</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The header read is usually the most complex part of any format. There are a few strategies worth mentioning: For formats such as tar or cpio, reading and parsing the header is straightforward since headers alternate with data. For formats that store all header data at the beginning of the file, the first header read request may have to read all headers into memory and store that data, sorted by the location of the file data. Subsequent header read requests will skip forward to the beginning of the file data and return the corresponding header.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+Read Data</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The read data interface supports sparse files; this requires that each call return a block of data specifying the file offset and size. This may require you to carefully track the location so that you can return accurate file offsets for each read. Remember that the decompressor will return as much data as it has. Generally, you will want to request one byte, examine the return value to see how much data is available, and possibly trim that to the amount you can use. You should invoke consume for each block just before you return it.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+Skip All Data</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The skip data call should skip over all file data and trailing padding. This is called automatically by the API layer just before each header read. It is also called in response to the client calling the public <b class="fname">data_skip</b>() function.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+Cleanup</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+On cleanup, the format should release all of its allocated memory.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2 id="x415049204c61796572">API Layer</h2> XXX to do XXX</div>
+</div>
+<div class="section">
+<h1 id="x575249544520415243484954454354555245">WRITE ARCHITECTURE</h1> The write API has a similar set of four layers: an API layer, a format layer, a compression layer, and an I/O layer. The registration here is much simpler because only one format and one compression can be registered at a time.<div class="subsection">
+<h2 id="x492f4f204c6179657220616e6420436c69656e742043616c6c6261636b73">I/O Layer and Client Callbacks</h2> XXX To be written XXX</div>
+<div class="subsection">
+<h2 id="x436f6d7072657373696f6e204c61796572">Compression Layer</h2> XXX To be written XXX</div>
+<div class="subsection">
+<h2 id="x466f726d6174204c61796572">Format Layer</h2> XXX To be written XXX</div>
+<div class="subsection">
+<h2 id="x415049204c61796572">API Layer</h2> XXX To be written XXX</div>
+</div>
+<div class="section">
+<h1 id="x57524954455f4449534b20415243484954454354555245">WRITE_DISK ARCHITECTURE</h1> The write_disk API is intended to look just like the write API to clients. Since it does not handle multiple formats or compression, it is not layered internally.</div>
+<div class="section">
+<h1 id="x47454e4552414c205345525649434553">GENERAL SERVICES</h1> The <b class="name">archive_read</b>, <b class="name">archive_write</b>, and <b class="name">archive_write_disk</b> objects all contain an initial <b class="name">archive</b> object which provides common support for a set of standard services. (Recall that ANSI/ISO C90 guarantees that you can cast freely between a pointer to a structure and a pointer to the first element of that structure.) The <b class="name">archive</b> object has a magic value that indicates which API this object is associated with, slots for storing error information, and function pointers for virtualized API functions.</div>
+<div class="section">
+<h1 id="x4d495343454c4c414e454f5553204e4f544553">MISCELLANEOUS NOTES</h1> Connecting existing archiving libraries into libarchive is generally quite difficult. In particular, many existing libraries strongly assume that you are reading from a file; they seek forwards and backwards as necessary to locate various pieces of information. In contrast, libarchive never seeks backwards in its input, which sometimes requires very different approaches.<div class="spacer">
+</div>
+For example, libarchive's ISO9660 support operates very differently from most ISO9660 readers. The libarchive support utilizes a work-queue design that keeps a list of known entries sorted by their location in the input. Whenever libarchive's ISO9660 implementation is asked for the next header, checks this list to find the next item on the disk. Directories are parsed when they are encountered and new items are added to the list. This design relies heavily on the ISO9660 image being optimized so that directories always occur earlier on the disk than the files they describe.<div class="spacer">
+</div>
+Depending on the specific format, such approaches may not be possible. The ZIP format specification, for example, allows archivers to store key information only at the end of the file. In theory, it is possible to create ZIP archives that cannot be read without seeking. Fortunately, such archives are very rare, and libarchive can read most ZIP archives, though it cannot always extract as much information as a dedicated ZIP program.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="/man/linux/3/archive">archive(3)</a>, <a class="link-man" href="/man/linux/3/archive_entry">archive_entry(3)</a>, <a class="link-man" href="/man/linux/3/archive_read">archive_read(3)</a>, <a class="link-man" href="/man/linux/3/archive_write">archive_write(3)</a>, <a class="link-man" href="/man/linux/3/archive_write_disk">archive_write_disk(3)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">libarchive</b> library first appeared in <span class="unix">FreeBSD&#160;5.3</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> The <b class="name">libarchive</b> library was written by <span class="author">Tim Kientzle</span> &#10216;kientzle@acm.org&#10217;.</div>
+</div>
+</body>
+</html>
+

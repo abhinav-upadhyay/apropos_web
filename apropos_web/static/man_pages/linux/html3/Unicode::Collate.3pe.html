@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Unicode::Collate(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Unicode::Collate(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+Unicode::Collate(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Unicode::Collate - Unicode Collation Algorithm</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  use Unicode::Collate;<br/>
+<br/>
+  #construct<br/>
+  $Collator = Unicode::Collate-&gt;new(%tailoring);<br/>
+<br/>
+  #sort<br/>
+  @sorted = $Collator-&gt;sort(@not_sorted);<br/>
+<br/>
+  #compare<br/>
+  $result = $Collator-&gt;cmp($a, $b); # returns 1, 0, or -1.<br/>
+<div class="spacer">
+</div>
+<b>Note:</b> Strings in @not_sorted, $a and $b are interpreted according to Perl's Unicode support. See perlunicode, perluniintro, perlunitut, perlunifaq, utf8. Otherwise you can use &quot;preprocess&quot; or should decode them before.</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This module is an implementation of Unicode Technical Standard #10 (a.k.a. UTS #10) - Unicode Collation Algorithm (a.k.a. UCA).<div class="subsection">
+<h2>Constructor and Tailoring</h2> The &quot;new&quot; method returns a collator object. If  <i>new()</i> is called with no parameters, the collator should do the default collation.<div class="spacer">
+</div>
+<br/>
+   $Collator = Unicode::Collate-&gt;new(<br/>
+      UCA_Version =&gt; $UCA_Version,<br/>
+      alternate =&gt; $alternate, # alias for 'variable'<br/>
+      backwards =&gt; $levelNumber, # or \@levelNumbers<br/>
+      entry =&gt; $element,<br/>
+      hangul_terminator =&gt; $term_primary_weight,<br/>
+      ignoreName =&gt; qr/$ignoreName/,<br/>
+      ignoreChar =&gt; qr/$ignoreChar/,<br/>
+      katakana_before_hiragana =&gt; $bool,<br/>
+      level =&gt; $collationLevel,<br/>
+      normalization  =&gt; $normalization_form,<br/>
+      overrideCJK =&gt; \&amp;overrideCJK,<br/>
+      overrideHangul =&gt; \&amp;overrideHangul,<br/>
+      preprocess =&gt; \&amp;preprocess,<br/>
+      rearrange =&gt; \@charList,<br/>
+      suppress =&gt; \@charList,<br/>
+      table =&gt; $filename,<br/>
+      undefName =&gt; qr/$undefName/,<br/>
+      undefChar =&gt; qr/$undefChar/,<br/>
+      upper_before_lower =&gt; $bool,<br/>
+      variable =&gt; $variable,<br/>
+   );<br/>
+<dl>
+<dt>
+UCA_Version</dt>
+<dd>
+If the revision (previously &quot;tracking version&quot;) number of UCA is given, behavior of that revision is emulated on collating. If omitted, the return value of &quot;UCA_Version()&quot; is used.<div style="height: 1.00em;">
+&#160;</div>
+The following revisions are supported.  The default is 22.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+     UCA       Unicode Standard         DUCET (@version)<br/>
+   -------------------------------------------------------<br/>
+      8              3.1                3.0.1 (3.0.1d9)<br/>
+      9     3.1 with Corrigendum 3      3.1.1 (3.1.1)<br/>
+     11              4.0                4.0.0 (4.0.0)<br/>
+     14             4.1.0               4.1.0 (4.1.0)<br/>
+     16              5.0                5.0.0 (5.0.0)<br/>
+     18             5.1.0               5.1.0 (5.1.0)<br/>
+     20             5.2.0               5.2.0 (5.2.0)<br/>
+     22             6.0.0               6.0.0 (6.0.0)<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+* Noncharacters (e.g. U+FFFF) are not ignored, and can be overridden since &quot;UCA_Version&quot; 22.<div style="height: 1.00em;">
+&#160;</div>
+* Fully ignorable characters were ignored, and would not interrupt contractions with &quot;UCA_Version&quot; 9 and 11.<div style="height: 1.00em;">
+&#160;</div>
+* Treatment of ignorables after variables and some behaviors were changed at &quot;UCA_Version&quot; 9.<div style="height: 1.00em;">
+&#160;</div>
+* Characters regarded as CJK unified ideographs (cf. &quot;overrideCJK&quot;) depend on &quot;UCA_Version&quot;.<div style="height: 1.00em;">
+&#160;</div>
+* Many hangul jamo are assigned at &quot;UCA_Version&quot; 20, that will affect &quot;hangul_terminator&quot;.</dd>
+</dl>
+<dl>
+<dt>
+alternate</dt>
+<dd>
+-- see 3.2.2 Alternate Weighting, version 8 of UTS #10<div style="height: 1.00em;">
+&#160;</div>
+For backward compatibility, &quot;alternate&quot; (old name) can be used as an alias for &quot;variable&quot;.</dd>
+</dl>
+<dl>
+<dt>
+backwards</dt>
+<dd>
+-- see 3.1.2 French Accents, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+     backwards =&gt; $levelNumber or \@levelNumbers<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Weights in reverse order; ex. level 2 (diacritic ordering) in French. If omitted (or $levelNumber is &quot;undef&quot; or &quot;\@levelNumbers&quot; is &quot;[]&quot;), forwards at all the levels.</dd>
+</dl>
+<dl>
+<dt>
+entry</dt>
+<dd>
+-- see 3.1 Linguistic Features; 3.2.1 File Format, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+If the same character (or a sequence of characters) exists in the collation element table through &quot;table&quot;, mapping to collation elements is overridden. If it does not exist, the mapping is defined additionally.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    entry =&gt; &lt;&lt;'ENTRY', # for DUCET v4.0.0 (allkeys-4.0.0.txt)<br/>
+0063 0068 ; [.0E6A.0020.0002.0063] # ch<br/>
+0043 0068 ; [.0E6A.0020.0007.0043] # Ch<br/>
+0043 0048 ; [.0E6A.0020.0008.0043] # CH<br/>
+006C 006C ; [.0F4C.0020.0002.006C] # ll<br/>
+004C 006C ; [.0F4C.0020.0007.004C] # Ll<br/>
+004C 004C ; [.0F4C.0020.0008.004C] # LL<br/>
+00F1      ; [.0F7B.0020.0002.00F1] # n-tilde<br/>
+006E 0303 ; [.0F7B.0020.0002.00F1] # n-tilde<br/>
+00D1      ; [.0F7B.0020.0008.00D1] # N-tilde<br/>
+004E 0303 ; [.0F7B.0020.0008.00D1] # N-tilde<br/>
+ENTRY<br/>
+<br/>
+    entry =&gt; &lt;&lt;'ENTRY', # for DUCET v4.0.0 (allkeys-4.0.0.txt)<br/>
+00E6 ; [.0E33.0020.0002.00E6][.0E8B.0020.0002.00E6] # ae ligature as &lt;a&gt;&lt;e&gt;<br/>
+00C6 ; [.0E33.0020.0008.00C6][.0E8B.0020.0008.00C6] # AE ligature as &lt;A&gt;&lt;E&gt;<br/>
+ENTRY<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<b>NOTE:</b> The code point in the UCA file format (before ';')  <b>must</b> be a Unicode code point (defined as hexadecimal), but not a native code point. So 0063 must always denote &quot;U+0063&quot;, but not a character of &quot;\x63&quot;.<div style="height: 1.00em;">
+&#160;</div>
+Weighting may vary depending on collation element table. So ensure the weights defined in &quot;entry&quot; will be consistent with those in the collation element table loaded via &quot;table&quot;.<div style="height: 1.00em;">
+&#160;</div>
+In DUCET v4.0.0, primary weight of &quot;C&quot; is 0E60 and that of &quot;D&quot; is &quot;0E6D&quot;. So setting primary weight of &quot;CH&quot; to &quot;0E6A&quot; (as a value between 0E60 and &quot;0E6D&quot;) makes ordering as &quot;C &lt; CH &lt; D&quot;. Exactly speaking DUCET already has some characters between &quot;C&quot; and &quot;D&quot;: &quot;small capital C&quot; (&quot;U+1D04&quot;) with primary weight 0E64, &quot;c-hook/C-hook&quot; (&quot;U+0188/U+0187&quot;) with 0E65, and &quot;c-curl&quot; (&quot;U+0255&quot;) with 0E69. Then primary weight &quot;0E6A&quot; for &quot;CH&quot; makes &quot;CH&quot; ordered between &quot;c-curl&quot; and &quot;D&quot;.</dd>
+</dl>
+<dl>
+<dt>
+hangul_terminator</dt>
+<dd>
+-- see 7.1.4 Trailing Weights, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+If a true value is given (non-zero but should be positive), it will be added as a terminator primary weight to the end of every standard Hangul syllable. Secondary and any higher weights for terminator are set to zero. If the value is false or &quot;hangul_terminator&quot; key does not exist, insertion of terminator weights will not be performed.<div style="height: 1.00em;">
+&#160;</div>
+Boundaries of Hangul syllables are determined according to conjoining Jamo behavior in  <i>the Unicode Standard</i> and  <i>HangulSyllableType.txt</i>.<div style="height: 1.00em;">
+&#160;</div>
+<b>Implementation Note:</b> (1) For expansion mapping (Unicode character mapped to a sequence of collation elements), a terminator will not be added between collation elements, even if Hangul syllable boundary exists there. Addition of terminator is restricted to the next position to the last collation element.<div style="height: 1.00em;">
+&#160;</div>
+(2) Non-conjoining Hangul letters (Compatibility Jamo, halfwidth Jamo, and enclosed letters) are not automatically terminated with a terminator primary weight. These characters may need terminator included in a collation element table beforehand.</dd>
+</dl>
+<dl>
+<dt>
+ignoreChar</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+ignoreName</dt>
+<dd>
+-- see 3.2.2 Variable Weighting, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+Makes the entry in the table completely ignorable; i.e. as if the weights were zero at all level.<div style="height: 1.00em;">
+&#160;</div>
+Through &quot;ignoreChar&quot;, any character matching &quot;qr/$ignoreChar/&quot; will be ignored. Through &quot;ignoreName&quot;, any character whose name (given in the &quot;table&quot; file as a comment) matches &quot;qr/$ignoreName/&quot; will be ignored.<div style="height: 1.00em;">
+&#160;</div>
+E.g. when 'a' and 'e' are ignorable, 'element' is equal to 'lament' (or 'lmnt').</dd>
+</dl>
+<dl>
+<dt>
+katakana_before_hiragana</dt>
+<dd>
+-- see 7.3.1 Tertiary Weight Table, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+By default, hiragana is before katakana. If the parameter is made true, this is reversed.<div style="height: 1.00em;">
+&#160;</div>
+<b>NOTE</b>: This parameter simplemindedly assumes that any hiragana/katakana distinctions must occur in level 3, and their weights at level 3 must be same as those mentioned in 7.3.1, UTS #10. If you define your collation elements which violate this requirement, this parameter does not work validly.</dd>
+</dl>
+<dl>
+<dt>
+level</dt>
+<dd>
+-- see 4.3 Form Sort Key, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+Set the maximum level. Any higher levels than the specified one are ignored.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  Level 1: alphabetic ordering<br/>
+  Level 2: diacritic ordering<br/>
+  Level 3: case ordering<br/>
+  Level 4: tie-breaking (e.g. in the case when variable is 'shifted')<br/>
+<br/>
+  ex.level =&gt; 2,<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If omitted, the maximum is the 4th.</dd>
+</dl>
+<dl>
+<dt>
+normalization</dt>
+<dd>
+-- see 4.1 Normalize, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+If specified, strings are normalized before preparation of sort keys (the normalization is executed after preprocess).<div style="height: 1.00em;">
+&#160;</div>
+A form name &quot;Unicode::Normalize::normalize()&quot; accepts will be applied as $normalization_form. Acceptable names include 'NFD', 'NFC', 'NFKD', and 'NFKC'. See &quot;Unicode::Normalize::normalize()&quot; for detail. If omitted, 'NFD' is used.<div style="height: 1.00em;">
+&#160;</div>
+&quot;normalization&quot; is performed after &quot;preprocess&quot; (if defined).<div style="height: 1.00em;">
+&#160;</div>
+Furthermore, special values, &quot;undef&quot; and &quot;prenormalized&quot;, can be used, though they are not concerned with &quot;Unicode::Normalize::normalize()&quot;.<div style="height: 1.00em;">
+&#160;</div>
+If &quot;undef&quot; (not a string &quot;undef&quot;) is passed explicitly as the value for this key, any normalization is not carried out (this may make tailoring easier if any normalization is not desired). Under &quot;(normalization =&gt; undef)&quot;, only contiguous contractions are resolved; e.g. even if &quot;A-ring&quot; (and &quot;A-ring-cedilla&quot;) is ordered after &quot;Z&quot;, &quot;A-cedilla-ring&quot; would be primary equal to &quot;A&quot;. In this point, &quot;(normalization =&gt; undef, preprocess =&gt; sub { NFD(shift) })&quot;  <b>is not</b> equivalent to &quot;(normalization =&gt; 'NFD')&quot;.<div style="height: 1.00em;">
+&#160;</div>
+In the case of &quot;(normalization =&gt; &quot;prenormalized&quot;)&quot;, any normalization is not performed, but discontiguous contractions with combining characters are performed. Therefore &quot;(normalization =&gt; 'prenormalized', preprocess =&gt; sub { NFD(shift) })&quot;  <b>is</b> equivalent to &quot;(normalization =&gt; 'NFD')&quot;. If source strings are finely prenormalized, &quot;(normalization =&gt; 'prenormalized')&quot; may save time for normalization.<div style="height: 1.00em;">
+&#160;</div>
+Except &quot;(normalization =&gt; undef)&quot;,  <b>Unicode::Normalize</b> is required (see also <b>CAVEAT</b>).</dd>
+</dl>
+<dl>
+<dt>
+overrideCJK</dt>
+<dd>
+-- see 7.1 Derived Collation Elements, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+By default, CJK unified ideographs are ordered in Unicode codepoint order, but those in the CJK Unified Ideographs block are lesser than those in the CJK Unified Ideographs Extension A etc.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    In the CJK Unified Ideographs block:<br/>
+    U+4E00..U+9FA5 if UCA_Version is 8 to 11.<br/>
+    U+4E00..U+9FBB if UCA_Version is 14 to 16.<br/>
+    U+4E00..U+9FC3 if UCA_Version is 18.<br/>
+    U+4E00..U+9FCB if UCA_Version is 20 or greater.<br/>
+<br/>
+    In the CJK Unified Ideographs Extension blocks:<br/>
+    Ext.A (U+3400..U+4DB5) and Ext.B (U+20000..U+2A6D6) in any UCA_Version.<br/>
+    Ext.C (U+2A700..U+2B734) if UCA_Version is 20 or greater.<br/>
+    Ext.D (U+2B740..U+2B81D) if UCA_Version is 22 or greater.<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Through &quot;overrideCJK&quot;, ordering of CJK unified ideographs (including extensions) can be overridden.<div style="height: 1.00em;">
+&#160;</div>
+ex. CJK unified ideographs in the JIS code point order.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  overrideCJK =&gt; sub {<br/>
+      my $u = shift;             # get a Unicode codepoint<br/>
+      my $b = pack('n', $u);     # to UTF-16BE<br/>
+      my $s = your_unicode_to_sjis_converter($b); # convert<br/>
+      my $n = unpack('n', $s);   # convert sjis to short<br/>
+      [ $n, 0x20, 0x2, $u ];     # return the collation element<br/>
+  },<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The return value may be an arrayref of 1st to 4th weights as shown above. The return value may be an integer as the primary weight as shown below.  If &quot;undef&quot; is returned, the default derived collation element will be used.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  overrideCJK =&gt; sub {<br/>
+      my $u = shift;             # get a Unicode codepoint<br/>
+      my $b = pack('n', $u);     # to UTF-16BE<br/>
+      my $s = your_unicode_to_sjis_converter($b); # convert<br/>
+      my $n = unpack('n', $s);   # convert sjis to short<br/>
+      return $n;                 # return the primary weight<br/>
+  },<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The return value may be a list containing zero or more of an arrayref, an integer, or &quot;undef&quot;.<div style="height: 1.00em;">
+&#160;</div>
+ex. ignores all CJK unified ideographs.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  overrideCJK =&gt; sub {()}, # CODEREF returning empty list<br/>
+<br/>
+   # where -&gt;eq(&quot;Pe\x{4E00}rl&quot;, &quot;Perl&quot;) is true<br/>
+   # as U+4E00 is a CJK unified ideograph and to be ignorable.<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If &quot;undef&quot; is passed explicitly as the value for this key, weights for CJK unified ideographs are treated as undefined. But assignment of weight for CJK unified ideographs in &quot;table&quot; or &quot;entry&quot; is still valid.<div style="height: 1.00em;">
+&#160;</div>
+<b>Note:</b> In addition to them, 12 CJK compatibility ideographs (&quot;U+FA0E&quot;, &quot;U+FA0F&quot;, &quot;U+FA11&quot;, &quot;U+FA13&quot;, &quot;U+FA14&quot;, &quot;U+FA1F&quot;, &quot;U+FA21&quot;, &quot;U+FA23&quot;, &quot;U+FA24&quot;, &quot;U+FA27&quot;, &quot;U+FA28&quot;, &quot;U+FA29&quot;) are also treated as CJK unified ideographs. But they can't be overridden via &quot;overrideCJK&quot; when you use DUCET, as the table includes weights for them. &quot;table&quot; or &quot;entry&quot; has priority over &quot;overrideCJK&quot;.</dd>
+</dl>
+<dl>
+<dt>
+overrideHangul</dt>
+<dd>
+-- see 7.1 Derived Collation Elements, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+By default, Hangul syllables are decomposed into Hangul Jamo, even if &quot;(normalization =&gt; undef)&quot;. But the mapping of Hangul syllables may be overridden.<div style="height: 1.00em;">
+&#160;</div>
+This parameter works like &quot;overrideCJK&quot;, so see there for examples.<div style="height: 1.00em;">
+&#160;</div>
+If you want to override the mapping of Hangul syllables, NFD and NFKD are not appropriate, since NFD and NFKD will decompose Hangul syllables before overriding. FCD may decompose Hangul syllables as the case may be.<div style="height: 1.00em;">
+&#160;</div>
+If &quot;undef&quot; is passed explicitly as the value for this key, weight for Hangul syllables is treated as undefined without decomposition into Hangul Jamo. But definition of weight for Hangul syllables in &quot;table&quot; or &quot;entry&quot; is still valid.</dd>
+</dl>
+<dl>
+<dt>
+preprocess</dt>
+<dd>
+-- see 5.1 Preprocessing, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+If specified, the coderef is used to preprocess before the formation of sort keys.<div style="height: 1.00em;">
+&#160;</div>
+ex. dropping English articles, such as &quot;a&quot; or &quot;the&quot;. Then, &quot;the pen&quot; is before &quot;a pencil&quot;.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+     preprocess =&gt; sub {<br/>
+           my $str = shift;<br/>
+           $str =~ s/\b(?:an?|the)\s+//gi;<br/>
+           return $str;<br/>
+        },<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+&quot;preprocess&quot; is performed before &quot;normalization&quot; (if defined).<div style="height: 1.00em;">
+&#160;</div>
+ex. decoding strings in a legacy encoding such as shift-jis:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    $sjis_collator = Unicode::Collate-&gt;new(<br/>
+        preprocess =&gt; \&amp;your_shiftjis_to_unicode_decoder,<br/>
+    );<br/>
+    @result = $sjis_collator-&gt;sort(@shiftjis_strings);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<b>Note:</b> Strings returned from the coderef will be interpreted according to Perl's Unicode support. See perlunicode, perluniintro, perlunitut, perlunifaq, utf8.</dd>
+</dl>
+<dl>
+<dt>
+rearrange</dt>
+<dd>
+-- see 3.1.3 Rearrangement, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+Characters that are not coded in logical order and to be rearranged. If &quot;UCA_Version&quot; is equal to or lesser than 11, default is:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    rearrange =&gt; [ 0x0E40..0x0E44, 0x0EC0..0x0EC4 ],<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If you want to disallow any rearrangement, pass &quot;undef&quot; or &quot;[]&quot; (a reference to empty list) as the value for this key.<div style="height: 1.00em;">
+&#160;</div>
+If &quot;UCA_Version&quot; is equal to or greater than 14, default is &quot;[]&quot; (i.e. no rearrangement).<div style="height: 1.00em;">
+&#160;</div>
+<b>According to the version 9 of UCA, this parameter shall not be used;</b>  <b>but it is not warned at present.</b></dd>
+</dl>
+<dl>
+<dt>
+suppress</dt>
+<dd>
+-- see suppress contractions in 5.14.11 Special-Purpose Commands, UTS #35 (LDML).<div style="height: 1.00em;">
+&#160;</div>
+Contractions beginning with the specified characters are suppressed, even if those contractions are defined in &quot;table&quot; or &quot;entry&quot;.<div style="height: 1.00em;">
+&#160;</div>
+An example for Russian and some languages using the Cyrillic script:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    suppress =&gt; [0x0400..0x0417, 0x041A..0x0437, 0x043A..0x045F],<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+where 0x0400 stands for &quot;U+0400&quot;, CYRILLIC CAPITAL LETTER IE WITH GRAVE.</dd>
+</dl>
+<dl>
+<dt>
+table</dt>
+<dd>
+-- see 3.2 Default Unicode Collation Element Table, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+You can use another collation element table if desired.<div style="height: 1.00em;">
+&#160;</div>
+The table file should locate in the <i>Unicode/Collate</i> directory on @INC. Say, if the filename is  <i>Foo.txt</i>, the table file is searched as  <i>Unicode/Collate/Foo.txt</i> in @INC.<div style="height: 1.00em;">
+&#160;</div>
+By default, <i>allkeys.txt</i> (as the filename of DUCET) is used. If you will prepare your own table file, any name other than  <i>allkeys.txt</i> may be better to avoid namespace conflict.<div style="height: 1.00em;">
+&#160;</div>
+<b>NOTE</b>: When XSUB is used, the DUCET is compiled on building this module, and it may save time at the run time. Explicit saying &quot;table =&gt; 'allkeys.txt'&quot; (or using another table), or using &quot;ignoreChar&quot;, &quot;ignoreName&quot;, &quot;undefChar&quot;, or &quot;undefName&quot; will prevent this module from using the compiled DUCET.<div style="height: 1.00em;">
+&#160;</div>
+If &quot;undef&quot; is passed explicitly as the value for this key, no file is read (but you can define collation elements via &quot;entry&quot;).<div style="height: 1.00em;">
+&#160;</div>
+A typical way to define a collation element table without any file of table:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   $onlyABC = Unicode::Collate-&gt;new(<br/>
+       table =&gt; undef,<br/>
+       entry =&gt; &lt;&lt; 'ENTRIES',<br/>
+0061 ; [.0101.0020.0002.0061] # LATIN SMALL LETTER A<br/>
+0041 ; [.0101.0020.0008.0041] # LATIN CAPITAL LETTER A<br/>
+0062 ; [.0102.0020.0002.0062] # LATIN SMALL LETTER B<br/>
+0042 ; [.0102.0020.0008.0042] # LATIN CAPITAL LETTER B<br/>
+0063 ; [.0103.0020.0002.0063] # LATIN SMALL LETTER C<br/>
+0043 ; [.0103.0020.0008.0043] # LATIN CAPITAL LETTER C<br/>
+ENTRIES<br/>
+    );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If &quot;ignoreName&quot; or &quot;undefName&quot; is used, character names should be specified as a comment (following &quot;#&quot;) on each line.</dd>
+</dl>
+<dl>
+<dt>
+undefChar</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+undefName</dt>
+<dd>
+-- see 6.3.4 Reducing the Repertoire, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+Undefines the collation element as if it were unassigned in the &quot;table&quot;. This reduces the size of the table. If an unassigned character appears in the string to be collated, the sort key is made from its codepoint as a single-character collation element, as it is greater than any other assigned collation elements (in the codepoint order among the unassigned characters). But, it'd be better to ignore characters unfamiliar to you and maybe never used.<div style="height: 1.00em;">
+&#160;</div>
+Through &quot;undefChar&quot;, any character matching &quot;qr/$undefChar/&quot; will be undefined. Through &quot;undefName&quot;, any character whose name (given in the &quot;table&quot; file as a comment) matches &quot;qr/$undefName/&quot; will be undefined.<div style="height: 1.00em;">
+&#160;</div>
+ex. Collation weights for beyond-BMP characters are not stored in object:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    undefChar =&gt; qr/[^\0-\x{fffd}]/,<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+upper_before_lower</dt>
+<dd>
+-- see 6.6 Case Comparisons, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+By default, lowercase is before uppercase. If the parameter is made true, this is reversed.<div style="height: 1.00em;">
+&#160;</div>
+<b>NOTE</b>: This parameter simplemindedly assumes that any lowercase/uppercase distinctions must occur in level 3, and their weights at level 3 must be same as those mentioned in 7.3.1, UTS #10. If you define your collation elements which differs from this requirement, this parameter doesn't work validly.</dd>
+</dl>
+<dl>
+<dt>
+variable</dt>
+<dd>
+-- see 3.2.2 Variable Weighting, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+This key allows to variable weighting for variable collation elements, which are marked with an ASTERISK in the table (NOTE: Many punctuation marks and symbols are variable in  <i>allkeys.txt</i>).<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   variable =&gt; 'blanked', 'non-ignorable', 'shifted', or 'shift-trimmed'.<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+These names are case-insensitive. By default (if specification is omitted), 'shifted' is adopted.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   'Blanked'        Variable elements are made ignorable at levels 1 through 3;<br/>
+                    considered at the 4th level.<br/>
+<br/>
+   'Non-Ignorable'  Variable elements are not reset to ignorable.<br/>
+<br/>
+   'Shifted'        Variable elements are made ignorable at levels 1 through 3<br/>
+                    their level 4 weight is replaced by the old level 1 weight.<br/>
+                    Level 4 weight for Non-Variable elements is 0xFFFF.<br/>
+<br/>
+   'Shift-Trimmed'  Same as 'shifted', but all FFFF's at the 4th level<br/>
+                    are trimmed.<br/>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Methods for Collation</h2><dl>
+<dt>
+&quot;@sorted = $Collator-&gt;sort(@not_sorted)&quot;</dt>
+<dd>
+Sorts a list of strings.</dd>
+</dl>
+<dl>
+<dt>
+&quot;$result = $Collator-&gt;cmp($a, $b)&quot;</dt>
+<dd>
+Returns 1 (when $a is greater than $b) or 0 (when $a is equal to $b) or -1 (when $a is lesser than $b).</dd>
+</dl>
+<dl>
+<dt>
+&quot;$result = $Collator-&gt;eq($a, $b)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;$result = $Collator-&gt;ne($a, $b)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;$result = $Collator-&gt;lt($a, $b)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;$result = $Collator-&gt;le($a, $b)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;$result = $Collator-&gt;gt($a, $b)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;$result = $Collator-&gt;ge($a, $b)&quot;</dt>
+<dd>
+They works like the same name operators as theirs.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   eq : whether $a is equal to $b.<br/>
+   ne : whether $a is not equal to $b.<br/>
+   lt : whether $a is lesser than $b.<br/>
+   le : whether $a is lesser than $b or equal to $b.<br/>
+   gt : whether $a is greater than $b.<br/>
+   ge : whether $a is greater than $b or equal to $b.<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;$sortKey = $Collator-&gt;getSortKey($string)&quot;</dt>
+<dd>
+-- see 4.3 Form Sort Key, UTS #10.<div style="height: 1.00em;">
+&#160;</div>
+Returns a sort key.<div style="height: 1.00em;">
+&#160;</div>
+You compare the sort keys using a binary comparison and get the result of the comparison of the strings using UCA.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   $Collator-&gt;getSortKey($a) cmp $Collator-&gt;getSortKey($b)<br/>
+<br/>
+      is equivalent to<br/>
+<br/>
+   $Collator-&gt;cmp($a, $b)<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;$sortKeyForm = $Collator-&gt;viewSortKey($string)&quot;</dt>
+<dd>
+Converts a sorting key into its representation form. If &quot;UCA_Version&quot; is 8, the output is slightly different.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   use Unicode::Collate;<br/>
+   my $c = Unicode::Collate-&gt;new();<br/>
+   print $c-&gt;viewSortKey(&quot;Perl&quot;),&quot;\n&quot;;<br/>
+<br/>
+   # output:<br/>
+   # [0B67 0A65 0B7F 0B03 | 0020 0020 0020 0020 | 0008 0002 0002 0002 | FFFF FFFF FFFF FFFF]<br/>
+   #  Level 1               Level 2               Level 3               Level 4<br/>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Methods for Searching</h2>  <b>DISCLAIMER:</b> If &quot;preprocess&quot; or &quot;normalization&quot; parameter is true for $Collator, calling these methods (&quot;index&quot;, &quot;match&quot;, &quot;gmatch&quot;, &quot;subst&quot;, &quot;gsubst&quot;) is croaked, as the position and the length might differ from those on the specified string. (And &quot;rearrange&quot; and &quot;hangul_terminator&quot; parameters are neglected.)<div class="spacer">
+</div>
+The &quot;match&quot;, &quot;gmatch&quot;, &quot;subst&quot;, &quot;gsubst&quot; methods work like &quot;m//&quot;, &quot;m//g&quot;, &quot;s///&quot;, &quot;s///g&quot;, respectively, but they are not aware of any pattern, but only a literal substring.<dl>
+<dt>
+&quot;$position = $Collator-&gt;index($string, $substring[, $position])&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;($position, $length) = $Collator-&gt;index($string, $substring[, $position])&quot;</dt>
+<dd>
+If $substring matches a part of $string, returns the position of the first occurrence of the matching part in scalar context; in list context, returns a two-element list of the position and the length of the matching part.<div style="height: 1.00em;">
+&#160;</div>
+If $substring does not match any part of $string, returns &quot;-1&quot; in scalar context and an empty list in list context.<div style="height: 1.00em;">
+&#160;</div>
+e.g. you say<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  my $Collator = Unicode::Collate-&gt;new( normalization =&gt; undef, level =&gt; 1 );<br/>
+                                     # (normalization =&gt; undef) is REQUIRED.<br/>
+  my $str = &quot;Ich muss studieren Perl.&quot;;<br/>
+  my $sub = &quot;MUeSS&quot;;<br/>
+  my $match;<br/>
+  if (my($pos,$len) = $Collator-&gt;index($str, $sub)) {<br/>
+      $match = substr($str, $pos, $len);<br/>
+  }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+and get &quot;muss&quot; in $match since &quot;muss&quot; is primary equal to &quot;MUeSS&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;$match_ref = $Collator-&gt;match($string, $substring)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;($match)   = $Collator-&gt;match($string, $substring)&quot;</dt>
+<dd>
+If $substring matches a part of $string, in scalar context, returns  <b>a reference to</b> the first occurrence of the matching part ($match_ref is always true if matches, since every reference is  <b>true</b>); in list context, returns the first occurrence of the matching part.<div style="height: 1.00em;">
+&#160;</div>
+If $substring does not match any part of $string, returns &quot;undef&quot; in scalar context and an empty list in list context.<div style="height: 1.00em;">
+&#160;</div>
+e.g.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    if ($match_ref = $Collator-&gt;match($str, $sub)) { # scalar context<br/>
+        print &quot;matches [$$match_ref].\n&quot;;<br/>
+    } else {<br/>
+        print &quot;doesn't match.\n&quot;;<br/>
+    }<br/>
+<br/>
+     or<br/>
+<br/>
+    if (($match) = $Collator-&gt;match($str, $sub)) { # list context<br/>
+        print &quot;matches [$match].\n&quot;;<br/>
+    } else {<br/>
+        print &quot;doesn't match.\n&quot;;<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;@match = $Collator-&gt;gmatch($string, $substring)&quot;</dt>
+<dd>
+If $substring matches a part of $string, returns all the matching parts (or matching count in scalar context).<div style="height: 1.00em;">
+&#160;</div>
+If $substring does not match any part of $string, returns an empty list.</dd>
+</dl>
+<dl>
+<dt>
+&quot;$count = $Collator-&gt;subst($string, $substring, $replacement)&quot;</dt>
+<dd>
+If $substring matches a part of $string, the first occurrence of the matching part is replaced by $replacement ($string is modified) and return $count (always equals to 1).<div style="height: 1.00em;">
+&#160;</div>
+$replacement can be a &quot;CODEREF&quot;, taking the matching part as an argument, and returning a string to replace the matching part (a bit similar to &quot;s/(..)/$coderef-&gt;($1)/e&quot;).</dd>
+</dl>
+<dl>
+<dt>
+&quot;$count = $Collator-&gt;gsubst($string, $substring, $replacement)&quot;</dt>
+<dd>
+If $substring matches a part of $string, all the occurrences of the matching part is replaced by $replacement ($string is modified) and return $count.<div style="height: 1.00em;">
+&#160;</div>
+$replacement can be a &quot;CODEREF&quot;, taking the matching part as an argument, and returning a string to replace the matching part (a bit similar to &quot;s/(..)/$coderef-&gt;($1)/eg&quot;).<div style="height: 1.00em;">
+&#160;</div>
+e.g.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  my $Collator = Unicode::Collate-&gt;new( normalization =&gt; undef, level =&gt; 1 );<br/>
+                                     # (normalization =&gt; undef) is REQUIRED.<br/>
+  my $str = &quot;Camel donkey zebra came\x{301}l CAMEL horse cAm\0E\0L...&quot;;<br/>
+  $Collator-&gt;gsubst($str, &quot;camel&quot;, sub { &quot;&lt;b&gt;$_[0]&lt;/b&gt;&quot; });<br/>
+<br/>
+  # now $str is &quot;&lt;b&gt;Camel&lt;/b&gt; donkey zebra &lt;b&gt;came\x{301}l&lt;/b&gt; &lt;b&gt;CAMEL&lt;/b&gt; horse &lt;b&gt;cAm\0E\0L&lt;/b&gt;...&quot;;<br/>
+  # i.e., all the camels are made bold-faced.<br/>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Other Methods</h2><dl>
+<dt>
+&quot;%old_tailoring = $Collator-&gt;change(%new_tailoring)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;$modified_collator = $Collator-&gt;change(%new_tailoring)&quot;</dt>
+<dd>
+Change the value of specified keys and returns the changed part.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    $Collator = Unicode::Collate-&gt;new(level =&gt; 4);<br/>
+<br/>
+    $Collator-&gt;eq(&quot;perl&quot;, &quot;PERL&quot;); # false<br/>
+<br/>
+    %old = $Collator-&gt;change(level =&gt; 2); # returns (level =&gt; 4).<br/>
+<br/>
+    $Collator-&gt;eq(&quot;perl&quot;, &quot;PERL&quot;); # true<br/>
+<br/>
+    $Collator-&gt;change(%old); # returns (level =&gt; 2).<br/>
+<br/>
+    $Collator-&gt;eq(&quot;perl&quot;, &quot;PERL&quot;); # false<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Not all &quot;(key,value)&quot;s are allowed to be changed. See also @Unicode::Collate::ChangeOK and @Unicode::Collate::ChangeNG.<div style="height: 1.00em;">
+&#160;</div>
+In the scalar context, returns the modified collator (but it is  <b>not</b> a clone from the original).<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    $Collator-&gt;change(level =&gt; 2)-&gt;eq(&quot;perl&quot;, &quot;PERL&quot;); # true<br/>
+<br/>
+    $Collator-&gt;eq(&quot;perl&quot;, &quot;PERL&quot;); # true; now max level is 2nd.<br/>
+<br/>
+    $Collator-&gt;change(level =&gt; 4)-&gt;eq(&quot;perl&quot;, &quot;PERL&quot;); # false<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;$version = $Collator-&gt;version()&quot;</dt>
+<dd>
+Returns the version number (a string) of the Unicode Standard which the &quot;table&quot; file used by the collator object is based on. If the table does not include a version line (starting with @version), returns &quot;unknown&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;UCA_Version()&quot;</dt>
+<dd>
+Returns the revision number of UTS #10 this module consults, that should correspond with the DUCET incorporated.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Base_Unicode_Version()&quot;</dt>
+<dd>
+Returns the version number of UTS #10 this module consults, that should correspond with the DUCET incorporated.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>EXPORT</h1> No method will be exported.</div>
+<div class="section">
+<h1>INSTALL</h1> Though this module can be used without any &quot;table&quot; file, to use this module easily, it is recommended to install a table file in the UCA format, by copying it under the directory &lt;a place in @INC&gt;/Unicode/Collate.<div class="spacer">
+</div>
+The most preferable one is &quot;The Default Unicode Collation Element Table&quot; (aka DUCET), available from the Unicode Consortium's website:<div class="spacer">
+</div>
+<br/>
+   http://www.unicode.org/Public/UCA/<br/>
+<br/>
+   http://www.unicode.org/Public/UCA/latest/allkeys.txt (latest version)<br/>
+<div class="spacer">
+</div>
+If DUCET is not installed, it is recommended to copy the file from http://www.unicode.org/Public/UCA/latest/allkeys.txt to &lt;a place in @INC&gt;/Unicode/Collate/allkeys.txt manually.</div>
+<div class="section">
+<h1>CAVEATS</h1><dl>
+<dt>
+Normalization</dt>
+<dd>
+Use of the &quot;normalization&quot; parameter requires the <b>Unicode::Normalize</b> module (see Unicode::Normalize).<div style="height: 1.00em;">
+&#160;</div>
+If you need not it (say, in the case when you need not handle any combining characters), assign &quot;normalization =&gt; undef&quot; explicitly.<div style="height: 1.00em;">
+&#160;</div>
+-- see 6.5 Avoiding Normalization, UTS #10.</dd>
+</dl>
+<dl>
+<dt>
+Conformance Test</dt>
+<dd>
+The Conformance Test for the UCA is available under &lt;http://www.unicode.org/Public/UCA/&gt;.<div style="height: 1.00em;">
+&#160;</div>
+For <i>CollationTest_SHIFTED.txt</i>, a collator via &quot;Unicode::Collate-&gt;new( )&quot; should be used; for  <i>CollationTest_NON_IGNORABLE.txt</i>, a collator via &quot;Unicode::Collate-&gt;new(variable =&gt; &quot;non-ignorable&quot;, level =&gt; 3)&quot;.<div style="height: 1.00em;">
+&#160;</div>
+<b>Unicode::Normalize is required to try The Conformance Test.</b></dd>
+</dl>
+</div>
+<div class="section">
+<h1>AUTHOR, COPYRIGHT AND LICENSE</h1> The Unicode::Collate module for perl was written by SADAHIRO Tomoyuki, &lt;SADAHIRO@cpan.org&gt;. This module is Copyright(C) 2001-2011, SADAHIRO Tomoyuki. Japan. All rights reserved.<div class="spacer">
+</div>
+This module is free software; you can redistribute it and/or modify it under the same terms as Perl itself.<div class="spacer">
+</div>
+The file Unicode/Collate/allkeys.txt was copied verbatim from &lt;http://www.unicode.org/Public/UCA/6.0.0/allkeys.txt&gt;. This file is Copyright (c) 1991-2010 Unicode, Inc. All rights reserved. Distributed under the Terms of Use in &lt;http://www.unicode.org/copyright.html&gt;.</div>
+<div class="section">
+<h1>SEE ALSO</h1><dl>
+<dt>
+Unicode Collation Algorithm - UTS #10</dt>
+<dd>
+&lt;http://www.unicode.org/reports/tr10/&gt;</dd>
+</dl>
+<dl>
+<dt>
+The Default Unicode Collation Element Table (DUCET)</dt>
+<dd>
+&lt;http://www.unicode.org/Public/UCA/latest/allkeys.txt&gt;</dd>
+</dl>
+<dl>
+<dt>
+The conformance test for the UCA</dt>
+<dd>
+&lt;http://www.unicode.org/Public/UCA/latest/CollationTest.html&gt;<div style="height: 1.00em;">
+&#160;</div>
+&lt;http://www.unicode.org/Public/UCA/latest/CollationTest.zip&gt;</dd>
+</dl>
+<dl>
+<dt>
+Hangul Syllable Type</dt>
+<dd>
+&lt;http://www.unicode.org/Public/UNIDATA/HangulSyllableType.txt&gt;</dd>
+</dl>
+<dl>
+<dt>
+Unicode Normalization Forms - UAX #15</dt>
+<dd>
+&lt;http://www.unicode.org/reports/tr15/&gt;</dd>
+</dl>
+<dl>
+<dt>
+Unicode Locale Data Markup Language (LDML) - UTS #35</dt>
+<dd>
+&lt;http://www.unicode.org/reports/tr35/&gt;</dd>
+</dl>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

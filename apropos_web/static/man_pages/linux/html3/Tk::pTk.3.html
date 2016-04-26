@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+pTk(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+pTk(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+pTk(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Tk2portableTk - how to make your Tk source portable to other interpreted languages.</div>
+<div class="section">
+<h1>Author</h1> Ilya Zakharevich &lt;ilya@math.ohio-state.edu&gt;  has contributed most of this document. Many thanks.</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <b>PortableTk</b> is an attempt to make <b>Tk</b> useful from other languages. Currently tk4.0 runs under Perl using this approach. Below,  <i>Lang</i> is the notation for an external language to which  <b>PortableTk</b> glues <b>Tk</b> code.<div class="spacer">
+</div>
+The main problem with using the code developed for <b>TCL</b> with different languages is the absence of data types: almost anything is &quot;char*&quot;. It makes automatic translation hopeless. However, if you &quot;typedef&quot; several new symbols to be &quot;char*&quot;, you can still use your code in  <b>TCL</b>, <i>and</i> it will make the automatic translation possible.<div class="spacer">
+</div>
+Another problem with the approach that &quot;everything is a string&quot; is impossibility to have a result that says &quot;NotApplicable&quot; without setting an error. Thus different  <b>Tk</b> command return different string values that mean &quot;error happened&quot;, like &quot;&quot;, &quot; &quot; or &quot;??&quot;. Other languages can be more flexible, so in  <b>portableTk</b> you should inform the compiler that what you want to return means &quot;error&quot; (see &quot;Setting variables&quot;).<div class="spacer">
+</div>
+Currently <b>PortableTk</b> uses several different approachs to simplify translation: several  <b>TCL</b> functions that are especially dangerous to use are undefined, so you can easily find places that need to be updated to use Language-independent functions based on compiler warnings.  Eventually a way to use these Language-independent functions under proper  <b>TCL</b> will be also provided.  The end of this document provides a starting point for such a project.</div>
+<div class="section">
+<h1>Structure of <b>pTk</b>, porting your code</h1>  <b>pTk</b>, that is a port of <b>Tk</b>, is very special with respect to porting of other code to  <b>portableTk</b>. The problem is that currently there is very little hope to merge the modifications back into  <b>Tk</b>, so a special strategy is needed to maintain this port. Do not use this strategy to port your own code.<div class="spacer">
+</div>
+<b>pTk</b> is produced from <b>Tk</b> via a two-step process: first, some manual editing (the result is in the subdirectory &quot;mTk&quot;), and second, automatic conversion by the &quot;munge&quot; script (written in Perl). Thus the subdirectory &quot;pTk/mTk&quot; contains code with minimal possible difference from the virgin  <b>Tk</b> code, so it is easier to <i>merge</i>(1) the differences between  <b>Tk</b> versions into modified code.<div class="spacer">
+</div>
+It looks like the strategy for a portable code should be exactly opposite: starting from  <b>TCL</b>-based code, apply &quot;munge&quot;, and then hand-edit the resulting code. Probably it is also possible to target your code to  <b>portableTk</b> from scratch, since this will make it possible to run it under a lot of  <i>Lang</i>uages.<div class="spacer">
+</div>
+The only reason anyone would like to look into contents of &quot;pTk/mTk&quot; directory is to find out which constructs are not supported by &quot;munge&quot;. On the other hand, &quot;pTk&quot; directory contains code that is conformant to  <b>portableTk</b>, so you can look there to find example code.<div class="spacer">
+</div>
+&quot;munge&quot; is the script that converts most common <b>Tk</b> constructs to their &quot;portableTk&quot; equivalent. For your code to qualify, you should follow  <b>Tk</b> conventions on indentation and names of variables, in particular, the array of arguments for the &quot;...CmdProc&quot; should be called &quot;argv&quot;.<div class="spacer">
+</div>
+For details on what &quot;munge&quot; can do, see &quot;Translation of some TCL functions&quot;.</div>
+<div class="section">
+<h1><b>PortableTk</b> API</h1><div class="subsection">
+<h2>Checking what you are running under</h2>  <b>PortableTk</b> provides a symbol &quot;????&quot;. If this symbol is defined, your source is compiled with it.</div>
+<div class="subsection">
+<h2>New types of configuration options</h2>  <b>PortableTk</b> defines several new types of configuration options:<div class="spacer">
+</div>
+<br/>
+ TK_CONFIG_CALLBACK<br/>
+ TK_CONFIG_LANGARG<br/>
+ TK_CONFIG_SCALARVAR<br/>
+ TK_CONFIG_HASHVAR<br/>
+ TK_CONFIG_ARRAYVAR<br/>
+ TK_CONFIG_IMAGE<br/>
+<div class="spacer">
+</div>
+You should use them instead of TK_CONFIG_STRING whenever appropriate. This allows your application to receive a direct representation of the corresponding resource instead of the string representation, if this is possible under given language.<div class="spacer">
+</div>
+???? It looks like &quot;TK_CONFIG_IMAGE&quot; and &quot;TK_CONFIG_SCALARVAR&quot; set variables of type &quot;char*&quot;.</div>
+<div class="subsection">
+<h2>Language data</h2> The following data types are defined:<dl>
+<dt>
+&quot;Tcl_Obj *&quot;</dt>
+<dd>
+is the main datatype of the language.  This is a type that your C function gets pointers to for arguments when the corresponding  <i>Lang</i> function is called.  The corresponding config type is &quot;TK_CONFIG_LANGARG&quot;.<div style="height: 1.00em;">
+&#160;</div>
+This is also a type that keeps information about contents of <i>Lang</i> variable.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Var&quot;</dt>
+<dd>
+Is a substitute for a &quot;char *&quot; that contains name of variable. In  <i>Lang</i> it is an object that contains reference to another <i>Lang</i> variable.</dd>
+</dl>
+<dl>
+<dt>
+&quot;LangResultSave&quot;</dt>
+<dd>
+????</dd>
+</dl>
+<dl>
+<dt>
+&quot;LangCallback&quot;</dt>
+<dd>
+&quot;LangCallback*&quot; a substitute for a &quot;char *&quot; that contains command to call. The corresponding config type is &quot;TK_CONFIG_CALLBACK&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;LangFreeProc&quot;</dt>
+<dd>
+It is the type that the &quot;Lang_SplitList&quot; sets. Before you call it, declare<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    Args *args;<br/>
+    LangFreeProc *freeProc = NULL;<br/>
+    ...<br/>
+    code = Lang_SplitList(interp, value,<br/>
+        &amp;argc, &amp;args, &amp;freeProc);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+After you use the split values, call<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    if (args != NULL &amp;&amp; freeProc) (*freeProc)(argc,args);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+It is not guaranteed that the &quot;args&quot; can survive deletion of &quot;value&quot;.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Conversion</h2> The following macros and functions are used for conversion between strings and the additional types:<div class="spacer">
+</div>
+<br/>
+ LangCallback * LangMakeCallback(Tcl_Obj *)<br/>
+ Tcl_Obj * LangCallbackArg(LangCallback *)<br/>
+ char * LangString(Tcl_Obj *)<br/>
+<div class="spacer">
+</div>
+After you use the result of <i>LangCallbackArg()</i>, you should free it with &quot;freeProc&quot; &quot;LANG_DYNAMIC&quot; (it is not guaranteed that any change of &quot;Tcl_Obj *&quot; will not be reflected in &lt;LangCallback&gt;, so you cannot do LangSet...() in between, and you should reset it to &quot;NULL&quot; if you want to do any further assignments to this &quot;Tcl_Obj *&quot;).<div class="spacer">
+</div>
+The following function returns the &quot;Tcl_Obj *&quot; that is a reference to &quot;Var&quot;:<div class="spacer">
+</div>
+<br/>
+ Tcl_Obj * LangVarArg(Var)<br/>
+<div class="spacer">
+</div>
+???? It is very anti-intuitive, I hope the name is changed.<div class="spacer">
+</div>
+<br/>
+ int LangCmpCallback(LangCallback *a,Tcl_Obj * b)<br/>
+<div class="spacer">
+</div>
+(currently only a stub), and, at last,<div class="spacer">
+</div>
+<br/>
+ LangCallback * LangCopyCallback(LangCallback *)<br/>
+</div>
+<div class="subsection">
+<h2>Callbacks</h2> Above we have seen the new datatype &quot;LangCallback&quot; and the corresponding  <i>Config option</i>  &quot;TK_CONFIG_CALLBACK&quot;. The following functions are provided for manipulation of &quot;LangCallback&quot;s:<div class="spacer">
+</div>
+<br/>
+ void LangFreeCallback(LangCallback *)<br/>
+ int LangDoCallback(Tcl_Interp *,LangCallback *,<br/>
+        int result,int argc, char *format,...)<br/>
+<div class="spacer">
+</div>
+The argument &quot;format&quot; of &quot;LangDoCallback&quot; should contain a string that is suitable for &quot;sprintf&quot; with optional arguments of &quot;LangDoCallback&quot;. &quot;result&quot; should be false if result of callback is not needed.<div class="spacer">
+</div>
+<br/>
+ int LangMethodCall(Tcl_Interp *,Tcl_Obj *,char *method,<br/>
+        int result,int argc,...)<br/>
+<div class="spacer">
+</div>
+????<div class="spacer">
+</div>
+Conceptually, &quot;LangCallback*&quot; is a substitute for ubiquitous &quot;char *&quot; in  <b>TCL</b>. So you should use &quot;LangFreeCallback&quot; instead of &quot;ckfree&quot; or &quot;free&quot; if appropriate.</div>
+<div class="subsection">
+<h2>Setting variables</h2><br/>
+ void LangFreeArg (Tcl_Obj *, Tcl_FreeProc *freeProc)<br/>
+ Tcl_Obj *  LangCopyArg (Tcl_Obj *);<br/>
+ void Tcl_AppendArg (Tcl_Interp *interp, Tcl_Obj *)<br/>
+ void LangSetString(Tcl_Obj * *, char *s)<br/>
+ void LangSetDefault(Tcl_Obj * *, char *s)<br/>
+<div class="spacer">
+</div>
+These two are equivalent unless s is an empty string. In this case &quot;LangSetDefault&quot; behaves like &quot;LangSetString&quot; with &quot;s==NULL&quot;, i.e., it sets the current value of the  <i>Lang</i> variable to be false.<div class="spacer">
+</div>
+<br/>
+ void LangSetInt(Tcl_Obj * *,int)<br/>
+ void LangSetDouble(Tcl_Obj * *,double)<br/>
+<div class="spacer">
+</div>
+The <i>Lang</i> functions separate uninitialized and initialized data comparing data with &quot;NULL&quot;. So the declaration for an &quot;Tcl_Obj *&quot; should look like<div class="spacer">
+</div>
+<br/>
+ Tcl_Obj * arg = NULL;<br/>
+<div class="spacer">
+</div>
+if you want to use this &quot;arg&quot; with the above functions. After you are done, you should use &quot;LangFreeArg&quot; with &quot;TCL_DYNAMIC&quot; as &quot;freeProc&quot;.</div>
+<div class="subsection">
+<h2>Language functions</h2> Use<dl>
+<dt>
+&quot;int  LangNull(Tcl_Obj *)&quot;</dt>
+<dd>
+to check that an object is false;</dd>
+</dl>
+<dl>
+<dt>
+&quot;int  LangStringMatch(char *string, Tcl_Obj * match)&quot;</dt>
+<dd>
+????</dd>
+</dl>
+<dl>
+<dt>
+&quot;void LangExit(int)&quot;</dt>
+<dd>
+to make a proper shutdown;</dd>
+</dl>
+<dl>
+<dt>
+&quot;int LangEval(Tcl_Interp *interp, char *cmd, int global)&quot;</dt>
+<dd>
+to call <i>Lang</i> &quot;eval&quot;;</dd>
+</dl>
+<dl>
+<dt>
+&quot;void Lang_SetErrorCode(Tcl_Interp *interp,char *code)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;char *Lang_GetErrorCode(Tcl_Interp *interp)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;char *Lang_GetErrorInfo(Tcl_Interp *interp)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;void LangCloseHandler(Tcl_Interp *interp,Tcl_Obj * arg,FILE *f,Lang_FileCloseProc *proc)&quot;</dt>
+<dd>
+currently stubs only;</dd>
+</dl>
+<dl>
+<dt>
+&quot;int LangSaveVar(Tcl_Interp *,Tcl_Obj * arg,Var *varPtr,int type)&quot;</dt>
+<dd>
+to save the structure &quot;arg&quot; into <i>Lang</i> variable *varPtr;</dd>
+</dl>
+<dl>
+<dt>
+&quot;void LangFreeVar(Var var)&quot;</dt>
+<dd>
+to free the result;</dd>
+</dl>
+<dl>
+<dt>
+&quot;int LangEventCallback(Tcl_Interp *,LangCallback *,XEvent *,KeySym)&quot;</dt>
+<dd>
+????</dd>
+</dl>
+<dl>
+<dt>
+&quot;int LangEventHook(int flags)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;void LangBadFile(int fd)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;int LangCmpConfig(char *spec, char *arg, size_t length)&quot;</dt>
+<dd>
+unsupported????;</dd>
+</dl>
+<dl>
+<dt>
+&quot;void Tcl_AppendArg (Tcl_Interp *interp, Tcl_Obj *)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+Another useful construction is<div class="spacer">
+</div>
+<br/>
+ Tcl_Obj * variable = LangFindVar(interp, Tk_Window tkwin, char *name);<br/>
+<div class="spacer">
+</div>
+After using the above function, you should call<div class="spacer">
+</div>
+<br/>
+ LangFreeVar(Var variable);<br/>
+<div class="spacer">
+</div>
+???? Note discrepancy in types!<div class="spacer">
+</div>
+If you want to find the value of a variable (of type &quot;Tcl_Obj *&quot;) given the variable name, use &quot;Tcl_GetVar(interp, varName, flags)&quot;. If you are interested in the string value of this variable, use &quot;LangString(Tcl_GetVar(...))&quot;.<div class="spacer">
+</div>
+To get a <b>C</b> array of &quot;Tcl_Obj *&quot; of length &quot;n&quot;, use<div class="spacer">
+</div>
+<br/>
+    Tcl_Obj * *args = LangAllocVec(n);<br/>
+    ...<br/>
+    LangFreeVec(n,args);<br/>
+<div class="spacer">
+</div>
+You can set the values of the &quot;Tcl_Obj *&quot;s using &quot;LangSet...&quot; functions, and get string value using &quot;LangString&quot;.<div class="spacer">
+</div>
+If you want to merge an array of &quot;Tcl_Obj *&quot;s into one &quot;Tcl_Obj *&quot; (that will be an array variable), use<div class="spacer">
+</div>
+<br/>
+    result = Tcl_Merge(listLength, list);<br/>
+</div>
+<div class="subsection">
+<h2>Translation of some TCL functions</h2> We mark items that can be dealt with by &quot;munge&quot; by  <i>Autoconverted</i>.<dl>
+<dt>
+&quot;Tcl_AppendResult&quot;</dt>
+<dd>
+does not take &quot;(char*)NULL&quot;, but &quot;NULL&quot; as delimiter. <i>Autoconverted</i>.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Tcl_CreateCommand&quot;, &quot;Tcl_DeleteCommand&quot;</dt>
+<dd>
+&quot;Tk_CreateWidget&quot;, &quot;Tk_DeleteWidget&quot;, the second argument is the window itself, not the pathname.  <i>Autoconverted</i>.</dd>
+</dl>
+<dl>
+<dt>
+&quot;sprintf(interp-&gt;result, &quot;%d %d %d %d&quot;,...)&quot;</dt>
+<dd>
+&quot;Tcl_IntResults(interp,4,0,...)&quot;. <i>Autoconverted</i>.</dd>
+</dl>
+<dl>
+<dt>
+&quot;interp-&gt;result = &quot;1&quot;;&quot;</dt>
+<dd>
+&quot;Tcl_SetResult(interp,&quot;1&quot;, TCL_STATIC)&quot;. <i>Autoconverted</i>.</dd>
+</dl>
+<dl>
+<dt>
+Reading &quot;interp-&gt;result&quot;</dt>
+<dd>
+&quot;Tcl_GetResult(interp)&quot;. <i>Autoconverted</i>.</dd>
+</dl>
+<dl>
+<dt>
+&quot;interp-&gt;result = Tk_PathName(textPtr-&gt;tkwin);&quot;</dt>
+<dd>
+&quot;Tk_WidgetResult(interp,textPtr-&gt;tkwin)&quot;. <i>Autoconverted</i>.</dd>
+</dl>
+<dl>
+<dt>
+Sequence &quot;Tcl_PrintDouble, Tcl_PrintDouble, ..., Tcl_AppendResult&quot;</dt>
+<dd>
+Use a single command<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ void Tcl_DoubleResults(Tcl_Interp *interp, int append,<br/>
+        int argc,...);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+&quot;append&quot; governs whether it is required to clear the result first.<div style="height: 1.00em;">
+&#160;</div>
+A similar command for &quot;int&quot; arguments is &quot;Tcl_IntResults&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Tcl_SplitList&quot;</dt>
+<dd>
+Use &quot;Lang_SplitList&quot; (see the description above).</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Translation back to TCL</h1> To use your  <b>portableTk</b> program with <b>TCL</b>, put<div class="spacer">
+</div>
+<br/>
+ #include &quot;ptcl.h&quot;<br/>
+<div class="spacer">
+</div>
+<i>before</i> inclusion of &quot;tk.h&quot;, and link the resulting code with &quot;ptclGlue.c&quot;.<div class="spacer">
+</div>
+These files currently implement the following:<dl>
+<dt>
+Additional config types:</dt>
+<dd>
+<br/>
+ TK_CONFIG_CALLBACK<br/>
+ TK_CONFIG_LANGARG<br/>
+ TK_CONFIG_SCALARVAR<br/>
+ TK_CONFIG_HASHVAR<br/>
+ TK_CONFIG_ARRAYVAR<br/>
+ TK_CONFIG_IMAGE<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+Types:</dt>
+<dd>
+<br/>
+ Var, Tcl_Obj *, LangCallback, LangFreeProc.<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+Functions and macros:</dt>
+<dd>
+<br/>
+ Lang_SplitList, LangString, LangSetString, LangSetDefault,<br/>
+ LangSetInt, LangSetDouble Tcl_ArgResult, LangCallbackArg,<br/>
+ LangSaveVar, LangFreeVar,<br/>
+ LangFreeSplitProc, LangFreeArg, Tcl_DoubleResults, Tcl_IntResults,<br/>
+ LangDoCallback, Tk_WidgetResult, Tcl_CreateCommand,<br/>
+ Tcl_DeleteCommand, Tcl_GetResult.<br/>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+Current implementation contains enough to make it possible to compile &quot;mTk/tkText*.[ch]&quot; with the virgin  <b>Tk</b>.<div class="subsection">
+<h2>New types of events ????</h2> PortableTk defines following new types of events:<div class="spacer">
+</div>
+<br/>
+ TK_EVENTTYPE_NONE<br/>
+ TK_EVENTTYPE_STRING<br/>
+ TK_EVENTTYPE_NUMBER<br/>
+ TK_EVENTTYPE_WINDOW<br/>
+ TK_EVENTTYPE_ATOM<br/>
+ TK_EVENTTYPE_DISPLAY<br/>
+ TK_EVENTTYPE_DATA<br/>
+<div class="spacer">
+</div>
+and a function<div class="spacer">
+</div>
+<br/>
+ char * Tk_EventInfo(int letter,<br/>
+            Tk_Window tkwin, XEvent *eventPtr,<br/>
+            KeySym keySym, int *numPtr, int *isNum, int *type,<br/>
+            int num_size, char *numStorage)<br/>
+</div>
+</div>
+<div class="section">
+<h1>Checking for trouble</h1> If you start with working TCL code, you can start convertion using the above hints. Good indication that you are doing is OK is absence of &quot;sprintf&quot; and &quot;sscanf&quot; in your code (at least in the part that is working with interpreter).</div>
+<div class="section">
+<h1>Additional API</h1> What is described here is not included into base  <b>portableTk</b> distribution. Currently it is coded in  <b>TCL</b> and as Perl macros (core is coded as functions, so theoretically you can use the same object files with different interpreted languages).<div class="subsection">
+<h2>&quot;ListFactory&quot;</h2> Dynamic arrays in  <b>TCL</b> are used for two different purposes: to construct strings, and to construct lists. These two usages will have separate interfaces in other languages (since list is a different type from a string), so you should use a different interface in your code.<div class="spacer">
+</div>
+The type for construction of dynamic lists is &quot;ListFactory&quot;. The API below is a counterpart of the API for construction of dynamic lists in  <b>TCL</b>:<div class="spacer">
+</div>
+<br/>
+ void ListFactoryInit(ListFactory *)<br/>
+ void ListFactoryFinish(ListFactory *)<br/>
+ void ListFactoryFree(ListFactory *)<br/>
+ Tcl_Obj * * ListFactoryArg(ListFactory *)<br/>
+ void ListFactoryAppend(ListFactory *, Tcl_Obj * *arg)<br/>
+ void ListFactoryAppendCopy(ListFactory *, Tcl_Obj * *arg)<br/>
+ ListFactory * ListFactoryNewLevel(ListFactory *)<br/>
+ ListFactory * ListFactoryEndLevel(ListFactory *)<br/>
+ void ListFactoryResult(Tcl_Interp *, ListFactory *)<br/>
+<div class="spacer">
+</div>
+The difference is that a call to &quot;ListFactoryFinish&quot; should precede the actual usage of the value of &quot;ListFactory&quot;, and there are two different ways to append an &quot;Tcl_Obj *&quot; to a &quot;ListFactory&quot;:  <i>ListFactoryAppendCopy()</i> guarantees that the value of &quot;arg&quot; is copied to the list, but  <i>ListFactoryAppend()</i> may append to the list a reference to the current value of &quot;arg&quot;. If you are not going to change the value of &quot;arg&quot; after appending, the call to ListFactoryAppend may be quicker.<div class="spacer">
+</div>
+As in <b>TCL</b>, the call to <i>ListFactoryFree()</i> does not free the &quot;ListFactory&quot;, only the objects it references.<div class="spacer">
+</div>
+The functions <i>ListFactoryNewLevel()</i> and <i>ListFactoryEndLevel()</i> return a pointer to a &quot;ListFactory&quot; to fill. The argument of  <i>ListFactoryEndLevel()</i> cannot be used after a call to this function.</div>
+<div class="subsection">
+<h2>DStrings</h2> Production of strings are still supported in  <b>portableTk</b>.</div>
+<div class="subsection">
+<h2>Accessing &quot;Tcl_Obj *&quot;s</h2> The following functions for getting a value of an &quot;Tcl_Obj *&quot;  <i>may</i> be provided:<div class="spacer">
+</div>
+<br/>
+ double LangDouble(Tcl_Obj *)<br/>
+ int LangInt(Tcl_Obj *)<br/>
+ long LangLong(Tcl_Obj *)<br/>
+ int LangIsList(Tcl_Obj * arg)<br/>
+<div class="spacer">
+</div>
+The function <i>LangIsList()</i> is supported only partially under <b>TCL</b>, since there is no data types. It checks whether there is a space inside the string &quot;arg&quot;.</div>
+<div class="subsection">
+<h2>Assigning numbers to &quot;Tcl_Obj *&quot;s</h2> While  <i>LangSetDouble()</i> and <i>LangSetInt()</i> are supported ways to assign numbers to assign an integer value to a variable, for the sake of efficiency under  <b>TCL</b> it is supposed that the destination of these commands was massaged before the call so it contains a long enough string to  <i>sprintf()</i> the numbers inside it. If you are going to immediately use the resulting &quot;Tcl_Obj *&quot;, the best way to do this is to declare a buffer in the beginning of a block by<div class="spacer">
+</div>
+<br/>
+   dArgBuffer;<br/>
+<div class="spacer">
+</div>
+and assign this buffer to the &quot;Tcl_Obj *&quot; by<div class="spacer">
+</div>
+<br/>
+   void LangSetDefaultBuffer(Tcl_Obj * *)<br/>
+<div class="spacer">
+</div>
+You can also create the buffer(s) manually and assign them using<div class="spacer">
+</div>
+<br/>
+   void LangSetBuffer(Tcl_Obj * *, char *)<br/>
+<div class="spacer">
+</div>
+This is the only choice if you need to assign numeric values to several &quot;Tcl_Obj *&quot;s simultaneously. The advantage of the first approach is that the above declarations can be made &quot;nop&quot;s in different languages.<div class="spacer">
+</div>
+Note that if you apply &quot;LangSetDefaultBuffer&quot; to an &quot;Tcl_Obj *&quot; that contains some value, you can create a leak if you do not free that &quot;Tcl_Obj *&quot; first. This is a non-problem in real languages, but can be a trouble in &quot;TCL&quot;, unless you use only the above API.</div>
+<div class="subsection">
+<h2>Creating new &quot;Tcl_Obj *&quot;s</h2> The API for creating a new &quot;Tcl_Obj *&quot; is<div class="spacer">
+</div>
+<br/>
+ void LangNewArg(Tcl_Obj * *, LangFreeProc *)<br/>
+<div class="spacer">
+</div>
+The API for creating a new &quot;Tcl_Obj *&quot; is absent. Just initialize &quot;Tcl_Obj *&quot; to be &quot;NULL&quot;, and apply one of &quot;LangSet...&quot; methods.<div class="spacer">
+</div>
+After you use this &quot;Tcl_Obj *&quot;, it should be freed thusly:<div class="spacer">
+</div>
+&quot;LangFreeArg(arg, freeProc)&quot;.</div>
+<div class="subsection">
+<h2>Evaluating a list</h2> Use<div class="spacer">
+</div>
+<br/>
+ int LangArgEval(Tcl_Interp *, Tcl_Obj * arg)<br/>
+<div class="spacer">
+</div>
+Here &quot;arg&quot; should be a list to evaluate, in particular, the first element should be a &quot;LangCallback&quot; massaged to be an &quot;Tcl_Obj *&quot;. The arguments can be send to the subroutine by reference or by value in different languages.</div>
+<div class="subsection">
+<h2>Getting result as &quot;Tcl_Obj *&quot;</h2> Use &quot;Tcl_ArgResult&quot;. It is not guaranteed that result survives this operation, so the &quot;Tcl_Obj *&quot; you get should be the only mean to access the data from this moment on. After you use this &quot;Tcl_Obj *&quot;, you should free it with &quot;freeProc&quot; &quot;LANG_DYNAMIC&quot; (you can do LangSet...() in between).</div>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2007-02-10</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Filter::Simple(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Filter::Simple(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+Filter::Simple(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Filter::Simple - Simplified source filtering</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ # in MyFilter.pm:<br/>
+<br/>
+     package MyFilter;<br/>
+<br/>
+     use Filter::Simple;<br/>
+     <br/>
+     FILTER { ... };<br/>
+<br/>
+     # or just:<br/>
+     #<br/>
+     # use Filter::Simple sub { ... };<br/>
+<br/>
+ # in user's code:<br/>
+<br/>
+     use MyFilter;<br/>
+<br/>
+     # this code is filtered<br/>
+<br/>
+     no MyFilter;<br/>
+<br/>
+     # this code is not<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1><div class="subsection">
+<h2>The Problem</h2> Source filtering is an immensely powerful feature of recent versions of Perl. It allows one to extend the language itself (e.g. the Switch module), to simplify the language (e.g. Language::Pythonesque), or to completely recast the language (e.g. Lingua::Romana::Perligata). Effectively, it allows one to use the full power of Perl as its own, recursively applied, macro language.<div class="spacer">
+</div>
+The excellent Filter::Util::Call module (by Paul Marquess) provides a usable Perl interface to source filtering, but it is often too powerful and not nearly as simple as it could be.<div class="spacer">
+</div>
+To use the module it is necessary to do the following:<dl>
+<dt>
+1.</dt>
+<dd>
+Download, build, and install the Filter::Util::Call module. (If you have Perl 5.7.1 or later, this is already done for you.)</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+Set up a module that does a &quot;use Filter::Util::Call&quot;.</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+Within that module, create an &quot;import&quot; subroutine.</dd>
+</dl>
+<dl>
+<dt>
+4.</dt>
+<dd>
+Within the &quot;import&quot; subroutine do a call to &quot;filter_add&quot;, passing it either a subroutine reference.</dd>
+</dl>
+<dl>
+<dt>
+5.</dt>
+<dd>
+Within the subroutine reference, call &quot;filter_read&quot; or &quot;filter_read_exact&quot; to &quot;prime&quot; $_ with source code data from the source file that will &quot;use&quot; your module. Check the status value returned to see if any source code was actually read in.</dd>
+</dl>
+<dl>
+<dt>
+6.</dt>
+<dd>
+Process the contents of $_ to change the source code in the desired manner.</dd>
+</dl>
+<dl>
+<dt>
+7.</dt>
+<dd>
+Return the status value.</dd>
+</dl>
+<dl>
+<dt>
+8.</dt>
+<dd>
+If the act of unimporting your module (via a &quot;no&quot;) should cause source code filtering to cease, create an &quot;unimport&quot; subroutine, and have it call &quot;filter_del&quot;. Make sure that the call to &quot;filter_read&quot; or &quot;filter_read_exact&quot; in step 5 will not accidentally read past the &quot;no&quot;. Effectively this limits source code filters to line-by-line operation, unless the &quot;import&quot; subroutine does some fancy pre-pre-parsing of the source code it's filtering.</dd>
+</dl>
+<div class="spacer">
+</div>
+For example, here is a minimal source code filter in a module named BANG.pm. It simply converts every occurrence of the sequence &quot;BANG\s+BANG&quot; to the sequence &quot;die 'BANG' if $BANG&quot; in any piece of code following a &quot;use BANG;&quot; statement (until the next &quot;no BANG;&quot; statement, if any):<div class="spacer">
+</div>
+<br/>
+    package BANG;<br/>
+ <br/>
+    use Filter::Util::Call ;<br/>
+<br/>
+    sub import {<br/>
+        filter_add( sub {<br/>
+        my $caller = caller;<br/>
+        my ($status, $no_seen, $data);<br/>
+        while ($status = filter_read()) {<br/>
+            if (/^\s*no\s+$caller\s*;\s*?$/) {<br/>
+                $no_seen=1;<br/>
+                last;<br/>
+            }<br/>
+            $data .= $_;<br/>
+            $_ = &quot;&quot;;<br/>
+        }<br/>
+        $_ = $data;<br/>
+        s/BANG\s+BANG/die 'BANG' if \$BANG/g<br/>
+            unless $status &lt; 0;<br/>
+        $_ .= &quot;no $class;\n&quot; if $no_seen;<br/>
+        return 1;<br/>
+        })<br/>
+    }<br/>
+<br/>
+    sub unimport {<br/>
+        filter_del();<br/>
+    }<br/>
+<br/>
+    1 ;<br/>
+<div class="spacer">
+</div>
+This level of sophistication puts filtering out of the reach of many programmers.</div>
+<div class="subsection">
+<h2>A Solution</h2> The Filter::Simple module provides a simplified interface to Filter::Util::Call; one that is sufficient for most common cases.<div class="spacer">
+</div>
+Instead of the above process, with Filter::Simple the task of setting up a source code filter is reduced to:<dl>
+<dt>
+1.</dt>
+<dd>
+Download and install the Filter::Simple module. (If you have Perl 5.7.1 or later, this is already done for you.)</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+Set up a module that does a &quot;use Filter::Simple&quot; and then calls &quot;FILTER { ... }&quot;.</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+Within the anonymous subroutine or block that is passed to &quot;FILTER&quot;, process the contents of $_ to change the source code in the desired manner.</dd>
+</dl>
+<div class="spacer">
+</div>
+In other words, the previous example, would become:<div class="spacer">
+</div>
+<br/>
+    package BANG;<br/>
+    use Filter::Simple;<br/>
+    <br/>
+    FILTER {<br/>
+        s/BANG\s+BANG/die 'BANG' if \$BANG/g;<br/>
+    };<br/>
+<br/>
+    1 ;<br/>
+<div class="spacer">
+</div>
+Note that the source code is passed as a single string, so any regex that uses &quot;^&quot; or &quot;$&quot; to detect line boundaries will need the &quot;/m&quot; flag.</div>
+<div class="subsection">
+<h2>Disabling or changing &lt;no&gt; behaviour</h2> By default, the installed filter only filters up to a line consisting of one of the three standard source &quot;terminators&quot;:<div class="spacer">
+</div>
+<br/>
+    no ModuleName;  # optional comment<br/>
+<div class="spacer">
+</div>
+or:<div class="spacer">
+</div>
+<br/>
+    __END__<br/>
+<div class="spacer">
+</div>
+or:<div class="spacer">
+</div>
+<br/>
+    __DATA__<br/>
+<div class="spacer">
+</div>
+but this can be altered by passing a second argument to &quot;use Filter::Simple&quot; or &quot;FILTER&quot; (just remember: there's  <i>no</i> comma after the initial block when you use &quot;FILTER&quot;).<div class="spacer">
+</div>
+That second argument may be either a &quot;qr&quot;'d regular expression (which is then used to match the terminator line), or a defined false value (which indicates that no terminator line should be looked for), or a reference to a hash (in which case the terminator is the value associated with the key 'terminator'.<div class="spacer">
+</div>
+For example, to cause the previous filter to filter only up to a line of the form:<div class="spacer">
+</div>
+<br/>
+    GNAB esu;<br/>
+<div class="spacer">
+</div>
+you would write:<div class="spacer">
+</div>
+<br/>
+    package BANG;<br/>
+    use Filter::Simple;<br/>
+    <br/>
+    FILTER {<br/>
+        s/BANG\s+BANG/die 'BANG' if \$BANG/g;<br/>
+    }<br/>
+    qr/^\s*GNAB\s+esu\s*;\s*?$/;<br/>
+<div class="spacer">
+</div>
+or:<div class="spacer">
+</div>
+<br/>
+    FILTER {<br/>
+        s/BANG\s+BANG/die 'BANG' if \$BANG/g;<br/>
+    }<br/>
+    { terminator =&gt; qr/^\s*GNAB\s+esu\s*;\s*?$/ };<br/>
+<div class="spacer">
+</div>
+and to prevent the filter's being turned off in any way:<div class="spacer">
+</div>
+<br/>
+    package BANG;<br/>
+    use Filter::Simple;<br/>
+    <br/>
+    FILTER {<br/>
+        s/BANG\s+BANG/die 'BANG' if \$BANG/g;<br/>
+    }<br/>
+    &quot;&quot;;    # or: 0<br/>
+<div class="spacer">
+</div>
+or:<div class="spacer">
+</div>
+<br/>
+    FILTER {<br/>
+        s/BANG\s+BANG/die 'BANG' if \$BANG/g;<br/>
+    }<br/>
+    { terminator =&gt; &quot;&quot; };<br/>
+<div class="spacer">
+</div>
+<b>Note that, no matter what you set the terminator pattern to,</b>  <b>the actual terminator itself </b><b><i>must</i></b><b> be contained on a single source line.</b></div>
+<div class="subsection">
+<h2>All-in-one interface</h2> Separating the loading of Filter::Simple:<div class="spacer">
+</div>
+<br/>
+    use Filter::Simple;<br/>
+<div class="spacer">
+</div>
+from the setting up of the filtering:<div class="spacer">
+</div>
+<br/>
+    FILTER { ... };<br/>
+<div class="spacer">
+</div>
+is useful because it allows other code (typically parser support code or caching variables) to be defined before the filter is invoked. However, there is often no need for such a separation.<div class="spacer">
+</div>
+In those cases, it is easier to just append the filtering subroutine and any terminator specification directly to the &quot;use&quot; statement that loads Filter::Simple, like so:<div class="spacer">
+</div>
+<br/>
+    use Filter::Simple sub {<br/>
+        s/BANG\s+BANG/die 'BANG' if \$BANG/g;<br/>
+    };<br/>
+<div class="spacer">
+</div>
+This is exactly the same as:<div class="spacer">
+</div>
+<br/>
+    use Filter::Simple;<br/>
+    BEGIN {<br/>
+        Filter::Simple::FILTER {<br/>
+            s/BANG\s+BANG/die 'BANG' if \$BANG/g;<br/>
+        };<br/>
+    }<br/>
+<div class="spacer">
+</div>
+except that the &quot;FILTER&quot; subroutine is not exported by Filter::Simple.</div>
+<div class="subsection">
+<h2>Filtering only specific components of source code</h2> One of the problems with a filter like:<div class="spacer">
+</div>
+<br/>
+    use Filter::Simple;<br/>
+<br/>
+    FILTER { s/BANG\s+BANG/die 'BANG' if \$BANG/g };<br/>
+<div class="spacer">
+</div>
+is that it indiscriminately applies the specified transformation to the entire text of your source program. So something like:<div class="spacer">
+</div>
+<br/>
+    warn 'BANG BANG, YOU'RE DEAD';<br/>
+    BANG BANG;<br/>
+<div class="spacer">
+</div>
+will become:<div class="spacer">
+</div>
+<br/>
+    warn 'die 'BANG' if $BANG, YOU'RE DEAD';<br/>
+    die 'BANG' if $BANG;<br/>
+<div class="spacer">
+</div>
+It is very common when filtering source to only want to apply the filter to the non-character-string parts of the code, or alternatively to  <i>only</i> the character strings.<div class="spacer">
+</div>
+Filter::Simple supports this type of filtering by automatically exporting the &quot;FILTER_ONLY&quot; subroutine.<div class="spacer">
+</div>
+&quot;FILTER_ONLY&quot; takes a sequence of specifiers that install separate (and possibly multiple) filters that act on only parts of the source code. For example:<div class="spacer">
+</div>
+<br/>
+    use Filter::Simple;<br/>
+<br/>
+    FILTER_ONLY<br/>
+        code      =&gt; sub { s/BANG\s+BANG/die 'BANG' if \$BANG/g },<br/>
+        quotelike =&gt; sub { s/BANG\s+BANG/CHITTY CHITTY/g };<br/>
+<div class="spacer">
+</div>
+The &quot;code&quot; subroutine will only be used to filter parts of the source code that are not quotelikes, POD, or &quot;__DATA__&quot;. The &quot;quotelike&quot; subroutine only filters Perl quotelikes (including here documents).<div class="spacer">
+</div>
+The full list of alternatives is:<dl>
+<dt>
+&quot;code&quot;</dt>
+<dd>
+Filters only those sections of the source code that are not quotelikes, POD, or &quot;__DATA__&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;code_no_comments&quot;</dt>
+<dd>
+Filters only those sections of the source code that are not quotelikes, POD, comments, or &quot;__DATA__&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;executable&quot;</dt>
+<dd>
+Filters only those sections of the source code that are not POD or &quot;__DATA__&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;executable_no_comments&quot;</dt>
+<dd>
+Filters only those sections of the source code that are not POD, comments, or &quot;__DATA__&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;quotelike&quot;</dt>
+<dd>
+Filters only Perl quotelikes (as interpreted by &amp;Text::Balanced::extract_quotelike).</dd>
+</dl>
+<dl>
+<dt>
+&quot;string&quot;</dt>
+<dd>
+Filters only the string literal parts of a Perl quotelike (i.e. the contents of a string literal, either half of a &quot;tr///&quot;, the second half of an &quot;s///&quot;).</dd>
+</dl>
+<dl>
+<dt>
+&quot;regex&quot;</dt>
+<dd>
+Filters only the pattern literal parts of a Perl quotelike (i.e. the contents of a &quot;qr//&quot; or an &quot;m//&quot;, the first half of an &quot;s///&quot;).</dd>
+</dl>
+<dl>
+<dt>
+&quot;all&quot;</dt>
+<dd>
+Filters everything. Identical in effect to &quot;FILTER&quot;.</dd>
+</dl>
+<div class="spacer">
+</div>
+Except for &quot;FILTER_ONLY code =&gt; sub {...}&quot;, each of the component filters is called repeatedly, once for each component found in the source code.<div class="spacer">
+</div>
+Note that you can also apply two or more of the same type of filter in a single &quot;FILTER_ONLY&quot;. For example, here's a simple macro-preprocessor that is only applied within regexes, with a final debugging pass that prints the resulting source code:<div class="spacer">
+</div>
+<br/>
+    use Regexp::Common;<br/>
+    FILTER_ONLY<br/>
+        regex =&gt; sub { s/!\[/[^/g },<br/>
+        regex =&gt; sub { s/%d/$RE{num}{int}/g },<br/>
+        regex =&gt; sub { s/%f/$RE{num}{real}/g },<br/>
+        all   =&gt; sub { print if $::DEBUG };<br/>
+</div>
+<div class="subsection">
+<h2>Filtering only the code parts of source code</h2> Most source code ceases to be grammatically correct when it is broken up into the pieces between string literals and regexes. So the 'code' and 'code_no_comments' component filter behave slightly differently from the other partial filters described in the previous section.<div class="spacer">
+</div>
+Rather than calling the specified processor on each individual piece of code (i.e. on the bits between quotelikes), the 'code...' partial filters operate on the entire source code, but with the quotelike bits (and, in the case of 'code_no_comments', the comments) &quot;blanked out&quot;.<div class="spacer">
+</div>
+That is, a 'code...' filter <i>replaces</i> each quoted string, quotelike, regex, POD, and __DATA__ section with a placeholder. The delimiters of this placeholder are the contents of the $; variable at the time the filter is applied (normally &quot;\034&quot;). The remaining four bytes are a unique identifier for the component being replaced.<div class="spacer">
+</div>
+This approach makes it comparatively easy to write code preprocessors without worrying about the form or contents of strings, regexes, etc.<div class="spacer">
+</div>
+For convenience, during a 'code...' filtering operation, Filter::Simple provides a package variable ($Filter::Simple::placeholder) that contains a pre-compiled regex that matches any placeholder...and captures the identifier within the placeholder. Placeholders can be moved and re-ordered within the source code as needed.<div class="spacer">
+</div>
+In addition, a second package variable (@Filter::Simple::components) contains a list of the various pieces of $_, as they were originally split up to allow placeholders to be inserted.<div class="spacer">
+</div>
+Once the filtering has been applied, the original strings, regexes, POD, etc. are re-inserted into the code, by replacing each placeholder with the corresponding original component (from @components). Note that this means that the @components variable must be treated with extreme care within the filter. The @components array stores the &quot;back- translations&quot; of each placeholder inserted into $_, as well as the interstitial source code between placeholders. If the placeholder backtranslations are altered in @components, they will be similarly changed when the placeholders are removed from $_ after the filter is complete.<div class="spacer">
+</div>
+For example, the following filter detects concatenated pairs of strings/quotelikes and reverses the order in which they are concatenated:<div class="spacer">
+</div>
+<br/>
+    package DemoRevCat;<br/>
+    use Filter::Simple;<br/>
+<br/>
+    FILTER_ONLY code =&gt; sub {<br/>
+        my $ph = $Filter::Simple::placeholder;<br/>
+        s{ ($ph) \s* [.] \s* ($ph) }{ $2.$1 }gx<br/>
+    };<br/>
+<div class="spacer">
+</div>
+Thus, the following code:<div class="spacer">
+</div>
+<br/>
+    use DemoRevCat;<br/>
+<br/>
+    my $str = &quot;abc&quot; . q(def);<br/>
+<br/>
+    print &quot;$str\n&quot;;<br/>
+<div class="spacer">
+</div>
+would become:<div class="spacer">
+</div>
+<br/>
+    my $str = q(def).&quot;abc&quot;;<br/>
+<br/>
+    print &quot;$str\n&quot;;<br/>
+<div class="spacer">
+</div>
+and hence print:<div class="spacer">
+</div>
+<br/>
+    defabc<br/>
+</div>
+<div class="subsection">
+<h2>Using Filter::Simple with an explicit &quot;import&quot; subroutine</h2> Filter::Simple generates a special &quot;import&quot; subroutine for your module (see &quot;How it works&quot;) which would normally replace any &quot;import&quot; subroutine you might have explicitly declared.<div class="spacer">
+</div>
+However, Filter::Simple is smart enough to notice your existing &quot;import&quot; and Do The Right Thing with it. That is, if you explicitly define an &quot;import&quot; subroutine in a package that's using Filter::Simple, that &quot;import&quot; subroutine will still be invoked immediately after any filter you install.<div class="spacer">
+</div>
+The only thing you have to remember is that the &quot;import&quot; subroutine  <i>must</i> be declared <i>before</i> the filter is installed. If you use &quot;FILTER&quot; to install the filter:<div class="spacer">
+</div>
+<br/>
+    package Filter::TurnItUpTo11;<br/>
+<br/>
+    use Filter::Simple;<br/>
+<br/>
+    FILTER { s/(\w+)/\U$1/ };<br/>
+<div class="spacer">
+</div>
+that will almost never be a problem, but if you install a filtering subroutine by passing it directly to the &quot;use Filter::Simple&quot; statement:<div class="spacer">
+</div>
+<br/>
+    package Filter::TurnItUpTo11;<br/>
+<br/>
+    use Filter::Simple sub{ s/(\w+)/\U$1/ };<br/>
+<div class="spacer">
+</div>
+then you must make sure that your &quot;import&quot; subroutine appears before that &quot;use&quot; statement.</div>
+<div class="subsection">
+<h2>Using Filter::Simple and Exporter together</h2> Likewise, Filter::Simple is also smart enough to Do The Right Thing if you use Exporter:<div class="spacer">
+</div>
+<br/>
+    package Switch;<br/>
+    use base Exporter;<br/>
+    use Filter::Simple;<br/>
+<br/>
+    @EXPORT    = qw(switch case);<br/>
+    @EXPORT_OK = qw(given  when);<br/>
+<br/>
+    FILTER { $_ = magic_Perl_filter($_) }<br/>
+<div class="spacer">
+</div>
+Immediately after the filter has been applied to the source, Filter::Simple will pass control to Exporter, so it can do its magic too.<div class="spacer">
+</div>
+Of course, here too, Filter::Simple has to know you're using Exporter before it applies the filter. That's almost never a problem, but if you're nervous about it, you can guarantee that things will work correctly by ensuring that your &quot;use base Exporter&quot; always precedes your &quot;use Filter::Simple&quot;.</div>
+<div class="subsection">
+<h2>How it works</h2> The Filter::Simple module exports into the package that calls &quot;FILTER&quot; (or &quot;use&quot;s it directly) -- such as package &quot;BANG&quot; in the above example -- two automagically constructed subroutines -- &quot;import&quot; and &quot;unimport&quot; -- which take care of all the nasty details.<div class="spacer">
+</div>
+In addition, the generated &quot;import&quot; subroutine passes its own argument list to the filtering subroutine, so the BANG.pm filter could easily be made parametric:<div class="spacer">
+</div>
+<br/>
+    package BANG;<br/>
+ <br/>
+    use Filter::Simple;<br/>
+    <br/>
+    FILTER {<br/>
+        my ($die_msg, $var_name) = @_;<br/>
+        s/BANG\s+BANG/die '$die_msg' if \${$var_name}/g;<br/>
+    };<br/>
+<br/>
+    # and in some user code:<br/>
+<br/>
+    use BANG &quot;BOOM&quot;, &quot;BAM&quot;;  # &quot;BANG BANG&quot; becomes: die 'BOOM' if $BAM<br/>
+<div class="spacer">
+</div>
+The specified filtering subroutine is called every time a &quot;use BANG&quot; is encountered, and passed all the source code following that call, up to either the next &quot;no BANG;&quot; (or whatever terminator you've set) or the end of the source file, whichever occurs first. By default, any &quot;no BANG;&quot; call must appear by itself on a separate line, or it is ignored.</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Damian Conway</div>
+<div class="section">
+<h1>CONTACT</h1> Filter::Simple is now maintained by the Perl5-Porters. Please submit bug via the &quot;perlbug&quot; tool that comes with your perl. For usage instructions, read &quot;perldoc perlbug&quot; or possibly &quot;man perlbug&quot;. For mostly anything else, please contact &lt;perl5-porters@perl.org&gt;.<div class="spacer">
+</div>
+Maintainer of the CPAN release is Steffen Mueller &lt;smueller@cpan.org&gt;. Contact him with technical difficulties with respect to the packaging of the CPAN module.<div class="spacer">
+</div>
+Praise of the module, flowers, and presents still go to the author, Damian Conway &lt;damian@conway.org&gt;.</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1><br/>
+    Copyright (c) 2000-2008, Damian Conway. All Rights Reserved.<br/>
+    This module is free software. It may be used, redistributed<br/>
+    and/or modified under the same terms as Perl itself.<br/>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PERLLEXWARN(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERLLEXWARN(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+PERLLEXWARN(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perllexwarn - Perl Lexical Warnings</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The &quot;use warnings&quot; pragma enables to control precisely what warnings are to be enabled in which parts of a Perl program. It's a more flexible alternative for both the command line flag  <b>-w</b> and the equivalent Perl variable, $^W.<div class="spacer">
+</div>
+This pragma works just like the &quot;strict&quot; pragma. This means that the scope of the warning pragma is limited to the enclosing block. It also means that the pragma setting will not leak across files (via &quot;use&quot;, &quot;require&quot; or &quot;do&quot;). This allows authors to independently define the degree of warning checks that will be applied to their module.<div class="spacer">
+</div>
+By default, optional warnings are disabled, so any legacy code that doesn't attempt to control the warnings will work unchanged.<div class="spacer">
+</div>
+All warnings are enabled in a block by either of these:<div class="spacer">
+</div>
+<br/>
+    use warnings;<br/>
+    use warnings 'all';<br/>
+<div class="spacer">
+</div>
+Similarly all warnings are disabled in a block by either of these:<div class="spacer">
+</div>
+<br/>
+    no warnings;<br/>
+    no warnings 'all';<br/>
+<div class="spacer">
+</div>
+For example, consider the code below:<div class="spacer">
+</div>
+<br/>
+    use warnings;<br/>
+    my @a;<br/>
+    {<br/>
+        no warnings;<br/>
+        my $b = @a[0];<br/>
+    }<br/>
+    my $c = @a[0];<br/>
+<div class="spacer">
+</div>
+The code in the enclosing block has warnings enabled, but the inner block has them disabled. In this case that means the assignment to the scalar $c will trip the &quot;Scalar value @a[0] better written as $a[0]&quot; warning, but the assignment to the scalar $b will not.<div class="subsection">
+<h2>Default Warnings and Optional Warnings</h2> Before the introduction of lexical warnings, Perl had two classes of warnings: mandatory and optional.<div class="spacer">
+</div>
+As its name suggests, if your code tripped a mandatory warning, you would get a warning whether you wanted it or not. For example, the code below would always produce an &quot;isn't numeric&quot; warning about the &quot;2:&quot;.<div class="spacer">
+</div>
+<br/>
+    my $a = &quot;2:&quot; + 3;<br/>
+<div class="spacer">
+</div>
+With the introduction of lexical warnings, mandatory warnings now become  <i>default</i> warnings. The difference is that although the previously mandatory warnings are still enabled by default, they can then be subsequently enabled or disabled with the lexical warning pragma. For example, in the code below, an &quot;isn't numeric&quot; warning will only be reported for the $a variable.<div class="spacer">
+</div>
+<br/>
+    my $a = &quot;2:&quot; + 3;<br/>
+    no warnings;<br/>
+    my $b = &quot;2:&quot; + 3;<br/>
+<div class="spacer">
+</div>
+Note that neither the <b>-w</b> flag or the $^W can be used to disable/enable default warnings. They are still mandatory in this case.</div>
+<div class="subsection">
+<h2>What's wrong with <b>-w</b> and $^W</h2> Although very useful, the big problem with using  <b>-w</b> on the command line to enable warnings is that it is all or nothing. Take the typical scenario when you are writing a Perl program. Parts of the code you will write yourself, but it's very likely that you will make use of pre-written Perl modules. If you use the  <b>-w</b> flag in this case, you end up enabling warnings in pieces of code that you haven't written.<div class="spacer">
+</div>
+Similarly, using $^W to either disable or enable blocks of code is fundamentally flawed. For a start, say you want to disable warnings in a block of code. You might expect this to be enough to do the trick:<div class="spacer">
+</div>
+<br/>
+     {<br/>
+         local ($^W) = 0;<br/>
+         my $a =+ 2;<br/>
+         my $b; chop $b;<br/>
+     }<br/>
+<div class="spacer">
+</div>
+When this code is run with the <b>-w</b> flag, a warning will be produced for the $a line:  &quot;Reversed += operator&quot;.<div class="spacer">
+</div>
+The problem is that Perl has both compile-time and run-time warnings. To disable compile-time warnings you need to rewrite the code like this:<div class="spacer">
+</div>
+<br/>
+     {<br/>
+         BEGIN { $^W = 0 }<br/>
+         my $a =+ 2;<br/>
+         my $b; chop $b;<br/>
+     }<br/>
+<div class="spacer">
+</div>
+The other big problem with $^W is the way you can inadvertently change the warning setting in unexpected places in your code. For example, when the code below is run (without the  <b>-w</b> flag), the second call to &quot;doit&quot; will trip a &quot;Use of uninitialized value&quot; warning, whereas the first will not.<div class="spacer">
+</div>
+<br/>
+    sub doit<br/>
+    {<br/>
+        my $b; chop $b;<br/>
+    }<br/>
+<br/>
+    doit();<br/>
+<br/>
+    {<br/>
+        local ($^W) = 1;<br/>
+        doit()<br/>
+    }<br/>
+<div class="spacer">
+</div>
+This is a side-effect of $^W being dynamically scoped.<div class="spacer">
+</div>
+Lexical warnings get around these limitations by allowing finer control over where warnings can or can't be tripped.</div>
+<div class="subsection">
+<h2>Controlling Warnings from the Command Line</h2> There are three Command Line flags that can be used to control when warnings are (or aren't) produced:<dl>
+<dt>
+<b>-w</b></dt>
+<dd>
+This is  the existing flag. If the lexical warnings pragma is <b>not</b> used in any of you code, or any of the modules that you use, this flag will enable warnings everywhere. See &quot;Backward Compatibility&quot; for details of how this flag interacts with lexical warnings.</dd>
+</dl>
+<dl>
+<dt>
+<b>-W</b></dt>
+<dd>
+If the <b>-W</b> flag is used on the command line, it will enable all warnings throughout the program regardless of whether warnings were disabled locally using &quot;no warnings&quot; or &quot;$^W =0&quot;. This includes all files that get included via &quot;use&quot;, &quot;require&quot; or &quot;do&quot;. Think of it as the Perl equivalent of the &quot;lint&quot; command.</dd>
+</dl>
+<dl>
+<dt>
+<b>-X</b></dt>
+<dd>
+Does the exact opposite to the <b>-W</b> flag, i.e. it disables all warnings.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Backward Compatibility</h2> If you are used with working with a version of Perl prior to the introduction of lexically scoped warnings, or have code that uses both lexical warnings and $^W, this section will describe how they interact.<div class="spacer">
+</div>
+How Lexical Warnings interact with <b>-w</b>/$^W:<dl>
+<dt>
+1.</dt>
+<dd>
+If none of the three command line flags (<b>-w</b>, <b>-W</b> or <b>-X</b>) that control warnings is used and neither $^W or the &quot;warnings&quot; pragma are used, then default warnings will be enabled and optional warnings disabled. This means that legacy code that doesn't attempt to control the warnings will work unchanged.</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+The <b>-w</b> flag just sets the global $^W variable as in 5.005. This means that any legacy code that currently relies on manipulating $^W to control warning behavior will still work as is.</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+Apart from now being a boolean, the $^W variable operates in exactly the same horrible uncontrolled global way, except that it cannot disable/enable default warnings.</dd>
+</dl>
+<dl>
+<dt>
+4.</dt>
+<dd>
+If a piece of code is under the control of the &quot;warnings&quot; pragma, both the $^W variable and the  <b>-w</b> flag will be ignored for the scope of the lexical warning.</dd>
+</dl>
+<dl>
+<dt>
+5.</dt>
+<dd>
+The only way to override a lexical warnings setting is with the <b>-W</b> or  <b>-X</b> command line flags.</dd>
+</dl>
+<div class="spacer">
+</div>
+The combined effect of 3 &amp; 4 is that it will allow code which uses the &quot;warnings&quot; pragma to control the warning behavior of $^W-type code (using a &quot;local $^W=0&quot;) if it really wants to, but not vice-versa.</div>
+<div class="subsection">
+<h2>Category Hierarchy</h2> A hierarchy of &quot;categories&quot; have been defined to allow groups of warnings to be enabled/disabled in isolation.<div class="spacer">
+</div>
+The current hierarchy is:<div class="spacer">
+</div>
+<br/>
+  all -+<br/>
+       |<br/>
+       +- closure<br/>
+       |<br/>
+       +- deprecated<br/>
+       |<br/>
+       +- exiting<br/>
+       |<br/>
+       +- glob<br/>
+       |<br/>
+       +- io -----------+<br/>
+       |                |<br/>
+       |                +- closed<br/>
+       |                |<br/>
+       |                +- exec<br/>
+       |                |<br/>
+       |                +- layer<br/>
+       |                |<br/>
+       |                +- newline<br/>
+       |                |<br/>
+       |                +- pipe<br/>
+       |                |<br/>
+       |                +- unopened<br/>
+       |<br/>
+       +- imprecision<br/>
+       |<br/>
+       +- misc<br/>
+       |<br/>
+       +- numeric<br/>
+       |<br/>
+       +- once<br/>
+       |<br/>
+       +- overflow<br/>
+       |<br/>
+       +- pack<br/>
+       |<br/>
+       +- portable<br/>
+       |<br/>
+       +- recursion<br/>
+       |<br/>
+       +- redefine<br/>
+       |<br/>
+       +- regexp<br/>
+       |<br/>
+       +- severe -------+<br/>
+       |                |<br/>
+       |                +- debugging<br/>
+       |                |<br/>
+       |                +- inplace<br/>
+       |                |<br/>
+       |                +- internal<br/>
+       |                |<br/>
+       |                +- malloc<br/>
+       |<br/>
+       +- signal<br/>
+       |<br/>
+       +- substr<br/>
+       |<br/>
+       +- syntax -------+<br/>
+       |                |<br/>
+       |                +- ambiguous<br/>
+       |                |<br/>
+       |                +- bareword<br/>
+       |                |<br/>
+       |                +- digit<br/>
+       |                |<br/>
+       |                +- illegalproto<br/>
+       |                |<br/>
+       |                +- parenthesis<br/>
+       |                |<br/>
+       |                +- precedence<br/>
+       |                |<br/>
+       |                +- printf<br/>
+       |                |<br/>
+       |                +- prototype<br/>
+       |                |<br/>
+       |                +- qw<br/>
+       |                |<br/>
+       |                +- reserved<br/>
+       |                |<br/>
+       |                +- semicolon<br/>
+       |<br/>
+       +- taint<br/>
+       |<br/>
+       +- threads<br/>
+       |<br/>
+       +- uninitialized<br/>
+       |<br/>
+       +- unpack<br/>
+       |<br/>
+       +- untie<br/>
+       |<br/>
+       +- utf8----------+<br/>
+       |                |<br/>
+       |                +- surrogate<br/>
+       |                |<br/>
+       |                +- non_unicode<br/>
+       |                |<br/>
+       |                +- nonchar<br/>
+       |<br/>
+       +- void<br/>
+<div class="spacer">
+</div>
+Just like the &quot;strict&quot; pragma any of these categories can be combined<div class="spacer">
+</div>
+<br/>
+    use warnings qw(void redefine);<br/>
+    no warnings qw(io syntax untie);<br/>
+<div class="spacer">
+</div>
+Also like the &quot;strict&quot; pragma, if there is more than one instance of the &quot;warnings&quot; pragma in a given scope the cumulative effect is additive.<div class="spacer">
+</div>
+<br/>
+    use warnings qw(void); # only &quot;void&quot; warnings enabled<br/>
+    ...<br/>
+    use warnings qw(io);   # only &quot;void&quot; &amp; &quot;io&quot; warnings enabled<br/>
+    ...<br/>
+    no warnings qw(void);  # only &quot;io&quot; warnings enabled<br/>
+<div class="spacer">
+</div>
+To determine which category a specific warning has been assigned to see perldiag.<div class="spacer">
+</div>
+Note: In Perl 5.6.1, the lexical warnings category &quot;deprecated&quot; was a sub-category of the &quot;syntax&quot; category. It is now a top-level category in its own right.</div>
+<div class="subsection">
+<h2>Fatal Warnings</h2> The presence of the word &quot;FATAL&quot; in the category list will escalate any warnings detected from the categories specified in the lexical scope into fatal errors. In the code below, the use of &quot;time&quot;, &quot;length&quot; and &quot;join&quot; can all produce a &quot;Useless use of xxx in void context&quot; warning.<div class="spacer">
+</div>
+<br/>
+    use warnings;<br/>
+<br/>
+    time;<br/>
+<br/>
+    {<br/>
+        use warnings FATAL =&gt; qw(void);<br/>
+        length &quot;abc&quot;;<br/>
+    }<br/>
+<br/>
+    join &quot;&quot;, 1,2,3;<br/>
+<br/>
+    print &quot;done\n&quot;;<br/>
+<div class="spacer">
+</div>
+When run it produces this output<div class="spacer">
+</div>
+<br/>
+    Useless use of time in void context at fatal line 3.<br/>
+    Useless use of length in void context at fatal line 7.<br/>
+<div class="spacer">
+</div>
+The scope where &quot;length&quot; is used has escalated the &quot;void&quot; warnings category into a fatal error, so the program terminates immediately it encounters the warning.<div class="spacer">
+</div>
+To explicitly turn off a &quot;FATAL&quot; warning you just disable the warning it is associated with.  So, for example, to disable the &quot;void&quot; warning in the example above, either of these will do the trick:<div class="spacer">
+</div>
+<br/>
+    no warnings qw(void);<br/>
+    no warnings FATAL =&gt; qw(void);<br/>
+<div class="spacer">
+</div>
+If you want to downgrade a warning that has been escalated into a fatal error back to a normal warning, you can use the &quot;NONFATAL&quot; keyword. For example, the code below will promote all warnings into fatal errors, except for those in the &quot;syntax&quot; category.<div class="spacer">
+</div>
+<br/>
+    use warnings FATAL =&gt; 'all', NONFATAL =&gt; 'syntax';<br/>
+</div>
+<div class="subsection">
+<h2>Reporting Warnings from a Module</h2> The &quot;warnings&quot; pragma provides a number of functions that are useful for module authors. These are used when you want to report a module-specific warning to a calling module has enabled warnings via the &quot;warnings&quot; pragma.<div class="spacer">
+</div>
+Consider the module &quot;MyMod::Abc&quot; below.<div class="spacer">
+</div>
+<br/>
+    package MyMod::Abc;<br/>
+<br/>
+    use warnings::register;<br/>
+<br/>
+    sub open {<br/>
+        my $path = shift;<br/>
+        if ($path !~ m#^/#) {<br/>
+            warnings::warn(&quot;changing relative path to /var/abc&quot;)<br/>
+                if warnings::enabled();<br/>
+            $path = &quot;/var/abc/$path&quot;;<br/>
+        }<br/>
+    }<br/>
+<br/>
+    1;<br/>
+<div class="spacer">
+</div>
+The call to &quot;warnings::register&quot; will create a new warnings category called &quot;MyMod::Abc&quot;, i.e. the new category name matches the current package name. The &quot;open&quot; function in the module will display a warning message if it gets given a relative path as a parameter. This warnings will only be displayed if the code that uses &quot;MyMod::Abc&quot; has actually enabled them with the &quot;warnings&quot; pragma like below.<div class="spacer">
+</div>
+<br/>
+    use MyMod::Abc;<br/>
+    use warnings 'MyMod::Abc';<br/>
+    ...<br/>
+    abc::open(&quot;../fred.txt&quot;);<br/>
+<div class="spacer">
+</div>
+It is also possible to test whether the pre-defined warnings categories are set in the calling module with the &quot;warnings::enabled&quot; function. Consider this snippet of code:<div class="spacer">
+</div>
+<br/>
+    package MyMod::Abc;<br/>
+<br/>
+    sub open {<br/>
+        warnings::warnif(&quot;deprecated&quot;, <br/>
+                         &quot;open is deprecated, use new instead&quot;);<br/>
+        new(@_);<br/>
+    }<br/>
+<br/>
+    sub new<br/>
+    ...<br/>
+    1;<br/>
+<div class="spacer">
+</div>
+The function &quot;open&quot; has been deprecated, so code has been included to display a warning message whenever the calling module has (at least) the &quot;deprecated&quot; warnings category enabled. Something like this, say.<div class="spacer">
+</div>
+<br/>
+    use warnings 'deprecated';<br/>
+    use MyMod::Abc;<br/>
+    ...<br/>
+    MyMod::Abc::open($filename);<br/>
+<div class="spacer">
+</div>
+Either the &quot;warnings::warn&quot; or &quot;warnings::warnif&quot; function should be used to actually display the warnings message. This is because they can make use of the feature that allows warnings to be escalated into fatal errors. So in this case<div class="spacer">
+</div>
+<br/>
+    use MyMod::Abc;<br/>
+    use warnings FATAL =&gt; 'MyMod::Abc';<br/>
+    ...<br/>
+    MyMod::Abc::open('../fred.txt');<br/>
+<div class="spacer">
+</div>
+the &quot;warnings::warnif&quot; function will detect this and die after displaying the warning message.<div class="spacer">
+</div>
+The three warnings functions, &quot;warnings::warn&quot;, &quot;warnings::warnif&quot; and &quot;warnings::enabled&quot; can optionally take an object reference in place of a category name. In this case the functions will use the class name of the object as the warnings category.<div class="spacer">
+</div>
+Consider this example:<div class="spacer">
+</div>
+<br/>
+    package Original;<br/>
+<br/>
+    no warnings;<br/>
+    use warnings::register;<br/>
+<br/>
+    sub new<br/>
+    {<br/>
+        my $class = shift;<br/>
+        bless [], $class;<br/>
+    }<br/>
+<br/>
+    sub check<br/>
+    {<br/>
+        my $self = shift;<br/>
+        my $value = shift;<br/>
+<br/>
+        if ($value % 2 &amp;&amp; warnings::enabled($self))<br/>
+          { warnings::warn($self, &quot;Odd numbers are unsafe&quot;) }<br/>
+    }<br/>
+<br/>
+    sub doit<br/>
+    {<br/>
+        my $self = shift;<br/>
+        my $value = shift;<br/>
+        $self-&gt;check($value);<br/>
+        # ...<br/>
+    }<br/>
+<br/>
+    1;<br/>
+<br/>
+    package Derived;<br/>
+<br/>
+    use warnings::register;<br/>
+    use Original;<br/>
+    our @ISA = qw( Original );<br/>
+    sub new<br/>
+    {<br/>
+        my $class = shift;<br/>
+        bless [], $class;<br/>
+    }<br/>
+<br/>
+<br/>
+    1;<br/>
+<div class="spacer">
+</div>
+The code below makes use of both modules, but it only enables warnings from &quot;Derived&quot;.<div class="spacer">
+</div>
+<br/>
+    use Original;<br/>
+    use Derived;<br/>
+    use warnings 'Derived';<br/>
+    my $a = Original-&gt;new();<br/>
+    $a-&gt;doit(1);<br/>
+    my $b = Derived-&gt;new();<br/>
+    $a-&gt;doit(1);<br/>
+<div class="spacer">
+</div>
+When this code is run only the &quot;Derived&quot; object, $b, will generate a warning.<div class="spacer">
+</div>
+<br/>
+    Odd numbers are unsafe at main.pl line 7<br/>
+<div class="spacer">
+</div>
+Notice also that the warning is reported at the line where the object is first used.<div class="spacer">
+</div>
+When registering new categories of warning, you can supply more names to warnings::register like this:<div class="spacer">
+</div>
+<br/>
+    package MyModule;<br/>
+    use warnings::register qw(format precision);<br/>
+<br/>
+    ...<br/>
+<br/>
+    warnings::warnif('MyModule::format', '...');<br/>
+</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> warnings, perldiag.</div>
+<div class="section">
+<h1>AUTHOR</h1> Paul Marquess</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-19</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

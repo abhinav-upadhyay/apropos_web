@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Params::Check(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Params::Check(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+Params::Check(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Params::Check - A generic input parsing/checking mechanism.</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    use Params::Check qw[check allow last_error];<br/>
+<br/>
+    sub fill_personal_info {<br/>
+        my %hash = @_;<br/>
+        my $x;<br/>
+<br/>
+        my $tmpl = {<br/>
+            firstname   =&gt; { required   =&gt; 1, defined =&gt; 1 },<br/>
+            lastname    =&gt; { required   =&gt; 1, store =&gt; \$x },<br/>
+            gender      =&gt; { required   =&gt; 1,<br/>
+                             allow      =&gt; [qr/M/i, qr/F/i],<br/>
+                           },<br/>
+            married     =&gt; { allow      =&gt; [0,1] },<br/>
+            age         =&gt; { default    =&gt; 21,<br/>
+                             allow      =&gt; qr/^\d+$/,<br/>
+                           },<br/>
+<br/>
+            phone       =&gt; { allow =&gt; [ sub { return 1 if /$valid_re/ },<br/>
+                                        '1-800-PERL' ]<br/>
+                           },<br/>
+            id_list     =&gt; { default        =&gt; [],<br/>
+                             strict_type    =&gt; 1<br/>
+                           },<br/>
+            employer    =&gt; { default =&gt; 'NSA', no_override =&gt; 1 },<br/>
+        };<br/>
+<br/>
+        ### check() returns a hashref of parsed args on success ###<br/>
+        my $parsed_args = check( $tmpl, \%hash, $VERBOSE )<br/>
+                            or die qw[Could not parse arguments!];<br/>
+<br/>
+        ... other code here ...<br/>
+    }<br/>
+<br/>
+    my $ok = allow( $colour, [qw|blue green yellow|] );<br/>
+<br/>
+    my $error = Params::Check::last_error();<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Params::Check is a generic input parsing/checking mechanism.<div class="spacer">
+</div>
+It allows you to validate input via a template. The only requirement is that the arguments must be named.<div class="spacer">
+</div>
+Params::Check can do the following things for you:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Convert all keys to lowercase</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Check if all required arguments have been provided</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Set arguments that have not been provided to the default</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Weed out arguments that are not supported and warn about them to the user</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Validate the arguments given by the user based on strings, regexes, lists or even subroutines</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Enforce type integrity if required</dd>
+</dl>
+<div class="spacer">
+</div>
+Most of Params::Check's power comes from its template, which we'll discuss below:</div>
+<div class="section">
+<h1>Template</h1> As you can see in the synopsis, based on your template, the arguments provided will be validated.<div class="spacer">
+</div>
+The template can take a different set of rules per key that is used.<div class="spacer">
+</div>
+The following rules are available:<dl>
+<dt>
+default</dt>
+<dd>
+This is the default value if none was provided by the user. This is also the type &quot;strict_type&quot; will look at when checking type integrity (see below).</dd>
+</dl>
+<dl>
+<dt>
+required</dt>
+<dd>
+A boolean flag that indicates if this argument was a required argument. If marked as required and not provided,  <i>check()</i> will fail.</dd>
+</dl>
+<dl>
+<dt>
+strict_type</dt>
+<dd>
+This does a &quot;ref()&quot; check on the argument provided. The &quot;ref&quot; of the argument must be the same as the &quot;ref&quot; of the default value for this check to pass.<div style="height: 1.00em;">
+&#160;</div>
+This is very useful if you insist on taking an array reference as argument for example.</dd>
+</dl>
+<dl>
+<dt>
+defined</dt>
+<dd>
+If this template key is true, enforces that if this key is provided by user input, its value is &quot;defined&quot;. This just means that the user is not allowed to pass &quot;undef&quot; as a value for this key and is equivalent to:<br/>
+    allow =&gt; sub { defined $_[0] &amp;&amp; OTHER TESTS }</dd>
+</dl>
+<dl>
+<dt>
+no_override</dt>
+<dd>
+This allows you to specify &quot;constants&quot; in your template. ie, they keys that are not allowed to be altered by the user. It pretty much allows you to keep all your &quot;configurable&quot; data in one place; the &quot;Params::Check&quot; template.</dd>
+</dl>
+<dl>
+<dt>
+store</dt>
+<dd>
+This allows you to pass a reference to a scalar, in which the data will be stored:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    my $x;<br/>
+    my $args = check(foo =&gt; { default =&gt; 1, store =&gt; \$x }, $input);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This is basically shorthand for saying:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    my $args = check( { foo =&gt; { default =&gt; 1 }, $input );<br/>
+    my $x    = $args-&gt;{foo};<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+You can alter the global variable $Params::Check::NO_DUPLICATES to control whether the &quot;store&quot;'d key will still be present in your result set. See the &quot;Global Variables&quot; section below.</dd>
+</dl>
+<dl>
+<dt>
+allow</dt>
+<dd>
+A set of criteria used to validate a particular piece of data if it has to adhere to particular rules.<div style="height: 1.00em;">
+&#160;</div>
+See the &quot;allow()&quot; function for details.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Functions</h1><div class="subsection">
+<h2>check( \%tmpl, \%args, [$verbose] );</h2> This function is not exported by default, so you'll have to ask for it via:<div class="spacer">
+</div>
+<br/>
+    use Params::Check qw[check];<br/>
+<div class="spacer">
+</div>
+or use its fully qualified name instead.<div class="spacer">
+</div>
+&quot;check&quot; takes a list of arguments, as follows:<dl>
+<dt>
+Template</dt>
+<dd>
+This is a hashreference which contains a template as explained in the &quot;SYNOPSIS&quot; and &quot;Template&quot; section.</dd>
+</dl>
+<dl>
+<dt>
+Arguments</dt>
+<dd>
+This is a reference to a hash of named arguments which need checking.</dd>
+</dl>
+<dl>
+<dt>
+Verbose</dt>
+<dd>
+A boolean to indicate whether &quot;check&quot; should be verbose and warn about what went wrong in a check or not.<div style="height: 1.00em;">
+&#160;</div>
+You can enable this program wide by setting the package variable $Params::Check::VERBOSE to a true value. For details, see the section on &quot;Global Variables&quot; below.</dd>
+</dl>
+<div class="spacer">
+</div>
+&quot;check&quot; will return when it fails, or a hashref with lowercase keys of parsed arguments when it succeeds.<div class="spacer">
+</div>
+So a typical call to check would look like this:<div class="spacer">
+</div>
+<br/>
+    my $parsed = check( \%template, \%arguments, $VERBOSE )<br/>
+                    or warn q[Arguments could not be parsed!];<br/>
+<div class="spacer">
+</div>
+A lot of the behaviour of &quot;check()&quot; can be altered by setting package variables. See the section on &quot;Global Variables&quot; for details on this.</div>
+<div class="subsection">
+<h2>allow( $test_me, \@criteria );</h2> The function that handles the &quot;allow&quot; key in the template is also available for independent use.<div class="spacer">
+</div>
+The function takes as first argument a key to test against, and as second argument any form of criteria that are also allowed by the &quot;allow&quot; key in the template.<div class="spacer">
+</div>
+You can use the following types of values for allow:<dl>
+<dt>
+string</dt>
+<dd>
+The provided argument MUST be equal to the string for the validation to pass.</dd>
+</dl>
+<dl>
+<dt>
+regexp</dt>
+<dd>
+The provided argument MUST match the regular expression for the validation to pass.</dd>
+</dl>
+<dl>
+<dt>
+subroutine</dt>
+<dd>
+The provided subroutine MUST return true in order for the validation to pass and the argument accepted.<div style="height: 1.00em;">
+&#160;</div>
+(This is particularly useful for more complicated data).</dd>
+</dl>
+<dl>
+<dt>
+array ref</dt>
+<dd>
+The provided argument MUST equal one of the elements of the array ref for the validation to pass. An array ref can hold all the above values.</dd>
+</dl>
+<div class="spacer">
+</div>
+It returns true if the key matched the criteria, or false otherwise.</div>
+<div class="subsection">
+<h2><i>last_error()</i></h2> Returns a string containing all warnings and errors reported during the last time &quot;check&quot; was called.<div class="spacer">
+</div>
+This is useful if you want to report then some other way than &quot;carp&quot;'ing when the verbose flag is on.<div class="spacer">
+</div>
+It is exported upon request.</div>
+</div>
+<div class="section">
+<h1>Global Variables</h1> The behaviour of Params::Check can be altered by changing the following global variables:<div class="subsection">
+<h2>$Params::Check::VERBOSE</h2> This controls whether Params::Check will issue warnings and explanations as to why certain things may have failed. If you set it to 0, Params::Check will not output any warnings.<div class="spacer">
+</div>
+The default is 1 when warnings are enabled, 0 otherwise;</div>
+<div class="subsection">
+<h2>$Params::Check::STRICT_TYPE</h2> This works like the &quot;strict_type&quot; option you can pass to &quot;check&quot;, which will turn on &quot;strict_type&quot; globally for all calls to &quot;check&quot;.<div class="spacer">
+</div>
+The default is 0;</div>
+<div class="subsection">
+<h2>$Params::Check::ALLOW_UNKNOWN</h2> If you set this flag, unknown options will still be present in the return value, rather than filtered out. This is useful if your subroutine is only interested in a few arguments, and wants to pass the rest on blindly to perhaps another subroutine.<div class="spacer">
+</div>
+The default is 0;</div>
+<div class="subsection">
+<h2>$Params::Check::STRIP_LEADING_DASHES</h2> If you set this flag, all keys passed in the following manner:<div class="spacer">
+</div>
+<br/>
+    function( -key =&gt; 'val' );<br/>
+<div class="spacer">
+</div>
+will have their leading dashes stripped.</div>
+<div class="subsection">
+<h2>$Params::Check::NO_DUPLICATES</h2> If set to true, all keys in the template that are marked as to be stored in a scalar, will also be removed from the result set.<div class="spacer">
+</div>
+Default is false, meaning that when you use &quot;store&quot; as a template key, &quot;check&quot; will put it both in the scalar you supplied, as well as in the hashref it returns.</div>
+<div class="subsection">
+<h2>$Params::Check::PRESERVE_CASE</h2> If set to true, Params::Check will no longer convert all keys from the user input to lowercase, but instead expect them to be in the case the template provided. This is useful when you want to use similar keys with different casing in your templates.<div class="spacer">
+</div>
+Understand that this removes the case-insensitivity feature of this module.<div class="spacer">
+</div>
+Default is 0;</div>
+<div class="subsection">
+<h2>$Params::Check::ONLY_ALLOW_DEFINED</h2> If set to true, Params::Check will require all values passed to be &quot;defined&quot;. If you wish to enable this on a 'per key' basis, use the template option &quot;defined&quot; instead.<div class="spacer">
+</div>
+Default is 0;</div>
+<div class="subsection">
+<h2>$Params::Check::SANITY_CHECK_TEMPLATE</h2> If set to true, Params::Check will sanity check templates, validating for errors and unknown keys. Although very useful for debugging, this can be somewhat slow in hot-code and large loops.<div class="spacer">
+</div>
+To disable this check, set this variable to &quot;false&quot;.<div class="spacer">
+</div>
+Default is 1;</div>
+<div class="subsection">
+<h2>$Params::Check::WARNINGS_FATAL</h2> If set to true, Params::Check will &quot;croak&quot; when an error during template validation occurs, rather than return &quot;false&quot;.<div class="spacer">
+</div>
+Default is 0;</div>
+<div class="subsection">
+<h2>$Params::Check::CALLER_DEPTH</h2> This global modifies the argument given to &quot;caller()&quot; by &quot;Params::Check::check()&quot; and is useful if you have a custom wrapper function around &quot;Params::Check::check()&quot;. The value must be an integer, indicating the number of wrapper functions inserted between the real function call and &quot;Params::Check::check()&quot;.<div class="spacer">
+</div>
+Example wrapper function, using a custom stacktrace:<div class="spacer">
+</div>
+<br/>
+    sub check {<br/>
+        my ($template, $args_in) = @_;<br/>
+<br/>
+        local $Params::Check::WARNINGS_FATAL = 1;<br/>
+        local $Params::Check::CALLER_DEPTH = $Params::Check::CALLER_DEPTH + 1;<br/>
+        my $args_out = Params::Check::check($template, $args_in);<br/>
+<br/>
+        my_stacktrace(Params::Check::last_error) unless $args_out;<br/>
+<br/>
+        return $args_out;<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Default is 0;</div>
+</div>
+<div class="section">
+<h1>Acknowledgements</h1> Thanks to Richard Soderberg for his performance improvements.</div>
+<div class="section">
+<h1>BUG REPORTS</h1> Please report bugs or other issues to &lt;bug-params-check@rt.cpan.org&gt;.</div>
+<div class="section">
+<h1>AUTHOR</h1> This module by Jos Boumans &lt;kane@cpan.org&gt;.</div>
+<div class="section">
+<h1>COPYRIGHT</h1> This library is free software; you may redistribute and/or modify it under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

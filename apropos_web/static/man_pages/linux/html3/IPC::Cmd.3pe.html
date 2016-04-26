@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+IPC::Cmd(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+IPC::Cmd(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+IPC::Cmd(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> IPC::Cmd - finding and running system commands made easy</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    use IPC::Cmd qw[can_run run run_forked];<br/>
+<br/>
+    my $full_path = can_run('wget') or warn 'wget is not installed!';<br/>
+<br/>
+    ### commands can be arrayrefs or strings ###<br/>
+    my $cmd = &quot;$full_path -b theregister.co.uk&quot;;<br/>
+    my $cmd = [$full_path, '-b', 'theregister.co.uk'];<br/>
+<br/>
+    ### in scalar context ###<br/>
+    my $buffer;<br/>
+    if( scalar run( command =&gt; $cmd,<br/>
+                    verbose =&gt; 0,<br/>
+                    buffer  =&gt; \$buffer,<br/>
+                    timeout =&gt; 20 )<br/>
+    ) {<br/>
+        print &quot;fetched webpage successfully: $buffer\n&quot;;<br/>
+    }<br/>
+<br/>
+<br/>
+    ### in list context ###<br/>
+    my( $success, $error_message, $full_buf, $stdout_buf, $stderr_buf ) =<br/>
+            run( command =&gt; $cmd, verbose =&gt; 0 );<br/>
+<br/>
+    if( $success ) {<br/>
+        print &quot;this is what the command printed:\n&quot;;<br/>
+        print join &quot;&quot;, @$full_buf;<br/>
+    }<br/>
+<br/>
+    ### check for features<br/>
+    print &quot;IPC::Open3 available: &quot;  . IPC::Cmd-&gt;can_use_ipc_open3;      <br/>
+    print &quot;IPC::Run available: &quot;    . IPC::Cmd-&gt;can_use_ipc_run;      <br/>
+    print &quot;Can capture buffer: &quot;    . IPC::Cmd-&gt;can_capture_buffer;     <br/>
+<br/>
+    ### don't have IPC::Cmd be verbose, ie don't print to stdout or<br/>
+    ### stderr when running commands -- default is '0'<br/>
+    $IPC::Cmd::VERBOSE = 0;<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> IPC::Cmd allows you to run commands platform independently, interactively if desired, but have them still work.<div class="spacer">
+</div>
+The &quot;can_run&quot; function can tell you if a certain binary is installed and if so where, whereas the &quot;run&quot; function can actually execute any of the commands you give it and give you a clear return value, as well as adhere to your verbosity settings.</div>
+<div class="section">
+<h1>CLASS METHODS</h1><div class="subsection">
+<h2>$ipc_run_version = IPC::Cmd-&gt;can_use_ipc_run( [VERBOSE] )</h2> Utility function that tells you if &quot;IPC::Run&quot; is available. If the &quot;verbose&quot; flag is passed, it will print diagnostic messages if IPC::Run can not be found or loaded.</div>
+<div class="subsection">
+<h2>$ipc_open3_version = IPC::Cmd-&gt;can_use_ipc_open3( [VERBOSE] )</h2> Utility function that tells you if &quot;IPC::Open3&quot; is available. If the verbose flag is passed, it will print diagnostic messages if &quot;IPC::Open3&quot; can not be found or loaded.</div>
+<div class="subsection">
+<h2>$bool = IPC::Cmd-&gt;can_capture_buffer</h2> Utility function that tells you if &quot;IPC::Cmd&quot; is capable of capturing buffers in it's current configuration.</div>
+<div class="subsection">
+<h2>$bool = IPC::Cmd-&gt;can_use_run_forked</h2> Utility function that tells you if &quot;IPC::Cmd&quot; is capable of providing &quot;run_forked&quot; on the current platform.</div>
+</div>
+<div class="section">
+<h1>FUNCTIONS</h1><div class="subsection">
+<h2>$path = can_run( PROGRAM );</h2> &quot;can_run&quot; takes only one argument: the name of a binary you wish to locate. &quot;can_run&quot; works much like the unix binary &quot;which&quot; or the bash command &quot;type&quot;, which scans through your path, looking for the requested binary.<div class="spacer">
+</div>
+Unlike &quot;which&quot; and &quot;type&quot;, this function is platform independent and will also work on, for example, Win32.<div class="spacer">
+</div>
+If called in a scalar context it will return the full path to the binary you asked for if it was found, or &quot;undef&quot; if it was not.<div class="spacer">
+</div>
+If called in a list context and the global variable $INSTANCES is a true value, it will return a list of the full paths to instances of the binary where found in &quot;PATH&quot;, or an empty list if it was not found.</div>
+<div class="subsection">
+<h2>$ok | ($ok, $err, $full_buf, $stdout_buff, $stderr_buff) = run( command =&gt; COMMAND, [verbose =&gt; BOOL, buffer =&gt; \$SCALAR, timeout =&gt; DIGIT] );</h2> &quot;run&quot; takes 4 arguments:<dl>
+<dt>
+command</dt>
+<dd>
+This is the command to execute. It may be either a string or an array reference. This is a required argument.<div style="height: 1.00em;">
+&#160;</div>
+See &quot;Caveats&quot; for remarks on how commands are parsed and their limitations.</dd>
+</dl>
+<dl>
+<dt>
+verbose</dt>
+<dd>
+This controls whether all output of a command should also be printed to STDOUT/STDERR or should only be trapped in buffers (NOTE: buffers require IPC::Run to be installed, or your system able to work with IPC::Open3).<div style="height: 1.00em;">
+&#160;</div>
+It will default to the global setting of $IPC::Cmd::VERBOSE, which by default is 0.</dd>
+</dl>
+<dl>
+<dt>
+buffer</dt>
+<dd>
+This will hold all the output of a command. It needs to be a reference to a scalar. Note that this will hold both the STDOUT and STDERR messages, and you have no way of telling which is which. If you require this distinction, run the &quot;run&quot; command in list context and inspect the individual buffers.<div style="height: 1.00em;">
+&#160;</div>
+Of course, this requires that the underlying call supports buffers. See the note on buffers above.</dd>
+</dl>
+<dl>
+<dt>
+timeout</dt>
+<dd>
+Sets the maximum time the command is allowed to run before aborting, using the built-in &quot;alarm()&quot; call. If the timeout is triggered, the &quot;errorcode&quot; in the return value will be set to an object of the &quot;IPC::Cmd::TimeOut&quot; class. See the &quot;error message&quot; section below for details.<div style="height: 1.00em;">
+&#160;</div>
+Defaults to 0, meaning no timeout is set.</dd>
+</dl>
+<div class="spacer">
+</div>
+&quot;run&quot; will return a simple &quot;true&quot; or &quot;false&quot; when called in scalar context. In list context, you will be returned a list of the following items:<dl>
+<dt>
+success</dt>
+<dd>
+A simple boolean indicating if the command executed without errors or not.</dd>
+</dl>
+<dl>
+<dt>
+error message</dt>
+<dd>
+If the first element of the return value (&quot;success&quot;) was 0, then some error occurred. This second element is the error message the command you requested exited with, if available. This is generally a pretty printed value of $? or $@. See &quot;perldoc perlvar&quot; for details on what they can contain. If the error was a timeout, the &quot;error message&quot; will be prefixed with the string &quot;IPC::Cmd::TimeOut&quot;, the timeout class.</dd>
+</dl>
+<dl>
+<dt>
+full_buffer</dt>
+<dd>
+This is an array reference containing all the output the command generated. Note that buffers are only available if you have IPC::Run installed, or if your system is able to work with IPC::Open3 -- see below). Otherwise, this element will be &quot;undef&quot;.</dd>
+</dl>
+<dl>
+<dt>
+out_buffer</dt>
+<dd>
+This is an array reference containing all the output sent to STDOUT the command generated. The notes from &quot;full_buffer&quot; apply.</dd>
+</dl>
+<dl>
+<dt>
+error_buffer</dt>
+<dd>
+This is an arrayreference containing all the output sent to STDERR the command generated. The notes from &quot;full_buffer&quot; apply.</dd>
+</dl>
+<div class="spacer">
+</div>
+See the &quot;HOW IT WORKS&quot; section below to see how &quot;IPC::Cmd&quot; decides what modules or function calls to use when issuing a command.</div>
+<div class="subsection">
+<h2>$hashref = run_forked( COMMAND, { child_stdin =&gt; SCALAR, timeout =&gt; DIGIT, stdout_handler =&gt; CODEREF, stderr_handler =&gt; CODEREF} );</h2> &quot;run_forked&quot; is used to execute some program or a coderef, optionally feed it with some input, get its return code and output (both stdout and stderr into separate buffers). In addition, it allows to terminate the program if it takes too long to finish.<div class="spacer">
+</div>
+The important and distinguishing feature of run_forked is execution timeout which at first seems to be quite a simple task but if you think that the program which you're spawning might spawn some children itself (which in their turn could do the same and so on) it turns out to be not a simple issue.<div class="spacer">
+</div>
+&quot;run_forked&quot; is designed to survive and successfully terminate almost any long running task, even a fork bomb in case your system has the resources to survive during given timeout.<div class="spacer">
+</div>
+This is achieved by creating separate watchdog process which spawns the specified program in a separate process session and supervises it: optionally feeds it with input, stores its exit code, stdout and stderr, terminates it in case it runs longer than specified.<div class="spacer">
+</div>
+Invocation requires the command to be executed or a coderef and optionally a hashref of options:<dl>
+<dt>
+&quot;timeout&quot;</dt>
+<dd>
+Specify in seconds how long to run the command before it is killed with with SIG_KILL (9), which effectively terminates it and all of its children (direct or indirect).</dd>
+</dl>
+<dl>
+<dt>
+&quot;child_stdin&quot;</dt>
+<dd>
+Specify some text that will be passed into the &quot;STDIN&quot; of the executed program.</dd>
+</dl>
+<dl>
+<dt>
+&quot;stdout_handler&quot;</dt>
+<dd>
+Coderef of a subroutine to call when a portion of data is received on STDOUT from the executing program.</dd>
+</dl>
+<dl>
+<dt>
+&quot;stderr_handler&quot;</dt>
+<dd>
+Coderef of a subroutine to call when a portion of data is received on STDERR from the executing program.</dd>
+</dl>
+<dl>
+<dt>
+&quot;discard_output&quot;</dt>
+<dd>
+Discards the buffering of the standard output and standard errors for return by <i>run_forked()</i>. With this option you have to use the std*_handlers to read what the command outputs. Useful for commands that send a lot of output.</dd>
+</dl>
+<dl>
+<dt>
+&quot;terminate_on_parent_sudden_death&quot;</dt>
+<dd>
+Enable this option if you wish all spawned processes to be killed if the initially spawned process (the parent) is killed or dies without waiting for child processes.</dd>
+</dl>
+<div class="spacer">
+</div>
+&quot;run_forked&quot; will return a HASHREF with the following keys:<dl>
+<dt>
+&quot;exit_code&quot;</dt>
+<dd>
+The exit code of the executed program.</dd>
+</dl>
+<dl>
+<dt>
+&quot;timeout&quot;</dt>
+<dd>
+The number of seconds the program ran for before being terminated, or 0 if no timeout occurred.</dd>
+</dl>
+<dl>
+<dt>
+&quot;stdout&quot;</dt>
+<dd>
+Holds the standard output of the executed command (or empty string if there was no STDOUT output or if &quot;discard_output&quot; was used; it's always defined!)</dd>
+</dl>
+<dl>
+<dt>
+&quot;stderr&quot;</dt>
+<dd>
+Holds the standard error of the executed command (or empty string if there was no STDERR output or if &quot;discard_output&quot; was used; it's always defined!)</dd>
+</dl>
+<dl>
+<dt>
+&quot;merged&quot;</dt>
+<dd>
+Holds the standard output and error of the executed command merged into one stream (or empty string if there was no output at all or if &quot;discard_output&quot; was used; it's always defined!)</dd>
+</dl>
+<dl>
+<dt>
+&quot;err_msg&quot;</dt>
+<dd>
+Holds some explanation in the case of an error.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>$q = QUOTE</h2> Returns the character used for quoting strings on this platform. This is usually a &quot;'&quot; (single quote) on most systems, but some systems use different quotes. For example, &quot;Win32&quot; uses &quot;&quot;&quot; (double quote).<div class="spacer">
+</div>
+You can use it as follows:<div class="spacer">
+</div>
+<br/>
+  use IPC::Cmd qw[run QUOTE];<br/>
+  my $cmd = q[echo ] . QUOTE . q[foo bar] . QUOTE;<br/>
+<div class="spacer">
+</div>
+This makes sure that &quot;foo bar&quot; is treated as a string, rather than two separate arguments to the &quot;echo&quot; function.<div class="spacer">
+</div>
+__END__</div>
+</div>
+<div class="section">
+<h1>HOW IT WORKS</h1> &quot;run&quot; will try to execute your command using the following logic:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If you have &quot;IPC::Run&quot; installed, and the variable $IPC::Cmd::USE_IPC_RUN is set to true (See the &quot;Global Variables&quot; section) use that to execute the command. You will have the full output available in buffers, interactive commands are sure to work  and you are guaranteed to have your verbosity settings honored cleanly.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Otherwise, if the variable $IPC::Cmd::USE_IPC_OPEN3 is set to true (See the &quot;Global Variables&quot; section), try to execute the command using IPC::Open3. Buffers will be available on all platforms except &quot;Win32&quot;, interactive commands will still execute cleanly, and also your verbosity settings will be adhered to nicely;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Otherwise, if you have the &quot;verbose&quot; argument set to true, we fall back to a simple &quot;system()&quot; call. We cannot capture any buffers, but interactive commands will still work.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Otherwise we will try and temporarily redirect STDERR and STDOUT, do a &quot;system()&quot; call with your command and then re-open STDERR and STDOUT. This is the method of last resort and will still allow you to execute your commands cleanly. However, no buffers will be available.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Global Variables</h1> The behaviour of IPC::Cmd can be altered by changing the following global variables:<div class="subsection">
+<h2>$IPC::Cmd::VERBOSE</h2> This controls whether IPC::Cmd will print any output from the commands to the screen or not. The default is 0.</div>
+<div class="subsection">
+<h2>$IPC::Cmd::USE_IPC_RUN</h2> This variable controls whether IPC::Cmd will try to use IPC::Run when available and suitable. Defaults to true if you are on &quot;Win32&quot;.</div>
+<div class="subsection">
+<h2>$IPC::Cmd::USE_IPC_OPEN3</h2> This variable controls whether IPC::Cmd will try to use IPC::Open3 when available and suitable. Defaults to true.</div>
+<div class="subsection">
+<h2>$IPC::Cmd::WARN</h2> This variable controls whether run-time warnings should be issued, like the failure to load an &quot;IPC::*&quot; module you explicitly requested.<div class="spacer">
+</div>
+Defaults to true. Turn this off at your own risk.</div>
+<div class="subsection">
+<h2>$IPC::Cmd::INSTANCES</h2> This variable controls whether &quot;can_run&quot; will return all instances of the binary it finds in the &quot;PATH&quot; when called in a list context.<div class="spacer">
+</div>
+Defaults to false, set to true to enable the described behaviour.</div>
+</div>
+<div class="section">
+<h1>Caveats</h1><dl>
+<dt>
+Whitespace and IPC::Open3 / <i>system()</i></dt>
+<dd>
+When using &quot;IPC::Open3&quot; or &quot;system&quot;, if you provide a string as the &quot;command&quot; argument, it is assumed to be appropriately escaped. You can use the &quot;QUOTE&quot; constant to use as a portable quote character (see above). However, if you provide an array reference, special rules apply:<div style="height: 1.00em;">
+&#160;</div>
+If your command contains <b>special characters</b> (&lt; &gt; | &amp;), it will be internally stringified before executing the command, to avoid that these special characters are escaped and passed as arguments instead of retaining their special meaning.<div style="height: 1.00em;">
+&#160;</div>
+However, if the command contained arguments that contained whitespace, stringifying the command would loose the significance of the whitespace. Therefore, &quot;IPC::Cmd&quot; will quote any arguments containing whitespace in your command if the command is passed as an arrayref and contains special characters.</dd>
+</dl>
+<dl>
+<dt>
+Whitespace and IPC::Run</dt>
+<dd>
+When using &quot;IPC::Run&quot;, if you provide a string as the &quot;command&quot; argument, the string will be split on whitespace to determine the individual elements of your command. Although this will usually just Do What You Mean, it may break if you have files or commands with whitespace in them.<div style="height: 1.00em;">
+&#160;</div>
+If you do not wish this to happen, you should provide an array reference, where all parts of your command are already separated out. Note however, if there are extra or spurious whitespaces in these parts, the parser or underlying code may not interpret it correctly, and cause an error.<div style="height: 1.00em;">
+&#160;</div>
+Example: The following code<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    gzip -cdf foo.tar.gz | tar -xf -<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+should either be passed as<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    &quot;gzip -cdf foo.tar.gz | tar -xf -&quot;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+or as<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    ['gzip', '-cdf', 'foo.tar.gz', '|', 'tar', '-xf', '-']<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+But take care not to pass it as, for example<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    ['gzip -cdf foo.tar.gz', '|', 'tar -xf -']<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Since this will lead to issues as described above.</dd>
+</dl>
+<dl>
+<dt>
+IO Redirect</dt>
+<dd>
+Currently it is too complicated to parse your command for IO redirections. For capturing STDOUT or STDERR there is a work around however, since you can just inspect your buffers for the contents.</dd>
+</dl>
+<dl>
+<dt>
+Interleaving STDOUT/STDERR</dt>
+<dd>
+Neither IPC::Run nor IPC::Open3 can interleave STDOUT and STDERR. For short bursts of output from a program, e.g. this sample,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    for ( 1..4 ) {<br/>
+        $_ % 2 ? print STDOUT $_ : print STDERR $_;<br/>
+    }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+IPC::[Run|Open3] will first read all of STDOUT, then all of STDERR, meaning the output looks like '13' on STDOUT and '24' on STDERR, instead of<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    1<br/>
+    2<br/>
+    3<br/>
+    4<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This has been recorded in rt.cpan.org as bug #37532: Unable to interleave STDOUT and STDERR.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>See Also</h1> IPC::Run, IPC::Open3</div>
+<div class="section">
+<h1>ACKNOWLEDGEMENTS</h1> Thanks to James Mastros and Martijn van der Streek for their help in getting IPC::Open3 to behave nicely.<div class="spacer">
+</div>
+Thanks to Petya Kohts for the &quot;run_forked&quot; code.</div>
+<div class="section">
+<h1>BUG REPORTS</h1> Please report bugs or other issues to &lt;bug-ipc-cmd@rt.cpan.org&gt;.</div>
+<div class="section">
+<h1>AUTHOR</h1> Original author: Jos Boumans &lt;kane@cpan.org&gt;. Current maintainer: Chris Williams &lt;bingos@cpan.org&gt;.</div>
+<div class="section">
+<h1>COPYRIGHT</h1> This library is free software; you may redistribute and/or modify it under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

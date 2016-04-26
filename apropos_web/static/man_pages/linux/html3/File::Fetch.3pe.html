@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+File::Fetch(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+File::Fetch(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+File::Fetch(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> File::Fetch - A generic file fetching mechanism</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    use File::Fetch;<br/>
+<br/>
+    ### build a File::Fetch object ###<br/>
+    my $ff = File::Fetch-&gt;new(uri =&gt; 'http://some.where.com/dir/a.txt');<br/>
+<br/>
+    ### fetch the uri to cwd() ###<br/>
+    my $where = $ff-&gt;fetch() or die $ff-&gt;error;<br/>
+<br/>
+    ### fetch the uri to /tmp ###<br/>
+    my $where = $ff-&gt;fetch( to =&gt; '/tmp' );<br/>
+<br/>
+    ### parsed bits from the uri ###<br/>
+    $ff-&gt;uri;<br/>
+    $ff-&gt;scheme;<br/>
+    $ff-&gt;host;<br/>
+    $ff-&gt;path;<br/>
+    $ff-&gt;file;<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> File::Fetch is a generic file fetching mechanism.<div class="spacer">
+</div>
+It allows you to fetch any file pointed to by a &quot;ftp&quot;, &quot;http&quot;, &quot;file&quot;, or &quot;rsync&quot; uri by a number of different means.<div class="spacer">
+</div>
+See the &quot;HOW IT WORKS&quot; section further down for details.</div>
+<div class="section">
+<h1>ACCESSORS</h1> A &quot;File::Fetch&quot; object has the following accessors<dl>
+<dt>
+$ff-&gt;uri</dt>
+<dd>
+The uri you passed to the constructor</dd>
+</dl>
+<dl>
+<dt>
+$ff-&gt;scheme</dt>
+<dd>
+The scheme from the uri (like 'file', 'http', etc)</dd>
+</dl>
+<dl>
+<dt>
+$ff-&gt;host</dt>
+<dd>
+The hostname in the uri.  Will be empty if host was originally 'localhost' for a 'file://' url.</dd>
+</dl>
+<dl>
+<dt>
+$ff-&gt;vol</dt>
+<dd>
+On operating systems with the concept of a volume the second element of a file:// is considered to the be volume specification for the file. Thus on Win32 this routine returns the volume, on other operating systems this returns nothing.<div style="height: 1.00em;">
+&#160;</div>
+On Windows this value may be empty if the uri is to a network share, in which case the 'share' property will be defined. Additionally, volume specifications that use '|' as ':' will be converted on read to use ':'.<div style="height: 1.00em;">
+&#160;</div>
+On VMS, which has a volume concept, this field will be empty because VMS file specifications are converted to absolute UNIX format and the volume information is transparently included.</dd>
+</dl>
+<dl>
+<dt>
+$ff-&gt;share</dt>
+<dd>
+On systems with the concept of a network share (currently only Windows) returns the sharename from a file://// url.  On other operating systems returns empty.</dd>
+</dl>
+<dl>
+<dt>
+$ff-&gt;path</dt>
+<dd>
+The path from the uri, will be at least a single '/'.</dd>
+</dl>
+<dl>
+<dt>
+$ff-&gt;file</dt>
+<dd>
+The name of the remote file. For the local file name, the result of $ff-&gt;output_file will be used.</dd>
+</dl>
+<dl>
+<dt>
+$ff-&gt;output_file</dt>
+<dd>
+The name of the output file. This is the same as $ff-&gt;file, but any query parameters are stripped off. For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    http://example.com/index.html?x=y<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+would make the output file be &quot;index.html&quot; rather than &quot;index.html?x=y&quot;.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>METHODS</h1><div class="subsection">
+<h2>$ff = File::Fetch-&gt;new( uri =&gt; 'http://some.where.com/dir/file.txt' );</h2> Parses the uri and creates a corresponding File::Fetch::Item object, that is ready to be &quot;fetch&quot;ed and returns it.<div class="spacer">
+</div>
+Returns false on failure.</div>
+<div class="subsection">
+<h2>$where = $ff-&gt;fetch( [to =&gt; /my/output/dir/ | \$scalar] )</h2> Fetches the file you requested and returns the full path to the file.<div class="spacer">
+</div>
+By default it writes to &quot;cwd()&quot;, but you can override that by specifying the &quot;to&quot; argument:<div class="spacer">
+</div>
+<br/>
+    ### file fetch to /tmp, full path to the file in $where<br/>
+    $where = $ff-&gt;fetch( to =&gt; '/tmp' );<br/>
+<br/>
+    ### file slurped into $scalar, full path to the file in $where<br/>
+    ### file is downloaded to a temp directory and cleaned up at exit time<br/>
+    $where = $ff-&gt;fetch( to =&gt; \$scalar );<br/>
+<div class="spacer">
+</div>
+Returns the full path to the downloaded file on success, and false on failure.</div>
+<div class="subsection">
+<h2>$ff-&gt;error([BOOL])</h2> Returns the last encountered error as string. Pass it a true value to get the &quot;Carp::longmess()&quot; output instead.</div>
+</div>
+<div class="section">
+<h1>HOW IT WORKS</h1> File::Fetch is able to fetch a variety of uris, by using several external programs and modules.<div class="spacer">
+</div>
+Below is a mapping of what utilities will be used in what order for what schemes, if available:<div class="spacer">
+</div>
+<br/>
+    file    =&gt; LWP, lftp, file<br/>
+    http    =&gt; LWP, HTTP::Lite, wget, curl, lftp, fetch, lynx, iosock<br/>
+    ftp     =&gt; LWP, Net::FTP, wget, curl, lftp, fetch, ncftp, ftp<br/>
+    rsync   =&gt; rsync<br/>
+<div class="spacer">
+</div>
+If you'd like to disable the use of one or more of these utilities and/or modules, see the $BLACKLIST variable further down.<div class="spacer">
+</div>
+If a utility or module isn't available, it will be marked in a cache (see the $METHOD_FAIL variable further down), so it will not be tried again. The &quot;fetch&quot; method will only fail when all options are exhausted, and it was not able to retrieve the file.<div class="spacer">
+</div>
+The &quot;fetch&quot; utility is available on FreeBSD. NetBSD and Dragonfly BSD may also have it from &quot;pkgsrc&quot;. We only check for &quot;fetch&quot; on those three platforms.<div class="spacer">
+</div>
+&quot;iosock&quot; is a very limited IO::Socket::INET based mechanism for retrieving &quot;http&quot; schemed urls. It doesn't follow redirects for instance.<div class="spacer">
+</div>
+A special note about fetching files from an ftp uri:<div class="spacer">
+</div>
+By default, all ftp connections are done in passive mode. To change that, see the $FTP_PASSIVE variable further down.<div class="spacer">
+</div>
+Furthermore, ftp uris only support anonymous connections, so no named user/password pair can be passed along.<div class="spacer">
+</div>
+&quot;/bin/ftp&quot; is blacklisted by default; see the $BLACKLIST variable further down.</div>
+<div class="section">
+<h1>GLOBAL VARIABLES</h1> The behaviour of File::Fetch can be altered by changing the following global variables:<div class="subsection">
+<h2>$File::Fetch::FROM_EMAIL</h2> This is the email address that will be sent as your anonymous ftp password.<div class="spacer">
+</div>
+Default is &quot;File-Fetch@example.com&quot;.</div>
+<div class="subsection">
+<h2>$File::Fetch::USER_AGENT</h2> This is the useragent as &quot;LWP&quot; will report it.<div class="spacer">
+</div>
+Default is &quot;File::Fetch/$VERSION&quot;.</div>
+<div class="subsection">
+<h2>$File::Fetch::FTP_PASSIVE</h2> This variable controls whether the environment variable &quot;FTP_PASSIVE&quot; and any passive switches to commandline tools will be set to true.<div class="spacer">
+</div>
+Default value is 1.<div class="spacer">
+</div>
+Note: When $FTP_PASSIVE is true, &quot;ncftp&quot; will not be used to fetch files, since passive mode can only be set interactively for this binary</div>
+<div class="subsection">
+<h2>$File::Fetch::TIMEOUT</h2> When set, controls the network timeout (counted in seconds).<div class="spacer">
+</div>
+Default value is 0.</div>
+<div class="subsection">
+<h2>$File::Fetch::WARN</h2> This variable controls whether errors encountered internally by &quot;File::Fetch&quot; should be &quot;carp&quot;'d or not.<div class="spacer">
+</div>
+Set to false to silence warnings. Inspect the output of the &quot;error()&quot; method manually to see what went wrong.<div class="spacer">
+</div>
+Defaults to &quot;true&quot;.</div>
+<div class="subsection">
+<h2>$File::Fetch::DEBUG</h2> This enables debugging output when calling commandline utilities to fetch files. This also enables &quot;Carp::longmess&quot; errors, instead of the regular &quot;carp&quot; errors.<div class="spacer">
+</div>
+Good for tracking down why things don't work with your particular setup.<div class="spacer">
+</div>
+Default is 0.</div>
+<div class="subsection">
+<h2>$File::Fetch::BLACKLIST</h2> This is an array ref holding blacklisted modules/utilities for fetching files with.<div class="spacer">
+</div>
+To disallow the use of, for example, &quot;LWP&quot; and &quot;Net::FTP&quot;, you could set $File::Fetch::BLACKLIST to:<div class="spacer">
+</div>
+<br/>
+    $File::Fetch::BLACKLIST = [qw|lwp netftp|]<br/>
+<div class="spacer">
+</div>
+The default blacklist is [qw|ftp|], as &quot;/bin/ftp&quot; is rather unreliable.<div class="spacer">
+</div>
+See the note on &quot;MAPPING&quot; below.</div>
+<div class="subsection">
+<h2>$File::Fetch::METHOD_FAIL</h2> This is a hashref registering what modules/utilities were known to fail for fetching files (mostly because they weren't installed).<div class="spacer">
+</div>
+You can reset this cache by assigning an empty hashref to it, or individually remove keys.<div class="spacer">
+</div>
+See the note on &quot;MAPPING&quot; below.</div>
+</div>
+<div class="section">
+<h1>MAPPING</h1> Here's a quick mapping for the utilities/modules, and their names for the $BLACKLIST, $METHOD_FAIL and other internal functions.<div class="spacer">
+</div>
+<br/>
+    LWP         =&gt; lwp<br/>
+    HTTP::Lite  =&gt; httplite<br/>
+    HTTP::Tiny  =&gt; httptiny<br/>
+    Net::FTP    =&gt; netftp<br/>
+    wget        =&gt; wget<br/>
+    lynx        =&gt; lynx<br/>
+    ncftp       =&gt; ncftp<br/>
+    ftp         =&gt; ftp<br/>
+    curl        =&gt; curl<br/>
+    rsync       =&gt; rsync<br/>
+    lftp        =&gt; lftp<br/>
+    fetch       =&gt; fetch<br/>
+    IO::Socket  =&gt; iosock<br/>
+</div>
+<div class="section">
+<h1>FREQUENTLY ASKED QUESTIONS</h1><div class="subsection">
+<h2>So how do I use a proxy with File::Fetch?</h2> &quot;File::Fetch&quot; currently only supports proxies with LWP::UserAgent. You will need to set your environment variables accordingly. For example, to use an ftp proxy:<div class="spacer">
+</div>
+<br/>
+    $ENV{ftp_proxy} = 'foo.com';<br/>
+<div class="spacer">
+</div>
+Refer to the LWP::UserAgent manpage for more details.</div>
+<div class="subsection">
+<h2>I used 'lynx' to fetch a file, but its contents is all wrong!</h2> &quot;lynx&quot; can only fetch remote files by dumping its contents to &quot;STDOUT&quot;, which we in turn capture. If that content is a 'custom' error file (like, say, a &quot;404 handler&quot;), you will get that contents instead.<div class="spacer">
+</div>
+Sadly, &quot;lynx&quot; doesn't support any options to return a different exit code on non-&quot;200 OK&quot; status, giving us no way to tell the difference between a 'successful' fetch and a custom error page.<div class="spacer">
+</div>
+Therefor, we recommend to only use &quot;lynx&quot; as a last resort. This is why it is at the back of our list of methods to try as well.</div>
+<div class="subsection">
+<h2>Files I'm trying to fetch have reserved characters or non-ASCII characters in them. What do I do?</h2> &quot;File::Fetch&quot; is relatively smart about things. When trying to write a file to disk, it removes the &quot;query parameters&quot; (see the &quot;output_file&quot; method for details) from the file name before creating it. In most cases this suffices.<div class="spacer">
+</div>
+If you have any other characters you need to escape, please install the &quot;URI::Escape&quot; module from CPAN, and pre-encode your URI before passing it to &quot;File::Fetch&quot;. You can read about the details of URIs and URI encoding here:<div class="spacer">
+</div>
+<br/>
+  http://www.faqs.org/rfcs/rfc2396.html<br/>
+</div>
+</div>
+<div class="section">
+<h1>TODO</h1><dl>
+<dt>
+Implement $PREFER_BIN</dt>
+<dd>
+To indicate to rather use commandline tools than modules</dd>
+</dl>
+</div>
+<div class="section">
+<h1>BUG REPORTS</h1> Please report bugs or other issues to &lt;bug-file-fetch@rt.cpan.org&lt;gt&gt;.</div>
+<div class="section">
+<h1>AUTHOR</h1> This module by Jos Boumans &lt;kane@cpan.org&gt;.</div>
+<div class="section">
+<h1>COPYRIGHT</h1> This library is free software; you may redistribute and/or modify it under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-19</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

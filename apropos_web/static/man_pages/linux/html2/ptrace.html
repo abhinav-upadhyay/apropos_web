@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PTRACE(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PTRACE(2)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+PTRACE(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> ptrace - process trace</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;sys/ptrace.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>long ptrace(enum __ptrace_request </b><i>request</i><b>, pid_t </b><i>pid</i><b>, </b><br/>
+<b>            void *</b><i>addr</i><b>, void *</b><i>data</i><b>);</b><br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The <b>ptrace</b>() system call provides a means by which a parent process may observe and control the execution of another process, and examine and change its core image and registers. It is primarily used to implement breakpoint debugging and system call tracing.<div class="spacer">
+</div>
+The parent can initiate a trace by calling <b>fork</b>(2) and having the resulting child do a <b>PTRACE_TRACEME</b>, followed (typically) by an <b>exec</b>(3). Alternatively, the parent may commence trace of an existing process using <b>PTRACE_ATTACH</b>. (See additional notes below.)<div class="spacer">
+</div>
+While being traced, the child will stop each time a signal is delivered, even if the signal is being ignored. (The exception is <b>SIGKILL</b>, which has its usual effect.) The parent will be notified at its next <b>wait</b>(2) and may inspect and modify the child process while it is stopped. The parent then causes the child to continue, optionally ignoring the delivered signal (or even delivering a different signal instead).<div class="spacer">
+</div>
+When the parent is finished tracing, it can terminate the child with <b>PTRACE_KILL</b> or cause it to continue executing in a normal, untraced mode via <b>PTRACE_DETACH</b>.<div class="spacer">
+</div>
+The value of <i>request</i> determines the action to be performed:<dl>
+<dt>
+<b>PTRACE_TRACEME</b></dt>
+<dd>
+Indicates that this process is to be traced by its parent. Any signal (except <b>SIGKILL</b>) delivered to this process will cause it to stop and its parent to be notified via <b>wait</b>(2). Also, all subsequent calls to <b>execve</b>(2) by this process will cause a <b>SIGTRAP</b> to be sent to it, giving the parent a chance to gain control before the new program begins execution. A process probably shouldn't make this request if its parent isn't expecting to trace it. ( <i>pid</i>, <i>addr</i>, and <i>data</i> are ignored.)</dd>
+</dl>
+<div class="spacer">
+</div>
+The above request is used only by the child process; the rest are used only by the parent. In the following requests,  <i>pid</i> specifies the child process to be acted on. For requests other than <b>PTRACE_KILL</b>, the child process must be stopped.<dl>
+<dt>
+<b>PTRACE_PEEKTEXT</b>, <b>PTRACE_PEEKDATA</b></dt>
+<dd>
+Reads a word at the location <i>addr</i> in the child's memory, returning the word as the result of the <b>ptrace</b>() call. Linux does not have separate text and data address spaces, so the two requests are currently equivalent. (The argument  <i>data</i> is ignored.)</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_PEEKUSER</b></dt>
+<dd>
+Reads a word at offset <i>addr</i> in the child's USER area, which holds the registers and other information about the process (see  <i>&lt;sys/user.h&gt;</i>). The word is returned as the result of the <b>ptrace</b>() call. Typically the offset must be word-aligned, though this might vary by architecture. See NOTES. ( <i>data</i> is ignored.)</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_POKETEXT</b>, <b>PTRACE_POKEDATA</b></dt>
+<dd>
+Copies the word <i>data</i> to location <i>addr</i> in the child's memory. As above, the two requests are currently equivalent.</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_POKEUSER</b></dt>
+<dd>
+Copies the word <i>data</i> to offset <i>addr</i> in the child's USER area. As above, the offset must typically be word-aligned. In order to maintain the integrity of the kernel, some modifications to the USER area are disallowed.</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_GETREGS</b>, <b>PTRACE_GETFPREGS</b></dt>
+<dd>
+Copies the child's general purpose or floating-point registers, respectively, to location  <i>data</i> in the parent. See  <i>&lt;sys/user.h&gt;</i> for information on the format of this data. ( <i>addr</i> is ignored.)</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_GETSIGINFO</b> (since Linux 2.3.99-pre6)</dt>
+<dd>
+Retrieve information about the signal that caused the stop. Copies a  <i>siginfo_t</i> structure (see <b>sigaction</b>(2)) from the child to location  <i>data</i> in the parent. ( <i>addr</i> is ignored.)</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_SETREGS</b>, <b>PTRACE_SETFPREGS</b></dt>
+<dd>
+Copies the child's general purpose or floating-point registers, respectively, from location  <i>data</i> in the parent. As for <b>PTRACE_POKEUSER</b>, some general purpose register modifications may be disallowed. ( <i>addr</i> is ignored.)</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_SETSIGINFO</b> (since Linux 2.3.99-pre6)</dt>
+<dd>
+Set signal information. Copies a  <i>siginfo_t</i> structure from location <i>data</i> in the parent to the child. This will only affect signals that would normally be delivered to the child and were caught by the tracer. It may be difficult to tell these normal signals from synthetic signals generated by <b>ptrace</b>() itself. ( <i>addr</i> is ignored.)</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_SETOPTIONS</b> (since Linux 2.4.6; see BUGS for caveats)</dt>
+<dd>
+Sets ptrace options from <i>data</i> in the parent. ( <i>addr</i> is ignored.)  <i>data</i> is interpreted as a bit mask of options, which are specified by the following flags:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>PTRACE_O_TRACESYSGOOD</b> (since Linux 2.4.6)</dt>
+<dd>
+When delivering syscall traps, set bit 7 in the signal number (i.e., deliver  <i>SIGTRAP | 0x80</i>). This makes it easy for the tracer to tell the difference between normal traps and those caused by a syscall. (<b>PTRACE_O_TRACESYSGOOD</b> may not work on all architectures.)</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_O_TRACEFORK</b> (since Linux 2.5.46)</dt>
+<dd>
+Stop the child at the next <b>fork</b>(2) call with  <i>SIGTRAP | PTRACE_EVENT_FORK&#160;&lt;&lt;&#160;8</i> and automatically start tracing the newly forked process, which will start with a <b>SIGSTOP</b>. The PID for the new process can be retrieved with <b>PTRACE_GETEVENTMSG</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_O_TRACEVFORK</b> (since Linux 2.5.46)</dt>
+<dd>
+Stop the child at the next <b>vfork</b>(2) call with  <i>SIGTRAP | PTRACE_EVENT_VFORK&#160;&lt;&lt;&#160;8</i> and automatically start tracing the newly vforked process, which will start with a <b>SIGSTOP</b>. The PID for the new process can be retrieved with <b>PTRACE_GETEVENTMSG</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_O_TRACECLONE</b> (since Linux 2.5.46)</dt>
+<dd>
+Stop the child at the next <b>clone</b>(2) call with  <i>SIGTRAP | PTRACE_EVENT_CLONE&#160;&lt;&lt;&#160;8</i> and automatically start tracing the newly cloned process, which will start with a <b>SIGSTOP</b>. The PID for the new process can be retrieved with <b>PTRACE_GETEVENTMSG</b>. This option may not catch <b>clone</b>(2) calls in all cases. If the child calls <b>clone</b>(2) with the <b>CLONE_VFORK</b> flag, <b>PTRACE_EVENT_VFORK</b> will be delivered instead if <b>PTRACE_O_TRACEVFORK</b> is set; otherwise if the child calls <b>clone</b>(2) with the exit signal set to <b>SIGCHLD</b>, <b>PTRACE_EVENT_FORK</b> will be delivered if <b>PTRACE_O_TRACEFORK</b> is set.</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_O_TRACEEXEC</b> (since Linux 2.5.46)</dt>
+<dd>
+Stop the child at the next <b>execve</b>(2) call with  <i>SIGTRAP | PTRACE_EVENT_EXEC&#160;&lt;&lt;&#160;8</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_O_TRACEVFORKDONE</b> (since Linux 2.5.60)</dt>
+<dd>
+Stop the child at the completion of the next <b>vfork</b>(2) call with  <i>SIGTRAP | PTRACE_EVENT_VFORK_DONE&#160;&lt;&lt;&#160;8</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_O_TRACEEXIT</b> (since Linux 2.5.60)</dt>
+<dd>
+Stop the child at exit with <i>SIGTRAP | PTRACE_EVENT_EXIT&#160;&lt;&lt;&#160;8</i>. The child's exit status can be retrieved with <b>PTRACE_GETEVENTMSG</b>. This stop will be done early during process exit when registers are still available, allowing the tracer to see where the exit occurred, whereas the normal exit notification is done after the process is finished exiting. Even though context is available, the tracer cannot prevent the exit from happening at this point.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<b>PTRACE_GETEVENTMSG</b> (since Linux 2.5.46)</dt>
+<dd>
+Retrieve a message (as an <i>unsigned long</i>) about the ptrace event that just happened, placing it in the location  <i>data</i> in the parent. For <b>PTRACE_EVENT_EXIT</b> this is the child's exit status. For <b>PTRACE_EVENT_FORK</b>, <b>PTRACE_EVENT_VFORK</b> and <b>PTRACE_EVENT_CLONE</b> this is the PID of the new process. Since Linux 2.6.18, the PID of the new process is also available for <b>PTRACE_EVENT_VFORK_DONE</b>. ( <i>addr</i> is ignored.)</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_CONT</b></dt>
+<dd>
+Restarts the stopped child process. If  <i>data</i> is nonzero and not <b>SIGSTOP</b>, it is interpreted as a signal to be delivered to the child; otherwise, no signal is delivered. Thus, for example, the parent can control whether a signal sent to the child is delivered or not. ( <i>addr</i> is ignored.)</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_SYSCALL</b>, <b>PTRACE_SINGLESTEP</b></dt>
+<dd>
+Restarts the stopped child as for <b>PTRACE_CONT</b>, but arranges for the child to be stopped at the next entry to or exit from a system call, or after execution of a single instruction, respectively. (The child will also, as usual, be stopped upon receipt of a signal.) From the parent's perspective, the child will appear to have been stopped by receipt of a <b>SIGTRAP</b>. So, for <b>PTRACE_SYSCALL</b>, for example, the idea is to inspect the arguments to the system call at the first stop, then do another <b>PTRACE_SYSCALL</b> and inspect the return value of the system call at the second stop. The <i>data</i> argument is treated as for <b>PTRACE_CONT</b>. ( <i>addr</i> is ignored.)</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_SYSEMU</b>, <b>PTRACE_SYSEMU_SINGLESTEP</b> (since Linux 2.6.14)</dt>
+<dd>
+For <b>PTRACE_SYSEMU</b>, continue and stop on entry to the next syscall, which will not be executed. For <b>PTRACE_SYSEMU_SINGLESTEP</b>, do the same but also singlestep if not a syscall. This call is used by programs like User Mode Linux that want to emulate all the child's system calls. The <i>data</i> argument is treated as for <b>PTRACE_CONT</b>. ( <i>addr</i> is ignored; not supported on all architectures.)</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_KILL</b></dt>
+<dd>
+Sends the child a <b>SIGKILL</b> to terminate it. ( <i>addr</i> and <i>data</i> are ignored.)</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_ATTACH</b></dt>
+<dd>
+Attaches to the process specified in <i>pid</i>, making it a traced &quot;child&quot; of the calling process; the behavior of the child is as if it had done a <b>PTRACE_TRACEME</b>. The calling process actually becomes the parent of the child process for most purposes (e.g., it will receive notification of child events and appears in <b>ps</b>(1) output as the child's parent), but a <b>getppid</b>(2) by the child will still return the PID of the original parent. The child is sent a <b>SIGSTOP</b>, but will not necessarily have stopped by the completion of this call; use <b>wait</b>(2) to wait for the child to stop. ( <i>addr</i> and <i>data</i> are ignored.)</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+Since Ubuntu 10.10, <b>PTRACE_ATTACH</b> is not allowed against arbitrary matching-uid processes. The traced &quot;child&quot; must be a descendant of the tracer or must have called <b>prctl</b>(2) using <b>PR_SET_PTRACER</b>, with the pid of the tracer (or one of its ancestors). For more details, see  <i>/etc/sysctl.d/10-ptrace.conf</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>PTRACE_DETACH</b></dt>
+<dd>
+Restarts the stopped child as for <b>PTRACE_CONT</b>, but first detaches from the process, undoing the reparenting effect of <b>PTRACE_ATTACH</b>, and the effects of <b>PTRACE_TRACEME</b>. Although perhaps not intended, under Linux a traced child can be detached in this way regardless of which method was used to initiate tracing. ( <i>addr</i> is ignored.)</dd>
+</dl>
+</div>
+<div class="section">
+<h1>RETURN VALUE</h1> On success, <b>PTRACE_PEEK*</b> requests return the requested data, while other requests return zero. On error, all requests return -1, and <i>errno</i> is set appropriately. Since the value returned by a successful <b>PTRACE_PEEK*</b> request may be -1, the caller must check <i>errno</i> after such requests to determine whether or not an error occurred.</div>
+<div class="section">
+<h1>ERRORS</h1><dl>
+<dt>
+<b>EBUSY</b></dt>
+<dd>
+(i386 only) There was an error with allocating or freeing a debug register.</dd>
+</dl>
+<dl>
+<dt>
+<b>EFAULT</b></dt>
+<dd>
+There was an attempt to read from or write to an invalid area in the parent's or child's memory, probably because the area wasn't mapped or accessible. Unfortunately, under Linux, different variations of this fault will return <b>EIO</b> or <b>EFAULT</b> more or less arbitrarily.</dd>
+</dl>
+<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+An attempt was made to set an invalid option.</dd>
+</dl>
+<dl>
+<dt>
+<b>EIO</b></dt>
+<dd>
+<i>request</i> is invalid, or an attempt was made to read from or write to an invalid area in the parent's or child's memory, or there was a word-alignment violation, or an invalid signal was specified during a restart request.</dd>
+</dl>
+<dl>
+<dt>
+<b>EPERM</b></dt>
+<dd>
+The specified process cannot be traced. This could be because the parent has insufficient privileges (the required capability is <b>CAP_SYS_PTRACE</b>); unprivileged processes cannot trace processes that they cannot send signals to or those running set-user-ID/set-group-ID programs, for obvious reasons. Alternatively, the process may already be being traced, or be <b>init</b>(8) (PID 1).</dd>
+</dl>
+<dl>
+<dt>
+<b>ESRCH</b></dt>
+<dd>
+The specified process does not exist, or is not currently being traced by the caller, or is not stopped (for requests that require that).</dd>
+</dl>
+</div>
+<div class="section">
+<h1>CONFORMING TO</h1> SVr4, 4.3BSD.</div>
+<div class="section">
+<h1>NOTES</h1> Although arguments to <b>ptrace</b>() are interpreted according to the prototype given, glibc currently declares <b>ptrace</b>() as a variadic function with only the  <i>request</i> argument fixed. This means that unneeded trailing arguments may be omitted, though doing so makes use of undocumented <b>gcc</b>(1) behavior.<div class="spacer">
+</div>
+<b>init</b>(8), the process with PID 1, may not be traced.<div class="spacer">
+</div>
+The layout of the contents of memory and the USER area are quite OS- and architecture-specific. The offset supplied, and the data returned, might not entirely match with the definition of <i>struct user</i>.<div class="spacer">
+</div>
+The size of a &quot;word&quot; is determined by the OS variant (e.g., for 32-bit Linux it is 32 bits, etc.).<div class="spacer">
+</div>
+Tracing causes a few subtle differences in the semantics of traced processes. For example, if a process is attached to with <b>PTRACE_ATTACH</b>, its original parent can no longer receive notification via <b>wait</b>(2) when it stops, and there is no way for the new parent to effectively simulate this notification.<div class="spacer">
+</div>
+When the parent receives an event with <b>PTRACE_EVENT_*</b> set, the child is not in the normal signal delivery path. This means the parent cannot do <b>ptrace</b>(PTRACE_CONT) with a signal or <b>ptrace</b>(PTRACE_KILL). <b>kill</b>(2) with a <b>SIGKILL</b> signal can be used instead to kill the child process after receiving one of these messages.<div class="spacer">
+</div>
+This page documents the way the <b>ptrace</b>() call works currently in Linux. Its behavior differs noticeably on other flavors of UNIX. In any case, use of <b>ptrace</b>() is highly OS- and architecture-specific.<div class="spacer">
+</div>
+The SunOS man page describes <b>ptrace</b>() as &quot;unique and arcane&quot;, which it is. The proc-based debugging interface present in Solaris 2 implements a superset of <b>ptrace</b>() functionality in a more powerful and uniform way.</div>
+<div class="section">
+<h1>BUGS</h1> On hosts with 2.6 kernel headers, <b>PTRACE_SETOPTIONS</b> is declared with a different value than the one for 2.4. This leads to applications compiled with such headers failing when run on 2.4 kernels. This can be worked around by redefining <b>PTRACE_SETOPTIONS</b> to <b>PTRACE_OLDSETOPTIONS</b>, if that is defined.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>gdb</b>(1), <b>strace</b>(1), <b>execve</b>(2), <b>fork</b>(2), <b>signal</b>(2), <b>wait</b>(2), <b>exec</b>(3), <b>capabilities</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2009-03-30</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

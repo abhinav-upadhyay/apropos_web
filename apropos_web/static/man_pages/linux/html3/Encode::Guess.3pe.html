@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Encode::Guess(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Encode::Guess(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+Encode::Guess(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Encode::Guess -- Guesses encoding from data</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  # if you are sure $data won't contain anything bogus<br/>
+<br/>
+  use Encode;<br/>
+  use Encode::Guess qw/euc-jp shiftjis 7bit-jis/;<br/>
+  my $utf8 = decode(&quot;Guess&quot;, $data);<br/>
+  my $data = encode(&quot;Guess&quot;, $utf8);   # this doesn't work!<br/>
+<br/>
+  # more elaborate way<br/>
+  use Encode::Guess;<br/>
+  my $enc = guess_encoding($data, qw/euc-jp shiftjis 7bit-jis/);<br/>
+  ref($enc) or die &quot;Can't guess: $enc&quot;; # trap error this way<br/>
+  $utf8 = $enc-&gt;decode($data);<br/>
+  # or<br/>
+  $utf8 = decode($enc-&gt;name, $data)<br/>
+</div>
+<div class="section">
+<h1>ABSTRACT</h1> Encode::Guess enables you to guess in what encoding a given data is encoded, or at least tries to.</div>
+<div class="section">
+<h1>DESCRIPTION</h1> By default, it checks only ascii, utf8 and UTF-16/32 with BOM.<div class="spacer">
+</div>
+<br/>
+  use Encode::Guess; # ascii/utf8/BOMed UTF<br/>
+<div class="spacer">
+</div>
+To use it more practically, you have to give the names of encodings to check ( <i>suspects</i> as follows).  The name of suspects can either be canonical names or aliases.<div class="spacer">
+</div>
+CAVEAT: Unlike UTF-(16|32), BOM in utf8 is NOT AUTOMATICALLY STRIPPED.<div class="spacer">
+</div>
+<br/>
+ # tries all major Japanese Encodings as well<br/>
+  use Encode::Guess qw/euc-jp shiftjis 7bit-jis/;<br/>
+<div class="spacer">
+</div>
+If the $Encode::Guess::NoUTFAutoGuess variable is set to a true value, no heuristics will be applied to UTF8/16/32, and the result will be limited to the suspects and &quot;ascii&quot;.<dl>
+<dt>
+Encode::Guess-&gt;set_suspects</dt>
+<dd>
+You can also change the internal suspects list via &quot;set_suspects&quot; method.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  use Encode::Guess;<br/>
+  Encode::Guess-&gt;set_suspects(qw/euc-jp shiftjis 7bit-jis/);<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+Encode::Guess-&gt;add_suspects</dt>
+<dd>
+Or you can use &quot;add_suspects&quot; method.  The difference is that &quot;set_suspects&quot; flushes the current suspects list while &quot;add_suspects&quot; adds.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  use Encode::Guess;<br/>
+  Encode::Guess-&gt;add_suspects(qw/euc-jp shiftjis 7bit-jis/);<br/>
+  # now the suspects are euc-jp,shiftjis,7bit-jis, AND<br/>
+  # euc-kr,euc-cn, and big5-eten<br/>
+  Encode::Guess-&gt;add_suspects(qw/euc-kr euc-cn big5-eten/);<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+Encode::decode(&quot;Guess&quot; ...)</dt>
+<dd>
+When you are content with suspects list, you can now<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  my $utf8 = Encode::decode(&quot;Guess&quot;, $data);<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+Encode::Guess-&gt;guess($data)</dt>
+<dd>
+But it will croak if:</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Two or more suspects remain</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+No suspects left</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+<div style="height: 1.00em;">
+&#160;</div>
+So you should instead try this;<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  my $decoder = Encode::Guess-&gt;guess($data);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+On success, $decoder is an object that is documented in Encode::Encoding.  So you can now do this;<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  my $utf8 = $decoder-&gt;decode($data);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+On failure, $decoder now contains an error message so the whole thing would be as follows;<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  my $decoder = Encode::Guess-&gt;guess($data);<br/>
+  die $decoder unless ref($decoder);<br/>
+  my $utf8 = $decoder-&gt;decode($data);<br/>
+</div>
+<dl>
+<dt>
+guess_encoding($data, [, <i>list of suspects</i>])</dt>
+<dd>
+You can also try &quot;guess_encoding&quot; function which is exported by default.  It takes $data to check and it also takes the list of suspects by option.  The optional suspect list is  <i>not reflected</i> to the internal suspects list.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  my $decoder = guess_encoding($data, qw/euc-jp euc-kr euc-cn/);<br/>
+  die $decoder unless ref($decoder);<br/>
+  my $utf8 = $decoder-&gt;decode($data);<br/>
+  # check only ascii, utf8 and UTF-(16|32) with BOM<br/>
+  my $decoder = guess_encoding($data);<br/>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1>CAVEATS</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Because of the algorithm used, ISO-8859 series and other single-byte encodings do not work well unless either one of ISO-8859 is the only one suspect (besides ascii and utf8).<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  use Encode::Guess;<br/>
+  # perhaps ok<br/>
+  my $decoder = guess_encoding($data, 'latin1');<br/>
+  # definitely NOT ok<br/>
+  my $decoder = guess_encoding($data, qw/latin1 greek/);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The reason is that Encode::Guess guesses encoding by trial and error. It first splits $data into lines and tries to decode the line for each suspect.  It keeps it going until all but one encoding is eliminated out of suspects list.  ISO-8859 series is just too successful for most cases (because it fills almost all code points in \x00-\xff).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Do not mix national standard encodings and the corresponding vendor encodings.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  # a very bad idea<br/>
+  my $decoder<br/>
+     = guess_encoding($data, qw/shiftjis MacJapanese cp932/);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The reason is that vendor encoding is usually a superset of national standard so it becomes too ambiguous for most cases.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+On the other hand, mixing various national standard encodings automagically works unless $data is too short to allow for guessing.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ # This is ok if $data is long enough<br/>
+ my $decoder =  <br/>
+  guess_encoding($data, qw/euc-cn<br/>
+                           euc-jp shiftjis 7bit-jis<br/>
+                           euc-kr<br/>
+                           big5-eten/);<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+DO NOT PUT TOO MANY SUSPECTS!  Don't you try something like this!<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  my $decoder = guess_encoding($data, <br/>
+                               Encode-&gt;encodings(&quot;:all&quot;));<br/>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+It is, after all, just a guess.  You should alway be explicit when it comes to encodings.  But there are some, especially Japanese, environment that guess-coding is a must.  Use this module with care.</div>
+<div class="section">
+<h1>TO DO</h1> Encode::Guess does not work on EBCDIC platforms.</div>
+<div class="section">
+<h1>SEE ALSO</h1> Encode, Encode::Encoding</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

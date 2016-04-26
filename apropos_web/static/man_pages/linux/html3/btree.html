@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+BTREE(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+BTREE(3)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+BTREE(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> btree - btree database access method</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+#include &lt;sys/types.h&gt;<br/>
+#include &lt;db.h&gt;<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The routine <b>dbopen</b>(3) is the library interface to database files. One of the supported file formats is btree files. The general description of the database access methods is in <b>dbopen</b>(3), this manual page describes only the btree specific information.<div class="spacer">
+</div>
+The btree data structure is a sorted, balanced tree structure storing associated key/data pairs.<div class="spacer">
+</div>
+The btree access method specific data structure provided to <b>dbopen</b>(3) is defined in the <i>&lt;db.h&gt;</i> include file as follows:<br/>
+<div class="spacer">
+</div>
+<br/>
+typedef struct {<br/>
+    unsigned long flags;<br/>
+    unsigned int  cachesize;<br/>
+    int           maxkeypage;<br/>
+    int           minkeypage;<br/>
+    unsigned int  psize;<br/>
+    int         (*compare)(const DBT *key1, const DBT *key2);<br/>
+    size_t      (*prefix)(const DBT *key1, const DBT *key2);<br/>
+    int           lorder;<br/>
+} BTREEINFO;<br/>
+<br/>
+<div class="spacer">
+</div>
+The elements of this structure are as follows:<dl>
+<dt>
+<i>flags</i></dt>
+<dd>
+The flag value is specified by ORing any of the following values:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>R_DUP</b></dt>
+<dd>
+Permit duplicate keys in the tree, that is, permit insertion if the key to be inserted already exists in the tree. The default behavior, as described in <b>dbopen</b>(3), is to overwrite a matching key when inserting a new key or to fail if the <b>R_NOOVERWRITE</b> flag is specified. The <b>R_DUP</b> flag is overridden by the <b>R_NOOVERWRITE</b> flag, and if the <b>R_NOOVERWRITE</b> flag is specified, attempts to insert duplicate keys into the tree will fail.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+If the database contains duplicate keys, the order of retrieval of key/data pairs is undefined if the <i>get</i> routine is used, however, <i>seq</i> routine calls with the <b>R_CURSOR</b> flag set will always return the logical &quot;first&quot; of any group of duplicate keys.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>cachesize</i></dt>
+<dd>
+A suggested maximum size (in bytes) of the memory cache. This value is <i>only</i> advisory, and the access method will allocate more memory rather than fail. Since every search examines the root page of the tree, caching the most recently used pages substantially improves access time. In addition, physical writes are delayed as long as possible, so a moderate cache can reduce the number of I/O operations significantly. Obviously, using a cache increases (but only increases) the likelihood of corruption or lost data if the system crashes while a tree is being modified. If <i>cachesize</i> is 0 (no size is specified) a default cache is used.</dd>
+</dl>
+<dl>
+<dt>
+<i>maxkeypage</i></dt>
+<dd>
+The maximum number of keys which will be stored on any single page. Not currently implemented.</dd>
+</dl>
+<dl>
+<dt>
+<i>minkeypage</i></dt>
+<dd>
+The minimum number of keys which will be stored on any single page. This value is used to determine which keys will be stored on overflow pages, that is, if a key or data item is longer than the pagesize divided by the minkeypage value, it will be stored on overflow pages instead of in the page itself. If <i>minkeypage</i> is 0 (no minimum number of keys is specified) a value of 2 is used.</dd>
+</dl>
+<dl>
+<dt>
+<i>psize</i></dt>
+<dd>
+Page size is the size (in bytes) of the pages used for nodes in the tree. The minimum page size is 512 bytes and the maximum page size is 64K. If <i>psize</i> is 0 (no page size is specified) a page size is chosen based on the underlying file system I/O block size.</dd>
+</dl>
+<dl>
+<dt>
+<i>compare</i></dt>
+<dd>
+Compare is the key comparison function. It must return an integer less than, equal to, or greater than zero if the first key argument is considered to be respectively less than, equal to, or greater than the second key argument. The same comparison function must be used on a given tree every time it is opened. If <i>compare</i> is NULL (no comparison function is specified), the keys are compared lexically, with shorter keys considered less than longer keys.</dd>
+</dl>
+<dl>
+<dt>
+<i>prefix</i></dt>
+<dd>
+Prefix is the prefix comparison function. If specified, this routine must return the number of bytes of the second key argument which are necessary to determine that it is greater than the first key argument. If the keys are equal, the key length should be returned. Note, the usefulness of this routine is very data-dependent, but, in some data sets can produce significantly reduced tree sizes and search times. If <i>prefix</i> is NULL (no prefix function is specified), <i>and</i> no comparison function is specified, a default lexical comparison routine is used. If <i>prefix</i> is NULL and a comparison routine is specified, no prefix comparison is done.</dd>
+</dl>
+<dl>
+<dt>
+<i>lorder</i></dt>
+<dd>
+The byte order for integers in the stored database metadata. The number should represent the order as an integer; for example, big endian order would be the number 4,321. If <i>lorder</i> is 0 (no order is specified) the current host order is used.</dd>
+</dl>
+<div class="spacer">
+</div>
+If the file already exists (and the <b>O_TRUNC</b> flag is not specified), the values specified for the arguments <i>flags</i>, <i>lorder</i> and <i>psize</i> are ignored in favor of the values used when the tree was created.<div class="spacer">
+</div>
+Forward sequential scans of a tree are from the least key to the greatest.<div class="spacer">
+</div>
+Space freed up by deleting key/data pairs from the tree is never reclaimed, although it is normally made available for reuse. This means that the btree storage structure is grow-only. The only solutions are to avoid excessive deletions, or to create a fresh tree periodically from a scan of an existing one.<div class="spacer">
+</div>
+Searches, insertions, and deletions in a btree will all complete in O lg base N where base is the average fill factor. Often, inserting ordered data into btrees results in a low fill factor. This implementation has been modified to make ordered insertion the best case, resulting in a much better than normal page fill factor.</div>
+<div class="section">
+<h1>ERRORS</h1> The <i>btree</i> access method routines may fail and set <i>errno</i> for any of the errors specified for the library routine <b>dbopen</b>(3).</div>
+<div class="section">
+<h1>BUGS</h1> Only big and little endian byte order is supported.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>dbopen</b>(3), <b>hash</b>(3), <b>mpool</b>(3), <b>recno</b>(3)<div style="height: 1.00em;">
+&#160;</div>
+<i>The Ubiquitous B-tree</i>, Douglas Comer, ACM Comput. Surv. 11, 2 (June 1979), 121-138.<div style="height: 1.00em;">
+&#160;</div>
+<i>Prefix B-trees</i>, Bayer and Unterauer, ACM Transactions on Database Systems, Vol. 2, 1 (March 1977), 11-26.<div style="height: 1.00em;">
+&#160;</div>
+<i>The Art of Computer Programming Vol. 3: Sorting and Searching</i>, D.E. Knuth, 1968, pp 471-480.</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+1994-08-18</td>
+<td class="foot-os">
+</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

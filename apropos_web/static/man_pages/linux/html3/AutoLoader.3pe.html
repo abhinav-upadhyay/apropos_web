@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+AutoLoader(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+AutoLoader(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+AutoLoader(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> AutoLoader - load subroutines only on demand</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    package Foo;<br/>
+    use AutoLoader 'AUTOLOAD';   # import the default AUTOLOAD subroutine<br/>
+<br/>
+    package Bar;<br/>
+    use AutoLoader;              # don't import AUTOLOAD, define our own<br/>
+    sub AUTOLOAD {<br/>
+        ...<br/>
+        $AutoLoader::AUTOLOAD = &quot;...&quot;;<br/>
+        goto &amp;AutoLoader::AUTOLOAD;<br/>
+    }<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The  <b>AutoLoader</b> module works with the <b>AutoSplit</b> module and the &quot;__END__&quot; token to defer the loading of some subroutines until they are used rather than loading them all at once.<div class="spacer">
+</div>
+To use <b>AutoLoader</b>, the author of a module has to place the definitions of subroutines to be autoloaded after an &quot;__END__&quot; token. (See perldata.)  The  <b>AutoSplit</b> module can then be run manually to extract the definitions into individual files  <i>auto/funcname.al</i>.<div class="spacer">
+</div>
+<b>AutoLoader</b> implements an AUTOLOAD subroutine.  When an undefined subroutine in is called in a client module of  <b>AutoLoader</b>,  <b>AutoLoader</b>'s AUTOLOAD subroutine attempts to locate the subroutine in a file with a name related to the location of the file from which the client module was read.  As an example, if  <i>POSIX.pm</i> is located in  <i>/usr/local/lib/perl5/POSIX.pm</i>, <b>AutoLoader</b> will look for perl subroutines  <b>POSIX</b> in <i>/usr/local/lib/perl5/auto/POSIX/*.al</i>, where the &quot;.al&quot; file has the same name as the subroutine, sans package.  If such a file exists, AUTOLOAD will read and evaluate it, thus (presumably) defining the needed subroutine.  AUTOLOAD will then &quot;goto&quot; the newly defined subroutine.<div class="spacer">
+</div>
+Once this process completes for a given function, it is defined, so future calls to the subroutine will bypass the AUTOLOAD mechanism.<div class="subsection">
+<h2>Subroutine Stubs</h2> In order for object method lookup and/or prototype checking to operate correctly even when methods have not yet been defined it is necessary to &quot;forward declare&quot; each subroutine (as in &quot;sub NAME;&quot;).  See &quot;SYNOPSIS&quot; in perlsub.  Such forward declaration creates &quot;subroutine stubs&quot;, which are place holders with no code.<div class="spacer">
+</div>
+The AutoSplit and <b>AutoLoader</b> modules automate the creation of forward declarations.  The AutoSplit module creates an 'index' file containing forward declarations of all the AutoSplit subroutines.  When the AutoLoader module is 'use'd it loads these declarations into its callers package.<div class="spacer">
+</div>
+Because of this mechanism it is important that <b>AutoLoader</b> is always &quot;use&quot;d and not &quot;require&quot;d.</div>
+<div class="subsection">
+<h2>Using <b>AutoLoader</b>'s AUTOLOAD Subroutine</h2> In order to use  <b>AutoLoader</b>'s AUTOLOAD subroutine you <i>must</i> explicitly import it:<div class="spacer">
+</div>
+<br/>
+    use AutoLoader 'AUTOLOAD';<br/>
+</div>
+<div class="subsection">
+<h2>Overriding <b>AutoLoader</b>'s AUTOLOAD Subroutine</h2> Some modules, mainly extensions, provide their own AUTOLOAD subroutines. They typically need to check for some special cases (such as constants) and then fallback to  <b>AutoLoader</b>'s AUTOLOAD for the rest.<div class="spacer">
+</div>
+Such modules should <i>not</i> import <b>AutoLoader</b>'s AUTOLOAD subroutine. Instead, they should define their own AUTOLOAD subroutines along these lines:<div class="spacer">
+</div>
+<br/>
+    use AutoLoader;<br/>
+    use Carp;<br/>
+<br/>
+    sub AUTOLOAD {<br/>
+        my $sub = $AUTOLOAD;<br/>
+        (my $constname = $sub) =~ s/.*:://;<br/>
+        my $val = constant($constname, @_ ? $_[0] : 0);<br/>
+        if ($! != 0) {<br/>
+            if ($! =~ /Invalid/ || $!{EINVAL}) {<br/>
+                $AutoLoader::AUTOLOAD = $sub;<br/>
+                goto &amp;AutoLoader::AUTOLOAD;<br/>
+            }<br/>
+            else {<br/>
+                croak &quot;Your vendor has not defined constant $constname&quot;;<br/>
+            }<br/>
+        }<br/>
+        *$sub = sub { $val }; # same as: eval &quot;sub $sub { $val }&quot;;<br/>
+        goto &amp;$sub;<br/>
+    }<br/>
+<div class="spacer">
+</div>
+If any module's own AUTOLOAD subroutine has no need to fallback to the AutoLoader's AUTOLOAD subroutine (because it doesn't have any AutoSplit subroutines), then that module should not use  <b>AutoLoader</b> at all.</div>
+<div class="subsection">
+<h2>Package Lexicals</h2> Package lexicals declared with &quot;my&quot; in the main block of a package using  <b>AutoLoader</b> will not be visible to auto-loaded subroutines, due to the fact that the given scope ends at the &quot;__END__&quot; marker.  A module using such variables as package globals will not work properly under the  <b>AutoLoader</b>.<div class="spacer">
+</div>
+The &quot;vars&quot; pragma (see &quot;vars&quot; in perlmod) may be used in such situations as an alternative to explicitly qualifying all globals with the package namespace.  Variables pre-declared with this pragma will be visible to any autoloaded routines (but will not be invisible outside the package, unfortunately).</div>
+<div class="subsection">
+<h2>Not Using AutoLoader</h2> You can stop using AutoLoader by simply<div class="spacer">
+</div>
+<br/>
+        no AutoLoader;<br/>
+</div>
+<div class="subsection">
+<h2><b>AutoLoader</b> vs. <b>SelfLoader</b></h2> The  <b>AutoLoader</b> is similar in purpose to <b>SelfLoader</b>: both delay the loading of subroutines.<div class="spacer">
+</div>
+<b>SelfLoader</b> uses the &quot;__DATA__&quot; marker rather than &quot;__END__&quot;. While this avoids the use of a hierarchy of disk files and the associated open/close for each routine loaded,  <b>SelfLoader</b> suffers a startup speed disadvantage in the one-time parsing of the lines after &quot;__DATA__&quot;, after which routines are cached.   <b>SelfLoader</b> can also handle multiple packages in a file.<div class="spacer">
+</div>
+<b>AutoLoader</b> only reads code as it is requested, and in many cases should be faster, but requires a mechanism like  <b>AutoSplit</b> be used to create the individual files.  ExtUtils::MakeMaker will invoke  <b>AutoSplit</b> automatically if <b>AutoLoader</b> is used in a module source file.</div>
+</div>
+<div class="section">
+<h1>CAVEATS</h1> AutoLoaders prior to Perl 5.002 had a slightly different interface.  Any old modules which use  <b>AutoLoader</b> should be changed to the new calling style.  Typically this just means changing a require to a use, adding the explicit 'AUTOLOAD' import if needed, and removing  <b>AutoLoader</b> from @ISA.<div class="spacer">
+</div>
+On systems with restrictions on file name length, the file corresponding to a subroutine may have a shorter name that the routine itself.  This can lead to conflicting file names.  The  <i>AutoSplit</i> package warns of these potential conflicts when used to split a module.<div class="spacer">
+</div>
+AutoLoader may fail to find the autosplit files (or even find the wrong ones) in cases where @INC contains relative paths,  <b>and</b> the program does &quot;chdir&quot;.</div>
+<div class="section">
+<h1>SEE ALSO</h1> SelfLoader - an autoloader that doesn't use external files.</div>
+<div class="section">
+<h1>AUTHOR</h1> &quot;AutoLoader&quot; is maintained by the perl5-porters. Please direct any questions to the canonical mailing list. Anything that is applicable to the CPAN release can be sent to its maintainer, though.<div class="spacer">
+</div>
+Author and Maintainer: The Perl5-Porters &lt;perl5-porters@perl.org&gt;<div class="spacer">
+</div>
+Maintainer of the CPAN release: Steffen Mueller &lt;smueller@cpan.org&gt;</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> This package has been part of the perl core since the first release of perl5. It has been released separately to CPAN so older installations can benefit from bug fixes.<div class="spacer">
+</div>
+This package has the same copyright and license as the perl core:<div class="spacer">
+</div>
+<br/>
+             Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999,<br/>
+        2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009<br/>
+        by Larry Wall and others<br/>
+    <br/>
+                            All rights reserved.<br/>
+    <br/>
+    This program is free software; you can redistribute it and/or modify<br/>
+    it under the terms of either:<br/>
+    <br/>
+        a) the GNU General Public License as published by the Free<br/>
+        Software Foundation; either version 1, or (at your option) any<br/>
+        later version, or<br/>
+    <br/>
+        b) the &quot;Artistic License&quot; which comes with this Kit.<br/>
+    <br/>
+    This program is distributed in the hope that it will be useful,<br/>
+    but WITHOUT ANY WARRANTY; without even the implied warranty of<br/>
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See either<br/>
+    the GNU General Public License or the Artistic License for more details.<br/>
+    <br/>
+    You should have received a copy of the Artistic License with this<br/>
+    Kit, in the file named &quot;Artistic&quot;.  If not, I'll be glad to provide one.<br/>
+    <br/>
+    You should also have received a copy of the GNU General Public License<br/>
+    along with this program in the file named &quot;Copying&quot;. If not, write to the <br/>
+    Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA <br/>
+    02111-1307, USA or visit their web page on the internet at<br/>
+    http://www.gnu.org/copyleft/gpl.html.<br/>
+    <br/>
+    For those of you that choose to use the GNU General Public License,<br/>
+    my interpretation of the GNU General Public License is that no Perl<br/>
+    script falls under the terms of the GPL unless you explicitly put<br/>
+    said script under the terms of the GPL yourself.  Furthermore, any<br/>
+    object code linked with perl does not automatically fall under the<br/>
+    terms of the GPL, provided such object code only adds definitions<br/>
+    of subroutines and variables, and does not otherwise impair the<br/>
+    resulting interpreter from executing any standard Perl script.  I<br/>
+    consider linking in C subroutines in this manner to be the moral<br/>
+    equivalent of defining subroutines in the Perl language itself.  You<br/>
+    may sell such an object file as proprietary provided that you provide<br/>
+    or offer to provide the Perl source, as specified by the GNU General<br/>
+    Public License.  (This is merely an alternate way of specifying input<br/>
+    to the program.)  You may also sell a binary produced by the dumping of<br/>
+    a running Perl script that belongs to you, provided that you provide or<br/>
+    offer to provide the Perl source as specified by the GPL.  (The<br/>
+    fact that a Perl interpreter and your code are in the same binary file<br/>
+    is, in this case, a form of mere aggregation.)  This is my interpretation<br/>
+    of the GPL.  If you still have concerns or difficulties understanding<br/>
+    my intent, feel free to contact me.  Of course, the Artistic License<br/>
+    spells all this out for your protection, so you may prefer to use that.<br/>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-19</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

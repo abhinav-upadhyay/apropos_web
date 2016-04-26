@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+BACKTRACE(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+BACKTRACE(3)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+BACKTRACE(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> backtrace, backtrace_symbols, backtrace_symbols_fd - support for application self-debugging</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;execinfo.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int backtrace(void</b> <b>**</b><i>buffer</i><b>,</b> <b>int</b> <i>size</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<b>char **backtrace_symbols(void *const</b> <b>*</b><i>buffer</i><b>,</b> <b>int</b> <i>size</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<b>void backtrace_symbols_fd(void *const</b> <b>*</b><i>buffer</i><b>,</b> <b>int</b> <i>size</i><b>,</b> <b>int</b> <i>fd</i><b>);</b></div>
+<div class="section">
+<h1>DESCRIPTION</h1> <b>backtrace</b>() returns a backtrace for the calling program, in the array pointed to by <i>buffer</i>. A backtrace is the series of currently active function calls for the program. Each item in the array pointed to by <i>buffer</i> is of type  <i>void *</i>, and is the return address from the corresponding stack frame. The <i>size</i> argument specifies the maximum number of addresses that can be stored in <i>buffer</i>. If the backtrace is larger than <i>size</i>, then the addresses corresponding to the <i>size</i> most recent function calls are returned; to obtain the complete backtrace, make sure that <i>buffer</i> and <i>size</i> are large enough.<div style="height: 1.00em;">
+&#160;</div>
+Given the set of addresses returned by <b>backtrace</b>() in <i>buffer</i>, <b>backtrace_symbols</b>() translates the addresses into an array of strings that describe the addresses symbolically. The <i>size</i> argument specifies the number of addresses in <i>buffer</i>. The symbolic representation of each address consists of the function name (if this can be determined), a hexadecimal offset into the function, and the actual return address (in hexadecimal). The address of the array of string pointers is returned as the function result of <b>backtrace_symbols</b>(). This array is <b>malloc</b>(3)ed by <b>backtrace_symbols</b>(), and must be freed by the caller. (The strings pointed to by the array of pointers need not and should not be freed.)<div style="height: 1.00em;">
+&#160;</div>
+<b>backtrace_symbols_fd</b>() takes the same <i>buffer</i> and <i>size</i> arguments as <b>backtrace_symbols</b>(), but instead of returning an array of strings to the caller, it writes the strings, one per line, to the file descriptor <i>fd</i>. <b>backtrace_symbols_fd</b>() does not call <b>malloc</b>(3), and so can be employed in situations where the latter function might fail.</div>
+<div class="section">
+<h1>RETURN VALUE</h1> <b>backtrace</b>() returns the number of addresses returned in <i>buffer</i>, which is not greater than <i>size</i>. If the return value is less than <i>size</i>, then the full backtrace was stored; if it is equal to <i>size</i>, then it may have been truncated, in which case the addresses of the oldest stack frames are not returned.<div style="height: 1.00em;">
+&#160;</div>
+On success, <b>backtrace_symbols</b>() returns a pointer to the array <b>malloc</b>(3)ed by the call; on error, NULL is returned.</div>
+<div class="section">
+<h1>VERSIONS</h1> <b>backtrace</b>(), <b>backtrace_symbols</b>(), and <b>backtrace_symbols_fd</b>() are provided in glibc since version 2.1.</div>
+<div class="section">
+<h1>CONFORMING TO</h1> These functions are GNU extensions.</div>
+<div class="section">
+<h1>NOTES</h1> These functions make some assumptions about how a function's return address is stored on the stack. Note the following:<dl>
+<dt>
+*</dt>
+<dd>
+Omission of the frame pointers (as implied by any of <b>gcc</b>(1)'s nonzero optimization levels) may cause these assumptions to be violated.</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+Inlined functions do not have stack frames.</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+Tail-call optimization causes one stack frame to replace another.</dd>
+</dl>
+<div class="spacer">
+</div>
+The symbol names may be unavailable without the use of special linker options. For systems using the GNU linker, it is necessary to use the <i>-rdynamic</i> linker option. Note that names of &quot;static&quot; functions are not exposed, and won't be available in the backtrace.</div>
+<div class="section">
+<h1>EXAMPLE</h1> The program below demonstrates the use of <b>backtrace</b>() and <b>backtrace_symbols</b>(). The following shell session shows what we might see when running the program:<br/>
+<div class="spacer">
+</div>
+<br/>
+$<b> cc -rdynamic prog.c -o prog</b><br/>
+$<b> ./prog 3</b><br/>
+backtrace() returned 8 addresses<br/>
+./prog(myfunc3+0x5c) [0x80487f0]<br/>
+./prog [0x8048871]<br/>
+./prog(myfunc+0x21) [0x8048894]<br/>
+./prog(myfunc+0x1a) [0x804888d]<br/>
+./prog(myfunc+0x1a) [0x804888d]<br/>
+./prog(main+0x65) [0x80488fb]<br/>
+/lib/libc.so.6(__libc_start_main+0xdc) [0xb7e38f9c]<br/>
+./prog [0x8048711]<br/>
+<br/>
+<div class="subsection">
+<h2>Program source</h2> <br/>
+#include &lt;execinfo.h&gt;<br/>
+#include &lt;stdio.h&gt;<br/>
+#include &lt;stdlib.h&gt;<br/>
+#include &lt;unistd.h&gt;<div class="spacer">
+</div>
+<br/>
+void<br/>
+myfunc3(void)<br/>
+{<br/>
+    int j, nptrs;<br/>
+#define SIZE 100<br/>
+    void *buffer[100];<br/>
+    char **strings;<div class="spacer">
+</div>
+<br/>
+    nptrs = backtrace(buffer, SIZE);<br/>
+    printf(&quot;backtrace() returned %d addresses\n&quot;, nptrs);<div class="spacer">
+</div>
+<br/>
+    /* The call backtrace_symbols_fd(buffer, nptrs, STDOUT_FILENO)<br/>
+       would produce similar output to the following: */<div class="spacer">
+</div>
+<br/>
+    strings = backtrace_symbols(buffer, nptrs);<br/>
+    if (strings == NULL) {<br/>
+        perror(&quot;backtrace_symbols&quot;);<br/>
+        exit(EXIT_FAILURE);<br/>
+    }<div class="spacer">
+</div>
+<br/>
+    for (j = 0; j &lt; nptrs; j++)<br/>
+        printf(&quot;%s\n&quot;, strings[j]);<div class="spacer">
+</div>
+<br/>
+    free(strings);<br/>
+}<div class="spacer">
+</div>
+<br/>
+static void   /* &quot;static&quot; means don't export the symbol... */<br/>
+myfunc2(void)<br/>
+{<br/>
+    myfunc3();<br/>
+}<div class="spacer">
+</div>
+<br/>
+void<br/>
+myfunc(int ncalls)<br/>
+{<br/>
+    if (ncalls &gt; 1)<br/>
+        myfunc(ncalls - 1);<br/>
+    else<br/>
+        myfunc2();<br/>
+}<div class="spacer">
+</div>
+<br/>
+int<br/>
+main(int argc, char *argv[])<br/>
+{<br/>
+    if (argc != 2) {<br/>
+        fprintf(stderr, &quot;%s num-calls\n&quot;, argv[0]);<br/>
+        exit(EXIT_FAILURE);<br/>
+    }<div class="spacer">
+</div>
+<br/>
+    myfunc(atoi(argv[1]));<br/>
+    exit(EXIT_SUCCESS);<br/>
+}<br/>
+</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>gcc</b>(1), <b>ld</b>(1), <b>dlopen</b>(3), <b>malloc</b>(3)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2008-06-14</td>
+<td class="foot-os">
+GNU</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

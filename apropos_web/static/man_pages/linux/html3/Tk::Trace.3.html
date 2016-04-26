@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Tk::Trace(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Tk::Trace(3pm)</td>
+<td class="head-vol">
+perl/Tk Documentation</td>
+<td class="head-rtitle">
+Tk::Trace(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Tk::Trace - emulate Tcl/Tk trace functions.</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ use Tk::Trace<br/>
+<br/>
+ $mw-&gt;traceVariable(\$v, 'wru' =&gt; [\&amp;update_meter, $scale]);<br/>
+ %vinfo = $mw-&gt;traceVinfo(\$v);<br/>
+ print &quot;Trace info  :\n  &quot;, join(&quot;\n  &quot;, @{$vinfo{-legible}}), &quot;\n&quot;;<br/>
+ $mw-&gt;traceVdelete(\$v);<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This class module emulates the Tcl/Tk  <b>trace</b> family of commands by binding subroutines of your devising to Perl variables using simple  <b>Tie::Watch</b> features.<div class="spacer">
+</div>
+Callback format is patterned after the Perl/Tk scheme: supply either a code reference, or, supply an array reference and pass the callback code reference in the first element of the array, followed by callback arguments.<div class="spacer">
+</div>
+User callbacks are passed these arguments:<div class="spacer">
+</div>
+<br/>
+ $_[0]        = undef for a scalar, index/key for array/hash<br/>
+ $_[1]        = variable's current (read), new (write), final (undef) value<br/>
+ $_[2]        = operation (r, w, or u)<br/>
+ $_[3 .. $#_] = optional user callback arguments<br/>
+<div class="spacer">
+</div>
+As a Trace user, you have an important responsibility when writing your callback, since you control the final value assigned to the variable. A typical callback might look like:<div class="spacer">
+</div>
+<br/>
+ sub callback {<br/>
+    my($index, $value, $op, @args) = @_;<br/>
+    return if $op eq 'u';<br/>
+    # .... code which uses $value ...<br/>
+    return $value;     # variable's final value<br/>
+ }<br/>
+<div class="spacer">
+</div>
+Note that the callback's return value becomes the variable's final value, for either read or write traces.<div class="spacer">
+</div>
+For write operations, the variable is updated with its new value before the callback is invoked.<div class="spacer">
+</div>
+Multiple read, write and undef callbacks can be attached to a variable, which are invoked in reverse order of creation.</div>
+<div class="section">
+<h1>METHODS</h1><dl>
+<dt>
+$mw-&gt;traceVariable(varRef, op =&gt; callback);</dt>
+<dd>
+<b>varRef</b> is a reference to the scalar, array or hash variable you wish to trace.   <b>op</b> is the trace operation, and can be any combination of  <b>r</b> for read, <b>w</b> for write, and <b>u</b> for undef.  <b>callback</b> is a standard Perl/Tk callback, and is invoked, depending upon the value of  <b>op</b>, whenever the variable is read, written, or destroyed.</dd>
+</dl>
+<dl>
+<dt>
+%vinfo = $mw-&gt;traceVinfo(varRef);</dt>
+<dd>
+Returns a hash detailing the internals of the Trace object, with these keys:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ %vinfo = (<br/>
+     -variable =&gt;  varRef<br/>
+     -debug    =&gt;  '0'<br/>
+     -shadow   =&gt;  '1'<br/>
+     -value    =&gt;  'HELLO SCALAR'<br/>
+     -destroy  =&gt;  callback<br/>
+     -fetch    =&gt;  callback<br/>
+     -store    =&gt;  callback<br/>
+     -legible  =&gt;  above data formatted as a list of string, for printing<br/>
+ );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+For array and hash Trace objects, the <b>-value</b> key is replaced with a  <b>-ptr</b> key which is a reference to the parallel array or hash. Additionally, for an array or hash, there are key/value pairs for all the variable specific callbacks.</dd>
+</dl>
+<dl>
+<dt>
+$mw-&gt;traceVdelete(\$v);</dt>
+<dd>
+Stop tracing the variable.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>EXAMPLES</h1><br/>
+ # Trace a Scale's variable and move a meter in unison.<br/>
+<br/>
+ use Tk;<br/>
+ use Tk::widgets qw/Trace/;<br/>
+<br/>
+ $pi = 3.1415926;<br/>
+ $mw = MainWindow-&gt;new;<br/>
+ $c = $mw-&gt;Canvas( qw/-width 200 -height 110 -bd 2 -relief sunken/ )-&gt;grid;<br/>
+ $c-&gt;createLine( qw/100 100 10 100 -tag meter -arrow last -width 5/ );<br/>
+ $s = $mw-&gt;Scale( qw/-orient h -from 0 -to 100 -variable/ =&gt; \$v )-&gt;grid;<br/>
+ $mw-&gt;Label( -text =&gt; 'Slide Me for 5 Seconds' )-&gt;grid;<br/>
+<br/>
+ $mw-&gt;traceVariable( \$v, 'w' =&gt; [ \&amp;update_meter, $s ] );<br/>
+<br/>
+ $mw-&gt;after( 5000 =&gt; sub {<br/>
+     print &quot;Untrace time ...\n&quot;;<br/>
+     %vinfo = $s-&gt;traceVinfo( \$v );<br/>
+     print &quot;Watch info  :\n  &quot;, join(&quot;\n  &quot;, @{$vinfo{-legible}}), &quot;\n&quot;;<br/>
+     $c-&gt;traceVdelete( \$v );<br/>
+ });<br/>
+<br/>
+ MainLoop;<br/>
+<br/>
+ sub update_meter {<br/>
+     my( $index, $value, $op, @args ) = @_;<br/>
+     return if $op eq 'u';<br/>
+     $min = $s-&gt;cget( -from );<br/>
+     $max = $s-&gt;cget( -to );<br/>
+     $pos = $value / abs( $max - $min );<br/>
+     $x = 100.0 - 90.0 * ( cos( $pos * $pi ) );<br/>
+     $y = 100.0 - 90.0 * ( sin( $pos * $pi ) );<br/>
+     $c-&gt;coords( qw/meter 100 100/, $x, $y );<br/>
+     return $value;<br/>
+ }<br/>
+<br/>
+ # Predictive text entry.<br/>
+<br/>
+ use Tk;<br/>
+ use Tk::widgets qw/ LabEntry Trace /;<br/>
+ use strict;<br/>
+<br/>
+ my @words =  qw/radio television telephone turntable microphone/;<br/>
+<br/>
+ my $mw = MainWindow-&gt;new;<br/>
+<br/>
+ my $e = $mw-&gt;LabEntry(<br/>
+     qw/ -label Thing -width 40 /,<br/>
+     -labelPack    =&gt; [ qw/ -side left / ],<br/>
+     -textvariable =&gt; \my $thing,<br/>
+ );<br/>
+ my $t = $mw-&gt;Text( qw/ -height 10 -width 50 / );;<br/>
+<br/>
+ $t-&gt;pack( $e, qw/ -side top / );<br/>
+<br/>
+ $e-&gt;focus;<br/>
+ $e-&gt;traceVariable( \$thing, 'w', [ \&amp;trace_thing, $e, $t ] );<br/>
+<br/>
+ foreach my $k ( 1 .. 12 ) {<br/>
+     $e-&gt;bind( &quot;&lt;F${k}&gt;&quot; =&gt; [ \&amp;ins, $t, Ev('K') ] );<br/>
+ }<br/>
+ $e-&gt;bind( '&lt;Return&gt;' =&gt;<br/>
+           sub {<br/>
+               print &quot;$thing\n&quot;;<br/>
+               $_[0]-&gt;delete( 0, 'end' );<br/>
+           }<br/>
+ );<br/>
+<br/>
+ MainLoop;<br/>
+<br/>
+ sub trace_thing {<br/>
+<br/>
+     my( $index, $value, $op, $e, $t ) = @_;<br/>
+<br/>
+     return unless $value;<br/>
+<br/>
+     $t-&gt;delete( qw/ 1.0 end / );<br/>
+     foreach my $w ( @words ) {<br/>
+         if ( $w =~ /^$value/ ) {<br/>
+             $t-&gt;insert( 'end', &quot;$w\n&quot; );<br/>
+         }<br/>
+     }<br/>
+<br/>
+     return $value;<br/>
+<br/>
+ } # end trace_thing<br/>
+<br/>
+ sub ins {<br/>
+<br/>
+     my( $e, $t, $K ) = @_;<br/>
+<br/>
+     my( $index ) = $K =~ /^F(\d+)$/;<br/>
+<br/>
+     $e-&gt;delete( 0, 'end' );<br/>
+     $e-&gt;insert( 'end', $t-&gt;get( &quot;$index.0&quot;, &quot;$index.0 lineend&quot; ) );<br/>
+     $t-&gt;delete( qw/ 1.0 end / );<br/>
+<br/>
+ } # end ins<br/>
+</div>
+<div class="section">
+<h1>HISTORY</h1><br/>
+ Stephen.O.Lidie@Lehigh.EDU, Lehigh University Computing Center, 2000/08/01<br/>
+ . Version 1.0, for Tk800.022.<br/>
+<br/>
+ sol0@Lehigh.EDU, Lehigh University Computing Center, 2003/09/22<br/>
+ . Version 1.1, for Tk804.025, add support for multiple traces of the same<br/>
+   type on the same variable.<br/>
+</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright (C) 2000 - 2003 Stephen O. Lidie. All rights reserved.<div class="spacer">
+</div>
+This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2010-01-30</td>
+<td class="foot-os">
+Tk804.029</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

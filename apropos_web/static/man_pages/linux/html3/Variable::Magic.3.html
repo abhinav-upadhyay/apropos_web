@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Variable::Magic(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Variable::Magic(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Variable::Magic(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Variable::Magic - Associate user-defined magic to variables from Perl.</div>
+<div class="section">
+<h1>VERSION</h1> Version 0.47</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    use Variable::Magic qw&lt;wizard cast VMG_OP_INFO_NAME&gt;;<br/>
+<br/>
+    { # A variable tracer<br/>
+     my $wiz = wizard(<br/>
+      set  =&gt; sub { print &quot;now set to ${$_[0]}!\n&quot; },<br/>
+      free =&gt; sub { print &quot;destroyed!\n&quot; },<br/>
+     );<br/>
+<br/>
+     my $a = 1;<br/>
+     cast $a, $wiz;<br/>
+     $a = 2;        # &quot;now set to 2!&quot;<br/>
+    }               # &quot;destroyed!&quot;<br/>
+<br/>
+    { # A hash with a default value<br/>
+     my $wiz = wizard(<br/>
+      data     =&gt; sub { $_[1] },<br/>
+      fetch    =&gt; sub { $_[2] = $_[1] unless exists $_[0]-&gt;{$_[2]}; () },<br/>
+      store    =&gt; sub { print &quot;key $_[2] stored in $_[-1]\n&quot; },<br/>
+      copy_key =&gt; 1,<br/>
+      op_info  =&gt; VMG_OP_INFO_NAME,<br/>
+     );<br/>
+<br/>
+     my %h = (_default =&gt; 0, apple =&gt; 2);<br/>
+     cast %h, $wiz, '_default';<br/>
+     print $h{banana}, &quot;\n&quot;; # &quot;0&quot; (there is no 'banana' key in %h)<br/>
+     $h{pear} = 1;           # &quot;key pear stored in helem&quot;<br/>
+    }<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Magic is Perl's way of enhancing variables. This mechanism lets the user add extra data to any variable and hook syntactical operations (such as access, assignment or destruction) that can be applied to it. With this module, you can add your own magic to any variable without having to write a single line of XS.<div class="spacer">
+</div>
+You'll realize that these magic variables look a lot like tied variables. It's not surprising, as tied variables are implemented as a special kind of magic, just like any 'irregular' Perl variable : scalars like $!, $( or $^W, the %ENV and %SIG hashes, the @ISA array,  &quot;vec()&quot; and &quot;substr()&quot; lvalues, threads::shared variables... They all share the same underlying C API, and this module gives you direct access to it.<div class="spacer">
+</div>
+Still, the magic made available by this module differs from tieing and overloading in several ways :<dl>
+<dt>
+&#8226;</dt>
+<dd>
+It isn't copied on assignment.<div style="height: 1.00em;">
+&#160;</div>
+You attach it to variables, not values (as for blessed references).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+It doesn't replace the original semantics.<div style="height: 1.00em;">
+&#160;</div>
+Magic callbacks usually get triggered before the original action takes place, and can't prevent it from happening. This also makes catching individual events easier than with &quot;tie&quot;, where you have to provide fallbacks methods for all actions by usually inheriting from the correct &quot;Tie::Std*&quot; class and overriding individual methods in your own class.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+It's type-agnostic.<div style="height: 1.00em;">
+&#160;</div>
+The same magic can be applied on scalars, arrays, hashes, subs or globs. But the same hook (see below for a list) may trigger differently depending on the the type of the variable.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+It's mostly invisible at the Perl level.<div style="height: 1.00em;">
+&#160;</div>
+Magical and non-magical variables cannot be distinguished with &quot;ref&quot;, &quot;tied&quot; or another trick.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+It's notably faster.<div style="height: 1.00em;">
+&#160;</div>
+Mainly because perl's way of handling magic is lighter by nature, and because there's no need for any method resolution. Also, since you don't have to reimplement all the variable semantics, you only pay for what you actually use.</dd>
+</dl>
+<div class="spacer">
+</div>
+The operations that can be overloaded are :<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;get&quot;<div style="height: 1.00em;">
+&#160;</div>
+This magic is invoked when the variable is evaluated. It is never called for arrays and hashes.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;set&quot;<div style="height: 1.00em;">
+&#160;</div>
+This one is triggered each time the value of the variable changes. It is called for array subscripts and slices, but never for hashes.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;len&quot;<div style="height: 1.00em;">
+&#160;</div>
+This magic is a little special : it is called when the 'size' or the 'length' of the variable has to be known by Perl. Typically, it's the magic involved when an array is evaluated in scalar context, but also on array assignment and loops (&quot;for&quot;, &quot;map&quot; or &quot;grep&quot;). The callback has then to return the length as an integer.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;clear&quot;<div style="height: 1.00em;">
+&#160;</div>
+This magic is invoked when the variable is reset, such as when an array is emptied. Please note that this is different from undefining the variable, even though the magic is called when the clearing is a result of the undefine (e.g. for an array, but actually a bug prevent it to work before perl 5.9.5 - see the history).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;free&quot;<div style="height: 1.00em;">
+&#160;</div>
+This one can be considered as an object destructor. It happens when the variable goes out of scope, but not when it is undefined.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;copy&quot;<div style="height: 1.00em;">
+&#160;</div>
+This magic only applies to tied arrays and hashes. It fires when you try to access or change their elements. It is available on your perl iff &quot;MGf_COPY&quot; is true.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;dup&quot;<div style="height: 1.00em;">
+&#160;</div>
+Invoked when the variable is cloned across threads. Currently not available.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;local&quot;<div style="height: 1.00em;">
+&#160;</div>
+When this magic is set on a variable, all subsequent localizations of the variable will trigger the callback. It is available on your perl iff &quot;MGf_LOCAL&quot; is true.</dd>
+</dl>
+<div class="spacer">
+</div>
+The following actions only apply to hashes and are available iff &quot;VMG_UVAR&quot; is true. They are referred to as &quot;uvar&quot; magics.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;fetch&quot;<div style="height: 1.00em;">
+&#160;</div>
+This magic happens each time an element is fetched from the hash.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;store&quot;<div style="height: 1.00em;">
+&#160;</div>
+This one is called when an element is stored into the hash.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;exists&quot;<div style="height: 1.00em;">
+&#160;</div>
+This magic fires when a key is tested for existence in the hash.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;delete&quot;<div style="height: 1.00em;">
+&#160;</div>
+This last one triggers when a key is deleted in the hash, regardless of whether the key actually exists in it.</dd>
+</dl>
+<div class="spacer">
+</div>
+You can refer to the tests to have more insight of where the different magics are invoked.</div>
+<div class="section">
+<h1>FUNCTIONS</h1><div class="subsection">
+<h2>&quot;wizard&quot;</h2><br/>
+    wizard(<br/>
+     data     =&gt; sub { ... },<br/>
+     get      =&gt; sub { my ($ref, $data [, $op]) = @_; ... },<br/>
+     set      =&gt; sub { my ($ref, $data [, $op]) = @_; ... },<br/>
+     len      =&gt; sub {<br/>
+      my ($ref, $data, $len [, $op]) = @_; ... ; return $newlen<br/>
+     },<br/>
+     clear    =&gt; sub { my ($ref, $data [, $op]) = @_; ... },<br/>
+     free     =&gt; sub { my ($ref, $data [, $op]) = @_, ... },<br/>
+     copy     =&gt; sub { my ($ref, $data, $key, $elt [, $op]) = @_; ... },<br/>
+     local    =&gt; sub { my ($ref, $data [, $op]) = @_; ... },<br/>
+     fetch    =&gt; sub { my ($ref, $data, $key [, $op]) = @_; ... },<br/>
+     store    =&gt; sub { my ($ref, $data, $key [, $op]) = @_; ... },<br/>
+     exists   =&gt; sub { my ($ref, $data, $key [, $op]) = @_; ... },<br/>
+     delete   =&gt; sub { my ($ref, $data, $key [, $op]) = @_; ... },<br/>
+     copy_key =&gt; $bool,<br/>
+     op_info  =&gt; [ 0 | VMG_OP_INFO_NAME | VMG_OP_INFO_OBJECT ],<br/>
+    )<br/>
+<div class="spacer">
+</div>
+This function creates a 'wizard', an opaque type that holds the magic information. It takes a list of keys / values as argument, whose keys can be :<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;data&quot;<div style="height: 1.00em;">
+&#160;</div>
+A code (or string) reference to a private data constructor. It is called each time this magic is cast on a variable, and the scalar returned is used as private data storage for it. $_[0] is a reference to the magic object and @_[1 .. @_-1] are all extra arguments that were passed to &quot;cast&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;get&quot;, &quot;set&quot;, &quot;len&quot;, &quot;clear&quot;, &quot;free&quot;, &quot;copy&quot;, &quot;local&quot;, &quot;fetch&quot;, &quot;store&quot;, &quot;exists&quot; and &quot;delete&quot;<div style="height: 1.00em;">
+&#160;</div>
+Code (or string) references to the corresponding magic callbacks. You don't have to specify all of them : the magic associated with undefined entries simply won't be hooked. In those callbacks, $_[0] is always a reference to the magic object and $_[1] is always the private data (or &quot;undef&quot; when no private data constructor was supplied).<div style="height: 1.00em;">
+&#160;</div>
+Moreover, when you pass &quot;op_info =&gt; $num&quot; to &quot;wizard&quot;, the last element of @_ will be the current op name if &quot;$num == VMG_OP_INFO_NAME&quot; and a &quot;B::OP&quot; object representing the current op if &quot;$num == VMG_OP_INFO_OBJECT&quot;. Both have a performance hit, but just getting the name is lighter than getting the op object.<div style="height: 1.00em;">
+&#160;</div>
+Other arguments are specific to the magic hooked :</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;len&quot;<div style="height: 1.00em;">
+&#160;</div>
+When the variable is an array or a scalar, $_[2] contains the non-magical length. The callback can return the new scalar or array length to use, or &quot;undef&quot; to default to the normal length.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;copy&quot;<div style="height: 1.00em;">
+&#160;</div>
+$_[2] is a either a copy or an alias of the current key, which means that it is useless to try to change or cast magic on it. $_[3] is an alias to the current element (i.e. the value).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;fetch&quot;, &quot;store&quot;, &quot;exists&quot; and &quot;delete&quot;<div style="height: 1.00em;">
+&#160;</div>
+$_[2] is an alias to the current key. Nothing prevents you from changing it, but be aware that there lurk dangerous side effects. For example, it may rightfully be readonly if the key was a bareword. You can get a copy instead by passing &quot;copy_key =&gt; 1&quot; to &quot;wizard&quot;, which allows you to safely assign to $_[2] in order to e.g. redirect the action to another key. This however has a little performance drawback because of the copy.</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+<div style="height: 1.00em;">
+&#160;</div>
+All the callbacks are expected to return an integer, which is passed straight to the perl magic API. However, only the return value of the &quot;len&quot; callback currently holds a meaning.</div>
+<div class="spacer">
+</div>
+Each callback can be specified as a code or a string reference, in which case the function denoted by the string will be used as the callback.<div class="spacer">
+</div>
+Note that &quot;free&quot; callbacks are <i>never</i> called during global destruction, as there's no way to ensure that the wizard and the &quot;free&quot; callback weren't destroyed before the variable.<div class="spacer">
+</div>
+Here's a simple usage example :<div class="spacer">
+</div>
+<br/>
+    # A simple scalar tracer<br/>
+    my $wiz = wizard(<br/>
+     get  =&gt; sub { print STDERR &quot;got ${$_[0]}\n&quot; },<br/>
+     set  =&gt; sub { print STDERR &quot;set to ${$_[0]}\n&quot; },<br/>
+     free =&gt; sub { print STDERR &quot;${$_[0]} was deleted\n&quot; },<br/>
+    );<br/>
+</div>
+<div class="subsection">
+<h2>&quot;cast&quot;</h2><br/>
+    cast [$@%&amp;*]var, $wiz, ...<br/>
+<div class="spacer">
+</div>
+This function associates $wiz magic to the variable supplied, without overwriting any other kind of magic. It returns true on success or when $wiz magic is already present, and croaks on error. All extra arguments specified after $wiz are passed to the private data constructor in @_[1 .. @_-1]. If the variable isn't a hash, any &quot;uvar&quot; callback of the wizard is safely ignored.<div class="spacer">
+</div>
+<br/>
+    # Casts $wiz onto $x, and pass '1' to the data constructor.<br/>
+    my $x;<br/>
+    cast $x, $wiz, 1;<br/>
+<div class="spacer">
+</div>
+The &quot;var&quot; argument can be an array or hash value. Magic for those behaves like for any other scalar, except that it is dispelled when the entry is deleted from the container. For example, if you want to call &quot;POSIX::tzset&quot; each time the 'TZ' environment variable is changed in %ENV, you can use :<div class="spacer">
+</div>
+<br/>
+    use POSIX;<br/>
+    cast $ENV{TZ}, wizard set =&gt; sub { POSIX::tzset(); () };<br/>
+<div class="spacer">
+</div>
+If you want to overcome the possible deletion of the 'TZ' entry, you have no choice but to rely on &quot;store&quot; uvar magic.</div>
+<div class="subsection">
+<h2>&quot;getdata&quot;</h2><br/>
+    getdata [$@%&amp;*]var, $wiz<br/>
+<div class="spacer">
+</div>
+This accessor fetches the private data associated with the magic $wiz in the variable. It croaks when $wiz do not represent a valid magic object, and returns an empty list if no such magic is attached to the variable or when the wizard has no data constructor.<div class="spacer">
+</div>
+<br/>
+    # Get the attached data, or undef if the wizard does not attach any.<br/>
+    my $data = getdata $x, $wiz;<br/>
+</div>
+<div class="subsection">
+<h2>&quot;dispell&quot;</h2><br/>
+    dispell [$@%&amp;*]variable, $wiz<br/>
+<div class="spacer">
+</div>
+The exact opposite of &quot;cast&quot; : it dissociates $wiz magic from the variable. This function returns true on success, 0 when no magic represented by $wiz could be found in the variable, and croaks if the supplied wizard is invalid.<div class="spacer">
+</div>
+<br/>
+    # Dispell now.<br/>
+    die 'no such magic in $x' unless dispell $x, $wiz;<br/>
+</div>
+</div>
+<div class="section">
+<h1>CONSTANTS</h1><div class="subsection">
+<h2>&quot;MGf_COPY&quot;</h2> Evaluates to true iff the 'copy' magic is available.</div>
+<div class="subsection">
+<h2>&quot;MGf_DUP&quot;</h2> Evaluates to true iff the 'dup' magic is available.</div>
+<div class="subsection">
+<h2>&quot;MGf_LOCAL&quot;</h2> Evaluates to true iff the 'local' magic is available.</div>
+<div class="subsection">
+<h2>&quot;VMG_UVAR&quot;</h2> When this constant is true, you can use the &quot;fetch,store,exists,delete&quot; callbacks on hashes. Initial VMG_UVAR capability was introduced in perl 5.9.5, with a fully functional implementation shipped with perl 5.10.0.</div>
+<div class="subsection">
+<h2>&quot;VMG_COMPAT_SCALAR_LENGTH_NOLEN&quot;</h2> True for perls that don't call 'len' magic when taking the &quot;length&quot; of a magical scalar.</div>
+<div class="subsection">
+<h2>&quot;VMG_COMPAT_ARRAY_PUSH_NOLEN&quot;</h2> True for perls that don't call 'len' magic when you push an element in a magical array. Starting from perl 5.11.0, this only refers to pushes in non-void context and hence is false.</div>
+<div class="subsection">
+<h2>&quot;VMG_COMPAT_ARRAY_PUSH_NOLEN_VOID&quot;</h2> True for perls that don't call 'len' magic when you push in void context an element in a magical array.</div>
+<div class="subsection">
+<h2>&quot;VMG_COMPAT_ARRAY_UNSHIFT_NOLEN_VOID&quot;</h2> True for perls that don't call 'len' magic when you unshift in void context an element in a magical array.</div>
+<div class="subsection">
+<h2>&quot;VMG_COMPAT_ARRAY_UNDEF_CLEAR&quot;</h2> True for perls that call 'clear' magic when undefining magical arrays.</div>
+<div class="subsection">
+<h2>&quot;VMG_COMPAT_HASH_DELETE_NOUVAR_VOID&quot;</h2> True for perls that don't call 'delete' uvar magic when you delete an element from a hash in void context.</div>
+<div class="subsection">
+<h2>&quot;VMG_COMPAT_GLOB_GET&quot;</h2> True for perls that call 'get' magic for operations on globs.</div>
+<div class="subsection">
+<h2>&quot;VMG_PERL_PATCHLEVEL&quot;</h2> The perl patchlevel this module was built with, or 0 for non-debugging perls.</div>
+<div class="subsection">
+<h2>&quot;VMG_THREADSAFE&quot;</h2> True iff this module could have been built with thread-safety features enabled.</div>
+<div class="subsection">
+<h2>&quot;VMG_FORKSAFE&quot;</h2> True iff this module could have been built with fork-safety features enabled. This will always be true except on Windows where it's false for perl 5.10.0 and below .</div>
+<div class="subsection">
+<h2>&quot;VMG_OP_INFO_NAME&quot;</h2> Value to pass with &quot;op_info&quot; to get the current op name in the magic callbacks.</div>
+<div class="subsection">
+<h2>&quot;VMG_OP_INFO_OBJECT&quot;</h2> Value to pass with &quot;op_info&quot; to get a &quot;B::OP&quot; object representing the current op in the magic callbacks.</div>
+</div>
+<div class="section">
+<h1>COOKBOOK</h1><div class="subsection">
+<h2>Associate an object to any perl variable</h2> This technique can be useful for passing user data through limited APIs. It is similar to using inside-out objects, but without the drawback of having to implement a complex destructor.<div class="spacer">
+</div>
+<br/>
+    {<br/>
+     package Magical::UserData;<br/>
+<br/>
+     use Variable::Magic qw&lt;wizard cast getdata&gt;;<br/>
+<br/>
+     my $wiz = wizard data =&gt; sub { \$_[1] };<br/>
+<br/>
+     sub ud (\[$@%*&amp;]) : lvalue {<br/>
+      my ($var) = @_;<br/>
+      my $data = &amp;getdata($var, $wiz);<br/>
+      unless (defined $data) {<br/>
+       $data = \(my $slot);<br/>
+       &amp;cast($var, $wiz, $slot)<br/>
+                 or die &quot;Couldn't cast UserData magic onto the variable&quot;;<br/>
+      }<br/>
+      $$data;<br/>
+     }<br/>
+    }<br/>
+<br/>
+    {<br/>
+     BEGIN { *ud = \&amp;Magical::UserData::ud }<br/>
+<br/>
+     my $cb;<br/>
+     $cb = sub { print 'Hello, ', ud(&amp;$cb), &quot;!\n&quot; };<br/>
+<br/>
+     ud(&amp;$cb) = 'world';<br/>
+     $cb-&gt;(); # Hello, world!<br/>
+    }<br/>
+</div>
+<div class="subsection">
+<h2>Recursively cast magic on datastructures</h2> &quot;cast&quot; can be called from any magical callback, and in particular from &quot;data&quot;. This allows you to recursively cast magic on datastructures :<div class="spacer">
+</div>
+<br/>
+    my $wiz;<br/>
+    $wiz = wizard data =&gt; sub {<br/>
+     my ($var, $depth) = @_;<br/>
+     $depth ||= 0;<br/>
+     my $r = ref $var;<br/>
+     if ($r eq 'ARRAY') {<br/>
+      &amp;cast((ref() ? $_ : \$_), $wiz, $depth + 1) for @$var;<br/>
+     } elsif ($r eq 'HASH') {<br/>
+      &amp;cast((ref() ? $_ : \$_), $wiz, $depth + 1) for values %$var;<br/>
+     }<br/>
+     return $depth;<br/>
+    },<br/>
+    free =&gt; sub {<br/>
+     my ($var, $depth) = @_;<br/>
+     my $r = ref $var;<br/>
+     print &quot;free $r at depth $depth\n&quot;;<br/>
+     ();<br/>
+    };<br/>
+<br/>
+    {<br/>
+     my %h = (<br/>
+      a =&gt; [ 1, 2 ],<br/>
+      b =&gt; { c =&gt; 3 }<br/>
+     );<br/>
+     cast %h, $wiz;<br/>
+    }<br/>
+<div class="spacer">
+</div>
+When %h goes out of scope, this will print something among the lines of :<div class="spacer">
+</div>
+<br/>
+    free HASH at depth 0<br/>
+    free HASH at depth 1<br/>
+    free SCALAR at depth 2<br/>
+    free ARRAY at depth 1<br/>
+    free SCALAR at depth 3<br/>
+    free SCALAR at depth 3<br/>
+<div class="spacer">
+</div>
+Of course, this example does nothing with the values that are added after the &quot;cast&quot;.</div>
+</div>
+<div class="section">
+<h1>PERL MAGIC HISTORY</h1> The places where magic is invoked have changed a bit through perl history. Here's a little list of the most recent ones.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>5.6.x</b><div style="height: 1.00em;">
+&#160;</div>
+<i>p14416</i> : 'copy' and 'dup' magic.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>5.8.9</b><div style="height: 1.00em;">
+&#160;</div>
+<i>p28160</i> : Integration of <i>p25854</i> (see below).<div style="height: 1.00em;">
+&#160;</div>
+<i>p32542</i> : Integration of <i>p31473</i> (see below).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>5.9.3</b><div style="height: 1.00em;">
+&#160;</div>
+<i>p25854</i> : 'len' magic is no longer called when pushing an element into a magic array.<div style="height: 1.00em;">
+&#160;</div>
+<i>p26569</i> : 'local' magic.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>5.9.5</b><div style="height: 1.00em;">
+&#160;</div>
+<i>p31064</i> : Meaningful 'uvar' magic.<div style="height: 1.00em;">
+&#160;</div>
+<i>p31473</i> : 'clear' magic wasn't invoked when undefining an array. The bug is fixed as of this version.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>5.10.0</b><div style="height: 1.00em;">
+&#160;</div>
+Since &quot;PERL_MAGIC_uvar&quot; is uppercased, &quot;hv_magic_check()&quot; triggers 'copy' magic on hash stores for (non-tied) hashes that also have 'uvar' magic.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>5.11.x</b><div style="height: 1.00em;">
+&#160;</div>
+<i>p32969</i> : 'len' magic is no longer invoked when calling &quot;length&quot; with a magical scalar.<div style="height: 1.00em;">
+&#160;</div>
+<i>p34908</i> : 'len' magic is no longer called when pushing / unshifting an element into a magical array in void context. The &quot;push&quot; part was already covered by  <i>p25854</i>.<div style="height: 1.00em;">
+&#160;</div>
+<i>g9cdcb38b</i> : 'len' magic is called again when pushing into a magical array in non-void context.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>EXPORT</h1> The functions &quot;wizard&quot;, &quot;cast&quot;, &quot;getdata&quot; and &quot;dispell&quot; are only exported on request. All of them are exported by the tags ':funcs' and ':all'.<div class="spacer">
+</div>
+All the constants are also only exported on request, either individually or by the tags ':consts' and ':all'.</div>
+<div class="section">
+<h1>CAVEATS</h1> If you store a magic object in the private data slot, the magic won't be accessible by &quot;getdata&quot; since it's not copied by assignment. The only way to address this would be to return a reference.<div class="spacer">
+</div>
+If you define a wizard with a &quot;free&quot; callback and cast it on itself, this destructor won't be called because the wizard will be destroyed first.<div class="spacer">
+</div>
+In order to define magic on hash members, you need at least perl 5.10.0 (see &quot;VMG_UVAR&quot;)</div>
+<div class="section">
+<h1>DEPENDENCIES</h1> perl 5.8.<div class="spacer">
+</div>
+A C compiler. This module may happen to build with a C++ compiler as well, but don't rely on it, as no guarantee is made in this regard.<div class="spacer">
+</div>
+Carp (standard since perl 5), XSLoader (standard since perl 5.006).<div class="spacer">
+</div>
+Copy tests need Tie::Array (standard since perl 5.005) and Tie::Hash (since 5.002).<div class="spacer">
+</div>
+Some uvar tests need Hash::Util::FieldHash (standard since perl 5.009004).<div class="spacer">
+</div>
+Glob tests need Symbol (standard since perl 5.002).<div class="spacer">
+</div>
+Threads tests need threads and threads::shared.</div>
+<div class="section">
+<h1>SEE ALSO</h1> perlguts and perlapi for internal information about magic.<div class="spacer">
+</div>
+perltie and overload for other ways of enhancing objects.</div>
+<div class="section">
+<h1>AUTHOR</h1> Vincent Pit, &quot;&lt;perl at profvince.com&gt;&quot;, &lt;http://www.profvince.com&gt;.<div class="spacer">
+</div>
+You can contact me by mail or on &quot;irc.perl.org&quot; (vincent).</div>
+<div class="section">
+<h1>BUGS</h1> Please report any bugs or feature requests to &quot;bug-variable-magic at rt.cpan.org&quot;, or through the web interface at http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Variable-Magic &lt;http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Variable-Magic&gt;. I will be notified, and then you'll automatically be notified of progress on your bug as I make changes.</div>
+<div class="section">
+<h1>SUPPORT</h1> You can find documentation for this module with the perldoc command.<div class="spacer">
+</div>
+<br/>
+    perldoc Variable::Magic<br/>
+<div class="spacer">
+</div>
+Tests code coverage report is available at http://www.profvince.com/perl/cover/Variable-Magic &lt;http://www.profvince.com/perl/cover/Variable-Magic&gt;.</div>
+<div class="section">
+<h1>COPYRIGHT &amp; LICENSE</h1> Copyright 2007,2008,2009,2010,2011 Vincent Pit, all rights reserved.<div class="spacer">
+</div>
+This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-10-27</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

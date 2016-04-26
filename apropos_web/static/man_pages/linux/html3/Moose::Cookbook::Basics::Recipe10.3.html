@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Moose::Cookbook::Basics::Recipe10(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Moose::Cookbook::Basics::Recipe10(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Moose::Cookbook::Basics::Recipe10(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Moose::Cookbook::Basics::Recipe10 - Using BUILDARGS and BUILD to hook into object construction</div>
+<div class="section">
+<h1>VERSION</h1> version 2.0401</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  package Person;<br/>
+<br/>
+  has 'ssn' =&gt; (<br/>
+      is        =&gt; 'ro',<br/>
+      isa       =&gt; 'Str',<br/>
+      predicate =&gt; 'has_ssn',<br/>
+  );<br/>
+<br/>
+  has 'country_of_residence' =&gt; (<br/>
+      is      =&gt; 'ro',<br/>
+      isa     =&gt; 'Str',<br/>
+      default =&gt; 'usa'<br/>
+  );<br/>
+<br/>
+  has 'first_name' =&gt; (<br/>
+      is  =&gt; 'ro',<br/>
+      isa =&gt; 'Str',<br/>
+  );<br/>
+<br/>
+  has 'last_name' =&gt; (<br/>
+      is  =&gt; 'ro',<br/>
+      isa =&gt; 'Str',<br/>
+  );<br/>
+<br/>
+  around BUILDARGS =&gt; sub {<br/>
+      my $orig = shift;<br/>
+      my $class = shift;<br/>
+<br/>
+      if ( @_ == 1 &amp;&amp; ! ref $_[0] ) {<br/>
+          return $class-&gt;$orig(ssn =&gt; $_[0]);<br/>
+      }<br/>
+      else {<br/>
+          return $class-&gt;$orig(@_);<br/>
+      }<br/>
+  };<br/>
+<br/>
+  sub BUILD {<br/>
+      my $self = shift;<br/>
+<br/>
+      if ( $self-&gt;country_of_residence eq 'usa' ) {<br/>
+          die 'Cannot create a Person who lives in the USA without an ssn.'<br/>
+              unless $self-&gt;has_ssn;<br/>
+      }<br/>
+  }<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This recipe demonstrates the use of &quot;BUILDARGS&quot; and &quot;BUILD&quot;. By defining these methods, we can hook into the object construction process without overriding &quot;new&quot;.<div class="spacer">
+</div>
+The &quot;BUILDARGS&quot; method is called <i>before</i> an object has been created. It is called as a class method, and receives all of the parameters passed to the &quot;new&quot; method. It is expected to do something with these arguments and return a hash reference. The keys of the hash must be attribute &quot;init_arg&quot;s.<div class="spacer">
+</div>
+The primary purpose of &quot;BUILDARGS&quot; is to allow a class to accept something other than named arguments. In the case of our &quot;Person&quot; class, we are allowing it to be called with a single argument, a social security number:<div class="spacer">
+</div>
+<br/>
+  my $person = Person-&gt;new('123-45-6789');<br/>
+<div class="spacer">
+</div>
+The key part of our &quot;BUILDARGS&quot; is this conditional:<div class="spacer">
+</div>
+<br/>
+      if ( @_ == 1 &amp;&amp; ! ref $_[0] ) {<br/>
+          return $class-&gt;$orig(ssn =&gt; $_[0]);<br/>
+      }<br/>
+<div class="spacer">
+</div>
+By default, Moose constructors accept a list of key-value pairs, or a hash reference. We need to make sure that $_[0] is not a reference before assuming it is a social security number.<div class="spacer">
+</div>
+We call the original &quot;BUILDARGS&quot; method to handle all the other cases. You should always do this in your own &quot;BUILDARGS&quot; methods, since Moose::Object provides its own &quot;BUILDARGS&quot; method that handles hash references and a list of key-value pairs.<div class="spacer">
+</div>
+The &quot;BUILD&quot; method is called <i>after</i> the object is constructed, but before it is returned to the caller. The &quot;BUILD&quot; method provides an opportunity to check the object state as a whole. This is a good place to put logic that cannot be expressed as a type constraint on a single attribute.<div class="spacer">
+</div>
+In the &quot;Person&quot; class, we need to check the relationship between two attributes, &quot;ssn&quot; and &quot;country_of_residence&quot;. We throw an exception if the object is not logically consistent.</div>
+<div class="section">
+<h1>MORE CONSIDERATIONS</h1> This recipe is made significantly simpler because all of the attributes are read-only. If the &quot;country_of_residence&quot; attribute were settable, we would need to check that a Person had an &quot;ssn&quot; if the new country was &quot;usa&quot;. This could be done with a &quot;before&quot; modifier.</div>
+<div class="section">
+<h1>CONCLUSION</h1> We have repeatedly discouraged overriding &quot;new&quot; in Moose classes. This recipe shows how you can use &quot;BUILDARGS&quot; and &quot;BUILD&quot; to hook into object construction without overriding &quot;new&quot;.<div class="spacer">
+</div>
+The &quot;BUILDARGS&quot; method lets us expand on Moose's built-in parameter handling for constructors. The &quot;BUILD&quot; method lets us implement logical constraints across the whole object after it is created.</div>
+<div class="section">
+<h1>AUTHOR</h1> Moose is maintained by the Moose Cabal, along with the help of many contributors. See &quot;CABAL&quot; in Moose and &quot;CONTRIBUTORS&quot; in Moose for details.</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> This software is copyright (c) 2011 by Infinity Interactive, Inc..<div class="spacer">
+</div>
+This is free software; you can redistribute it and/or modify it under the same terms as the Perl 5 programming language system itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-11-17</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

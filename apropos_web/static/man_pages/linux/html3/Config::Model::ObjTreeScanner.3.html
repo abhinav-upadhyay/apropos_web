@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Config::Model::ObjTreeScanner(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Config::Model::ObjTreeScanner(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Config::Model::ObjTreeScanner(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Config::Model::ObjTreeScanner - Scan config tree and perform call-backs</div>
+<div class="section">
+<h1>VERSION</h1> version 2.005</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ use Config::Model ;<br/>
+ use Log::Log4perl qw(:easy) ;<br/>
+ Log::Log4perl-&gt;easy_init($WARN);<br/>
+<br/>
+ # define configuration tree object<br/>
+ my $model = Config::Model-&gt;new ;<br/>
+ $model -&gt;create_config_class (<br/>
+    name =&gt; &quot;MyClass&quot;,<br/>
+    element =&gt; [ <br/>
+        [qw/foo bar/] =&gt; { <br/>
+            type =&gt; 'leaf',<br/>
+            value_type =&gt; 'string'<br/>
+        },<br/>
+        baz =&gt; { <br/>
+            type =&gt; 'hash',<br/>
+            index_type =&gt; 'string' ,<br/>
+            cargo =&gt; {<br/>
+                type =&gt; 'leaf',<br/>
+                value_type =&gt; 'string',<br/>
+            },<br/>
+        },<br/>
+        <br/>
+    ],<br/>
+ ) ;<br/>
+<br/>
+ my $inst = $model-&gt;instance(root_class_name =&gt; 'MyClass' );<br/>
+<br/>
+ my $root = $inst-&gt;config_root ;<br/>
+<br/>
+ # put some data in config tree the hard way<br/>
+ $root-&gt;fetch_element('foo')-&gt;store('yada') ;<br/>
+ $root-&gt;fetch_element('bar')-&gt;store('bla bla') ;<br/>
+ $root-&gt;fetch_element('baz')-&gt;fetch_with_id('en')-&gt;store('hello') ;<br/>
+<br/>
+ # put more data the easy way<br/>
+ my $step = 'baz:fr=bonjour baz:hr=&quot;dobar dan&quot;';<br/>
+ $root-&gt;load( step =&gt; $step ) ;<br/>
+<br/>
+ # define leaf call back<br/>
+ my $disp_leaf = sub { <br/>
+      my ($scanner, $data_ref, $node,$element_name,$index, $leaf_object) = @_ ;<br/>
+      $$data_ref .= &quot;disp_leaf called for '&quot;. $leaf_object-&gt;name. <br/>
+        &quot;' value '&quot;.$leaf_object-&gt;fetch.&quot;'\n&quot;;<br/>
+    } ;<br/>
+<br/>
+ # simple scanner, (print all values with 'beginner' experience<br/>
+ my $scan = Config::Model::ObjTreeScanner-&gt; new (<br/>
+   leaf_cb =&gt; $disp_leaf, # only mandatory parameter<br/>
+ ) ;<br/>
+<br/>
+ my $result = '';<br/>
+ $scan-&gt;scan_node(\$result, $root) ;<br/>
+ print $result ;<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This module creates an object that will explore (depth first) a configuration tree.<div class="spacer">
+</div>
+For each part of the configuration tree, ObjTreeScanner object will call one of the subroutine reference passed during construction. (a call-back or a hook)<div class="spacer">
+</div>
+Call-back and hook routines will be called:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+For each node containing elements (including root node)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+For each element of a node. This element can be a list, hash, node or simple leaf element.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+For each item contained in a node, hash or list. This item can be a simple leaf or another node.</dd>
+</dl>
+<div class="spacer">
+</div>
+To continue the exploration, these call-backs must also call the scanner. (i.e. perform another call-back). In other words the user's subroutine and the scanner play a game of ping-pong until the tree is completely explored.<div class="spacer">
+</div>
+Hooks routines are not required to resume the exploration, i.e. to call the scanner. This will be done after the hook routine has returned.<div class="spacer">
+</div>
+The scanner provides a set of default callback for the nodes. This way, the user only have to provide call-backs for the leaves.<div class="spacer">
+</div>
+The scan is started with a call to &quot;scan_node&quot;. The first parameter of scan_node is a ref that is passed untouched to all call-back. This ref may be used to store whatever result you want.</div>
+<div class="section">
+<h1>CONSTRUCTOR</h1><div class="subsection">
+<h2>new ( ... )</h2> One way or another, the ObjTreeScanner object must be able to find all callback for all the items of the tree. All the possible call-back and hooks are listed below:<dl>
+<dt>
+leaf callback:</dt>
+<dd>
+&quot;leaf_cb&quot; is a catch-all generic callback. All other are specialized call-back : &quot;enum_value_cb&quot;, &quot;integer_value_cb&quot;, &quot;number_value_cb&quot;, &quot;boolean_value_cb&quot;, &quot;string_value_cb&quot;, &quot;uniline_value_cb&quot;, &quot;reference_value_cb&quot;</dd>
+</dl>
+<dl>
+<dt>
+node callback:</dt>
+<dd>
+&quot;node_content_cb&quot; , &quot;node_dispatch_cb&quot;</dd>
+</dl>
+<dl>
+<dt>
+node hooks:</dt>
+<dd>
+&quot;node_content_hook&quot;</dd>
+</dl>
+<dl>
+<dt>
+element callback:</dt>
+<dd>
+All these call-backs are called on the elements of a node: &quot;list_element_cb&quot;, &quot;check_list_element_cb&quot;, &quot;hash_element_cb&quot;, &quot;node_element_cb&quot;, &quot;node_content_cb&quot;.</dd>
+</dl>
+<dl>
+<dt>
+element hooks:</dt>
+<dd>
+&quot;list_element_hook&quot;, &quot;hash_element_hook&quot;.</dd>
+</dl>
+<div class="spacer">
+</div>
+The user may specify all of them by passing a sub ref to the constructor:<div class="spacer">
+</div>
+<br/>
+   $scan = Config::Model::ObjTreeScanner-&gt; new<br/>
+  (<br/>
+   list_element_cb =&gt; sub { ... },<br/>
+   ...<br/>
+  )<br/>
+<div class="spacer">
+</div>
+Or use some default callback using the fallback parameter. Note that at least one callback must be provided: &quot;leaf_cb&quot;.<div class="spacer">
+</div>
+Optional parameter:<dl>
+<dt>
+fallback</dt>
+<dd>
+If set to 'node', the scanner will provide default call-back for node items. If set to 'leaf', the scanner will set all leaf callback (like enum_value_cb ...) to string_value_cb or to the mandatory leaf_cb value. &quot;fallback&quot; callback will not override callbacks provided by the user.<div style="height: 1.00em;">
+&#160;</div>
+If set to 'all', equivalent to 'node' and 'leaf'. By default, no fallback is provided.</dd>
+</dl>
+<dl>
+<dt>
+experience</dt>
+<dd>
+Set the privilege level used for the scan (default 'beginner').</dd>
+</dl>
+<dl>
+<dt>
+auto_vivify</dt>
+<dd>
+Whether to create the configuration items while scan (default is 1).</dd>
+</dl>
+<dl>
+<dt>
+check</dt>
+<dd>
+&quot;yes&quot;, &quot;no&quot; or &quot;skip&quot;.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Callback prototypes</h1><div class="subsection">
+<h2>Leaf callback</h2> &quot;leaf_cb&quot; is called for each leaf of the tree. The leaf callback will be called with the following parameters:<div class="spacer">
+</div>
+<br/>
+ ($scanner, $data_ref,$node,$element_name,$index, $leaf_object)<br/>
+<div class="spacer">
+</div>
+where:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$scanner is the scanner object.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$data_ref is a reference that is first passed to the first call of the scanner. Then $data_ref is relayed through the various call-backs</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$node is the node that contain the leaf.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$element_name is the element (or attribute) that contain the leaf.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$index is the index (or hash key) used to get the leaf. This may be undefined if the element type is scalar.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$leaf_object is a Config::Model::Value object.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>List element callback</h2> &quot;list_element_cb&quot; is called on all list element of a node, i.e. call on the list object itself and not in the elements contained in the list.<div class="spacer">
+</div>
+<br/>
+ ($scanner, $data_ref,$node,$element_name,@indexes)<br/>
+<div class="spacer">
+</div>
+@indexes is a list containing all the indexes of the list.<div class="spacer">
+</div>
+Example:<div class="spacer">
+</div>
+<br/>
+  sub my_list_element_cb {<br/>
+     my ($scanner, $data_ref,$node,$element_name,@idx) = @_ ;<br/>
+<br/>
+     # custom code using $data_ref<br/>
+<br/>
+     # resume exploration (if needed)<br/>
+     map {$scanner-&gt;scan_list($data_ref,$node,$element_name,$_)} @idx ;<br/>
+<br/>
+     # note: scan_list and scan_hash are equivalent<br/>
+  }<br/>
+</div>
+<div class="subsection">
+<h2>List element hook</h2> &quot;hash_element_hook&quot;: Works like the list element callback. Except that the calls to &quot;scan_list&quot; are not required. This will be done once the hook returns.</div>
+<div class="subsection">
+<h2>Check list element callback</h2> &quot;check_list_element_cb&quot;: Like &quot;list_element_cb&quot;, but called on a check_list element.<div class="spacer">
+</div>
+<br/>
+ ($scanner, $data_ref,$node,$element_name,@check_items)<br/>
+<div class="spacer">
+</div>
+@check_items is a list containing all the items of the check_list.</div>
+<div class="subsection">
+<h2>Hash element callback</h2> &quot;hash_element_cb&quot;: Like &quot;list_element_cb&quot;, but called on a hash element.<div class="spacer">
+</div>
+<br/>
+ ($scanner, $data_ref,$node,$element_name,@keys)<br/>
+<div class="spacer">
+</div>
+@keys is an list containing all the keys of the hash.<div class="spacer">
+</div>
+Example:<div class="spacer">
+</div>
+<br/>
+  sub my_hash_element_cb {<br/>
+     my ($scanner, $data_ref,$node,$element_name,@keys) = @_ ;<br/>
+<br/>
+     # custom code using $data_ref<br/>
+<br/>
+     # resume exploration<br/>
+     map {$scanner-&gt;scan_hash($data_ref,$node,$element_name,$_)} @keys ;<br/>
+  }<br/>
+</div>
+<div class="subsection">
+<h2>Hash element hook</h2> &quot;hash_element_hook&quot;: Works like the hash element callback. Except that the calls to &quot;scan_hash&quot; are not required. This will be done once the hook returns.</div>
+<div class="subsection">
+<h2>Node content callback</h2> &quot;node_content_cb&quot;: This call-back is called foreach node (including root node).<div class="spacer">
+</div>
+<br/>
+ ($scanner, $data_ref,$node,@element_list)<br/>
+<div class="spacer">
+</div>
+@element_list contains all the element names of the node.<div class="spacer">
+</div>
+Example:<div class="spacer">
+</div>
+<br/>
+  sub my_content_cb = { <br/>
+     my ($scanner, $data_ref,$node,@element) = @_ ;<br/>
+<br/>
+     # custom code using $data_ref<br/>
+<br/>
+     # resume exploration<br/>
+     map {$scanner-&gt;scan_element($data_ref, $node,$_)} @element ;<br/>
+  }<br/>
+</div>
+<div class="subsection">
+<h2>Node content hook</h2> &quot;node_content_hook&quot;: This hook is called foreach node (including root node). Works like the node content call-back. Except that the calls to &quot;scan_element&quot; are not required. This will be done once the hook returns.</div>
+<div class="subsection">
+<h2>Dispatch node callback</h2> &quot;node_dispatch_cb&quot;: Any callback specified in the hash will be called for each instance of the specified configuration class. (this may include the  root node).<div class="spacer">
+</div>
+For instance, if you have:<div class="spacer">
+</div>
+<br/>
+  node_dispach_cb =&gt; {<br/>
+    ClassA =&gt; \&amp;my_class_a_dispatch_cb,<br/>
+    ClassB =&gt; \&amp;my_class_b_dispatch_cb,<br/>
+  }<br/>
+<div class="spacer">
+</div>
+&amp;my_class_a_dispatch_cb will be called for each instance of &quot;ClassA&quot; and &amp;my_class_b_dispatch_cb will be called for each instance of &quot;ClassB&quot;.<div class="spacer">
+</div>
+They will be called with the following parameters:<div class="spacer">
+</div>
+<br/>
+ ($scanner, $data_ref,$node,@element_list)<br/>
+<div class="spacer">
+</div>
+@element_list contains all the element names of the node.<div class="spacer">
+</div>
+Example:<div class="spacer">
+</div>
+<br/>
+  sub my_class_a_dispatch_cb = { <br/>
+     my ($scanner, $data_ref,$node,@element) = @_ ;<br/>
+<br/>
+     # custom code using $data_ref<br/>
+<br/>
+     # resume exploration<br/>
+     map {$scanner-&gt;scan_element($data_ref, $node,$_)} @element ;<br/>
+  }<br/>
+</div>
+<div class="subsection">
+<h2>Node element callback</h2> &quot;node_element_cb&quot; is called for each node contained within a node (i.e not with root node). This node can be held by a plain element or a hash element or a list element:<div class="spacer">
+</div>
+<br/>
+ ($scanner, $data_ref,$node,$element_name,$key, $contained_node)<br/>
+<div class="spacer">
+</div>
+$key may be undef if $contained_node is not a part of a hash or a list. $element_name and $key specifies the element name and key of the the contained node you want to scan. (passed with $contained_node) Note that $contained_node may be undef if &quot;auto_vivify&quot; is 0.<div class="spacer">
+</div>
+Example:<div class="spacer">
+</div>
+<br/>
+  sub my_node_element_cb {<br/>
+    my ($scanner, $data_ref,$node,$element_name,$key, $contained_node) = @_;<br/>
+<br/>
+    # your custom code using $data_ref<br/>
+<br/>
+    # explore next node <br/>
+    $scanner-&gt;scan_node($data_ref,$contained_node);<br/>
+  }<br/>
+</div>
+</div>
+<div class="section">
+<h1>METHODS</h1><div class="subsection">
+<h2>scan_node ($data_r,$node)</h2> Explore the node and call either &quot;node_dispatch_cb&quot; (if the node class name matches the dispatch_node hash)  <b>or</b> (e.g. xor) &quot;node_element_cb&quot; passing all element names.<div class="spacer">
+</div>
+After the first callback has returned, &quot;up_cb&quot; will be called.</div>
+<div class="subsection">
+<h2>scan_element($data_r,$node,$element_name)</h2> Explore the element and call either &quot;hash_element_cb&quot;, &quot;list_element_cb&quot;, &quot;node_content_cb&quot; or a leaf call-back (the leaf call-back called depends on the Value object properties: enum, string, integer and so on)</div>
+<div class="subsection">
+<h2>scan_hash ($data_r,$node,$element_name,$key)</h2> Explore the hash member (or hash value) and call either &quot;node_content_cb&quot; or a leaf call-back.</div>
+<div class="subsection">
+<h2>scan_list ($data_r,$node,$element_name,$index)</h2> Just like &quot;scan_hash&quot;: Explore the list member and call either &quot;node_content_cb&quot; or a leaf call-back.</div>
+<div class="subsection">
+<h2>get_keys ($node, $element_name)</h2> Returns an list containing the sorted keys of a hash element or returns an list containing (0.. last_index) of an list element.<div class="spacer">
+</div>
+Throws an exception if element is not an list or a hash element.</div>
+<div class="subsection">
+<h2>experience ( [ new_experience ] )</h2> Set or query the experience level of the scanner</div>
+<div class="subsection">
+<h2>get_experience_ref ( )</h2> Get a SCALAR reference on experience. Use with care.</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Dominique Dumont, (ddumont at cpan dot org)</div>
+<div class="section">
+<h1>SEE ALSO</h1> Config::Model,Config::Model::Node,Config::Model::Instance, Config::Model::HashId, Config::Model::ListId, Config::Model::CheckList, Config::Model::Value</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2012-02-24</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

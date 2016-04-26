@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+INSSERV(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+INSSERV(8)</td>
+<td class="head-vol">
+System Manager's Manual</td>
+<td class="head-rtitle">
+INSSERV(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> insserv - Enable an installed system init script</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>insserv</b> [<b>-v</b>] [<b>-c&#160;&lt;config&gt;</b>] [<b>-p&#160;&lt;path&gt;</b>] [<b>-d</b>] [<b>-f</b>] [[<i>/</i>]<i>path/to/init.d/</i>]<i>script</i>&#160;...<div class="spacer">
+</div>
+<b>insserv</b> [<b>-v</b>] [<b>-c&#160;&lt;config&gt;</b>] [<b>-p&#160;&lt;path&gt;</b>] [[<i>/</i>]<i>path/to/init.d/</i>]<i>script</i>[<i>,start=&lt;lvl1,lvl2,...&gt;,stop=&lt;lvl1,lvl2,...&gt;</i>]<div class="spacer">
+</div>
+<b>insserv</b> [<b>-v</b>] [<b>-c&#160;&lt;config&gt;</b>] [<b>-p&#160;&lt;path&gt;</b>] <b>-r</b> [<b>-d</b>] [<b>-f</b>] [[<i>/</i>]<i>path/to/init.d/</i>]<i>script</i>&#160;...<div class="spacer">
+</div>
+<b>insserv</b> <b>-h</b></div>
+<div class="section">
+<h1>DESCRIPTION</h1> <b>insserv</b> enables an installed system init script (`boot script') by reading the comment header of the script, e.g.:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+ ### BEGIN INIT INFO<br/>
+ # Provides:          boot_facility_1 [ boot_facility_2 ...]<br/>
+ # Required-Start:    boot_facility_1 [ boot_facility_2 ...]<br/>
+ # Required-Stop:     boot_facility_1 [ boot_facility_2 ...]<br/>
+ # Should-Start:      boot_facility_1 [ boot_facility_2 ...]<br/>
+ # Should-Stop:       boot_facility_1 [ boot_facility_2 ...]<br/>
+ # X-Start-Before:    boot_facility_1 [ boot_facility_2 ...]<br/>
+ # X-Stop-After:      boot_facility_1 [ boot_facility_2 ...]<br/>
+ # Default-Start:     run_level_1 [ run_level_2 ...]<br/>
+ # Default-Stop:      run_level_1 [ run_level_2 ...]<br/>
+ # X-Interactive:     true<br/>
+ # Short-Description: single_line_description<br/>
+ # Description:       multiline_description<br/>
+ ### END INIT INFO<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+and calculating the dependencies between all scripts. Please be aware that the line<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+ # Required-Stop:  boot_facility_1 [ boot_facility_2 ...]<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+declares facilities which must be available during shutdown of the service declared in the <b>Provides</b> tag.  Same holds true for<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+ # Should-Stop:    boot_facility_1 [ boot_facility_2 ...]<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+which declares facilities which should be available during shutdown of the service declared in the <b>Provides</b> tag. In both cases the script system should avoid stopping services which are declared by these two Stop tags until the script including these tags is stopped.<div class="spacer">
+</div>
+The optional X-Interactive keyword implies that the script using this keyword should be started alone in a concurrent boot configuration because it interact with the user at the console.  Only the value `true' is recognised.  All other are ignored.<div class="spacer">
+</div>
+The optional <b>X-Start-Before</b> keyword implies that the script using this keyword should be started <b>before</b> the specified service names. Whereas the optional <b>X-Stop-After</b> keyword implies that the script using this keyword should be stopped <b>after</b> the specified service names. Both implies that those services now depend on the specifying script. With known dependencies and runlevel(s) <b>insserv</b> sets and reorders the corresponding symbolic links of the concerned runlevels directories.<div class="spacer">
+</div>
+<b>insserv</b> scans for <b>System Facilities</b> in the configuration file <i>/etc/insserv.conf</i> and each file in the directory <i>/etc/insserv.conf.d/</i>. Each line which begins with <b>$</b> and a following name defines a system facility accordingly to the Linux Standard Base Specification (LSB), All names followed by such a system facility will declare the required dependencies of the facility. Here is an example for <i>/etc/insserv.conf</i>:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+ # All local filesystems are mounted<br/>
+ # (done during boot phase)<br/>
+ $local_fs       boot<div class="spacer">
+</div>
+<br/>
+ # Low level networking<br/>
+ $network        network route<div class="spacer">
+</div>
+<br/>
+ # Named is operational<br/>
+ $named          named<div class="spacer">
+</div>
+<br/>
+ # All remote filesystems are mounted<br/>
+ # (in some cases /usr may be remote).<br/>
+ $remote_fs      $local_fs nfs<div class="spacer">
+</div>
+<br/>
+ # System logger is operational<br/>
+ $syslog         syslog<div class="spacer">
+</div>
+<br/>
+ # All network daemons are running (This was removed in LSB 1.2)<br/>
+ $netdaemons     portmap inetd<div class="spacer">
+</div>
+<br/>
+ # Services which need to be interactive<br/>
+ &lt;interactive&gt;   boot.crypto<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Names starting with a `+' sign are marked as optional. If the service with the name after the plus sign is available it will be used, if not available it is ignored silently.  Words beginning with <b>&lt;</b> and ending with <b>&gt;</b> are keywords.  Currently <b>&lt;interactive&gt;</b> is the only know keyword for marking a service as an interactive one, e.g. a service which requires a passphrase or password input during boot or runlevel change.  The special facility <b>$null</b> is used to enforce an empty dependency in case of <b>Should-Stop</b> and <b>Required-Stop</b>.<div class="spacer">
+</div>
+In addition to the defined <b>System Facilities</b> in the configuration file <i>/etc/insserv.conf</i>, <b>insserv</b> also knows the special facility <b>$all</b>. This facility indicates that a service should be inserted at the end of all services at starting and at the very beginning at stopping.  Clearly all services using this facility will be grouped into one starting or stopping order.</div>
+<div class="section">
+<h1>OPTIONS</h1> Currently there exists nine options for <b>insserv</b>.<dl>
+<dt>
+<b>-v</b>,&#160;<b>--verbose</b></dt>
+<dd>
+Write out what is currently going on.</dd>
+</dl>
+<dl>
+<dt>
+<b>-c&#160;&lt;config&gt;</b>,&#160;<b>--config&#160;&lt;config&gt;</b></dt>
+<dd>
+Specify path to the insserv.conf file and the insserv.conf.d directory.  Useful for testing.</dd>
+</dl>
+<dl>
+<dt>
+<b>-o&#160;&lt;path&gt;</b>,&#160;<b>--override&#160;&lt;path&gt;</b></dt>
+<dd>
+LSB comment headers found in this path will override existing LSB comment headers of scripts in the init.d directory (default path is <i>/etc/insserv/overrides/</i>).</dd>
+</dl>
+<dl>
+<dt>
+<b>-p&#160;&lt;path&gt;</b>,&#160;<b>--path&#160;&lt;path&gt;</b></dt>
+<dd>
+Specify path to init.d directory.  Useful for testing.</dd>
+</dl>
+<dl>
+<dt>
+<b>-n</b>,&#160;<b>--dryrun</b></dt>
+<dd>
+Do not update symlinks.</dd>
+</dl>
+<dl>
+<dt>
+<b>-r</b>,&#160;<b>--remove</b></dt>
+<dd>
+Remove the listed scripts from all runlevels.</dd>
+</dl>
+<dl>
+<dt>
+<b>-d</b>,&#160;<b>--default</b></dt>
+<dd>
+Use default runlevels as defined in the scripts. This may restore an edited runlevel link scheme.</dd>
+</dl>
+<dl>
+<dt>
+<b>-f</b>,&#160;<b>--force</b></dt>
+<dd>
+Ignore if a required service is missed. Beside this if start and or stop levels are specified on the command line the default levels of the script will be ignored.</dd>
+</dl>
+<dl>
+<dt>
+<b>-u&#160;&lt;path&gt;</b>,&#160;<b>--upstart-job&#160;&lt;path&gt;</b></dt>
+<dd>
+Path to replace existing upstart job path.  (default path is <i>/lib/init/upstart-job</i>).</dd>
+</dl>
+<dl>
+<dt>
+<b>-h</b>,&#160;<b>--help</b></dt>
+<dd>
+Print out short usage message.</dd>
+</dl>
+<div class="spacer">
+</div>
+But you may use the argument syntax described in the following section.</div>
+<div class="section">
+<h1>ARGUMENTS</h1><dl>
+<dt>
+[[<i>/</i>]<i>path/to/init.d/</i>]</dt>
+<dd>
+Relative or absolute path to the init scripts base directory. This defaults to <i>/etc/init.d/</i> in compliance with the LSB specification. In this case <b>insserv</b> does not add or remove a script to the runlevels declared in the script headers, but may re-order the runlevels if the order of the currently enabled scripts has changed (see option <b>-d</b>). Note that if a relative path is used <b>insserv</b> has to be called from the root directory.</dd>
+</dl>
+<dl>
+<dt>
+[[<i>/</i>]<i>path/to/init.d/</i>]<i>script&#160;...</i></dt>
+<dd>
+List of scripts which have to be added to the runlevels. If a path is used it should point to the absolute or relative location of the boot scripts. <b>insserv</b> checks for the existence of these scripts. For the runlevels the information found in the script is used.</dd>
+</dl>
+<dl>
+<dt>
+[[<i>/</i>]<i>path/to/init.d/</i>]<i>script</i>[<i>,start=&lt;lvl1,lvl2,...&gt;</i>]</dt>
+<dd>
+List of scripts which have to be added to the specified runlevels to be started with. You may use this extension to override the default values for start and stop runlevels of the script. Note that <b>lvl1</b>,&#160;<b>lvl2</b>,&#160;... are the known runlevels explained above. The extension <i>,stop=&lt;lvl1,lvl2,...&gt;</i> is also possible.</dd>
+</dl>
+<dl>
+<dt>
+<b>-r</b>&#160;[[<i>/</i>]<i>path/to/init.d/</i>]<i>script&#160;...</i></dt>
+<dd>
+List of scripts which should be removed from the runlevels. If a path is used it should point to the absolute or relative location of the boot scripts. <b>insserv</b> checks for the existence of these scripts.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>OVERRIDES</h1> Beside using the extensions <i>,start=&lt;lvl1,lvl2,...&gt;</i> and <i>,stop=&lt;lvl1,lvl2,...&gt;</i> it is possible to use override files replace a LSB comment header or simple provide a missing LSB comment header.  This can be done by placing a file with the new LSB comment header using the same name as the boot or init script in the directory <i>/etc/insserv/overrides/</i>. For third party boot scripts without LSB header it is possible to add a file with the same name in the directory <i>/usr/share/insserv/overrides/</i> to make them completely LSB compliant.</div>
+<div class="section">
+<h1>UPSTART JOB COMPATIBILITY</h1> To allow upstart jobs to work as init.d scripts, insserv will recognize a symlink from path/to/init.d/script to /lib/init/upstart-job as upstart jobs, and instead of reading the header from the file will run the script with the argument lsb-header to get the script header.</div>
+<div class="section">
+<h1>EXIT CODES</h1> The exit codes have the following conditions:<div style="margin-left: 7.00ex;">
+<dl>
+<dt>
+0</dt>
+<dd>
+Service was successfully installed or removed</dd>
+</dl>
+<dl>
+<dt>
+1</dt>
+<dd>
+Service was not installed or removed</dd>
+</dl>
+</div>
+<div style="margin-left: 5.00ex;">
+</div>
+</div>
+<div class="section">
+<h1>NOTE</h1> Please be aware that the following patterns of boot script file names will be not accepted by <b>insserv:</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+        *.dpkg*<br/>
+        *.rpm*<br/>
+        *.ba*<br/>
+        *.old<br/>
+        *.new<br/>
+        *.org<br/>
+        *.orig<br/>
+        *.save<br/>
+        *.swp<br/>
+        *.core<br/>
+        *~<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+with the wildcard character <b>*</b>. Beside this all boot script file names beginning with one of the following characters<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+        $.#%_+-\*[]^:()~<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+will be ignored.</div>
+<div class="section">
+<h1>BUGS</h1> Boot scripts sometimes lack a LSB comment header. Contact a package maintainer or developer of the software which provides the script to have a LSB comment header added to it.</div>
+<div class="section">
+<h1>FILES</h1><dl>
+<dt>
+<i>/etc/insserv.conf</i></dt>
+<dd>
+configuration file for <b>insserv</b> which defines the LSB System Facilities.</dd>
+</dl>
+<dl>
+<dt>
+<i>/etc/insserv.conf.d/</i></dt>
+<dd>
+directory for further configuration files for declaring LSB System Facilities.</dd>
+</dl>
+<dl>
+<dt>
+<i>/etc/insserv/overrides/</i></dt>
+<dd>
+path to replace existing LSB comment headers with the comment headers found in this path.</dd>
+</dl>
+<dl>
+<dt>
+<i>/etc/init.d/</i></dt>
+<dd>
+path to the init script base directory as required by the Linux Standard Base Specification (LSB).</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>/etc/init.d/.depend.boot</i>,<div style="height: 0.00em;">
+&#160;</div>
+<i>/etc/init.d/.depend.start</i>,<div style="height: 0.00em;">
+&#160;</div>
+<i>/etc/init.d/.depend.stop</i><br/>
+The <b>make</b>(1) like dependency files produced by <b>insserv</b> for <i>booting</i>, <i>starting</i>, and <i>stopping</i> with the help of <b>startpar</b>(8).<br/>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>init</b>(7), <b>startpar</b>(8).</div>
+<div class="section">
+<h1>COPYRIGHT</h1> 2000-2009 Werner Fink,<div style="height: 0.00em;">
+&#160;</div>
+2009 SuSE Linux Products GmbH Nuernberg, Germany.<div style="height: 0.00em;">
+&#160;</div>
+2000-2003 SuSE GmbH Nuernberg, Germany,<div style="height: 0.00em;">
+&#160;</div>
+2007-2009 SuSE Linux Products GmbH Nuernberg, Germany.</div>
+<div class="section">
+<h1>AUTHOR</h1> Werner Fink &lt;feedback@suse.de&gt;</div>
+<div class="section">
+<h1>CONTRIBUTORS</h1> Petter Reinholdtsen<div style="height: 0.00em;">
+&#160;</div>
+Kel Modderman</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+July 29, 2008</td>
+<td class="foot-os">
+3rd Berkeley Distribution</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

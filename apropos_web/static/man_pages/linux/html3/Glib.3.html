@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Glib(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Glib(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Glib(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Glib - Perl wrappers for the GLib utility and Object libraries</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  use Glib;<br/>
+</div>
+<div class="section">
+<h1>ABSTRACT</h1> This module provides perl access to GLib and GLib's GObject libraries. GLib is a portability and utility library; GObject provides a generic type system with inheritance and a powerful signal system.  Together these libraries are used as the foundation for many of the libraries that make up the Gnome environment, and are used in many unrelated projects.</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This wrapper attempts to provide a perlish interface while remaining as true as possible to the underlying C API, so that any reference materials you can find on using GLib may still apply to using the libraries from perl.  This module also provides facilities for creating wrappers for other GObject-based libraries.  The &quot;SEE ALSO&quot; section contains pointers to all sorts of good information.</div>
+<div class="section">
+<h1>PERL VERSUS C</h1> GLib provides to C programs many of the same facilities Perl offers natively.  Where GLib's functionality overlaps Perl's, Perl's is favored. Some concepts have been eliminated entirely, as Perl is a higher-level language than C.  In other instances we've had to add or change APIs to make sense in Perl.  Here's a quick run-down:<div class="subsection">
+<h2>Perl Already Does That</h2> The GLib types GList (a doubly-linked list), GSList (singly-linked list), GHashTable, GArray, etc have all been replaced by native Perl datatypes.  In fact, many functions which take GLists or arrays simply accept lists on the Perl stack.  For the most part, GIOChannels are no more functional than Perl file handles, so you won't see any GIOChannels.  GClosures are not visible at the Perl level, because Perl code references do the same thing.  Just about any function taking either a C function pointer or a GClosure will accept a code reference in Perl.  (In fact, you can probably get away with just a subroutine name in many spots, provided you aren't using strict subs.)</div>
+<div class="subsection">
+<h2>Don't Worry About That</h2> Some concepts have been eliminated; you need never worry about reference-counting on GObjects or having to free GBoxed structures.  Perl is a garbage-collected language, and we've put a lot of work into making the bindings take care of memory for you in a way that feels natural to a Perl developer.  You won't see GValues in Perl (that's just a C structure with Perl scalar envy, anyway).</div>
+<div class="subsection">
+<h2>This Is Now That</h2> Other GLib concepts have been converted to an analogous Perl concept.<div class="spacer">
+</div>
+The GType id will never be seen in Perl, as the package name serves that purpose.  Several packages corresponding to the GTypes of the fundamental types have been registered for you:<div class="spacer">
+</div>
+<br/>
+ G_TYPE_STRING     Glib::String<br/>
+ G_TYPE_INT        Glib::Int<br/>
+ G_TYPE_UINT       Glib::UInt<br/>
+ G_TYPE_DOUBLE     Glib::Double<br/>
+ G_TYPE_BOOLEAN    Glib::Boolean<br/>
+<div class="spacer">
+</div>
+The remaining fundamentals (char/uchar, short, float, etc) are also registered so that we can properly interact with properties of C objects, but perl really only uses ints, uints, and doubles.  Oh, and we created a GBoxed type for Perl scalars so you can use scalars where any boxed type would be allowed (e.g. GtkTreeModel columns):<div class="spacer">
+</div>
+<br/>
+ Glib::Scalar<br/>
+<div class="spacer">
+</div>
+Functions that can return false and set a GError in C raise an exception in Perl, using an exception object based on the GError for $@; see Glib::Error. Trapping exceptions in signals is a sticky issue, so they get their own section; see EXCEPTIONS.<div class="spacer">
+</div>
+Enumerations and flags are treated as strings and arrays of strings, respectively.  GLib provides a way to register nicknames for enumeration values, and the Perl bindings use these nicknames for the real values, so that we never have to deal with numbers in Perl. This can get a little cumbersome for bitfields, but it's very nice when you forget a flag value, as the bindings will tell you what values are accepted when you pass something invalid. Also, the bindings consider the - and _ characters to be equivalent, so that signal and property names can be properly stringified by the =&gt; operator.  For example, the following are equivalent:<div class="spacer">
+</div>
+<br/>
+  # property foo-matic of type FooType, using the<br/>
+  # value FOO_SOMETHING_COOL.  its nickname would be<br/>
+  # 'something-cool'.  you may use either the full<br/>
+  # name or the nickname when supplying values to perl.<br/>
+  $object-&gt;set ('foo-matic', 'FOO_SOMETHING_COOL');<br/>
+  $object-&gt;set ('foo_matic', 'something_cool');<br/>
+  $object-&gt;set (foo_matic =&gt; 'something-cool');<br/>
+<div class="spacer">
+</div>
+Beware that Perl will always return to you the nickname form, with the dash.<div class="spacer">
+</div>
+Flags have some additional magic abilities in the form of overloaded operators:<div class="spacer">
+</div>
+<br/>
+  + or |   union of two flagsets (&quot;add&quot;)<br/>
+  -        difference of two flagsets (&quot;sub&quot;, &quot;remove&quot;)<br/>
+  * or &amp;   intersection of two bitsets (&quot;and&quot;)<br/>
+  / or ^   symmetric difference (&quot;xor&quot;, you will rarely need this)<br/>
+  &gt;=       contains-operator (&quot;is the left set a superset of the right set?&quot;)<br/>
+  ==       equality<br/>
+<div class="spacer">
+</div>
+In addition, flags in boolean context indicate whether they are empty or not, which allows you to write common operations naturally:<div class="spacer">
+</div>
+<br/>
+  $widget-&gt;set_events ($widget-&gt;get_events - &quot;motion_notify_mask&quot;);<br/>
+  $widget-&gt;set_events ($widget-&gt;get_events - [&quot;motion_notify_mask&quot;,<br/>
+                                              &quot;button_press_mask&quot;]);<br/>
+<br/>
+  # shift pressed (both work, it's a matter of taste)<br/>
+  if ($event-&gt;state &gt;= &quot;shift-mask&quot;) { ...<br/>
+  if ($event-&gt;state * &quot;shift-mask&quot;) { ...<br/>
+<br/>
+  # either shift OR control pressed?<br/>
+  if ($event-&gt;state * [&quot;shift-mask&quot;, &quot;control-mask&quot;]) { ...<br/>
+<br/>
+  # both shift AND control pressed?<br/>
+  if ($event-&gt;state &gt;= [&quot;shift-mask&quot;, &quot;control-mask&quot;]) { ...<br/>
+<div class="spacer">
+</div>
+In general, &quot;+&quot; and &quot;-&quot; work as expected to add or remove flags. To test whether  <i>any</i> bits are set in a mask, you use &quot;$mask * ...&quot;, and to test whether  <i>all</i> bits are set in a mask, you use &quot;$mask &gt;= ...&quot;.<div class="spacer">
+</div>
+When dereferenced as an array @$flags or &quot;$flags-&gt;[...]&quot;, you can access the flag values directly as strings (but you are not allowed to modify the array), and when stringified &quot;$flags&quot; a flags value will output a human-readable version of its contents.</div>
+<div class="subsection">
+<h2>It's All the Same</h2> For the most part, the remaining bits of GLib are unchanged.  GMainLoop is now Glib::MainLoop, GObject is now Glib::Object, GBoxed is now Glib::Boxed, etc.</div>
+</div>
+<div class="section">
+<h1>FILENAMES, URIS AND ENCODINGS</h1> Perl knows two datatypes, unicode text and binary bytes. Filenames on a system that doesn't use a utf-8 locale are often stored in a local encoding (&quot;binary bytes&quot;). Gtk+ and descendants, however, internally work in unicode most of the time, so when feeding a filename into a GLib/Gtk+ function that expects a filename, you first need to convert it from the local encoding to unicode.<div class="spacer">
+</div>
+This involves some elaborate guessing, which perl currently avoids, but GLib and Gtk+ do. As an exception, some Gtk+ functions want a filename in local encoding, but the perl interface usually works around this by automatically converting it for you.<div class="spacer">
+</div>
+In short: Everything should be in unicode on the perl level.<div class="spacer">
+</div>
+The following functions expose the conversion algorithm that GLib uses.<div class="spacer">
+</div>
+These functions are only necessary when you want to use perl functions to manage filenames returned by a GLib/Gtk+ function, or when you feed filenames into GLib/Gtk+ functions that have their source outside your program (e.g. commandline arguments, readdir results etc.).<div class="spacer">
+</div>
+These functions are available as exports by request (see &quot;Exports&quot;), and also support method invocation syntax for pathological consistency with the OO syntax of the rest of the bindings.<dl>
+<dt>
+$filename = filename_to_unicode $filename_in_local_encoding</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+$filename = Glib-&gt;filename_to_unicode ($filename_in_local_encoding)</dt>
+<dd>
+Convert a perl string that supposedly contains a filename in local encoding into a filename represented as unicode, the same way that GLib does it internally.<div style="height: 1.00em;">
+&#160;</div>
+Example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   $gtkfilesel-&gt;set_filename (filename_to_unicode $ARGV[1]);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This function will <i>croak()</i> if the conversion cannot be made, e.g., because the utf-8 is invalid.</dd>
+</dl>
+<dl>
+<dt>
+$filename_in_local_encoding = filename_from_unicode $filename</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+$filename_in_local_encoding = Glib-&gt;filename_from_unicode ($filename)</dt>
+<dd>
+Converts a perl string containing a filename into a filename in the local encoding in the same way GLib does it.<div style="height: 1.00em;">
+&#160;</div>
+Example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   open MY, &quot;&lt;&quot;, filename_from_unicode $gtkfilesel-&gt;get_filename;<br/>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+It might be useful to know that perl currently has no policy at all regarding filename issues, if your scalar happens to be in utf-8 internally it will use utf-8, if it happens to be stored as bytes, it will use it as-is.<div class="spacer">
+</div>
+When dealing with filenames that you need to display, there is a much easier way, as of Glib 1.120 and glib 2.6.0:<dl>
+<dt>
+$uft8_string = filename_display_name ($filename)</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+$uft8_string = filename_display_basename ($filename)</dt>
+<dd>
+Given a <i></i><i>$filename</i><i></i> in filename encoding, return the filename, or just the file's basename, in utf-8.  Unlike the other functions described above, this one is guaranteed to return valid utf-8, but the conversion is not necessarily reversible.  These functions are intended to be used for failsafe display of filenames, for example in gtk+ labels.<div style="height: 1.00em;">
+&#160;</div>
+Since glib 2.6, Glib 1.12</dd>
+</dl>
+<div class="spacer">
+</div>
+The following convert filenames to and from URI encoding.  (See also URI::file.)<dl>
+<dt>
+$string = filename_to_uri ($filename, $hostname)</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+$string = Glib-&gt;filename_to_uri ($filename, $hostname)</dt>
+<dd>
+Return a &quot;file://&quot; schema URI for a filename.  Unsafe and non-ascii chars in $filename are escaped with URI &quot;%&quot; forms.<div style="height: 1.00em;">
+&#160;</div>
+$filename must be an absolute path as a byte string in local filesystem encoding.  $hostname is a utf-8 string, or empty or &quot;undef&quot; for no host specified.  For example,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    filename_to_uri ('/my/x%y/&lt;dir&gt;/foo.html', undef);<br/>
+    # returns 'file:///my/x%25y/%3Cdir%3E/foo.html'<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If $filename is a relative path or $hostname doesn't look like a hostname then &quot;filename_to_uri&quot; croaks with a &quot;Glib::Error&quot;.<div style="height: 1.00em;">
+&#160;</div>
+When using the class style &quot;Glib-&gt;filename_to_uri&quot; remember that the $hostname argument is mandatory.  If you forget then it looks like a 2-argument call with filename of &quot;Glib&quot; and hostname of what you meant to be the filename.</dd>
+</dl>
+<dl>
+<dt>
+$filename = filename_from_uri ($uri)</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+($filename, $hostname) = filename_from_uri ($uri)</dt>
+<dd>
+Extract the filename and hostname from a &quot;file://&quot; schema URI.  In scalar context just the filename is returned, in array context both filename and hostname are returned.<div style="height: 1.00em;">
+&#160;</div>
+The filename returned is bytes in the local filesystem encoding and with the OS path separator character.  The hostname returned is utf-8.  For example,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    ($f,$h) = filename_from_uri ('file://foo.com/r%26b/bar.html');<br/>
+    # returns '/r&amp;b/bar.html' and 'foo.com' on Unix<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If $uri is not a &quot;file:&quot;, or is mal-formed, or the hostname part doesn't look like a host name then &quot;filename_from_uri&quot; croaks with a &quot;Glib::Error&quot;.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>EXCEPTIONS</h1> The C language doesn't support exceptions; GLib is a C library, and of course doesn't support exceptions either.  In Perl, we use die and eval to raise and trap exceptions as a rather common practice.  So, the bindings have to work a little black magic behind the scenes to keep GLib from exploding when the Perl program uses exceptions.  Unfortunately, a little of this magic has to leak out to where you can see it at the Perl level.<div class="spacer">
+</div>
+Signal and event handlers are run in an eval context; if an exception occurs in such a handler and you don't catch it, Perl will report that an error occurred, and then go on about its business like nothing happened.<div class="spacer">
+</div>
+You may register subroutines as exception handlers, to be called when such an exception is trapped.  Another function removes them for you.<div class="spacer">
+</div>
+<br/>
+  $tag = Glib-&gt;install_exception_handler (\&amp;my_handler);<br/>
+  Glib-&gt;remove_exception_handler ($tag);<br/>
+<div class="spacer">
+</div>
+The exception handler will get a fresh copy of the $@ of the offending exception on the argument stack, and is expected to return non-zero if the handler is to remain installed.  If it returns false, the handler will be removed.<div class="spacer">
+</div>
+<br/>
+  sub my_handler {<br/>
+      if ($_[0] =~ m/ftang quisinart/) {<br/>
+           clean_up_after_ftang ();<br/>
+      }<br/>
+      1; # live to fight another day<br/>
+  }<br/>
+<div class="spacer">
+</div>
+You can register as many handlers as you like; they will all run independently.<div class="spacer">
+</div>
+An important thing to remember is that exceptions do not cross main loops. In fact, exceptions are completely distinct from main loops.  If you need to quit a main loop when an exception occurs, install a handler that quits the main loop, but also ask yourself if you are using exceptions for flow control or exception handling.</div>
+<div class="section">
+<h1>LOG MESSAGES</h1> GLib's g_log function provides a flexible mechanism for reporting messages, and most GLib-based C libraries use this mechanism for warnings, assertions, critical messages, etc.  The Perl bindings offer a mechanism for routing these messages through Perl's native system,  <i>warn()</i> and <i>die()</i>.  Extensions should register the log domains they wrap for this to happen fluidly. [FIXME say more here]</div>
+<div class="section">
+<h1>64 BIT INTEGERS</h1> Since perl's integer data type can only hold 32 bit values on all 32 bit machines and even on some 64 bit machines, Glib converts 64 bit integers to and from strings if necessary.  These strings can then be used to feed one of the various big integer modules.  Make sure you don't let your strings get into numerical context before passing them into a Glib function because in this case, perl will convert the number to scientific notation which at this point is not understood by Glib's converters.<div class="spacer">
+</div>
+Here is an overview of what big integer modules are available.  First of all, there's Math::BigInt.  It has everything you will ever need, but its pure-Perl implementation is also rather slow.  There are multiple ways around this, though.<dl>
+<dt>
+Math::BigInt::FastCalc</dt>
+<dd>
+Math::BigInt::FastCalc can help avoid the glacial speed of vanilla Math::BigInt::Calc.  Recent versions of Math::BigInt will automatically use Math::BigInt::FastCalc in place of Math::BigInt::Calc when available. Other options include Math::BigInt::GMP or Math::BigInt::Pari, which however have much larger dependencies.</dd>
+</dl>
+<dl>
+<dt>
+Math::BigInt::Lite</dt>
+<dd>
+Then there's Math::BigInt::Lite, which uses native Perl integer operations as long as Perl integers have sufficient range, and upgrades itself to Math::BigInt when Perl integers would overflow. This must be used in place of Math::BigInt.</dd>
+</dl>
+<dl>
+<dt>
+bigint / bignum / bigfloat</dt>
+<dd>
+Finally, there's the bigint/bignum/bigfloat pragmata, which automatically load the corresponding Math:: modules and which will autobox constants. bignum/bigint will automatically use Math::BigInt::Lite if it's available.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>EXPORTS</h1> For the most part, gtk2-perl avoids exporting things.  Nothing is exported by default, but some functions and constants in Glib are available by request; you can also get all of them with the export tag &quot;all&quot;.<dl>
+<dt>
+Tag: constants</dt>
+<dd>
+<br/>
+  TRUE<br/>
+  FALSE<br/>
+  G_PRIORITY_HIGH<br/>
+  G_PRIORITY_DEFAULT<br/>
+  G_PRIORITY_HIGH_IDLE<br/>
+  G_PRIORITY_DEFAULT_IDLE<br/>
+  G_PRIORITY_LOW<br/>
+  G_PARAM_READWRITE<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+Tag: functions</dt>
+<dd>
+<br/>
+  filename_from_unicode<br/>
+  filename_to_unicode<br/>
+  filename_from_uri<br/>
+  filename_to_uri<br/>
+  filename_display_basename<br/>
+  filename_display_name<br/>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> Glib::Object::Subclass explains how to create your own gobject subclasses in Perl.<div class="spacer">
+</div>
+Glib::index lists the automatically-generated API reference for the various packages in Glib.<div class="spacer">
+</div>
+This module is the basis for the Gtk2 module, so most of the references you'll be able to find about this one are tied to that one.  The perl interface aims to be very simply related to the C API, so see the C API reference documentation:<div class="spacer">
+</div>
+<br/>
+  GLib - http://developer.gnome.org/doc/API/2.0/glib/<br/>
+  GObject - http://developer.gnome.org/doc/API/2.0/gobject/<br/>
+<div class="spacer">
+</div>
+This module serves as the foundation for any module which needs to bind GLib-based C libraries to perl.<div class="spacer">
+</div>
+<br/>
+  Glib::devel - Binding developer's overview of Glib's internals<br/>
+  Glib::xsapi - internal API reference for GPerl<br/>
+  Glib::ParseXSDoc - extract API docs from xs sources.<br/>
+  Glib::GenPod - turn the output of Glib::ParseXSDoc into POD<br/>
+  Glib::MakeHelper - Makefile.PL utilities for Glib-based extensions<br/>
+<br/>
+  Yet another document, available separately, ties it all together:<br/>
+    http://gtk2-perl.sourceforge.net/doc/binding_howto.pod.html<br/>
+<div class="spacer">
+</div>
+For gtk2-perl itself, see its website at<div class="spacer">
+</div>
+<br/>
+  gtk2-perl - http://gtk2-perl.sourceforge.net/<br/>
+<div class="spacer">
+</div>
+A mailing list exists for discussion of using gtk2-perl and related modules.  Archives and subscription information are available at http://lists.gnome.org/.</div>
+<div class="section">
+<h1>AUTHORS</h1> muppet, &lt;scott at asofyet dot org&gt;, who borrowed heavily from the work of Goeran Thyni, &lt;gthyni at kirra dot net&gt; and Guillaume Cottenceau &lt;gc at mandrakesoft dot com&gt; on the first gtk2-perl module, and from the sourcecode of the original gtk-perl and pygtk projects.  Marc Lehmann &lt;pcg at goof dot com&gt; did lots of great work on the magic of making Glib::Object wrapper and subclassing work like they should.  Ross McFarland &lt;rwmcfa1 at neces dot com&gt; wrote quite a bit of the documentation generation tools.  Torsten Schoenfeld &lt;kaffeetisch at web dot de&gt; contributed little patches and tests here and there.</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> Copyright 2003-2011 by muppet and the gtk2-perl team<div class="spacer">
+</div>
+This library is free software; you can redistribute it and/or modify it under the terms of the Lesser General Public License (LGPL).  For more information, see http://www.fsf.org/licenses/lgpl.txt</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-11-18</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

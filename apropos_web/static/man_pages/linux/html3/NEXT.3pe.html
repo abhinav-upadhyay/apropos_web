@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+NEXT(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+NEXT(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+NEXT(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> NEXT.pm - Provide a pseudo-class NEXT (et al) that allows method redispatch</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    use NEXT;<br/>
+<br/>
+    package A;<br/>
+    sub A::method   { print &quot;$_[0]: A method\n&quot;;   $_[0]-&gt;NEXT::method() }<br/>
+    sub A::DESTROY  { print &quot;$_[0]: A dtor\n&quot;;     $_[0]-&gt;NEXT::DESTROY() }<br/>
+<br/>
+    package B;<br/>
+    use base qw( A );<br/>
+    sub B::AUTOLOAD { print &quot;$_[0]: B AUTOLOAD\n&quot;; $_[0]-&gt;NEXT::AUTOLOAD() }<br/>
+    sub B::DESTROY  { print &quot;$_[0]: B dtor\n&quot;;     $_[0]-&gt;NEXT::DESTROY() }<br/>
+<br/>
+    package C;<br/>
+    sub C::method   { print &quot;$_[0]: C method\n&quot;;   $_[0]-&gt;NEXT::method() }<br/>
+    sub C::AUTOLOAD { print &quot;$_[0]: C AUTOLOAD\n&quot;; $_[0]-&gt;NEXT::AUTOLOAD() }<br/>
+    sub C::DESTROY  { print &quot;$_[0]: C dtor\n&quot;;     $_[0]-&gt;NEXT::DESTROY() }<br/>
+<br/>
+    package D;<br/>
+    use base qw( B C );<br/>
+    sub D::method   { print &quot;$_[0]: D method\n&quot;;   $_[0]-&gt;NEXT::method() }<br/>
+    sub D::AUTOLOAD { print &quot;$_[0]: D AUTOLOAD\n&quot;; $_[0]-&gt;NEXT::AUTOLOAD() }<br/>
+    sub D::DESTROY  { print &quot;$_[0]: D dtor\n&quot;;     $_[0]-&gt;NEXT::DESTROY() }<br/>
+<br/>
+    package main;<br/>
+<br/>
+    my $obj = bless {}, &quot;D&quot;;<br/>
+<br/>
+    $obj-&gt;method();             # Calls D::method, A::method, C::method<br/>
+    $obj-&gt;missing_method(); # Calls D::AUTOLOAD, B::AUTOLOAD, C::AUTOLOAD<br/>
+<br/>
+    # Clean-up calls D::DESTROY, B::DESTROY, A::DESTROY, C::DESTROY<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> NEXT.pm adds a pseudoclass named &quot;NEXT&quot; to any program that uses it. If a method &quot;m&quot; calls &quot;$self-&gt;NEXT::m()&quot;, the call to &quot;m&quot; is redispatched as if the calling method had not originally been found.<div class="spacer">
+</div>
+In other words, a call to &quot;$self-&gt;NEXT::m()&quot; resumes the depth-first, left-to-right search of $self's class hierarchy that resulted in the original call to &quot;m&quot;.<div class="spacer">
+</div>
+Note that this is not the same thing as &quot;$self-&gt;SUPER::m()&quot;, which begins a new dispatch that is restricted to searching the ancestors of the current class. &quot;$self-&gt;NEXT::m()&quot; can backtrack past the current class -- to look for a suitable method in other ancestors of $self -- whereas &quot;$self-&gt;SUPER::m()&quot; cannot.<div class="spacer">
+</div>
+A typical use would be in the destructors of a class hierarchy, as illustrated in the synopsis above. Each class in the hierarchy has a DESTROY method that performs some class-specific action and then redispatches the call up the hierarchy. As a result, when an object of class D is destroyed, the destructors of  <i>all</i> its parent classes are called (in depth-first, left-to-right order).<div class="spacer">
+</div>
+Another typical use of redispatch would be in &quot;AUTOLOAD&quot;'ed methods. If such a method determined that it was not able to handle a particular call, it might choose to redispatch that call, in the hope that some other &quot;AUTOLOAD&quot; (above it, or to its left) might do better.<div class="spacer">
+</div>
+By default, if a redispatch attempt fails to find another method elsewhere in the objects class hierarchy, it quietly gives up and does nothing (but see &quot;Enforcing redispatch&quot;). This gracious acquiescence is also unlike the (generally annoying) behaviour of &quot;SUPER&quot;, which throws an exception if it cannot redispatch.<div class="spacer">
+</div>
+Note that it is a fatal error for any method (including &quot;AUTOLOAD&quot;) to attempt to redispatch any method that does not have the same name. For example:<div class="spacer">
+</div>
+<br/>
+        sub D::oops { print &quot;oops!\n&quot;; $_[0]-&gt;NEXT::other_method() }<br/>
+<div class="subsection">
+<h2>Enforcing redispatch</h2> It is possible to make &quot;NEXT&quot; redispatch more demandingly (i.e. like &quot;SUPER&quot; does), so that the redispatch throws an exception if it cannot find a &quot;next&quot; method to call.<div class="spacer">
+</div>
+To do this, simple invoke the redispatch as:<div class="spacer">
+</div>
+<br/>
+        $self-&gt;NEXT::ACTUAL::method();<br/>
+<div class="spacer">
+</div>
+rather than:<div class="spacer">
+</div>
+<br/>
+        $self-&gt;NEXT::method();<br/>
+<div class="spacer">
+</div>
+The &quot;ACTUAL&quot; tells &quot;NEXT&quot; that there must actually be a next method to call, or it should throw an exception.<div class="spacer">
+</div>
+&quot;NEXT::ACTUAL&quot; is most commonly used in &quot;AUTOLOAD&quot; methods, as a means to decline an &quot;AUTOLOAD&quot; request, but preserve the normal exception-on-failure semantics:<div class="spacer">
+</div>
+<br/>
+        sub AUTOLOAD {<br/>
+                if ($AUTOLOAD =~ /foo|bar/) {<br/>
+                        # handle here<br/>
+                }<br/>
+                else {  # try elsewhere<br/>
+                        shift()-&gt;NEXT::ACTUAL::AUTOLOAD(@_);<br/>
+                }<br/>
+        }<br/>
+<div class="spacer">
+</div>
+By using &quot;NEXT::ACTUAL&quot;, if there is no other &quot;AUTOLOAD&quot; to handle the method call, an exception will be thrown (as usually happens in the absence of a suitable &quot;AUTOLOAD&quot;).</div>
+<div class="subsection">
+<h2>Avoiding repetitions</h2> If &quot;NEXT&quot; redispatching is used in the methods of a &quot;diamond&quot; class hierarchy:<div class="spacer">
+</div>
+<br/>
+        #     A   B<br/>
+        #    / \ /<br/>
+        #   C   D<br/>
+        #    \ /<br/>
+        #     E<br/>
+<br/>
+        use NEXT;<br/>
+<br/>
+        package A;                 <br/>
+        sub foo { print &quot;called A::foo\n&quot;; shift-&gt;NEXT::foo() }<br/>
+<br/>
+        package B;                 <br/>
+        sub foo { print &quot;called B::foo\n&quot;; shift-&gt;NEXT::foo() }<br/>
+<br/>
+        package C; @ISA = qw( A );<br/>
+        sub foo { print &quot;called C::foo\n&quot;; shift-&gt;NEXT::foo() }<br/>
+<br/>
+        package D; @ISA = qw(A B);<br/>
+        sub foo { print &quot;called D::foo\n&quot;; shift-&gt;NEXT::foo() }<br/>
+<br/>
+        package E; @ISA = qw(C D);<br/>
+        sub foo { print &quot;called E::foo\n&quot;; shift-&gt;NEXT::foo() }<br/>
+<br/>
+        E-&gt;foo();<br/>
+<div class="spacer">
+</div>
+then derived classes may (re-)inherit base-class methods through two or more distinct paths (e.g. in the way &quot;E&quot; inherits &quot;A::foo&quot; twice -- through &quot;C&quot; and &quot;D&quot;). In such cases, a sequence of &quot;NEXT&quot; redispatches will invoke the multiply inherited method as many times as it is inherited. For example, the above code prints:<div class="spacer">
+</div>
+<br/>
+        called E::foo<br/>
+        called C::foo<br/>
+        called A::foo<br/>
+        called D::foo<br/>
+        called A::foo<br/>
+        called B::foo<br/>
+<div class="spacer">
+</div>
+(i.e. &quot;A::foo&quot; is called twice).<div class="spacer">
+</div>
+In some cases this <i>may</i> be the desired effect within a diamond hierarchy, but in others (e.g. for destructors) it may be more appropriate to call each method only once during a sequence of redispatches.<div class="spacer">
+</div>
+To cover such cases, you can redispatch methods via:<div class="spacer">
+</div>
+<br/>
+        $self-&gt;NEXT::DISTINCT::method();<br/>
+<div class="spacer">
+</div>
+rather than:<div class="spacer">
+</div>
+<br/>
+        $self-&gt;NEXT::method();<br/>
+<div class="spacer">
+</div>
+This causes the redispatcher to only visit each distinct &quot;method&quot; method once. That is, to skip any classes in the hierarchy that it has already visited during redispatch. So, for example, if the previous example were rewritten:<div class="spacer">
+</div>
+<br/>
+        package A;                 <br/>
+        sub foo { print &quot;called A::foo\n&quot;; shift-&gt;NEXT::DISTINCT::foo() }<br/>
+<br/>
+        package B;                 <br/>
+        sub foo { print &quot;called B::foo\n&quot;; shift-&gt;NEXT::DISTINCT::foo() }<br/>
+<br/>
+        package C; @ISA = qw( A );<br/>
+        sub foo { print &quot;called C::foo\n&quot;; shift-&gt;NEXT::DISTINCT::foo() }<br/>
+<br/>
+        package D; @ISA = qw(A B);<br/>
+        sub foo { print &quot;called D::foo\n&quot;; shift-&gt;NEXT::DISTINCT::foo() }<br/>
+<br/>
+        package E; @ISA = qw(C D);<br/>
+        sub foo { print &quot;called E::foo\n&quot;; shift-&gt;NEXT::DISTINCT::foo() }<br/>
+<br/>
+        E-&gt;foo();<br/>
+<div class="spacer">
+</div>
+then it would print:<div class="spacer">
+</div>
+<br/>
+        called E::foo<br/>
+        called C::foo<br/>
+        called A::foo<br/>
+        called D::foo<br/>
+        called B::foo<br/>
+<div class="spacer">
+</div>
+and omit the second call to &quot;A::foo&quot; (since it would not be distinct from the first call to &quot;A::foo&quot;).<div class="spacer">
+</div>
+Note that you can also use:<div class="spacer">
+</div>
+<br/>
+        $self-&gt;NEXT::DISTINCT::ACTUAL::method();<br/>
+<div class="spacer">
+</div>
+or:<div class="spacer">
+</div>
+<br/>
+        $self-&gt;NEXT::ACTUAL::DISTINCT::method();<br/>
+<div class="spacer">
+</div>
+to get both unique invocation <i>and</i> exception-on-failure.<div class="spacer">
+</div>
+Note that, for historical compatibility, you can also use &quot;NEXT::UNSEEN&quot; instead of &quot;NEXT::DISTINCT&quot;.</div>
+<div class="subsection">
+<h2>Invoking all versions of a method with a single call</h2> Yet another pseudo-class that NEXT.pm provides is &quot;EVERY&quot;. Its behaviour is considerably simpler than that of the &quot;NEXT&quot; family. A call to:<div class="spacer">
+</div>
+<br/>
+        $obj-&gt;EVERY::foo();<br/>
+<div class="spacer">
+</div>
+calls <i>every</i> method named &quot;foo&quot; that the object in $obj has inherited. That is:<div class="spacer">
+</div>
+<br/>
+        use NEXT;<br/>
+<br/>
+        package A; @ISA = qw(B D X);<br/>
+        sub foo { print &quot;A::foo &quot; }<br/>
+<br/>
+        package B; @ISA = qw(D X);<br/>
+        sub foo { print &quot;B::foo &quot; }<br/>
+<br/>
+        package X; @ISA = qw(D);<br/>
+        sub foo { print &quot;X::foo &quot; }<br/>
+<br/>
+        package D;<br/>
+        sub foo { print &quot;D::foo &quot; }<br/>
+<br/>
+        package main;<br/>
+<br/>
+        my $obj = bless {}, 'A';<br/>
+        $obj-&gt;EVERY::foo();        # prints&quot; A::foo B::foo X::foo D::foo<br/>
+<div class="spacer">
+</div>
+Prefixing a method call with &quot;EVERY::&quot; causes every method in the object's hierarchy with that name to be invoked. As the above example illustrates, they are not called in Perl's usual &quot;left-most-depth-first&quot; order. Instead, they are called &quot;breadth-first-dependency-wise&quot;.<div class="spacer">
+</div>
+That means that the inheritance tree of the object is traversed breadth-first and the resulting order of classes is used as the sequence in which methods are called. However, that sequence is modified by imposing a rule that the appropriate method of a derived class must be called before the same method of any ancestral class. That's why, in the above example, &quot;X::foo&quot; is called before &quot;D::foo&quot;, even though &quot;D&quot; comes before &quot;X&quot; in @B::ISA.<div class="spacer">
+</div>
+In general, there's no need to worry about the order of calls. They will be left-to-right, breadth-first, most-derived-first. This works perfectly for most inherited methods (including destructors), but is inappropriate for some kinds of methods (such as constructors, cloners, debuggers, and initializers) where it's more appropriate that the least-derived methods be called first (as more-derived methods may rely on the behaviour of their &quot;ancestors&quot;). In that case, instead of using the &quot;EVERY&quot; pseudo-class:<div class="spacer">
+</div>
+<br/>
+        $obj-&gt;EVERY::foo();        # prints&quot; A::foo B::foo X::foo D::foo<br/>
+<div class="spacer">
+</div>
+you can use the &quot;EVERY::LAST&quot; pseudo-class:<div class="spacer">
+</div>
+<br/>
+        $obj-&gt;EVERY::LAST::foo();  # prints&quot; D::foo X::foo B::foo A::foo<br/>
+<div class="spacer">
+</div>
+which reverses the order of method call.<div class="spacer">
+</div>
+Whichever version is used, the actual methods are called in the same context (list, scalar, or void) as the original call via &quot;EVERY&quot;, and return:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A hash of array references in list context. Each entry of the hash has the fully qualified method name as its key and a reference to an array containing the method's list-context return values as its value.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A reference to a hash of scalar values in scalar context. Each entry of the hash has the fully qualified method name as its key and the method's scalar-context return values as its value.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Nothing in void context (obviously).</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Using &quot;EVERY&quot; methods</h2> The typical way to use an &quot;EVERY&quot; call is to wrap it in another base method, that all classes inherit. For example, to ensure that every destructor an object inherits is actually called (as opposed to just the left-most-depth-first-est one):<div class="spacer">
+</div>
+<br/>
+        package Base;<br/>
+        sub DESTROY { $_[0]-&gt;EVERY::Destroy }<br/>
+<br/>
+        package Derived1; <br/>
+        use base 'Base';<br/>
+        sub Destroy {...}<br/>
+<br/>
+        package Derived2; <br/>
+        use base 'Base', 'Derived1';<br/>
+        sub Destroy {...}<br/>
+<div class="spacer">
+</div>
+et cetera. Every derived class than needs its own clean-up behaviour simply adds its own &quot;Destroy&quot; method ( <i>not</i> a &quot;DESTROY&quot; method), which the call to &quot;EVERY::LAST::Destroy&quot; in the inherited destructor then correctly picks up.<div class="spacer">
+</div>
+Likewise, to create a class hierarchy in which every initializer inherited by a new object is invoked:<div class="spacer">
+</div>
+<br/>
+        package Base;<br/>
+        sub new {<br/>
+                my ($class, %args) = @_;<br/>
+                my $obj = bless {}, $class;<br/>
+                $obj-&gt;EVERY::LAST::Init(\%args);<br/>
+        }<br/>
+<br/>
+        package Derived1; <br/>
+        use base 'Base';<br/>
+        sub Init {<br/>
+                my ($argsref) = @_;<br/>
+                ...<br/>
+        }<br/>
+<br/>
+        package Derived2; <br/>
+        use base 'Base', 'Derived1';<br/>
+        sub Init {<br/>
+                my ($argsref) = @_;<br/>
+                ...<br/>
+        }<br/>
+<div class="spacer">
+</div>
+et cetera. Every derived class than needs some additional initialization behaviour simply adds its own &quot;Init&quot; method ( <i>not</i> a &quot;new&quot; method), which the call to &quot;EVERY::LAST::Init&quot; in the inherited constructor then correctly picks up.</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Damian Conway (damian@conway.org)</div>
+<div class="section">
+<h1>BUGS AND IRRITATIONS</h1> Because it's a module, not an integral part of the interpreter, NEXT.pm has to guess where the surrounding call was found in the method look-up sequence. In the presence of diamond inheritance patterns it occasionally guesses wrong.<div class="spacer">
+</div>
+It's also too slow (despite caching).<div class="spacer">
+</div>
+Comment, suggestions, and patches welcome.</div>
+<div class="section">
+<h1>COPYRIGHT</h1><br/>
+ Copyright (c) 2000-2001, Damian Conway. All Rights Reserved.<br/>
+ This module is free software. It may be used, redistributed<br/>
+    and/or modified under the same terms as Perl itself.<br/>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-19</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

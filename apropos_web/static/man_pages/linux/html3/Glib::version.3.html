@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Glib::version(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Glib::version(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Glib::version(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Glib::version -  Library Versioning Utilities</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  # require at least version 1.021 of the Glib module<br/>
+  use Glib '1.021';<br/>
+<br/>
+  # g_set_application_name() was introduced in GLib 2.2.0, and<br/>
+  # first supported by version 1.040 of the Glib Perl module.<br/>
+  if ($Glib::VERSION &gt;= 1.040 and Glib-&gt;CHECK_VERSION (2,2,0)) {<br/>
+     Glib::set_application_name ('My Cool Program');<br/>
+  }<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Both the Glib module and the GLib C library are works-in-progress, and their interfaces grow over time.  As more features are added to each, and your code uses those new features, you will introduce version-specific dependencies, and naturally, you'll want to be able to code around them.  Enter the versioning API.<div class="spacer">
+</div>
+For simple Perl modules, a single version number is sufficient; however, Glib is a binding to another software library, and this introduces some complexity.  We have three versions that fully specify the API available to you.<dl>
+<dt>
+Perl Bindings Version</dt>
+<dd>
+Perl modules use a version number, and Glib is no exception.  <i></i><i>$Glib::VERSION</i><i></i> is the version of the current Glib module.  By ad hoc convention, gtk2-perl modules generally use version numbers in the form x.yyz, where even yy values denote stable releases and z is a patchlevel.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   $Glib::VERSION<br/>
+   use Glib 1.040; # require at least version 1.040<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+Compile-time (&quot;Bound&quot;) Library Version</dt>
+<dd>
+This is the version of the GLib C library that was available when the Perl module was compiled and installed.  These version constants are equivalent to the version macros provided in the GLib C headers.  GLib uses a major.minor.micro convention, where even minor versions are stable.  (gtk2-perl does not officially support unstable versions.)<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   Glib::MAJOR_VERSION<br/>
+   Glib::MINOR_VERSION<br/>
+   Glib::MICRO_VERSION<br/>
+   Glib-&gt;CHECK_VERSION($maj,$min,$mic)<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+Run-time (&quot;Linked&quot;) Library Version</dt>
+<dd>
+This is the version of the GLib C library that is available at run time; it may be newer than the compile-time version, but should never be older.  These are equivalent to the version variables exported by the GLib C library.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   Glib::major_version<br/>
+   Glib::minor_version<br/>
+   Glib::micro_version<br/>
+</dd>
+</dl>
+<div class="subsection">
+<h2>Which one do I use when?</h2> Where do you use which version?  It depends entirely on what you're doing.  Let's explain by example:<dl>
+<dt>
+o Use the Perl module version for bindings support issues</dt>
+<dd>
+You need to register a new enum for use as the type of an object property.  This is something you can do with all versions of the underlying C library, but which wasn't supported in the Glib Perl module until $Glib::VERSION &gt;= 1.040.</dd>
+</dl>
+<dl>
+<dt>
+o Use the bound version for library features</dt>
+<dd>
+You want to call Glib::set_application_name to set a human-readable name for your application (which is used by various parts of Gtk2 and Gnome2).  <i>g_set_application_name()</i> (the underlying C function) was added in version 2.2.0 of glib, and support for it was introduced into the Glib Perl module in Glib version 1.040.  However, you can build the Perl module against any stable 2.x.x version of glib, so you might not have that function available even if your Glib module is new enough!<br/>
+  Thus, you need to check two things to see if the this function is available:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   if ($Glib::VERSION &gt;= 1.040 &amp;&amp; Glib-&gt;CHECK_VERSION (2,2,0)) {<br/>
+       # it's available, and we can call it!<br/>
+       Glib::set_application_name ('My Cool Application');<br/>
+   }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Now what happens if you installed the Perl module when your system had glib 2.0.6, and you upgraded glib to 2.4.1?  Wouldn't  <i>g_set_application_name()</i> be available?  Well, it's there, under the hood, but the bindings were compiled when it wasn't there, so you won't be able to call it! That's why we check the &quot;bound&quot; or compile-time version.  By the way, to enable support for the new function, you'd need to reinstall (or upgrade) the Perl module.</dd>
+</dl>
+<dl>
+<dt>
+o Use the linked version for runtime work-arounds</dt>
+<dd>
+Suppose there's a function whose API did not change, but whose implementation had a bug in one version that was fixed in another version.  To determine whether you need to apply a workaround, you would check the version that is actually being used at runtime.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   if (Glib::major_version == 2 &amp;&amp;<br/>
+       Glib::minor_version == 2 &amp;&amp;<br/>
+       Glib::micro_version == 1) {<br/>
+      # work around bug that exists only in glib 2.2.1.<br/>
+   }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+In practice, such situations are very rare.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>METHODS</h1><div class="subsection">
+<h2>boolean = Glib-&gt;<b>CHECK_VERSION</b> ($required_major, $required_minor, $required_micro)</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+$required_major (integer)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$required_minor (integer)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$required_micro (integer)</dd>
+</dl>
+<div class="spacer">
+</div>
+Provides a mechanism for checking the version information that Glib was compiled against. Essentially equvilent to the macro GLIB_CHECK_VERSION.</div>
+<div class="subsection">
+<h2>(MAJOR, MINOR, MICRO) = Glib-&gt;<b>GET_VERSION_INFO</b></h2> Shorthand to fetch as a list the glib version for which Glib was compiled. See &quot;Glib::MAJOR_VERSION&quot;, etc.</div>
+<div class="subsection">
+<h2>integer = Glib::MAJOR_VERSION</h2> Provides access to the version information that Glib was compiled against. Essentially equivalent to the #define's GLIB_MAJOR_VERSION.</div>
+<div class="subsection">
+<h2>integer = Glib::MICRO_VERSION</h2> Provides access to the version information that Glib was compiled against. Essentially equivalent to the #define's GLIB_MICRO_VERSION.</div>
+<div class="subsection">
+<h2>integer = Glib::MINOR_VERSION</h2> Provides access to the version information that Glib was compiled against. Essentially equivalent to the #define's GLIB_MINOR_VERSION.</div>
+<div class="subsection">
+<h2>integer = Glib::major_version</h2> Provides access to the version information that Glib is linked against. Essentially equivalent to the global variable glib_major_version.</div>
+<div class="subsection">
+<h2>integer = Glib::micro_version</h2> Provides access to the version information that Glib is linked against. Essentially equivalent to the global variable glib_micro_version.</div>
+<div class="subsection">
+<h2>integer = Glib::minor_version</h2> Provides access to the version information that Glib is linked against. Essentially equivalent to the global variable glib_minor_version.</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> Glib</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright (C) 2003-2011 by the gtk2-perl team.<div class="spacer">
+</div>
+This software is licensed under the LGPL.  See Glib for a full notice.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-12-05</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+MPOOL(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+MPOOL(3)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+MPOOL(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> mpool - shared memory buffer pool</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;db.h&gt;</b> <b>#include &lt;mpool.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>MPOOL *mpool_open(DBT *</b><i>key</i><b>, int </b><i>fd</i><b>, pgno_t </b><i>pagesize</i><b>, pgno_t </b><i>maxcache</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>void mpool_filter(MPOOL *</b><i>mp</i><b>, void (*pgin)(void *, pgno_t, void *),</b><br/>
+<b>                  void (*</b><i>pgout</i><b>)(void *, pgno_t, void *),</b><br/>
+<b>                  void *</b><i>pgcookie</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>void *mpool_new(MPOOL *</b><i>mp</i><b>, pgno_t *</b><i>pgnoaddr</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>void *mpool_get(MPOOL *</b><i>mp</i><b>, pgno_t </b><i>pgno</i><b>, unsigned int </b><i>flags</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int mpool_put(MPOOL *</b><i>mp</i><b>, void *</b><i>pgaddr</i><b>, unsigned int </b><i>flags</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int mpool_sync(MPOOL *</b><i>mp</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int mpool_close(MPOOL *</b><i>mp</i><b>);</b><br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> <i>Mpool</i> is the library interface intended to provide page oriented buffer management of files. The buffers may be shared between processes.<div class="spacer">
+</div>
+The function <b>mpool_open</b>() initializes a memory pool. The <i>key</i> argument is the byte string used to negotiate between multiple processes wishing to share buffers. If the file buffers are mapped in shared memory, all processes using the same key will share the buffers. If <i>key</i> is NULL, the buffers are mapped into private memory. The <i>fd</i> argument is a file descriptor for the underlying file, which must be seekable. If <i>key</i> is non-NULL and matches a file already being mapped, the <i>fd</i> argument is ignored.<div class="spacer">
+</div>
+The <i>pagesize</i> argument is the size, in bytes, of the pages into which the file is broken up. The <i>maxcache</i> argument is the maximum number of pages from the underlying file to cache at any one time. This value is not relative to the number of processes which share a file's buffers, but will be the largest value specified by any of the processes sharing the file.<div class="spacer">
+</div>
+The <b>mpool_filter</b>() function is intended to make transparent input and output processing of the pages possible. If the <i>pgin</i> function is specified, it is called each time a buffer is read into the memory pool from the backing file. If the <i>pgout</i> function is specified, it is called each time a buffer is written into the backing file. Both functions are called with the <i>pgcookie</i> pointer, the page number and a pointer to the page to being read or written.<div class="spacer">
+</div>
+The function <b>mpool_new</b>() takes an <i>MPOOL</i> pointer and an address as arguments. If a new page can be allocated, a pointer to the page is returned and the page number is stored into the <i>pgnoaddr</i> address. Otherwise, NULL is returned and <i>errno</i> is set.<div class="spacer">
+</div>
+The function <b>mpool_get</b>() takes an <i>MPOOL</i> pointer and a page number as arguments. If the page exists, a pointer to the page is returned. Otherwise, NULL is returned and <i>errno</i> is set. The <i>flags</i> argument is not currently used.<div class="spacer">
+</div>
+The function <b>mpool_put</b>() unpins the page referenced by <i>pgaddr</i>. <i>pgaddr</i> must be an address previously returned by <b>mpool_get</b>() or <b>mpool_new</b>(). The flag value is specified by ORing any of the following values:<dl>
+<dt>
+<b>MPOOL_DIRTY</b></dt>
+<dd>
+The page has been modified and needs to be written to the backing file.</dd>
+</dl>
+<div class="spacer">
+</div>
+<b>mpool_put</b>() returns 0 on success and -1 if an error occurs.<div class="spacer">
+</div>
+The function <b>mpool_sync</b>() writes all modified pages associated with the <i>MPOOL</i> pointer to the backing file. <b>mpool_sync</b>() returns 0 on success and -1 if an error occurs.<div class="spacer">
+</div>
+The <b>mpool_close</b>() function free's up any allocated memory associated with the memory pool cookie. Modified pages are <b>not</b> written to the backing file. <b>mpool_close</b>() returns 0 on success and -1 if an error occurs.</div>
+<div class="section">
+<h1>ERRORS</h1> The <b>mpool_open</b>() function may fail and set <i>errno</i> for any of the errors specified for the library routine <b>malloc</b>(3).<div class="spacer">
+</div>
+The <b>mpool_get</b>() function may fail and set <i>errno</i> for the following:<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+The requested record doesn't exist.</dd>
+</dl>
+<div class="spacer">
+</div>
+The <b>mpool_new</b>() and <b>mpool_get</b>() functions may fail and set <i>errno</i> for any of the errors specified for the library routines <b>read</b>(2), <b>write</b>(2), and <b>malloc</b>(3).<div class="spacer">
+</div>
+The <b>mpool_sync</b>() function may fail and set <i>errno</i> for any of the errors specified for the library routine <b>write</b>(2).<div class="spacer">
+</div>
+The <b>mpool_close</b>() function may fail and set <i>errno</i> for any of the errors specified for the library routine <b>free</b>(3).</div>
+<div class="section">
+<h1>CONFORMING TO</h1> Not in POSIX.1-2001. Present on the BSDs.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>btree</b>(3), <b>dbopen</b>(3), <b>hash</b>(3), <b>recno</b>(3)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+1993-06-04</td>
+<td class="foot-os">
+4.4 Berkeley Distribution</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

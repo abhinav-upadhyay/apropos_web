@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+CYTUNE(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+CYTUNE(8)</td>
+<td class="head-vol">
+System Administration</td>
+<td class="head-rtitle">
+CYTUNE(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> cytune - tune driver parameters for Cyclades-Z multiport serial card</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>cytune</b> [<b>-q</b> [<b>-i</b> <i>interval</i>]] [{<b>-s</b>|<b>-S</b>} <i>value</i>] [<b>-g</b>|<b>-G</b>] [{<b>-t</b>|<b>-T</b>} <i>timeout</i>] <i>tty</i>...</div>
+<div class="section">
+<h1>DESCRIPTION</h1> <b>cytune</b> queries and modifies the interruption threshold for the Cyclades driver. Each serial line on a Cyclades card has a 12-byte FIFO for input (and another 12-byte FIFO for output).  The &quot;threshold&quot; specifies how many input characters must be present in the FIFO before an interruption is raised. When a Cyclades tty is opened, this threshold is set to a default value based on baud rate:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 5.00ex;">
+<br/>
+    Baud        Threshold<div style="height: 1.00em;">
+&#160;</div>
+50-4800            10<div style="height: 0.00em;">
+&#160;</div>
+9600                8<div style="height: 0.00em;">
+&#160;</div>
+19200               4<div style="height: 0.00em;">
+&#160;</div>
+38400               2<div style="height: 0.00em;">
+&#160;</div>
+57600-150000        1</div>
+<div class="spacer">
+</div>
+If the threshold is set too low, the large number of interruptions can load the machine and decrease overall system throughput.  If the threshold is set too high, the FIFO buffer can overflow, and characters will be lost.  Slower machines, however, may not be able to deal with the interrupt load, and will require that the threshold be adjusted upwards.<div class="spacer">
+</div>
+If the cyclades driver was compiled with <b>ENABLE_MONITORING</b> defined, the cytune command can be used with the <b>-q</b> option to report interrupts over the monitoring interval and characters transferred over the monitoring interval.  It will also report the state of the FIFO.  The maximum number of characters in the FIFO when an interrupt occurred, the instantaneous count of characters in the FIFO, and how many characters are now in the FIFO are reported.  This output might look like this:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 5.00ex;">
+/dev/cubC0: 830 ints, 9130 chars; fifo: 11 threshold, 11 max, 11 now<div style="height: 0.00em;">
+&#160;</div>
+<br/>
+   166.259866 interrupts/second, 1828.858521 characters/second</div>
+<div class="spacer">
+</div>
+This output indicates that for this monitoring period, the interrupts were always being handled within one character time, because <b>max</b> never rose above <b>threshold</b>. This is good, and you can probably run this way, provided that a large number of samples come out this way.  You will lose characters if you overrun the FIFO, as the Cyclades hardware does not seem to support the RTS RS-232 signal line for hardware flow control from the DCE to the DTE.<div class="spacer">
+</div>
+In query mode <b>cytune</b> will produce a summary report when ended with a SIGINT or when the threshold or timeout is changed.<div class="spacer">
+</div>
+There may be a responsiveness vs. throughput tradeoff.  The Cyclades card, at the higher speeds, is capable of putting a very high interrupt load on the system.  This will reduce the amount of CPU time available for other tasks on your system.  However, the time it takes to respond to a single character may be increased if you increase the threshold.  This might be noticed by monitoring <b>ping</b>(8) times on a SLIP link controlled by a Cyclades card.  If your SLIP link is generally used for interactive work such as <b>telnet</b>(1), you may want to leave the threshold low, so that characters are responded to as quickly as possible.  If your SLIP link is generally used for file transfer, WWW, and the like, setting the FIFO to a high value is likely to reduce the load on your system while not significantly affecting throughput.  Alternatively, see the <b>-t</b> or <b>-T</b> options to adjust the time that the cyclades waits before flushing its buffer.  Units are 5ms.<div class="spacer">
+</div>
+If you are running a mouse on a Cyclades port, it is likely that you would want to maintain the threshold and timeout at a low value.</div>
+<div class="section">
+<h1>OPTIONS</h1><dl>
+<dt>
+<b>-s</b><i> value</i></dt>
+<dd>
+Set the current threshold to <i>value</i> characters.  Note that if the <i>tty</i> is not being held open by another process, the threshold will be reset on the next open.  Only values between 1 and 12, inclusive, are permitted.</dd>
+</dl>
+<dl>
+<dt>
+<b>-t</b><i> value</i></dt>
+<dd>
+Set the current flush timeout to <i>value</i> units.  Note that if the <i>tty</i> is not being held open by another process, the threshold will be reset on the next open.  Only values between 0 and 255, inclusive, are permitted. Setting <i>value</i> to zero forces the default, currently 0x20 (160ms), but soon to be 0x02 (10ms).  Units are 5 ms.</dd>
+</dl>
+<dl>
+<dt>
+<b>-g</b></dt>
+<dd>
+Get the current threshold and timeout.</dd>
+</dl>
+<dl>
+<dt>
+<b>-S</b><i> value</i></dt>
+<dd>
+Set the default threshold to <i>value</i> characters.  When the <i>tty</i> is next opened, this value will be used instead of the default. Only values between 1 and 12, inclusive, are permitted.</dd>
+</dl>
+<dl>
+<dt>
+<b>-T</b><i> value</i></dt>
+<dd>
+Set the default flush timeout to <i>value</i> units.  When the <i>tty</i> is next opened, this value will be used instead of the default.  If <i>value</i> is zero, then the the value will default to 0x20 (160ms), soon to be 0x02 (10ms).</dd>
+</dl>
+<dl>
+<dt>
+<b>-G</b></dt>
+<dd>
+Get the default threshold and flush timeout values.</dd>
+</dl>
+<dl>
+<dt>
+<b>-q</b></dt>
+<dd>
+Gather statistics about the <i>tty</i>. The results are only valid if the Cyclades driver has been compiled with <b>ENABLE_MONITORING</b> defined.  This is probably not the default.</dd>
+</dl>
+<dl>
+<dt>
+<b>-i</b><i> interval</i></dt>
+<dd>
+Statistics will be gathered every <i>interval</i> seconds.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>BUGS</h1> If you run two copies of <b>cytune</b> at the same time to report statistics about the same port, the 'ints', 'chars', and 'max' value will be reset and not reported correctly. <b>cytune</b> should prevent this, but does not.</div>
+<div class="section">
+<h1>FILES</h1> <i>/dev/ttyC[0-8]</i><div style="height: 0.00em;">
+&#160;</div>
+<i>/dev/cubC[0-8]</i></div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>setserial</b>(8)</div>
+<div class="section">
+<h1>AVAILABILITY</h1> The cytune command is part of the util-linux package and is available from ftp://ftp.kernel.org/pub/linux/utils/util-linux/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+March 1995</td>
+<td class="foot-os">
+util-linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

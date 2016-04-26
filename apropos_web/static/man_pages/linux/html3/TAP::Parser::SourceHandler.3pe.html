@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+TAP::Parser::SourceHandler(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+TAP::Parser::SourceHandler(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+TAP::Parser::SourceHandler(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> TAP::Parser::SourceHandler - Base class for different TAP source handlers</div>
+<div class="section">
+<h1>VERSION</h1> Version 3.23</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  # abstract class - don't use directly!<br/>
+  # see TAP::Parser::IteratorFactory for general usage<br/>
+<br/>
+  # must be sub-classed for use<br/>
+  package MySourceHandler;<br/>
+  use base qw( TAP::Parser::SourceHandler );<br/>
+  sub can_handle    { return $confidence_level }<br/>
+  sub make_iterator { return $iterator }<br/>
+<br/>
+  # see example below for more details<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This is an abstract base class for TAP::Parser::Source handlers / handlers.<div class="spacer">
+</div>
+A &quot;TAP::Parser::SourceHandler&quot; does whatever is necessary to produce &amp; capture a stream of TAP from the  <i>raw</i> source, and package it up in a TAP::Parser::Iterator for the parser to consume.<div class="spacer">
+</div>
+&quot;SourceHandlers&quot; must implement the <i>source detection &amp; handling</i> interface used by TAP::Parser::IteratorFactory.  At 2 methods, the interface is pretty simple: &quot;can_handle&quot; and &quot;make_source&quot;.<div class="spacer">
+</div>
+Unless you're writing a new TAP::Parser::SourceHandler, a plugin, or subclassing TAP::Parser, you probably won't need to use this module directly.</div>
+<div class="section">
+<h1>METHODS</h1><div class="subsection">
+<h2>Class Methods</h2>  <i></i><i>&quot;can_handle&quot;</i><i></i><div class="spacer">
+</div>
+<i>Abstract method</i>.<div class="spacer">
+</div>
+<br/>
+  my $vote = $class-&gt;can_handle( $source );<br/>
+<div class="spacer">
+</div>
+$source is a TAP::Parser::Source.<div class="spacer">
+</div>
+Returns a number between 0 &amp; 1 reflecting how confidently the raw source can be handled.  For example, 0 means the source cannot handle it, 0.5 means it may be able to, and 1 means it definitely can.  See &quot;detect_source&quot; in TAP::Parser::IteratorFactory for details on how this is used.<div class="spacer">
+</div>
+<i></i><i>&quot;make_iterator&quot;</i><i></i><div class="spacer">
+</div>
+<i>Abstract method</i>.<div class="spacer">
+</div>
+<br/>
+  my $iterator = $class-&gt;make_iterator( $source );<br/>
+<div class="spacer">
+</div>
+$source is a TAP::Parser::Source.<div class="spacer">
+</div>
+Returns a new TAP::Parser::Iterator object for use by the TAP::Parser. &quot;croak&quot;s on error.</div>
+</div>
+<div class="section">
+<h1>SUBCLASSING</h1> Please see &quot;SUBCLASSING&quot; in TAP::Parser for a subclassing overview, and any of the subclasses that ship with this module as an example.  What follows is a quick overview.<div class="spacer">
+</div>
+Start by familiarizing yourself with TAP::Parser::Source and TAP::Parser::IteratorFactory.  TAP::Parser::SourceHandler::RawTAP is the easiest sub-class to use an an example.<div class="spacer">
+</div>
+It's important to point out that if you want your subclass to be automatically used by TAP::Parser you'll have to and make sure it gets loaded somehow. If you're using prove you can write an App::Prove plugin.  If you're using TAP::Parser or TAP::Harness directly (e.g. through a custom script, ExtUtils::MakeMaker, or Module::Build) you can use the &quot;config&quot; option which will cause &quot;load_sources&quot; in TAP::Parser::IteratorFactory to load your subclass).<div class="spacer">
+</div>
+Don't forget to register your class with &quot;register_handler&quot; in TAP::Parser::IteratorFactory.<div class="subsection">
+<h2>Example</h2><br/>
+  package MySourceHandler;<br/>
+<br/>
+  use strict;<br/>
+  use vars '@ISA'; # compat with older perls<br/>
+<br/>
+  use MySourceHandler; # see TAP::Parser::SourceHandler<br/>
+  use TAP::Parser::IteratorFactory;<br/>
+<br/>
+  @ISA = qw( TAP::Parser::SourceHandler );<br/>
+<br/>
+  TAP::Parser::IteratorFactory-&gt;register_handler( __PACKAGE__ );<br/>
+<br/>
+  sub can_handle {<br/>
+      my ( $class, $src ) = @_;<br/>
+      my $meta   = $src-&gt;meta;<br/>
+      my $config = $src-&gt;config_for( $class );<br/>
+<br/>
+      if ($config-&gt;{accept_all}) {<br/>
+          return 1.0;<br/>
+      } elsif (my $file = $meta-&gt;{file}) {<br/>
+          return 0.0 unless $file-&gt;{exists};<br/>
+          return 1.0 if $file-&gt;{lc_ext} eq '.tap';<br/>
+          return 0.9 if $file-&gt;{shebang} &amp;&amp; $file-&gt;{shebang} =~ /^#!.+tap/;<br/>
+          return 0.5 if $file-&gt;{text};<br/>
+          return 0.1 if $file-&gt;{binary};<br/>
+      } elsif ($meta-&gt;{scalar}) {<br/>
+          return 0.8 if $$raw_source_ref =~ /\d\.\.\d/;<br/>
+          return 0.6 if $meta-&gt;{has_newlines};<br/>
+      } elsif ($meta-&gt;{array}) {<br/>
+          return 0.8 if $meta-&gt;{size} &lt; 5;<br/>
+          return 0.6 if $raw_source_ref-&gt;[0] =~ /foo/;<br/>
+          return 0.5;<br/>
+      } elsif ($meta-&gt;{hash}) {<br/>
+          return 0.6 if $raw_source_ref-&gt;{foo};<br/>
+          return 0.2;<br/>
+      }<br/>
+<br/>
+      return 0;<br/>
+  }<br/>
+<br/>
+  sub make_iterator {<br/>
+      my ($class, $source) = @_;<br/>
+      # this is where you manipulate the source and<br/>
+      # capture the stream of TAP in an iterator<br/>
+      # either pick a TAP::Parser::Iterator::* or write your own...<br/>
+      my $iterator = TAP::Parser::Iterator::Array-&gt;new([ 'foo', 'bar' ]);<br/>
+      return $iterator;<br/>
+  }<br/>
+<br/>
+  1;<br/>
+</div>
+</div>
+<div class="section">
+<h1>AUTHORS</h1> TAPx Developers.<div class="spacer">
+</div>
+Source detection stuff added by Steve Purkis</div>
+<div class="section">
+<h1>SEE ALSO</h1> TAP::Object, TAP::Parser, TAP::Parser::Source, TAP::Parser::Iterator, TAP::Parser::IteratorFactory, TAP::Parser::SourceHandler::Executable, TAP::Parser::SourceHandler::Perl, TAP::Parser::SourceHandler::File, TAP::Parser::SourceHandler::Handle, TAP::Parser::SourceHandler::RawTAP</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-19</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+RCMD(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+RCMD(3)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+RCMD(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> rcmd, rresvport, iruserok, ruserok - routines for returning a stream to a remote command</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;netdb.h&gt; &#160;&#160;/* Or &lt;unistd.h&gt; on some systems */</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int rcmd(char **</b><i>ahost</i><b>, int </b><i>inport</i><b>, const char *</b><i>locuser</i><b>, </b><br/>
+<b>         const char *</b><i>remuser</i><b>, const char *</b><i>cmd</i><b>, int *</b><i>fd2p</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int rresvport(int *</b><i>port</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int iruserok(uint32_t </b><i>raddr</i><b>, int </b><i>superuser</i><b>, </b><br/>
+<b>             const char *</b><i>ruser</i><b>, const char *</b><i>luser</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int ruserok(const char *</b><i>rhost</i><b>, int </b><i>superuser</i><b>, </b><br/>
+<b>            const char *</b><i>ruser</i><b>, const char *</b><i>luser</i><b>);</b><br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+Feature Test Macro Requirements for glibc (see <b>feature_test_macros</b>(7)):<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<b>rcmd</b>(), <b>rresvport</b>(), <b>ruserok</b>(): _BSD_SOURCE</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The <b>rcmd</b>() function is used by the superuser to execute a command on a remote machine using an authentication scheme based on privileged port numbers. The <b>rresvport</b>() function returns a descriptor to a socket with an address in the privileged port space. The <b>iruserok</b>() and <b>ruserok</b>() functions are used by servers to authenticate clients requesting service with <b>rcmd</b>(). All four functions are present in the same file and are used by the <b>rshd</b>(8) server (among others).<div class="spacer">
+</div>
+The <b>rcmd</b>() function looks up the host <i>*ahost</i> using <b>gethostbyname</b>(3), returning -1 if the host does not exist. Otherwise <i>*ahost</i> is set to the standard name of the host and a connection is established to a server residing at the well-known Internet port <i>inport</i>.<div class="spacer">
+</div>
+If the connection succeeds, a socket in the Internet domain of type <b>SOCK_STREAM</b> is returned to the caller, and given to the remote command as <i>stdin</i> and <i>stdout</i>. If <i>fd2p</i> is nonzero, then an auxiliary channel to a control process will be set up, and a descriptor for it will be placed in <i>*fd2p</i>. The control process will return diagnostic output from the command (unit 2) on this channel, and will also accept bytes on this channel as being UNIX signal numbers, to be forwarded to the process group of the command. If <i>fd2p</i> is 0, then the <i>stderr</i> (unit 2 of the remote command) will be made the same as the <i>stdout</i> and no provision is made for sending arbitrary signals to the remote process, although you may be able to get its attention by using out-of-band data.<div class="spacer">
+</div>
+The protocol is described in detail in <b>rshd</b>(8).<div class="spacer">
+</div>
+The <b>rresvport</b>() function is used to obtain a socket with a privileged address bound to it. This socket is suitable for use by <b>rcmd</b>() and several other functions. Privileged Internet ports are those in the range 0 to 1023. Only the superuser is allowed to bind an address of this sort to a socket.<div class="spacer">
+</div>
+The <b>iruserok</b>() and <b>ruserok</b>() functions take a remote host's IP address or name, respectively, two usernames and a flag indicating whether the local user's name is that of the superuser. Then, if the user is <i>not</i> the superuser, it checks the <i>/etc/hosts.equiv</i> file. If that lookup is not done, or is unsuccessful, the <i>.rhosts</i> in the local user's home directory is checked to see if the request for service is allowed.<div class="spacer">
+</div>
+If this file does not exist, is not a regular file, is owned by anyone other than the user or the superuser, or is writable by anyone other than the owner, the check automatically fails. Zero is returned if the machine name is listed in the <i>hosts.equiv</i> file, or the host and remote username are found in the <i>.rhosts</i> file; otherwise <b>iruserok</b>() and <b>ruserok</b>() return -1. If the local domain (as obtained from <b>gethostname</b>(2)) is the same as the remote domain, only the machine name need be specified.<div class="spacer">
+</div>
+If the IP address of the remote host is known, <b>iruserok</b>() should be used in preference to <b>ruserok</b>(), as it does not require trusting the DNS server for the remote host's domain.</div>
+<div class="section">
+<h1>RETURN VALUE</h1> The <b>rcmd</b>() function returns a valid socket descriptor on success. It returns -1 on error and prints a diagnostic message on the standard error.<div class="spacer">
+</div>
+The <b>rresvport</b>() function returns a valid, bound socket descriptor on success. It returns -1 on error with the global value <i>errno</i> set according to the reason for failure. The error code <b>EAGAIN</b> is overloaded to mean &quot;All network ports in use.&quot;</div>
+<div class="section">
+<h1>CONFORMING TO</h1> Not in POSIX.1-2001. Present on the BSDs, Solaris, and many other systems. These functions appeared in 4.2BSD.</div>
+<div class="section">
+<h1>BUGS</h1> <b>iruserok</b>() is not declared in glibc headers.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>rlogin</b>(1), <b>rsh</b>(1), <b>intro</b>(2), <b>rexec</b>(3), <b>rexecd</b>(8), <b>rlogind</b>(8), <b>rshd</b>(8)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2007-12-28</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

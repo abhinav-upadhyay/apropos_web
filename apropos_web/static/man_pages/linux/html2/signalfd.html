@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+SIGNALFD(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SIGNALFD(2)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+SIGNALFD(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> signalfd - create a file descriptor for accepting signals</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;sys/signalfd.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int signalfd(int </b><i>fd</i><b>, const sigset_t *</b><i>mask</i><b>, int </b><i>flags</i><b>);</b></div>
+<div class="section">
+<h1>DESCRIPTION</h1> <b>signalfd</b>() creates a file descriptor that can be used to accept signals targeted at the caller. This provides an alternative to the use of a signal handler or <b>sigwaitinfo</b>(2), and has the advantage that the file descriptor may be monitored by <b>select</b>(2), <b>poll</b>(2), and <b>epoll</b>(7).<div style="height: 1.00em;">
+&#160;</div>
+The <i>mask</i> argument specifies the set of signals that the caller wishes to accept via the file descriptor. This argument is a signal set whose contents can be initialized using the macros described in <b>sigsetops</b>(3). Normally, the set of signals to be received via the file descriptor should be blocked using <b>sigprocmask</b>(2), to prevent the signals being handled according to their default dispositions. It is not possible to receive <b>SIGKILL</b> or <b>SIGSTOP</b> signals via a signalfd file descriptor; these signals are silently ignored if specified in <i>mask</i>.<div style="height: 1.00em;">
+&#160;</div>
+If the <i>fd</i> argument is -1, then the call creates a new file descriptor and associates the signal set specified in <i>mask</i> with that descriptor. If <i>fd</i> is not -1, then it must specify a valid existing signalfd file descriptor, and <i>mask</i> is used to replace the signal set associated with that descriptor.<div style="height: 1.00em;">
+&#160;</div>
+Starting with Linux 2.6.27, the following values may be bitwise ORed in <i>flags</i> to change the behaviour of <b>signalfd</b>():<dl>
+<dt>
+<b>SFD_NONBLOCK</b></dt>
+<dd>
+Set the <b>O_NONBLOCK</b> file status flag on the new open file description. Using this flag saves extra calls to <b>fcntl</b>(2) to achieve the same result.</dd>
+</dl>
+<dl>
+<dt>
+<b>SFD_CLOEXEC</b></dt>
+<dd>
+Set the close-on-exec (<b>FD_CLOEXEC</b>) flag on the new file descriptor. See the description of the <b>O_CLOEXEC</b> flag in <b>open</b>(2) for reasons why this may be useful.</dd>
+</dl>
+<div class="spacer">
+</div>
+In Linux up to version 2.6.26, the <i>flags</i> argument is unused, and must be specified as zero.<div style="height: 1.00em;">
+&#160;</div>
+<b>signalfd</b>() returns a file descriptor that supports the following operations:<dl>
+<dt>
+<b>read</b>(2)</dt>
+<dd>
+If one or more of the signals specified in <i>mask</i> is pending for the process, then the buffer supplied to <b>read</b>(2) is used to return one or more <i>signalfd_siginfo</i> structures (see below) that describe the signals. The <b>read</b>(2) returns information for as many signals as are pending and will fit in the supplied buffer. The buffer must be at least <i>sizeof(struct signalfd_siginfo)</i> bytes. The return value of the <b>read</b>(2) is the total number of bytes read.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+As a consequence of the <b>read</b>(2), the signals are consumed, so that they are no longer pending for the process (i.e., will not be caught by signal handlers, and cannot be accepted using <b>sigwaitinfo</b>(2)).</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+If none of the signals in <i>mask</i> is pending for the process, then the <b>read</b>(2) either blocks until one of the signals in <i>mask</i> is generated for the process, or fails with the error <b>EAGAIN</b> if the file descriptor has been made nonblocking.</dd>
+</dl>
+<dl>
+<dt>
+<b>poll</b>(2), <b>select</b>(2) (and similar)</dt>
+<dd>
+The file descriptor is readable (the <b>select</b>(2) <i>readfds</i> argument; the <b>poll</b>(2) <b>POLLIN</b> flag) if one or more of the signals in <i>mask</i> is pending for the process.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+The signalfd file descriptor also supports the other file-descriptor multiplexing APIs: <b>pselect</b>(2), <b>ppoll</b>(2), and <b>epoll</b>(7).</dd>
+</dl>
+<dl>
+<dt>
+<b>close</b>(2)</dt>
+<dd>
+When the file descriptor is no longer required it should be closed. When all file descriptors associated with the same signalfd object have been closed, the resources for object are freed by the kernel.</dd>
+</dl>
+<div class="subsection">
+<h2>The signalfd_siginfo structure</h2> The format of the <i>signalfd_siginfo</i> structure(s) returned by <b>read</b>(2)s from a signalfd file descriptor is as follows:<br/>
+<div class="spacer">
+</div>
+<br/>
+struct signalfd_siginfo {<br/>
+    uint32_t ssi_signo;   /* Signal number */<br/>
+    int32_t  ssi_errno;   /* Error number (unused) */<br/>
+    int32_t  ssi_code;    /* Signal code */<br/>
+    uint32_t ssi_pid;     /* PID of sender */<br/>
+    uint32_t ssi_uid;     /* Real UID of sender */<br/>
+    int32_t  ssi_fd;      /* File descriptor (SIGIO) */<br/>
+    uint32_t ssi_tid;     /* Kernel timer ID (POSIX timers)<br/>
+    uint32_t ssi_band;    /* Band event (SIGIO) */<br/>
+    uint32_t ssi_overrun; /* POSIX timer overrun count */<br/>
+    uint32_t ssi_trapno;  /* Trap number that caused signal */<br/>
+    int32_t  ssi_status;  /* Exit status or signal (SIGCHLD) */<br/>
+    int32_t  ssi_int;     /* Integer sent by sigqueue(3) */<br/>
+    uint64_t ssi_ptr;     /* Pointer sent by sigqueue(3) */<br/>
+    uint64_t ssi_utime;   /* User CPU time consumed (SIGCHLD) */<br/>
+    uint64_t ssi_stime;   /* System CPU time consumed (SIGCHLD) */<br/>
+    uint64_t ssi_addr;    /* Address that generated signal<br/>
+                             (for hardware-generated signals) */<br/>
+    uint8_t  pad[<i>X</i>];      /* Pad size to 128 bytes (allow for<br/>
+                              additional fields in the future) */<br/>
+};<div class="spacer">
+</div>
+<br/>
+<br/>
+Each of the fields in this structure is analogous to the similarly named field in the <i>siginfo_t</i> structure. The <i>siginfo_t</i> structure is described in <b>sigaction</b>(2). Not all fields in the returned <i>signalfd_siginfo</i> structure will be valid for a specific signal; the set of valid fields can be determined from the value returned in the <i>ssi_code</i> field. This field is the analog of the <i>siginfo_t</i> <i>si_code</i> field; see <b>sigaction</b>(2) for details.</div>
+<div class="subsection">
+<h2>fork(2) semantics</h2> After a <b>fork</b>(2), the child inherits a copy of the signalfd file descriptor. A <b>read</b>(2) from the file descriptor in the child will return information about signals queued to the child.</div>
+<div class="subsection">
+<h2>execve(2) semantics</h2> Just like any other file descriptor, a signalfd file descriptor remains open across an <b>execve</b>(2), unless it has been marked for close-on-exec (see <b>fcntl</b>(2)). Any signals that were available for reading before the <b>execve</b>(2) remain available to the newly loaded program. (This is analogous to traditional signal semantics, where a blocked signal that is pending remains pending across an <b>execve</b>(2).)</div>
+<div class="subsection">
+<h2>Thread semantics</h2> The semantics of signalfd file descriptors in a multithreaded program mirror the standard semantics for signals. In other words, when a thread reads from a signalfd file descriptor, it will read the signals that are directed to the thread itself and the signals that are directed to the process (i.e., the entire thread group). (A thread will not be able to read signals that are directed to other threads in the process.)</div>
+</div>
+<div class="section">
+<h1>RETURN VALUE</h1> On success, <b>signalfd</b>() returns a signalfd file descriptor; this is either a new file descriptor (if <i>fd</i> was -1), or <i>fd</i> if <i>fd</i> was a valid signalfd file descriptor. On error, -1 is returned and <i>errno</i> is set to indicate the error.</div>
+<div class="section">
+<h1>ERRORS</h1><dl>
+<dt>
+<b>EBADF</b></dt>
+<dd>
+The <i>fd</i> file descriptor is not a valid file descriptor.</dd>
+</dl>
+<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+<i>fd</i> is not a valid signalfd file descriptor.</dd>
+</dl>
+<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+<i>flags</i> is invalid; or, in Linux 2.6.26 or earlier, <i>flags</i> is nonzero.</dd>
+</dl>
+<dl>
+<dt>
+<b>EMFILE</b></dt>
+<dd>
+The per-process limit of open file descriptors has been reached.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENFILE</b></dt>
+<dd>
+The system-wide limit on the total number of open files has been reached.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENODEV</b></dt>
+<dd>
+Could not mount (internal) anonymous inode device.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOMEM</b></dt>
+<dd>
+There was insufficient memory to create a new signalfd file descriptor.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>VERSIONS</h1> <b>signalfd</b>() is available on Linux since kernel 2.6.22. Working support is provided in glibc since version 2.8. The <b>signalfd4</b>() system call (see NOTES) is available on Linux since kernel 2.6.27.</div>
+<div class="section">
+<h1>CONFORMING TO</h1> <b>signalfd</b>() and <b>signalfd4</b>() are Linux-specific.</div>
+<div class="section">
+<h1>NOTES</h1> The underlying Linux system call requires an additional argument, <i>size_t sizemask</i>, which specifies the size of the <i>mask</i> argument. The glibc <b>signalfd</b>() wrapper function does not include this argument, since it provides the required value for the underlying system call.<div style="height: 1.00em;">
+&#160;</div>
+A process can create multiple signalfd file descriptors. This makes it possible to accept different signals on different file descriptors. (This may be useful if monitoring the file descriptors using <b>select</b>(2), <b>poll</b>(2), or <b>epoll</b>(7): the arrival of different signals will make different descriptors ready.) If a signal appears in the <i>mask</i> of more than one of the file descriptors, then occurrences of that signal can be read (once) from any one of the descriptors.<div class="subsection">
+<h2>Underlying Linux system calls</h2> There are two underlying Linux system calls: <b>signalfd</b>() and the more recent <b>signalfd4</b>(). The former system call does not implement a <i>flags</i> argument. The latter system call implements the <i>flags</i> values described above. Starting with glibc 2.9, the <b>signalfd</b>() wrapper function will use <b>signalfd4</b>() where it is available.</div>
+</div>
+<div class="section">
+<h1>BUGS</h1> In kernels before 2.6.25, the <i>ssi_ptr</i> and <i>ssi_int</i> fields are not filled in with the data accompanying a signal sent by <b>sigqueue</b>(3).</div>
+<div class="section">
+<h1>EXAMPLE</h1> The program below accepts the signals <b>SIGINT</b> and <b>SIGQUIT</b> via a signalfd file descriptor. The program terminates after accepting a <b>SIGQUIT</b> signal. The following shell session demonstrates the use of the program:<br/>
+<div class="spacer">
+</div>
+<br/>
+$<b> ./signalfd_demo</b><br/>
+<b>^C</b>                   # Control-C generates SIGINT<br/>
+Got SIGINT <b>^C</b><br/>
+Got SIGINT<br/>
+<b>^\</b>                    # Control-\ generates SIGQUIT<br/>
+Got SIGQUIT<br/>
+$<br/>
+<br/>
+<div class="subsection">
+<h2>Program source</h2> <br/>
+#include &lt;sys/signalfd.h&gt;<br/>
+#include &lt;signal.h&gt;<br/>
+#include &lt;unistd.h&gt;<br/>
+#include &lt;stdlib.h&gt;<br/>
+#include &lt;stdio.h&gt;<div class="spacer">
+</div>
+<br/>
+#define handle_error(msg) \<br/>
+    do { perror(msg); exit(EXIT_FAILURE); } while (0)<div class="spacer">
+</div>
+<br/>
+int<br/>
+main(int argc, char *argv[])<br/>
+{<br/>
+    sigset_t mask;<br/>
+    int sfd;<br/>
+    struct signalfd_siginfo fdsi;<br/>
+    ssize_t s;<div class="spacer">
+</div>
+<br/>
+    sigemptyset(&amp;mask);<br/>
+    sigaddset(&amp;mask, SIGINT);<br/>
+    sigaddset(&amp;mask, SIGQUIT);<div class="spacer">
+</div>
+<br/>
+    /* Block signals so that they aren't handled<br/>
+       according to their default dispositions */<div class="spacer">
+</div>
+<br/>
+    if (sigprocmask(SIG_BLOCK, &amp;mask, NULL) == -1)<br/>
+        handle_error(&quot;sigprocmask&quot;);<div class="spacer">
+</div>
+<br/>
+    sfd = signalfd(-1, &amp;mask, 0);<br/>
+    if (sfd == -1)<br/>
+        handle_error(&quot;signalfd&quot;);<div class="spacer">
+</div>
+<br/>
+    for (;;) {<br/>
+        s = read(sfd, &amp;fdsi, sizeof(struct signalfd_siginfo));<br/>
+        if (s != sizeof(struct signalfd_siginfo))<br/>
+            handle_error(&quot;read&quot;);<div class="spacer">
+</div>
+<br/>
+        if (fdsi.ssi_signo == SIGINT) {<br/>
+            printf(&quot;Got SIGINT\n&quot;);<br/>
+        } else if (fdsi.ssi_signo == SIGQUIT) {<br/>
+            printf(&quot;Got SIGQUIT\n&quot;);<br/>
+            exit(EXIT_SUCCESS);<br/>
+        } else {<br/>
+            printf(&quot;Read unexpected signal\n&quot;);<br/>
+        }<br/>
+    }<br/>
+}<br/>
+</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>eventfd</b>(2), <b>poll</b>(2), <b>read</b>(2), <b>select</b>(2), <b>sigaction</b>(2), <b>sigprocmask</b>(2), <b>sigwaitinfo</b>(2), <b>timerfd_create</b>(2), <b>sigsetops</b>(3), <b>sigwait</b>(3), <b>epoll</b>(7), <b>signal</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2009-01-13</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

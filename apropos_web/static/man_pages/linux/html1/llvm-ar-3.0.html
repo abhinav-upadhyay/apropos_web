@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+LLVM-AR(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+LLVM-AR(1)</td>
+<td class="head-vol">
+LLVM Command Guide</td>
+<td class="head-rtitle">
+LLVM-AR(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> llvm-ar - LLVM archiver</div>
+<div class="section">
+<h1>SYNOPSIS</h1>  <b>llvm-ar</b> [-]{dmpqrtx}[Rabfikouz] [relpos] [count] &lt;archive&gt; [files...]</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The  <b>llvm-ar</b> command is similar to the common Unix utility, &quot;ar&quot;. It archives several files together into a single file. The intent for this is to produce archive libraries by LLVM bitcode that can be linked into an LLVM program. However, the archive can contain any kind of file. By default,  <b>llvm-ar</b> generates a symbol table that makes linking faster because only the symbol table needs to be consulted, not each individual file member of the archive.<div class="spacer">
+</div>
+The <b>llvm-ar</b> command can be used to <i>read</i> both SVR4 and BSD style archive files. However, it cannot be used to write them.  While the  <b>llvm-ar</b> command produces files that are  <i>almost</i> identical to the format used by other &quot;ar&quot; implementations, it has two significant departures in order to make the archive appropriate for LLVM. The first departure is that  <b>llvm-ar</b> only uses BSD4.4 style long path names (stored immediately after the header) and never contains a string table for long names. The second departure is that the symbol table is formated for efficient construction of an in-memory data structure that permits rapid (red-black tree) lookups. Consequently, archives produced with  <b>llvm-ar</b> usually won't be readable or editable with any &quot;ar&quot; implementation or useful for linking.  Using the &quot;f&quot; modifier to flatten file names will make the archive readable by other &quot;ar&quot; implementations but not for linking because the symbol table format for LLVM is unique. If an SVR4 or BSD style archive is used with the &quot;r&quot; (replace) or &quot;q&quot; (quick update) operations, the archive will be reconstructed in LLVM format. This means that the string table will be dropped (in deference to BSD 4.4 long names) and an LLVM symbol table will be added (by default). The system symbol table will be retained.<div class="spacer">
+</div>
+Here's where <b>llvm-ar</b> departs from previous &quot;ar&quot; implementations:<dl>
+<dt>
+<i>Symbol Table</i></dt>
+<dd>
+Since <b>llvm-ar</b> is intended to archive bitcode files, the symbol table won't make much sense to anything but LLVM. Consequently, the symbol table's format has been simplified. It consists simply of a sequence of pairs of a file member index number as an LSB 4byte integer and a null-terminated string.</dd>
+</dl>
+<dl>
+<dt>
+<i>Long Paths</i></dt>
+<dd>
+Some &quot;ar&quot; implementations (SVR4) use a separate file member to record long path names (&gt; 15 characters).  <b>llvm-ar</b> takes the BSD 4.4 and Mac OS X approach which is to simply store the full path name immediately preceding the data for the file. The path name is null terminated and may contain the slash (/) character.</dd>
+</dl>
+<dl>
+<dt>
+<i>Compression</i></dt>
+<dd>
+<b>llvm-ar</b> can compress the members of an archive to save space. The compression used depends on what's available on the platform and what choices the LLVM Compressor utility makes. It generally favors bzip2 but will select between &quot;no compression&quot; or bzip2 depending on what makes sense for the file's content.</dd>
+</dl>
+<dl>
+<dt>
+<i>Directory Recursion</i></dt>
+<dd>
+Most &quot;ar&quot; implementations do not recurse through directories but simply ignore directories if they are presented to the program in the  <i>files</i> option.  <b>llvm-ar</b>, however, can recurse through directory structures and add all the files under a directory, if requested.</dd>
+</dl>
+<dl>
+<dt>
+<i>TOC Verbose Output</i></dt>
+<dd>
+When <b>llvm-ar</b> prints out the verbose table of contents (&quot;tv&quot; option), it precedes the usual output with a character indicating the basic kind of content in the file. A blank means the file is a regular file. A 'Z' means the file is compressed. A 'B' means the file is an LLVM bitcode file. An 'S' means the file is the symbol table.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>OPTIONS</h1> The options to  <b>llvm-ar</b> are compatible with other &quot;ar&quot; implementations. However, there are a few modifiers ( <i>zR</i>) that are not found in other &quot;ar&quot;s. The options to  <b>llvm-ar</b> specify a single basic operation to perform on the archive, a variety of modifiers for that operation, the name of the archive file, and an optional list of file names. These options are used to determine how  <b>llvm-ar</b> should process the archive file.<div class="spacer">
+</div>
+The Operations and Modifiers are explained in the sections below. The minimal set of options is at least one operator and the name of the archive. Typically archive files end with a &quot;.a&quot; suffix, but this is not required. Following the  <i>archive-name</i> comes a list of <i>files</i> that indicate the specific members of the archive to operate on. If the  <i>files</i> option is not specified, it generally means either &quot;none&quot; or &quot;all&quot; members, depending on the operation.<div class="subsection">
+<h2>Operations</h2><dl>
+<dt>
+d</dt>
+<dd>
+Delete files from the archive. No modifiers are applicable to this operation. The  <i>files</i> options specify which members should be removed from the archive. It is not an error if a specified file does not appear in the archive. If no  <i>files</i> are specified, the archive is not modified.</dd>
+</dl>
+<dl>
+<dt>
+m[abi]</dt>
+<dd>
+Move files from one location in the archive to another. The <i>a</i>, <i>b</i>, and  <i>i</i> modifiers apply to this operation. The <i>files</i> will all be moved to the location given by the modifiers. If no modifiers are used, the files will be moved to the end of the archive. If no  <i>files</i> are specified, the archive is not modified.</dd>
+</dl>
+<dl>
+<dt>
+p[k]</dt>
+<dd>
+Print files to the standard output. The <i>k</i> modifier applies to this operation. This operation simply prints the  <i>files</i> indicated to the standard output. If no  <i>files</i> are specified, the entire archive is printed. Printing bitcode files is ill-advised as they might confuse your terminal settings. The  <i>p</i> operation never modifies the archive.</dd>
+</dl>
+<dl>
+<dt>
+q[Rfz]</dt>
+<dd>
+Quickly append files to the end of the archive. The <i>R</i>, <i>f</i>, and <i>z</i> modifiers apply to this operation.  This operation quickly adds the  <i>files</i> to the archive without checking for duplicates that should be removed first. If no  <i>files</i> are specified, the archive is not modified. Because of the way that  <b>llvm-ar</b> constructs the archive file, its dubious whether the  <i>q</i> operation is any faster than the <i>r</i> operation.</dd>
+</dl>
+<dl>
+<dt>
+r[Rabfuz]</dt>
+<dd>
+Replace or insert file members. The <i>R</i>, <i>a</i>, <i>b</i>, <i>f</i>, <i>u</i>, and <i>z</i> modifiers apply to this operation. This operation will replace existing  <i>files</i> or insert them at the end of the archive if they do not exist. If no  <i>files</i> are specified, the archive is not modified.</dd>
+</dl>
+<dl>
+<dt>
+t[v]</dt>
+<dd>
+Print the table of contents. Without any modifiers, this operation just prints the names of the members to the standard output. With the  <i>v</i> modifier,  <b>llvm-ar</b> also prints out the file type (B=bitcode, Z=compressed, S=symbol table, blank=regular file), the permission mode, the owner and group, the size, and the date. If any  <i>files</i> are specified, the listing is only for those files. If no  <i>files</i> are specified, the table of contents for the whole archive is printed.</dd>
+</dl>
+<dl>
+<dt>
+x[oP]</dt>
+<dd>
+Extract archive members back to files. The <i>o</i> modifier applies to this operation. This operation retrieves the indicated  <i>files</i> from the archive and writes them back to the operating system's file system. If no  <i>files</i> are specified, the entire archive is extract.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Modifiers (operation specific)</h2> The modifiers below are specific to certain operations. See the Operations section (above) to determine which modifiers are applicable to which operations.<dl>
+<dt>
+[a]</dt>
+<dd>
+When inserting or moving member files, this option specifies the destination of the new files as being &quot;a&quot;fter the  <i>relpos</i> member. If <i>relpos</i> is not found, the files are placed at the end of the archive.</dd>
+</dl>
+<dl>
+<dt>
+[b]</dt>
+<dd>
+When inserting or moving member files, this option specifies the destination of the new files as being &quot;b&quot;efore the  <i>relpos</i> member. If <i>relpos</i> is not found, the files are placed at the end of the archive. This modifier is identical to the the  <i>i</i> modifier.</dd>
+</dl>
+<dl>
+<dt>
+[f]</dt>
+<dd>
+Normally, <b>llvm-ar</b> stores the full path name to a file as presented to it on the command line. With this option, truncated (15 characters max) names are used. This ensures name compatibility with older versions of &quot;ar&quot; but may also thwart correct extraction of the files (duplicates may overwrite). If used with the  <i>R</i> option, the directory recursion will be performed but the file names will all be &quot;f&quot;lattened to simple file names.</dd>
+</dl>
+<dl>
+<dt>
+[i]</dt>
+<dd>
+A synonym for the <i>b</i> option.</dd>
+</dl>
+<dl>
+<dt>
+[k]</dt>
+<dd>
+Normally, <b>llvm-ar</b> will not print the contents of bitcode files when the  <i>p</i> operation is used. This modifier defeats the default and allows the bitcode members to be printed.</dd>
+</dl>
+<dl>
+<dt>
+[N]</dt>
+<dd>
+This option is ignored by <b>llvm-ar</b> but provided for compatibility.</dd>
+</dl>
+<dl>
+<dt>
+[o]</dt>
+<dd>
+When extracting files, this option will cause <b>llvm-ar</b> to preserve the original modification times of the files it writes.</dd>
+</dl>
+<dl>
+<dt>
+[P]</dt>
+<dd>
+use full path names when matching</dd>
+</dl>
+<dl>
+<dt>
+[R]</dt>
+<dd>
+This modifier instructions the <i>r</i> option to recursively process directories. Without  <i>R</i>, directories are ignored and only those <i>files</i> that refer to files will be added to the archive. When  <i>R</i> is used, any directories specified with  <i>files</i> will be scanned (recursively) to find files to be added to the archive. Any file whose name begins with a dot will not be added.</dd>
+</dl>
+<dl>
+<dt>
+[u]</dt>
+<dd>
+When replacing existing files in the archive, only replace those files that have a time stamp than the time stamp of the member in the archive.</dd>
+</dl>
+<dl>
+<dt>
+[z]</dt>
+<dd>
+When inserting or replacing any file in the archive, compress the file first. This modifier is safe to use when (previously) compressed bitcode files are added to the archive; the compressed bitcode files will not be doubly compressed.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Modifiers (generic)</h2> The modifiers below may be applied to any operation.<dl>
+<dt>
+[c]</dt>
+<dd>
+For all operations, <b>llvm-ar</b> will always create the archive if it doesn't exist. Normally,  <b>llvm-ar</b> will print a warning message indicating that the archive is being created. Using this modifier turns off that warning.</dd>
+</dl>
+<dl>
+<dt>
+[s]</dt>
+<dd>
+This modifier requests that an archive index (or symbol table) be added to the archive. This is the default mode of operation. The symbol table will contain all the externally visible functions and global variables defined by all the bitcode files in the archive. Using this modifier is more efficient that using llvm-ranlib which also creates the symbol table.</dd>
+</dl>
+<dl>
+<dt>
+[S]</dt>
+<dd>
+This modifier is the opposite of the <i>s</i> modifier. It instructs <b>llvm-ar</b> to not build the symbol table. If both  <i>s</i> and <i>S</i> are used, the last modifier to occur in the options will prevail.</dd>
+</dl>
+<dl>
+<dt>
+[v]</dt>
+<dd>
+This modifier instructs <b>llvm-ar</b> to be verbose about what it is doing. Each editing operation taken against the archive will produce a line of output saying what is being done.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>STANDARDS</h1> The  <b>llvm-ar</b> utility is intended to provide a superset of the IEEE Std 1003.2 (POSIX.2) functionality for &quot;ar&quot;.  <b>llvm-ar</b> can read both SVR4 and BSD4.4 (or Mac OS X) archives. If the &quot;f&quot; modifier is given to the &quot;x&quot; or &quot;r&quot; operations then  <b>llvm-ar</b> will write SVR4 compatible archives. Without this modifier,  <b>llvm-ar</b> will write BSD4.4 compatible archives that have long names immediately after the header and indicated using the &quot;#1/ddd&quot; notation for the name in the header.</div>
+<div class="section">
+<h1>FILE FORMAT</h1> The file format for LLVM Archive files is similar to that of BSD 4.4 or Mac OSX archive files. In fact, except for the symbol table, the &quot;ar&quot; commands on those operating systems should be able to read LLVM archive files. The details of the file format follow.<div class="spacer">
+</div>
+Each archive begins with the archive magic number which is the eight printable characters &quot;!&lt;arch&gt;\n&quot; where \n represents the newline character (0x0A). Following the magic number, the file is composed of even length members that begin with an archive header and end with a \n padding character if necessary (to make the length even). Each file member is composed of a header (defined below), an optional newline-terminated &quot;long file name&quot; and the contents of the file.<div class="spacer">
+</div>
+The fields of the header are described in the items below. All fields of the header contain only ASCII characters, are left justified and are right padded with space characters.<dl>
+<dt>
+name - char[16]</dt>
+<dd>
+This field of the header provides the name of the archive member. If the name is longer than 15 characters or contains a slash (/) character, then this field contains &quot;#1/nnn&quot; where &quot;nnn&quot; provides the length of the name and the &quot;#1/&quot; is literal.  In this case, the actual name of the file is provided in the &quot;nnn&quot; bytes immediately following the header. If the name is 15 characters or less, it is contained directly in this field and terminated with a slash (/) character.</dd>
+</dl>
+<dl>
+<dt>
+date - char[12]</dt>
+<dd>
+This field provides the date of modification of the file in the form of a decimal encoded number that provides the number of seconds since the epoch (since 00:00:00 Jan 1, 1970) per Posix specifications.</dd>
+</dl>
+<dl>
+<dt>
+uid - char[6]</dt>
+<dd>
+This field provides the user id of the file encoded as a decimal ASCII string. This field might not make much sense on non-Unix systems. On Unix, it is the same value as the st_uid field of the stat structure returned by the  <i>stat</i>(2) operating system call.</dd>
+</dl>
+<dl>
+<dt>
+gid - char[6]</dt>
+<dd>
+This field provides the group id of the file encoded as a decimal ASCII string. This field might not make much sense on non-Unix systems. On Unix, it is the same value as the st_gid field of the stat structure returned by the  <i>stat</i>(2) operating system call.</dd>
+</dl>
+<dl>
+<dt>
+mode - char[8]</dt>
+<dd>
+This field provides the access mode of the file encoded as an octal ASCII string. This field might not make much sense on non-Unix systems. On Unix, it is the same value as the st_mode field of the stat structure returned by the  <i>stat</i>(2) operating system call.</dd>
+</dl>
+<dl>
+<dt>
+size - char[10]</dt>
+<dd>
+This field provides the size of the file, in bytes, encoded as a decimal ASCII string. If the size field is negative (starts with a minus sign, 0x02D), then the archive member is stored in compressed form. The first byte of the archive member's data indicates the compression type used. A value of 0 (0x30) indicates that no compression was used. A value of 2 (0x32) indicates that bzip2 compression was used.</dd>
+</dl>
+<dl>
+<dt>
+fmag - char[2]</dt>
+<dd>
+This field is the archive file member magic number. Its content is always the two characters back tick (0x60) and newline (0x0A). This provides some measure utility in identifying archive files that have been corrupted.</dd>
+</dl>
+<div class="spacer">
+</div>
+The LLVM symbol table has the special name &quot;#_LLVM_SYM_TAB_#&quot;. It is presumed that no regular archive member file will want this name. The LLVM symbol table is simply composed of a sequence of triplets: byte offset, length of symbol, and the symbol itself. Symbols are not null or newline terminated. Here are the details on each of these items:<dl>
+<dt>
+offset - vbr encoded 32-bit integer</dt>
+<dd>
+The offset item provides the offset into the archive file where the bitcode member is stored that is associated with the symbol. The offset value is 0 based at the start of the first &quot;normal&quot; file member. To derive the actual file offset of the member, you must add the number of bytes occupied by the file signature (8 bytes) and the symbol tables. The value of this item is encoded using variable bit rate encoding to reduce the size of the symbol table. Variable bit rate encoding uses the high bit (0x80) of each byte to indicate if there are more bytes to follow. The remaining 7 bits in each byte carry bits from the value. The final byte does not have the high bit set.</dd>
+</dl>
+<dl>
+<dt>
+length - vbr encoded 32-bit integer</dt>
+<dd>
+The length item provides the length of the symbol that follows. Like this  <i>offset</i> item, the length is variable bit rate encoded.</dd>
+</dl>
+<dl>
+<dt>
+symbol - character array</dt>
+<dd>
+The symbol item provides the text of the symbol that is associated with the  <i>offset</i>. The symbol is not terminated by any character. Its length is provided by the  <i>length</i> field. Note that is allowed (but unwise) to use non-printing characters (even 0x00) in the symbol. This allows for multiple encodings of symbol names.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>EXIT STATUS</h1> If  <b>llvm-ar</b> succeeds, it will exit with 0.  A usage error, results in an exit code of 1. A hard (file system typically) error results in an exit code of 2. Miscellaneous or unknown errors result in an exit code of 3.</div>
+<div class="section">
+<h1>SEE ALSO</h1> llvm-ranlib,  <i>ar</i>(1)</div>
+<div class="section">
+<h1>AUTHORS</h1> Maintained by the LLVM Team (&lt;http://llvm.org/&gt;).</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-04-09</td>
+<td class="foot-os">
+CVS</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

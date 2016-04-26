@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+RT_SIGQUEUEINFO(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+RT_SIGQUEUEINFO(2)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+RT_SIGQUEUEINFO(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> rt_sigqueueinfo, rt_tgsigqueueinfo - queue a signal and data</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+<b>int rt_sigqueueinfo(pid_t </b><i>tgid</i><b>, int </b><i>sig</i><b>, siginfo_t *</b><i>uinfo</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int rt_tgsigqueueinfo(pid_t </b><i>tgid</i><b>, pid_t </b><i>tid</i><b>, int </b><i>sig</i><b>,</b><br/>
+<b>                      siginfo_t *</b><i>uinfo</i><b>);</b><br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The <b>rt_sigqueueinfo</b>() and <b>rt_tgsigqueueinfo</b>() system calls are the low-level interfaces used to send a signal plus data to a process or thread. The receiver of the signal can obtain the accompanying data by establishing a signal handler with the <b>sigaction</b>(2) <b>SA_SIGINFO</b> flag.<div style="height: 1.00em;">
+&#160;</div>
+These system calls are not intended for direct application use; they are provided to allow the implementation of <b>sigqueue</b>(3) and <b>pthread_sigqueue</b>(3).<div style="height: 1.00em;">
+&#160;</div>
+The <b>rt_sigqueueinfo</b>() system call sends the signal <i>sig</i> to the thread group with the ID <i>tgid</i>. (The term &quot;thread group&quot; is synonymous with &quot;process&quot;, and <i>tid</i> corresponds to the traditional UNIX process ID.) The signal will be delivered to an arbitrary member of the thread group (i.e., one of the threads that is not currently blocking the signal).<div style="height: 1.00em;">
+&#160;</div>
+The <i>uinfo</i> argument specifies the data to accompany the signal. This argument is a pointer to a structure of type <i>siginfo_t</i>, described in <b>sigaction</b>(2) (and defined by including <i>&lt;sigaction.h&gt;</i>). The caller should set the following fields in this structure:<dl>
+<dt>
+<i>si_code</i></dt>
+<dd>
+This must be one of the <b>SI_*</b> codes in the kernel source file <i>include/asm-generic/siginfo.h</i>, with the restriction that the code must be negative (i.e., cannot be <b>SI_USER</b>, which is used by the kernel to indicate a signal sent by <b>kill</b>(2)) and cannot (since Linux 2.6.39) be <b>SI_TKILL</b> (which is used by the kernel to indicate a signal sent using <b>tgkill</b>(2)).</dd>
+</dl>
+<dl>
+<dt>
+<i>si_pid</i></dt>
+<dd>
+This should be set to a process ID, typically the process ID of the sender.</dd>
+</dl>
+<dl>
+<dt>
+<i>si_uid</i></dt>
+<dd>
+This should be set to a user ID, typically the real user ID of the sender.</dd>
+</dl>
+<dl>
+<dt>
+<i>si_value</i></dt>
+<dd>
+This field contains the user data to accompany the signal. For more information, see the description of the last (<i>union sigval</i>) argument of <b>sigqueue</b>(3).</dd>
+</dl>
+<div class="spacer">
+</div>
+Internally, the kernel sets the <i>si_signo</i> field to the value specified in <i>sig</i>, so that the receiver of the signal can also obtain the signal number via that field.<div style="height: 1.00em;">
+&#160;</div>
+The <b>rt_tgsigueueinfo</b>() system call is like <b>rt_sigueueinfo</b>(), but sends the signal and data to the single thread specified by the combination of <i>tgid</i>, a thread group ID, and <i>tid</i>, a thread in that thread group.</div>
+<div class="section">
+<h1>RETURN VALUE</h1> On success, these system calls return 0. On error, they return -1 and <i>errno</i> is set to indicate the error.</div>
+<div class="section">
+<h1>ERRORS</h1><dl>
+<dt>
+<b>EAGAIN</b></dt>
+<dd>
+The limit of signals which may be queued has been reached. (See <b>signal</b>(7) for further information.)</dd>
+</dl>
+<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+<i>sig</i>, <i>tgid</i>, or <i>tid</i> was invalid.</dd>
+</dl>
+<dl>
+<dt>
+<b>EPERM</b></dt>
+<dd>
+The caller does not have permission to send the signal to the target. For the required permissions, see <b>kill</b>(2). Or: <i>uinfo-&gt;si_code</i> is invalid.</dd>
+</dl>
+<dl>
+<dt>
+<b>ESRCH</b></dt>
+<dd>
+<b>rt_sigqueinfo</b>(): No thread group matching <i>tgid</i> was found.<div style="height: 0.00em;">
+&#160;</div>
+<b>rt_rtsigqueinfo</b>(): No thread matching <i>tgid</i> and <i>tid</i> was found.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>VERSIONS</h1> The <b>rt_sigqueueinfo</b>() system call was added to Linux in version 2.2. The <b>rt_tgsigqueueinfo</b>() system call was added to Linux in version 2.6.31.</div>
+<div class="section">
+<h1>CONFORMING TO</h1> These system calls are Linux-specific.</div>
+<div class="section">
+<h1>NOTES</h1> Since these system calls are not intended for application use, there are no glibc wrapper functions; use <b>syscall</b>(2) in the unlikely case that you want to call them directly.<div style="height: 1.00em;">
+&#160;</div>
+As with <b>kill</b>(2), the null signal (0) can be used to check if the specified process or thread exists.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>kill</b>(2), <b>sigaction</b>(2), <b>sigprocmask</b>(2), <b>tgkill</b>(2), <b>pthread_sigqueue</b>(3), <b>sigqueue</b>(3), <b>signal</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-18</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

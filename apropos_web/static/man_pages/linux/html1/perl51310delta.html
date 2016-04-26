@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PERL51310DELTA(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERL51310DELTA(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+PERL51310DELTA(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perl51310delta - what is new for perl v5.13.10</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This document describes differences between the 5.13.9 release and the 5.13.10 release.<div class="spacer">
+</div>
+If you are upgrading from an earlier release such as 5.13.8, first read perl5139delta, which describes differences between 5.13.8 and 5.13.9.</div>
+<div class="section">
+<h1>Core Enhancements</h1><div class="subsection">
+<h2>The new regular expression modifiers available in suffix form</h2> Various releases of the 5.13.x series have added new regular expression modifiers, &quot;/a&quot;, &quot;/d&quot;, &quot;/l&quot;, and &quot;/u&quot;.  They were only available in infix form (e.g., &quot;(?a:...)&quot;) until this release; now they are usable in suffix form.  This change was made too late to change all the affected documentation, so there are a number of places that erroneously say these must be used in infix form.<div class="spacer">
+</div>
+However, there is an ambiguity with the construct, &quot;s/foo/bar/le...&quot;.  Due to backward compatibility constraints, in Perl 5.14 only, it will be resolved as &quot;s/foo/bar/ le...&quot;, that is, as meaning to take the result of the substitution, and see if it is stringwise less-than-or-equal-to what follows. In Perl 5.16 and later, it will instead be resolved as meaning to do the pattern match using the rules of the current locale, and evaluate the rhs as an expression when doing the substitution.  In 5.14, if you want the latter interpretation, you can write &quot;el&quot; instead.</div>
+<div class="subsection">
+<h2>Add &quot;\p{Titlecase}&quot; as a synonym for &quot;\p{Title}&quot;</h2> This synonym is added for symmetry with the Unicode property names &quot;\p{Uppercase}&quot; and &quot;\p{Lowercase}&quot;.</div>
+<div class="subsection">
+<h2>New regular expression modifier option &quot;/aa&quot;</h2> Doubling the &quot;/a&quot; regular expression modifier increases its effect, so that in case-insensitive matching, no ASCII character will match a non-ASCII character.  For example, normally,<div class="spacer">
+</div>
+<br/>
+    'k' =~ /\N{KELVIN SIGN}/i<br/>
+<div class="spacer">
+</div>
+will match; it won't under &quot;/aa&quot;.</div>
+<div class="subsection">
+<h2>New warnings categories for problematic (non-)Unicode code points.</h2> Three new warnings subcategories of &lt;utf8&gt; have been added.  These allow you to turn off warnings for their covered events, while allowing the other UTF-8 warnings to remain on.  The three categories are: &quot;surrogate&quot; when UTF-16 surrogates are encountered; &quot;nonchar&quot; when Unicode non-character code points are encountered; and &quot;non_unicode&quot; when code points that are above the legal Unicode maximum of 0x10FFFF are encountered.</div>
+</div>
+<div class="section">
+<h1>Incompatible Changes</h1><div class="subsection">
+<h2>Most &quot;\p{}&quot; properties are now immune from case-insensitive matching</h2> For most Unicode properties, it doesn't make sense to have them match differently under &quot;/i&quot; case-insensitive matching than not.  And doing so leads to unexpected results and potential security holes.  For example<div class="spacer">
+</div>
+<br/>
+ m/\p{ASCII_Hex_Digit}+/i<br/>
+<div class="spacer">
+</div>
+could previously match non-ASCII characters because of the Unicode matching rules.  There were a number of bugs in this feature until an earlier release in the 5.13 series.  Now this release reverts, and removes the feature completely except for the few properties where people have come to expect it, namely the ones where casing is an integral part of their functionality, such as &quot;m/\p{Uppercase}/i&quot; and &quot;m/\p{Lowercase}/i&quot;, both of which match the exact same code points, namely those matched by &quot;m/\p{Cased}/i&quot;.  Details are in &quot;Unicode Properties&quot; in perlrecharclass.<div class="spacer">
+</div>
+User-defined property handlers that need to match differently under &quot;/i&quot; must change to read the new boolean parameter passed it which is non-zero if case-insensitive matching is in effect; 0 if not.  See &quot;User-Defined Character Properties&quot; in perluniprops.</div>
+<div class="subsection">
+<h2>regex: \p{} in pattern implies Unicode semantics</h2> Now, a Unicode property match specified in the pattern will indicate that the pattern is meant for matching according to Unicode rules (e40e74f)</div>
+<div class="subsection">
+<h2>add <i>GvCV_set()</i> and <i>GvGP_set()</i> macros and change <i>GvGP()</i></h2> This allows a future commit to eliminate some backref magic between GV and CVs, which will require complete control over assignment to the gp_cv slot.<div class="spacer">
+</div>
+If you've been using <i>GvGP()</i> in lvalue context this change will break your code, you should use  <i>GvGP_set()</i> instead. (c43ae56)</div>
+<div class="subsection">
+<h2>_swash_inversion_hash is no longer exported as part of the API</h2> This function shouldn't be called from XS code. (4c2e113)</div>
+<div class="subsection">
+<h2>Unreferenced objects in global destruction</h2> The fix for [perl #36347], which made sure that destructors were called on unreferenced objects, broke the tests for three CPAN modules, which apparently rely on the bug.<div class="spacer">
+</div>
+To provide more time for fixing them (as this is such a minor bug), we have reverted the fix until after perl 5.14.0.<div class="spacer">
+</div>
+This resolves [perl #82542] and other related tickets.</div>
+<div class="subsection">
+<h2>&quot;close&quot; on shared pipes</h2> The &quot;close&quot; function no longer waits for the child process to exit if the underlying file descriptor is still in use by another thread, to avoid deadlocks. It returns true in such cases.</div>
+</div>
+<div class="section">
+<h1>Deprecations</h1><dl>
+<dt>
+Deprecated Modules</dt>
+<dd>
+The following modules will be removed from the core distribution in a future release, and should be installed from CPAN instead. Distributions on CPAN which require these should add them to their prerequisites. The core versions of these modules warnings will issue a deprecation warning.<div style="height: 1.00em;">
+&#160;</div>
+If you ship a packaged version of Perl, either alone or as part of a larger system, then you should carefully consider the repercussions of core module deprecations. You may want to consider shipping your default build of Perl with packages for some or all deprecated modules which install into &quot;vendor&quot; or &quot;site&quot; perl library directories. This will inhibit the deprecation warnings.<div style="height: 1.00em;">
+&#160;</div>
+Alternatively, you may want to consider patching <i>lib/deprecate.pm</i> to provide deprecation warnings specific to your packaging system or distribution of Perl, consistent with how your packaging system or distribution manages a staged transition from a release where the installation of a single package provides the given functionality, to a later release where the system administrator needs to know to install multiple packages to get that same functionality.<div style="height: 1.00em;">
+&#160;</div>
+You can silence these deprecation warnings by installing the modules in question from CPAN.  To install the latest version of all of them, just install &quot;Task::Deprecations::5_14&quot;.</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+Devel::DProf</dt>
+<dd>
+We strongly recommend that you install and used Devel::NYTProf in preference, as it offers significantly improved profiling and reporting.</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+</div>
+<div class="subsection">
+<h2>User-defined case-mapping</h2> This feature is being deprecated due to its many issues, as documented in &quot;User-Defined Case Mappings (for serious hackers only)&quot; in perlunicode. It is planned to remove this feature in Perl 5.16.  A CPAN module providing improved functionality is being prepared for release by the time 5.14 is.</div>
+</div>
+<div class="section">
+<h1>Modules and Pragmata</h1><div class="subsection">
+<h2>New Modules and Pragmata</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;CPAN::Meta&quot; version 2.110440 has been added as a dual-life module. It provides a standard library to read, interpret and write CPAN distribution metadata files (e.g. META.json and META.yml) which describes a distribution, its contents, and the requirements for building it and installing it. The latest CPAN distribution metadata specification is included as &quot;CPAN::Meta::Spec&quot; and notes on changes in the specification over time are given in &quot;CPAN::Meta::History&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Version::Requirements&quot; version 0.101020 has been added as a dual-life module.  It provides a standard library to model and manipulates module prerequisites and version constraints as defined in the CPAN::Meta::Spec.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Updated Modules and Pragmata</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;B&quot; has been upgraded from version 1.27 to 1.28.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Carp&quot; has been upgraded from version 1.19 to 1.20.<div style="height: 1.00em;">
+&#160;</div>
+[perl #82854] It now avoids using regular expressions that cause perl to load its Unicode tables, in order to avoid the 'BEGIN not safe after errors' error that will ensue if there has been a syntax error.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;CGI&quot; has been upgraded from version 3.51 to 3.52</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;CPAN&quot; has been upgraded from version 1.94_64 to 1.94_65<div style="height: 1.00em;">
+&#160;</div>
+Includes support for META.json and MYMETA.json.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;CPANPLUS&quot; has been upgraded from version 0.9011 to 0.9101<div style="height: 1.00em;">
+&#160;</div>
+Includes support for META.json and MYMETA.json and a change to using Digest::SHA for CPAN checksums.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;deprecate&quot; has been upgraded from version 0.01 to 0.02.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;diagnostics&quot; has been upgraded from version 1.21 to 1.22.<div style="height: 1.00em;">
+&#160;</div>
+It now renders pod links slightly better, and has been taught to find descriptions for messages that share their descriptions with other messages.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Devel::DProf&quot; has been upgraded from version 20080331.00 to 20110217.00.<div style="height: 1.00em;">
+&#160;</div>
+Merely loading &quot;Devel::DProf&quot; now no longer triggers profiling to start. &quot;use Devel::DProf&quot; and &quot;perl -d:DProf ...&quot; still behave as before and start the profiler.<div style="height: 1.00em;">
+&#160;</div>
+NOTE: &quot;Devel::DProf&quot; is deprecated and will be removed from a future version of Perl. We strongly recommend that you install and use Devel::NYTProf instead, as it offers significantly improved profiling and reporting.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;DynaLoader&quot; has been upgraded from version 1.12 to 1.13.<div style="height: 1.00em;">
+&#160;</div>
+[perl #84358] It no longer inherits from AutoLoader; hence it no longer produces weird error messages for unsuccessful method calls on classes that inherit from DynaLoader.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;IO::Select&quot; has been upgraded from version 1.17 to 1.18.<div style="height: 1.00em;">
+&#160;</div>
+It now allows IO::Handle objects (and objects in derived classes) to be removed from an IO::Select set even if the underlying file descriptor is closed or invalid.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;IPC::Cmd&quot; has been upgraded from version 0.68 to 0.70</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;HTTP::Tiny&quot; has been upgraded from version 0.009 to 0.010</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Math::BigInt&quot; has been upgraded from version 1.99_04 to 1.992.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Module::Build&quot; has been upgraded from version 0.3607 to 0.37_05.<div style="height: 1.00em;">
+&#160;</div>
+A notable change is the deprecation of several modules. Module::Build::Version has been deprecated and Module::Build now relies directly upon version.  Module::Build::ModuleInfo has been deprecated in favor of a standalone copy of it called Module::Metadata. Module::Build::YAML has been deprecated in favor of CPAN::Meta::YAML.<div style="height: 1.00em;">
+&#160;</div>
+Module::Build now also generates META.json and MYMETA.json files in accordance with version 2 of the CPAN distribution metadata specification, CPAN::Meta::Spec.  The older format META.yml and MYMETA.yml files are still generated, as well.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Module::Load::Conditional&quot; has been upgraded from version 0.40 to 0.44</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Module::Metadata&quot; has been upgraded from version 1.000003 to 1.000004.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;overload&quot; has been upgraded from version 1.12 to 1.13.<div style="height: 1.00em;">
+&#160;</div>
+The documentation has greatly improved. See &quot;Documentation&quot; below.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Parse::CPAN::Meta&quot; has been upgraded from version 1.40 to 1.4401.<div style="height: 1.00em;">
+&#160;</div>
+The latest Parse::CPAN::Meta can now read YAML or JSON files using CPAN::Meta::YAML and JSON::PP, which are now part of the Perl core.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;re&quot; has been upgraded from version 0.16 to 0.17.<div style="height: 1.00em;">
+&#160;</div>
+It now supports the double-a flag: &quot;use re '/aa';&quot;<div style="height: 1.00em;">
+&#160;</div>
+The &quot;regmust&quot; function used to crash when called on a regular expression belonging to a pluggable engine. Now it has been disabled for those.<div style="height: 1.00em;">
+&#160;</div>
+&quot;regmust&quot; no longer leaks memory.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Term::UI&quot; has been upgraded from version 0.24 to 0.26</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Unicode::Collate&quot; has been upgraded from version 0.68 to 0.72<div style="height: 1.00em;">
+&#160;</div>
+This also sees the switch from using the pure-perl version of this module to the XS version.`</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;VMS::DCLsym&quot; has been upgraded from version 1.04 to 1.05.<div style="height: 1.00em;">
+&#160;</div>
+Two bugs have been fixed [perl #84086]:<div style="height: 1.00em;">
+&#160;</div>
+The symbol table name was lost when tying a hash, due to a thinko in &quot;TIEHASH&quot;. The result was that all tied hashes interacted with the local symbol table.<div style="height: 1.00em;">
+&#160;</div>
+Unless a symbol table name had been explicitly specified in the call to the constructor, querying the special key ':LOCAL' failed to identify objects connected to the local symbol table.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Added new function &quot;Unicode::UCD::num()&quot;.  This function will return the numeric value of the string passed it; &quot;undef&quot; if the string in its entirety has no safe numeric value.<div style="height: 1.00em;">
+&#160;</div>
+To be safe, a string must be a single character which has a numeric value, or consist entirely of characters that match \d, coming from the same Unicode block of digits.  Thus, a mix of  Bengali and Western digits would be considered unsafe, as well as a mix of half- and full-width digits, but strings consisting entirely of Devanagari digits or of &quot;Mathematical Bold&quot; digits would would be safe.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;CPAN&quot; has been upgraded from version 1.94_63 to 1.94_64.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Documentation</h1><div class="subsection">
+<h2>Changes to Existing Documentation</h2>  <i>overload</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+overload's documentation has practically undergone a rewrite. It is now much more straightforward and clear.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlhack and perlrepository</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The perlhack and perlrepository documents have been heavily edited and split up into several new documents.<div style="height: 1.00em;">
+&#160;</div>
+The perlhack document is now much shorter, and focuses on the Perl 5 development process and submitting patches to Perl. The technical content has been moved to several new documents, perlsource, perlinterp, perlhacktut, and perlhacktips. This technical content has only been lightly edited.<div style="height: 1.00em;">
+&#160;</div>
+The perlrepository document has been renamed to perlgit. This new document is just a how-to on using git with the Perl source code. Any other content that used to be in perlrepository has been moved to perlhack.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlfunc</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The documentation for the &quot;map&quot; function now contains more examples, see  <b>perldoc -f map</b> (f947627)</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlfaq4</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Examples in perlfaq4 have been updated to show the use of Time::Piece. (9243591)</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>Miscellaneous</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Many POD related RT bugs and other issues which are too numerous to enumerate have been solved by Michael Stevens.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Diagnostics</h1> The following additions or changes have been made to diagnostic output, including warnings and fatal error messages.  For the complete list of diagnostic messages, see perldiag.<div class="subsection">
+<h2>New Diagnostics</h2><dl>
+<dt>
+&quot;\b{&quot; is deprecated; use &quot;\b\{&quot; instead</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;\B{&quot; is deprecated; use &quot;\B\{&quot; instead</dt>
+<dd>
+Use of an unescaped &quot;{&quot; immediately following a &quot;\b&quot; or &quot;\B&quot; is now deprecated so as to reserve its use for Perl itself in a future release.</dd>
+</dl>
+<dl>
+<dt>
+regcomp: Add warning if \p is used under locale. (fb2e24c)</dt>
+<dd>
+&quot;\p&quot; implies Unicode matching rules, which are likely going to be different than the locale's.</dd>
+</dl>
+<dl>
+<dt>
+panic: gp_free failed to free glob pointer - something is repeatedly re-creating entries</dt>
+<dd>
+This new error is triggered if a destructor called on an object in a typeglob that is being freed creates a new typeglob entry containing an object with a destructor that creates a new entry containing an object....</dd>
+</dl>
+<dl>
+<dt>
+refcnt: fd %d%s</dt>
+<dd>
+This new error only occurs if a internal consistency check fails when a pipe is about to be closed.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Changes to Existing Diagnostics</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The warning message about regex unrecognized escapes passed through is changed to include any literal '{' following the 2-char escape.  e.g., &quot;\q{&quot; will include the { in the message as part of the escape (216bfc0).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;binmode $fh, ':scalar'&quot; no longer warns (8250589)<div style="height: 1.00em;">
+&#160;</div>
+Perl will now no longer produce this warning:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    $ perl -we 'open my $f, &quot;&gt;&quot;, \my $x; binmode $f, &quot;scalar&quot;'<br/>
+    Use of uninitialized value in binmode at -e line 1.<br/>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Utility Changes</h1>  <i>perlbug</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+[perl #82996] Use the user's from address as return-path in perlbug<div style="height: 1.00em;">
+&#160;</div>
+Many systems these days don't have a valid Internet domain name and perlbug@perl.org does not accept email with a return-path that does not resolve. Therefore pass the user's address to sendmail so it's less likely to get stuck in a mail queue somewhere. (019cfd2)</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Configuration and Compilation</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+make reg_eval_scope.t TODOs consistently fail (daaf7ac)<div style="height: 1.00em;">
+&#160;</div>
+Some of the TODO tests in reg_eval_scope.t spuriously passed under non-threaded builds. Make the tests harder so they always fail.<div style="height: 1.00em;">
+&#160;</div>
+Since one of the key bugs in (?{..}) is the trashing of the parent pad, add some extra lexical vars to the parent scope and check they're still there at the end.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Stop EU::CBuilder's tests from failing in parallel (cbf59d5)<div style="height: 1.00em;">
+&#160;</div>
+It used to use the same paths for temporary files in all tests. This blew up randomly when the tests were run in parallel.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Testing</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>porting/FindExt.t</i> now skips all tests on a static (-Uusedl) build of perl.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>porting/FindExt.t</i> now passes on non-Win32 platforms when some extensions are built statically.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Platform Support</h1><div class="subsection">
+<h2>Platform-Specific Notes</h2><dl>
+<dt>
+Windows</dt>
+<dd>
+</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;test-prep&quot; build target now depends on <i>pod/perltoc.pod</i> to allow the  <i>t/porting/buildtoc.t</i> test to run successfully.</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+</div>
+<dl>
+<dt>
+MirBSD</dt>
+<dd>
+</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+[perl #82988] Skip hanging taint.t test on MirBSD 10 (1fb83d0)<div style="height: 1.00em;">
+&#160;</div>
+Skip a hanging test under MirBSD that was already being skipped under OpenBSD.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Previously if you build perl with a shared libperl.so on MirBSD (the default config), it will work up to the installation; however, once installed, it will be unable to find libperl. Treat path handling like in the other BSD dialects.</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+</div>
+</div>
+</div>
+<div class="section">
+<h1>Internal Changes</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Fix harmless invalid read in <i>Perl_re_compile()</i> (f6d9469)<div style="height: 1.00em;">
+&#160;</div>
+[perl #2460] described a case where electric fence reported an invalid read. This could be reproduced under valgrind with blead and -e'/x/', but only on a non-debugging build.<div style="height: 1.00em;">
+&#160;</div>
+This was because it was checking for certain pairs of nodes (e.g. BOL + END) and wasn't allowing for EXACT nodes, which have the string at the next node position when using a naive NEXTOPER(first). In the non-debugging build, the nodes aren't initialised to zero, and a 1-char EXACT node isn't long enough to spill into the type field of the &quot;next node&quot;.<div style="height: 1.00em;">
+&#160;</div>
+Fix this by only using NEXTOPER(first) when we know the first node is kosher.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Break out the generated function <i>Perl_keywords()</i> into <i>keywords.c</i>, a new file. (26ea9e1)<div style="height: 1.00em;">
+&#160;</div>
+As it and <i>Perl_yylex()</i> both need FEATURE_IS_ENABLED, <i>feature_is_enabled()</i> is no longer static, and the two macro definitions move from toke.c to perl.h<div style="height: 1.00em;">
+&#160;</div>
+Previously, one had to cut and paste the output of perl_keywords.pl into the middle of toke.c, and it was not clear that it was generated code.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A lot of tests have been ported from Test to Test::More, e.g. in 3842ad6.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Increase default PerlIO buffer size. (b83080d)<div style="height: 1.00em;">
+&#160;</div>
+The previous default size of a PerlIO buffer (4096 bytes) has been increased to the larger of 8192 bytes and your local BUFSIZ.  Benchmarks show that doubling this decade-old default increases read and write performance in the neighborhood of 25% to 50% when using the default layers of perlio on top of unix.  To choose a non-default size, such as to get back the old value or to obtain and even larger value, configure with:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+     ./Configure -Accflags=-DPERLIOBUF_DEFAULT_BUFSIZ=N<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+where N is the desired size in bytes; it should probably be a multiple of your page size.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Selected Bug Fixes</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+A Unicode &quot;\p{}&quot; property match in a regular expression pattern will now force Unicode rules for the rest of the regular expression</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+[perl #38456] binmode FH, &quot;:crlf&quot; only modifies top crlf layer (7826b36)<div style="height: 1.00em;">
+&#160;</div>
+When pushed on top of the stack, crlf will no longer enable crlf layers lower in the stack. This will prevent unexpected results.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Fix 'raw' layer for RT #80764 (ecfd064)<div style="height: 1.00em;">
+&#160;</div>
+Made a ':raw' open do what it advertises to do (first open the file, then binmode it), instead of leaving off the top layer.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Use PerlIOBase_open for pop, utf8 and bytes layers (c0888ac)<div style="height: 1.00em;">
+&#160;</div>
+Three of Perl's builtin PerlIO layers (&quot;:pop&quot;, &quot;:utf8&quot; and &quot;:bytes&quot;) didn't allow stacking when opening a file. For example this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    open FH, '&gt;:pop:perlio', 'some.file' or die $!;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Would throw an error: &quot;Invalid argument&quot;. This has been fixed in this release.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+An issue present since 5.13.1, where s/A/B/ with A utf8 and B non-utf8, could cause corruption or segfaults has been fixed. (c95ca9b)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+String evals will no longer fail after 2 billion scopes have been compiled (d1bfb64, 2df5bdd, 0d311cd and 6012dc8)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+[perl #81750] When strict 'refs' mode is off, &quot;%{...}&quot; in rvalue context returns &quot;undef&quot; if its argument is undefined. An optimisation introduced in perl 5.12.0 to make &quot;keys %{...}&quot; faster when used as a boolean did not take this into account, causing &quot;keys %{+undef}&quot; (and &quot;keys %$foo&quot; when $foo is undefined) to be an error, which it should only be in strict mode.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+[perl #83194] Combining the vector (%v) flag and dynamic precision would cause sprintf to confuse the order of its arguments, making it treat the string as the precision and vice versa.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+[perl #77692] Sometimes the UTF8 length cache would not be reset on a value returned by substr, causing &quot;length(substr($uni_string,...))&quot; to give wrong answers. With &quot;${^UTF8CACHE}&quot; set to -1, it would produce a 'panic' error message, too.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+During the restoration of a localised typeglob on scope exit, any destructors called as a result would be able to see the typeglob in an inconsistent state, containing freed entries, which could result in a crash. This would affect code like this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  local *@;<br/>
+  eval { die bless [] }; # puts an object in $@<br/>
+  sub DESTROY {<br/>
+    local $@; # boom<br/>
+  }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Now the glob entries are cleared before any destructors are called. This also means that destructors can vivify entries in the glob. So perl tries again and, if the entries are re-created too many times, dies with a 'panic: gp_free...' error message.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+[perl #78494] When pipes are shared between threads, the &quot;close&quot; function (and any implicit close, such as on thread exit) no longer blocks.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Several contexts no longer allow a Unicode character to begin a word that should never begin words, for an example an accent that must follow another character previously could precede all other characters.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Case insensitive matching in regular expressions compiled under &quot;use locale&quot; now works much more sanely when the pattern and/or target string are encoded in UTF-8.  Previously, under these conditions the localeness was completely lost.  Now, code points above 255 are treated as Unicode, but code points between 0 and 255 are treated using the current locale rules, regardless of whether the pattern or string are encoded in UTF-8. The few case insensitive matches that cross the 255/256 boundary are not allowed.  For example, 0xFF does not caselessly match the character at 0x178, LATIN CAPITAL LETTER Y WITH DIAERESIS, because 0xFF may not be LATIN SMALL LETTER Y in the current locale, and Perl has no way of knowing if that character even exists in the locale, much less what code point it is.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Acknowledgements</h1> Perl 5.13.10 represents approximately one month of development since Perl 5.13.9 and contains approximately 63000 lines of changes across 609 files from 38 authors and committers:<div class="spacer">
+</div>
+Abigail, Alexander Hartmaier, brian d foy, Charles Bailey, Chip Salzenberg, Chris 'BinGOs' Williams, Craig A. Berry, Curtis Jewell, Dave Rolsky, David Golden, David Leadbeater, David Mitchell, David Wheeler, Father Chrysostomos, Florian Ragwitz, Franz Fasching, George Greer, H.Merijn Brand, Hongwen Qiu, Hugo van der Sanden, Jay Hannah, Jesse Vincent, Karl Williamson, Larwan Berke, Leon Timmermans, Michael Breen, Michael Stevens, Nicholas Clark, Noirin Shirley, Paul Evans, Peter John Acklam, Ricardo Signes, Robin Barker, Steven Schubiger, Tom Christiansen, Tony Cook, Zsban Ambrus and var Arnfjoerd` Bjarmason</div>
+<div class="section">
+<h1>Reporting Bugs</h1> If you find what you think is a bug, you might check the articles recently posted to the comp.lang.perl.misc newsgroup and the perl bug database at http://rt.perl.org/perlbug/ .  There may also be information at http://www.perl.org/ , the Perl Home Page.<div class="spacer">
+</div>
+If you believe you have an unreported bug, please run the perlbug program included with your release.  Be sure to trim your bug down to a tiny but sufficient test case.  Your bug report, along with the output of &quot;perl -V&quot;, will be sent off to perlbug@perl.org to be analysed by the Perl porting team.<div class="spacer">
+</div>
+If the bug you are reporting has security implications, which make it inappropriate to send to a publicly archived mailing list, then please send it to perl5-security-report@perl.org. This points to a closed subscription unarchived mailing list, which includes all the core committers, who be able to help assess the impact of issues, figure out a resolution, and help co-ordinate the release of patches to mitigate or fix the problem across all platforms on which Perl is supported. Please only use this address for security issues in the Perl core, not for modules independently distributed on CPAN.</div>
+<div class="section">
+<h1>SEE ALSO</h1> The  <i>Changes</i> file for an explanation of how to view exhaustive details on what changed.<div class="spacer">
+</div>
+The <i>INSTALL</i> file for how to build Perl.<div class="spacer">
+</div>
+The <i>README</i> file for general stuff.<div class="spacer">
+</div>
+The <i>Artistic</i> and <i>Copying</i> files for copyright information.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

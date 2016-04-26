@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PIPE(7)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PIPE(7)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+PIPE(7)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> pipe - overview of pipes and FIFOs</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Pipes and FIFOs (also known as named pipes) provide a unidirectional interprocess communication channel. A pipe has a <i>read end</i> and a <i>write end</i>. Data written to the write end of a pipe can be read from the read end of the pipe.<div style="height: 1.00em;">
+&#160;</div>
+A pipe is created using <b>pipe</b>(2), which creates a new pipe and returns two file descriptors, one referring to the read end of the pipe, the other referring to the write end. Pipes can be used to create a communication channel between related processes; see <b>pipe</b>(2) for an example.<div style="height: 1.00em;">
+&#160;</div>
+A FIFO (short for First In First Out) has a name within the file system (created using <b>mkfifo</b>(3)), and is opened using <b>open</b>(2). Any process may open a FIFO, assuming the file permissions allow it. The read end is opened using the <b>O_RDONLY</b> flag; the write end is opened using the <b>O_WRONLY</b> flag. See <b>fifo</b>(7) for further details. <i>Note</i>: although FIFOs have a pathname in the file system, I/O on FIFOs does not involve operations on the underlying device (if there is one).<div class="subsection">
+<h2>I/O on Pipes and FIFOs</h2> The only difference between pipes and FIFOs is the manner in which they are created and opened. Once these tasks have been accomplished, I/O on pipes and FIFOs has exactly the same semantics.<div style="height: 1.00em;">
+&#160;</div>
+If a process attempts to read from an empty pipe, then <b>read</b>(2) will block until data is available. If a process attempts to write to a full pipe (see below), then <b>write</b>(2) blocks until sufficient data has been read from the pipe to allow the write to complete. Nonblocking I/O is possible by using the <b>fcntl</b>(2) <b>F_SETFL</b> operation to enable the <b>O_NONBLOCK</b> open file status flag.<div style="height: 1.00em;">
+&#160;</div>
+The communication channel provided by a pipe is a <i>byte stream</i>: there is no concept of message boundaries.<div style="height: 1.00em;">
+&#160;</div>
+If all file descriptors referring to the write end of a pipe have been closed, then an attempt to <b>read</b>(2) from the pipe will see end-of-file (<b>read</b>(2) will return 0). If all file descriptors referring to the read end of a pipe have been closed, then a <b>write</b>(2) will cause a <b>SIGPIPE</b> signal to be generated for the calling process. If the calling process is ignoring this signal, then <b>write</b>(2) fails with the error <b>EPIPE</b>. An application that uses <b>pipe</b>(2) and <b>fork</b>(2) should use suitable <b>close</b>(2) calls to close unnecessary duplicate file descriptors; this ensures that end-of-file and <b>SIGPIPE</b>/<b>EPIPE</b> are delivered when appropriate.<div style="height: 1.00em;">
+&#160;</div>
+It is not possible to apply <b>lseek</b>(2) to a pipe.</div>
+<div class="subsection">
+<h2>Pipe Capacity</h2> A pipe has a limited capacity. If the pipe is full, then a <b>write</b>(2) will block or fail, depending on whether the <b>O_NONBLOCK</b> flag is set (see below). Different implementations have different limits for the pipe capacity. Applications should not rely on a particular capacity: an application should be designed so that a reading process consumes data as soon as it is available, so that a writing process does not remain blocked.<div style="height: 1.00em;">
+&#160;</div>
+In Linux versions before 2.6.11, the capacity of a pipe was the same as the system page size (e.g., 4096 bytes on i386). Since Linux 2.6.11, the pipe capacity is 65536 bytes.</div>
+<div class="subsection">
+<h2>PIPE_BUF</h2> POSIX.1-2001 says that <b>write</b>(2)s of less than <b>PIPE_BUF</b> bytes must be atomic: the output data is written to the pipe as a contiguous sequence. Writes of more than <b>PIPE_BUF</b> bytes may be nonatomic: the kernel may interleave the data with data written by other processes. POSIX.1-2001 requires <b>PIPE_BUF</b> to be at least 512 bytes. (On Linux, <b>PIPE_BUF</b> is 4096 bytes.) The precise semantics depend on whether the file descriptor is nonblocking (<b>O_NONBLOCK</b>), whether there are multiple writers to the pipe, and on <i>n</i>, the number of bytes to be written:<dl>
+<dt>
+<b>O_NONBLOCK</b> disabled, <i>n</i> &lt;= <b>PIPE_BUF</b></dt>
+<dd>
+All <i>n</i> bytes are written atomically; <b>write</b>(2) may block if there is not room for <i>n</i> bytes to be written immediately</dd>
+</dl>
+<dl>
+<dt>
+<b>O_NONBLOCK</b> enabled, <i>n</i> &lt;= <b>PIPE_BUF</b></dt>
+<dd>
+If there is room to write <i>n</i> bytes to the pipe, then <b>write</b>(2) succeeds immediately, writing all <i>n</i> bytes; otherwise <b>write</b>(2) fails, with <i>errno</i> set to <b>EAGAIN</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>O_NONBLOCK</b> disabled, <i>n</i> &gt; <b>PIPE_BUF</b></dt>
+<dd>
+The write is nonatomic: the data given to <b>write</b>(2) may be interleaved with <b>write</b>(2)s by other process; the <b>write</b>(2) blocks until <i>n</i> bytes have been written.</dd>
+</dl>
+<dl>
+<dt>
+<b>O_NONBLOCK</b> enabled, <i>n</i> &gt; <b>PIPE_BUF</b></dt>
+<dd>
+If the pipe is full, then <b>write</b>(2) fails, with <i>errno</i> set to <b>EAGAIN</b>. Otherwise, from 1 to <i>n</i> bytes may be written (i.e., a &quot;partial write&quot; may occur; the caller should check the return value from <b>write</b>(2) to see how many bytes were actually written), and these bytes may be interleaved with writes by other processes.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Open File Status Flags</h2> The only open file status flags that can be meaningfully applied to a pipe or FIFO are <b>O_NONBLOCK</b> and <b>O_ASYNC</b>.<div style="height: 1.00em;">
+&#160;</div>
+Setting the <b>O_ASYNC</b> flag for the read end of a pipe causes a signal (<b>SIGIO</b> by default) to be generated when new input becomes available on the pipe (see <b>fcntl</b>(2) for details). On Linux, <b>O_ASYNC</b> is supported for pipes and FIFOs only since kernel 2.6.</div>
+<div class="subsection">
+<h2>Portability notes</h2> On some systems (but not Linux), pipes are bidirectional: data can be transmitted in both directions between the pipe ends. According to POSIX.1-2001, pipes only need to be unidirectional. Portable applications should avoid reliance on bidirectional pipe semantics.</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>dup</b>(2), <b>fcntl</b>(2), <b>open</b>(2), <b>pipe</b>(2), <b>poll</b>(2), <b>select</b>(2), <b>socketpair</b>(2), <b>stat</b>(2), <b>mkfifo</b>(3), <b>epoll</b>(7), <b>fifo</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2005-12-08</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

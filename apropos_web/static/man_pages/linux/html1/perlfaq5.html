@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PERLFAQ5(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERLFAQ5(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+PERLFAQ5(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perlfaq5 - Files and Formats</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This section deals with I/O and the &quot;f&quot; issues: filehandles, flushing, formats, and footers.<div class="subsection">
+<h2>How do I flush/unbuffer an output filehandle?  Why must I do this?</h2> (contributed by brian d foy)<div class="spacer">
+</div>
+You might like to read Mark Jason Dominus's &quot;Suffering From Buffering&quot; at http://perl.plover.com/FAQs/Buffering.html .<div class="spacer">
+</div>
+Perl normally buffers output so it doesn't make a system call for every bit of output. By saving up output, it makes fewer expensive system calls. For instance, in this little bit of code, you want to print a dot to the screen for every line you process to watch the progress of your program. Instead of seeing a dot for every line, Perl buffers the output and you have a long wait before you see a row of 50 dots all at once:<div class="spacer">
+</div>
+<br/>
+        # long wait, then row of dots all at once<br/>
+        while( &lt;&gt; ) {<br/>
+                print &quot;.&quot;;<br/>
+                print &quot;\n&quot; unless ++$count % 50;<br/>
+<br/>
+                #... expensive line processing operations<br/>
+                }<br/>
+<div class="spacer">
+</div>
+To get around this, you have to unbuffer the output filehandle, in this case, &quot;STDOUT&quot;. You can set the special variable $| to a true value (mnemonic: making your filehandles &quot;piping hot&quot;):<div class="spacer">
+</div>
+<br/>
+        $|++;<br/>
+<br/>
+        # dot shown immediately<br/>
+        while( &lt;&gt; ) {<br/>
+                print &quot;.&quot;;<br/>
+                print &quot;\n&quot; unless ++$count % 50;<br/>
+<br/>
+                #... expensive line processing operations<br/>
+                }<br/>
+<div class="spacer">
+</div>
+The $| is one of the per-filehandle special variables, so each filehandle has its own copy of its value. If you want to merge standard output and standard error for instance, you have to unbuffer each (although STDERR might be unbuffered by default):<div class="spacer">
+</div>
+<br/>
+        {<br/>
+        my $previous_default = select(STDOUT);  # save previous default<br/>
+        $|++;                                   # autoflush STDOUT<br/>
+        select(STDERR);<br/>
+        $|++;                                   # autoflush STDERR, to be sure<br/>
+        select($previous_default);              # restore previous default<br/>
+        }<br/>
+<br/>
+        # now should alternate . and +<br/>
+        while( 1 )<br/>
+                {<br/>
+                sleep 1;<br/>
+                print STDOUT &quot;.&quot;;<br/>
+                print STDERR &quot;+&quot;;<br/>
+                print STDOUT &quot;\n&quot; unless ++$count % 25;<br/>
+                }<br/>
+<div class="spacer">
+</div>
+Besides the $| special variable, you can use &quot;binmode&quot; to give your filehandle a &quot;:unix&quot; layer, which is unbuffered:<div class="spacer">
+</div>
+<br/>
+        binmode( STDOUT, &quot;:unix&quot; );<br/>
+<br/>
+        while( 1 ) {<br/>
+                sleep 1;<br/>
+                print &quot;.&quot;;<br/>
+                print &quot;\n&quot; unless ++$count % 50;<br/>
+                }<br/>
+<div class="spacer">
+</div>
+For more information on output layers, see the entries for &quot;binmode&quot; and &quot;open&quot; in perlfunc, and the &quot;PerlIO&quot; module documentation.<div class="spacer">
+</div>
+If you are using &quot;IO::Handle&quot; or one of its subclasses, you can call the &quot;autoflush&quot; method to change the settings of the filehandle:<div class="spacer">
+</div>
+<br/>
+        use IO::Handle;<br/>
+        open my( $io_fh ), &quot;&gt;&quot;, &quot;output.txt&quot;;<br/>
+        $io_fh-&gt;autoflush(1);<br/>
+<div class="spacer">
+</div>
+The &quot;IO::Handle&quot; objects also have a &quot;flush&quot; method. You can flush the buffer any time you want without auto-buffering<div class="spacer">
+</div>
+<br/>
+        $io_fh-&gt;flush;<br/>
+</div>
+<div class="subsection">
+<h2>How do I change, delete, or insert a line in a file, or append to the beginning of a file?</h2> (contributed by brian d foy)<div class="spacer">
+</div>
+The basic idea of inserting, changing, or deleting a line from a text file involves reading and printing the file to the point you want to make the change, making the change, then reading and printing the rest of the file. Perl doesn't provide random access to lines (especially since the record input separator, $/, is mutable), although modules such as &quot;Tie::File&quot; can fake it.<div class="spacer">
+</div>
+A Perl program to do these tasks takes the basic form of opening a file, printing its lines, then closing the file:<div class="spacer">
+</div>
+<br/>
+        open my $in,  '&lt;',  $file      or die &quot;Can't read old file: $!&quot;;<br/>
+        open my $out, '&gt;', &quot;$file.new&quot; or die &quot;Can't write new file: $!&quot;;<br/>
+<br/>
+        while( &lt;$in&gt; )<br/>
+                {<br/>
+                print $out $_;<br/>
+                }<br/>
+<br/>
+   close $out;<br/>
+<div class="spacer">
+</div>
+Within that basic form, add the parts that you need to insert, change, or delete lines.<div class="spacer">
+</div>
+To prepend lines to the beginning, print those lines before you enter the loop that prints the existing lines.<div class="spacer">
+</div>
+<br/>
+        open my $in,  '&lt;',  $file      or die &quot;Can't read old file: $!&quot;;<br/>
+        open my $out, '&gt;', &quot;$file.new&quot; or die &quot;Can't write new file: $!&quot;;<br/>
+<br/>
+        print $out &quot;# Add this line to the top\n&quot;; # &lt;--- HERE'S THE MAGIC<br/>
+<br/>
+        while( &lt;$in&gt; )<br/>
+                {<br/>
+                print $out $_;<br/>
+                }<br/>
+<br/>
+   close $out;<br/>
+<div class="spacer">
+</div>
+To change existing lines, insert the code to modify the lines inside the &quot;while&quot; loop. In this case, the code finds all lowercased versions of &quot;perl&quot; and uppercases them. The happens for every line, so be sure that you're supposed to do that on every line!<div class="spacer">
+</div>
+<br/>
+        open my $in,  '&lt;',  $file      or die &quot;Can't read old file: $!&quot;;<br/>
+        open my $out, '&gt;', &quot;$file.new&quot; or die &quot;Can't write new file: $!&quot;;<br/>
+<br/>
+        print $out &quot;# Add this line to the top\n&quot;;<br/>
+<br/>
+        while( &lt;$in&gt; )<br/>
+                {<br/>
+                s/\b(perl)\b/Perl/g;<br/>
+                print $out $_;<br/>
+                }<br/>
+<br/>
+   close $out;<br/>
+<div class="spacer">
+</div>
+To change only a particular line, the input line number, $., is useful. First read and print the lines up to the one you  want to change. Next, read the single line you want to change, change it, and print it. After that, read the rest of the lines and print those:<div class="spacer">
+</div>
+<br/>
+        while( &lt;$in&gt; )   # print the lines before the change<br/>
+                {<br/>
+                print $out $_;<br/>
+                last if $. == 4; # line number before change<br/>
+                }<br/>
+<br/>
+        my $line = &lt;$in&gt;;<br/>
+        $line =~ s/\b(perl)\b/Perl/g;<br/>
+        print $out $line;<br/>
+<br/>
+        while( &lt;$in&gt; )   # print the rest of the lines<br/>
+                {<br/>
+                print $out $_;<br/>
+                }<br/>
+<div class="spacer">
+</div>
+To skip lines, use the looping controls. The &quot;next&quot; in this example skips comment lines, and the &quot;last&quot; stops all processing once it encounters either &quot;__END__&quot; or &quot;__DATA__&quot;.<div class="spacer">
+</div>
+<br/>
+        while( &lt;$in&gt; )<br/>
+                {<br/>
+                next if /^\s+#/;             # skip comment lines<br/>
+                last if /^__(END|DATA)__$/;  # stop at end of code marker<br/>
+                print $out $_;<br/>
+                }<br/>
+<div class="spacer">
+</div>
+Do the same sort of thing to delete a particular line by using &quot;next&quot; to skip the lines you don't want to show up in the output. This example skips every fifth line:<div class="spacer">
+</div>
+<br/>
+        while( &lt;$in&gt; )<br/>
+                {<br/>
+                next unless $. % 5;<br/>
+                print $out $_;<br/>
+                }<br/>
+<div class="spacer">
+</div>
+If, for some odd reason, you really want to see the whole file at once rather than processing line-by-line, you can slurp it in (as long as you can fit the whole thing in memory!):<div class="spacer">
+</div>
+<br/>
+        open my $in,  '&lt;',  $file      or die &quot;Can't read old file: $!&quot;<br/>
+        open my $out, '&gt;', &quot;$file.new&quot; or die &quot;Can't write new file: $!&quot;;<br/>
+<br/>
+        my @lines = do { local $/; &lt;$in&gt; }; # slurp!<br/>
+<br/>
+                # do your magic here<br/>
+<br/>
+        print $out @lines;<br/>
+<div class="spacer">
+</div>
+Modules such as &quot;File::Slurp&quot; and &quot;Tie::File&quot; can help with that too. If you can, however, avoid reading the entire file at once. Perl won't give that memory back to the operating system until the process finishes.<div class="spacer">
+</div>
+You can also use Perl one-liners to modify a file in-place. The following changes all 'Fred' to 'Barney' in  <i>inFile.txt</i>, overwriting the file with the new contents. With the &quot;-p&quot; switch, Perl wraps a &quot;while&quot; loop around the code you specify with &quot;-e&quot;, and &quot;-i&quot; turns on in-place editing. The current line is in $_. With &quot;-p&quot;, Perl automatically prints the value of $_ at the end of the loop. See perlrun for more details.<div class="spacer">
+</div>
+<br/>
+        perl -pi -e 's/Fred/Barney/' inFile.txt<br/>
+<div class="spacer">
+</div>
+To make a backup of &quot;inFile.txt&quot;, give &quot;-i&quot; a file extension to add:<div class="spacer">
+</div>
+<br/>
+        perl -pi.bak -e 's/Fred/Barney/' inFile.txt<br/>
+<div class="spacer">
+</div>
+To change only the fifth line, you can add a test checking $., the input line number, then only perform the operation when the test passes:<div class="spacer">
+</div>
+<br/>
+        perl -pi -e 's/Fred/Barney/ if $. == 5' inFile.txt<br/>
+<div class="spacer">
+</div>
+To add lines before a certain line, you can add a line (or lines!) before Perl prints $_:<div class="spacer">
+</div>
+<br/>
+        perl -pi -e 'print &quot;Put before third line\n&quot; if $. == 3' inFile.txt<br/>
+<div class="spacer">
+</div>
+You can even add a line to the beginning of a file, since the current line prints at the end of the loop:<div class="spacer">
+</div>
+<br/>
+        perl -pi -e 'print &quot;Put before first line\n&quot; if $. == 1' inFile.txt<br/>
+<div class="spacer">
+</div>
+To insert a line after one already in the file, use the &quot;-n&quot; switch. It's just like &quot;-p&quot; except that it doesn't print $_ at the end of the loop, so you have to do that yourself. In this case, print $_ first, then print the line that you want to add.<div class="spacer">
+</div>
+<br/>
+        perl -ni -e 'print; print &quot;Put after fifth line\n&quot; if $. == 5' inFile.txt<br/>
+<div class="spacer">
+</div>
+To delete lines, only print the ones that you want.<div class="spacer">
+</div>
+<br/>
+        perl -ni -e 'print unless /d/' inFile.txt<br/>
+<br/>
+                ... or ...<br/>
+<br/>
+        perl -pi -e 'next unless /d/' inFile.txt<br/>
+</div>
+<div class="subsection">
+<h2>How do I count the number of lines in a file?</h2> (contributed by brian d foy)<div class="spacer">
+</div>
+Conceptually, the easiest way to count the lines in a file is to simply read them and count them:<div class="spacer">
+</div>
+<br/>
+        my $count = 0;<br/>
+        while( &lt;$fh&gt; ) { $count++; }<br/>
+<div class="spacer">
+</div>
+You don't really have to count them yourself, though, since Perl already does that with the $. variable, which is the current line number from the last filehandle read:<div class="spacer">
+</div>
+<br/>
+        1 while( &lt;$fh&gt; );<br/>
+        my $count = $.;<br/>
+<div class="spacer">
+</div>
+If you want to use $., you can reduce it to a simple one-liner, like one of these:<div class="spacer">
+</div>
+<br/>
+        % perl -lne '} print $.; {'    file<br/>
+<br/>
+        % perl -lne 'END { print $. }' file<br/>
+<div class="spacer">
+</div>
+Those can be rather inefficient though. If they aren't fast enough for you, you might just read chunks of data and count the number of newlines:<div class="spacer">
+</div>
+<br/>
+        my $lines = 0;<br/>
+        open my($fh), '&lt;:raw', $filename or die &quot;Can't open $filename: $!&quot;;<br/>
+        while( sysread $fh, $buffer, 4096 ) {<br/>
+                $lines += ( $buffer =~ tr/\n// );<br/>
+                }<br/>
+        close FILE;<br/>
+<div class="spacer">
+</div>
+However, that doesn't work if the line ending isn't a newline. You might change that &quot;tr///&quot; to a &quot;s///&quot; so you can count the number of times the input record separator, $/, shows up:<div class="spacer">
+</div>
+<br/>
+        my $lines = 0;<br/>
+        open my($fh), '&lt;:raw', $filename or die &quot;Can't open $filename: $!&quot;;<br/>
+        while( sysread $fh, $buffer, 4096 ) {<br/>
+                $lines += ( $buffer =~ s|$/||g; );<br/>
+                }<br/>
+        close FILE;<br/>
+<div class="spacer">
+</div>
+If you don't mind shelling out, the &quot;wc&quot; command is usually the fastest, even with the extra interprocess overhead. Ensure that you have an untainted filename though:<div class="spacer">
+</div>
+<br/>
+        #!perl -T<br/>
+<br/>
+        $ENV{PATH} = undef;<br/>
+<br/>
+        my $lines;<br/>
+        if( $filename =~ /^([0-9a-z_.]+)\z/ ) {<br/>
+                $lines = `/usr/bin/wc -l $1`<br/>
+                chomp $lines;<br/>
+                }<br/>
+</div>
+<div class="subsection">
+<h2>How do I delete the last N lines from a file?</h2> (contributed by brian d foy)<div class="spacer">
+</div>
+The easiest conceptual solution is to count the lines in the file then start at the beginning and print the number of lines (minus the last N) to a new file.<div class="spacer">
+</div>
+Most often, the real question is how you can delete the last N lines without making more than one pass over the file, or how to do it without a lot of copying. The easy concept is the hard reality when you might have millions of lines in your file.<div class="spacer">
+</div>
+One trick is to use &quot;File::ReadBackwards&quot;, which starts at the end of the file. That module provides an object that wraps the real filehandle to make it easy for you to move around the file. Once you get to the spot you need, you can get the actual filehandle and work with it as normal. In this case, you get the file position at the end of the last line you want to keep and truncate the file to that point:<div class="spacer">
+</div>
+<br/>
+        use File::ReadBackwards;<br/>
+<br/>
+        my $filename = 'test.txt';<br/>
+        my $Lines_to_truncate = 2;<br/>
+<br/>
+        my $bw = File::ReadBackwards-&gt;new( $filename )<br/>
+                or die &quot;Could not read backwards in [$filename]: $!&quot;;<br/>
+<br/>
+        my $lines_from_end = 0;<br/>
+        until( $bw-&gt;eof or $lines_from_end == $Lines_to_truncate )<br/>
+                {<br/>
+                print &quot;Got: &quot;, $bw-&gt;readline;<br/>
+                $lines_from_end++;<br/>
+                }<br/>
+<br/>
+        truncate( $filename, $bw-&gt;tell );<br/>
+<div class="spacer">
+</div>
+The &quot;File::ReadBackwards&quot; module also has the advantage of setting the input record separator to a regular expression.<div class="spacer">
+</div>
+You can also use the &quot;Tie::File&quot; module which lets you access the lines through a tied array. You can use normal array operations to modify your file, including setting the last index and using &quot;splice&quot;.</div>
+<div class="subsection">
+<h2>How can I use Perl's &quot;-i&quot; option from within a program?</h2> &quot;-i&quot; sets the value of Perl's $^I variable, which in turn affects the behavior of &quot;&lt;&gt;&quot;; see perlrun for more details. By modifying the appropriate variables directly, you can get the same behavior within a larger program. For example:<div class="spacer">
+</div>
+<br/>
+        # ...<br/>
+        {<br/>
+        local($^I, @ARGV) = ('.orig', glob(&quot;*.c&quot;));<br/>
+        while (&lt;&gt;) {<br/>
+                if ($. == 1) {<br/>
+                        print &quot;This line should appear at the top of each file\n&quot;;<br/>
+                }<br/>
+                s/\b(p)earl\b/${1}erl/i;        # Correct typos, preserving case<br/>
+                print;<br/>
+                close ARGV if eof;              # Reset $.<br/>
+                }<br/>
+        }<br/>
+        # $^I and @ARGV return to their old values here<br/>
+<div class="spacer">
+</div>
+This block modifies all the &quot;.c&quot; files in the current directory, leaving a backup of the original data from each file in a new &quot;.c.orig&quot; file.</div>
+<div class="subsection">
+<h2>How can I copy a file?</h2> (contributed by brian d foy)<div class="spacer">
+</div>
+Use the &quot;File::Copy&quot; module. It comes with Perl and can do a true copy across file systems, and it does its magic in a portable fashion.<div class="spacer">
+</div>
+<br/>
+        use File::Copy;<br/>
+<br/>
+        copy( $original, $new_copy ) or die &quot;Copy failed: $!&quot;;<br/>
+<div class="spacer">
+</div>
+If you can't use &quot;File::Copy&quot;, you'll have to do the work yourself: open the original file, open the destination file, then print to the destination file as you read the original. You also have to remember to copy the permissions, owner, and group to the new file.</div>
+<div class="subsection">
+<h2>How do I make a temporary file name?</h2> If you don't need to know the name of the file, you can use &quot;open()&quot; with &quot;undef&quot; in place of the file name. In Perl 5.8 or later, the &quot;open()&quot; function creates an anonymous temporary file:<div class="spacer">
+</div>
+<br/>
+        open my $tmp, '+&gt;', undef or die $!;<br/>
+<div class="spacer">
+</div>
+Otherwise, you can use the File::Temp module.<div class="spacer">
+</div>
+<br/>
+        use File::Temp qw/ tempfile tempdir /;<br/>
+<br/>
+        my $dir = tempdir( CLEANUP =&gt; 1 );<br/>
+        ($fh, $filename) = tempfile( DIR =&gt; $dir );<br/>
+<br/>
+        # or if you don't need to know the filename<br/>
+<br/>
+        my $fh = tempfile( DIR =&gt; $dir );<br/>
+<div class="spacer">
+</div>
+The File::Temp has been a standard module since Perl 5.6.1. If you don't have a modern enough Perl installed, use the &quot;new_tmpfile&quot; class method from the IO::File module to get a filehandle opened for reading and writing. Use it if you don't need to know the file's name:<div class="spacer">
+</div>
+<br/>
+        use IO::File;<br/>
+        my $fh = IO::File-&gt;new_tmpfile()<br/>
+                or die &quot;Unable to make new temporary file: $!&quot;;<br/>
+<div class="spacer">
+</div>
+If you're committed to creating a temporary file by hand, use the process ID and/or the current time-value. If you need to have many temporary files in one process, use a counter:<div class="spacer">
+</div>
+<br/>
+        BEGIN {<br/>
+        use Fcntl;<br/>
+        my $temp_dir = -d '/tmp' ? '/tmp' : $ENV{TMPDIR} || $ENV{TEMP};<br/>
+        my $base_name = sprintf &quot;%s/%d-%d-0000&quot;, $temp_dir, $$, time;<br/>
+<br/>
+        sub temp_file {<br/>
+                my $fh;<br/>
+                my $count = 0;<br/>
+                until( defined(fileno($fh)) || $count++ &gt; 100 ) {<br/>
+                        $base_name =~ s/-(\d+)$/&quot;-&quot; . (1 + $1)/e;<br/>
+                        # O_EXCL is required for security reasons.<br/>
+                        sysopen $fh, $base_name, O_WRONLY|O_EXCL|O_CREAT;<br/>
+                        }<br/>
+<br/>
+                if( defined fileno($fh) ) {<br/>
+                        return ($fh, $base_name);<br/>
+                        }<br/>
+                else {<br/>
+                        return ();<br/>
+                        }<br/>
+                }<br/>
+<br/>
+        }<br/>
+</div>
+<div class="subsection">
+<h2>How can I manipulate fixed-record-length files?</h2> The most efficient way is using  <i>pack()</i> and  <i>unpack()</i>. This is faster than using  <i>substr()</i> when taking many, many strings. It is slower for just a few.<div class="spacer">
+</div>
+Here is a sample chunk of code to break up and put back together again some fixed-format input lines, in this case from the output of a normal, Berkeley-style ps:<div class="spacer">
+</div>
+<br/>
+        # sample input line:<br/>
+        #   15158 p5  T      0:00 perl /home/tchrist/scripts/now-what<br/>
+        my $PS_T = 'A6 A4 A7 A5 A*';<br/>
+        open my $ps, '-|', 'ps';<br/>
+        print scalar &lt;$ps&gt;;<br/>
+        my @fields = qw( pid tt stat time command );<br/>
+        while (&lt;$ps&gt;) {<br/>
+                my %process;<br/>
+                @process{@fields} = unpack($PS_T, $_);<br/>
+        for my $field ( @fields ) {<br/>
+                print &quot;$field: &lt;$process{$field}&gt;\n&quot;;<br/>
+        }<br/>
+        print 'line=', pack($PS_T, @process{@fields} ), &quot;\n&quot;;<br/>
+        }<br/>
+<div class="spacer">
+</div>
+We've used a hash slice in order to easily handle the fields of each row. Storing the keys in an array makes it easy to operate on them as a group or loop over them with &quot;for&quot;. It also avoids polluting the program with global variables and using symbolic references.</div>
+<div class="subsection">
+<h2>How can I make a filehandle local to a subroutine?  How do I pass filehandles between subroutines?  How do I make an array of filehandles?</h2> As of perl5.6,  <i>open()</i> autovivifies file and directory handles as references if you pass it an uninitialized scalar variable. You can then pass these references just like any other scalar, and use them in the place of named handles.<div class="spacer">
+</div>
+<br/>
+        open my    $fh, $file_name;<br/>
+<br/>
+        open local $fh, $file_name;<br/>
+<br/>
+        print $fh &quot;Hello World!\n&quot;;<br/>
+<br/>
+        process_file( $fh );<br/>
+<div class="spacer">
+</div>
+If you like, you can store these filehandles in an array or a hash. If you access them directly, they aren't simple scalars and you need to give &quot;print&quot; a little help by placing the filehandle reference in braces. Perl can only figure it out on its own when the filehandle reference is a simple scalar.<div class="spacer">
+</div>
+<br/>
+        my @fhs = ( $fh1, $fh2, $fh3 );<br/>
+<br/>
+        for( $i = 0; $i &lt;= $#fhs; $i++ ) {<br/>
+                print {$fhs[$i]} &quot;just another Perl answer, \n&quot;;<br/>
+                }<br/>
+<div class="spacer">
+</div>
+Before perl5.6, you had to deal with various typeglob idioms which you may see in older code.<div class="spacer">
+</div>
+<br/>
+        open FILE, &quot;&gt; $filename&quot;;<br/>
+        process_typeglob(   *FILE );<br/>
+        process_reference( \*FILE );<br/>
+<br/>
+        sub process_typeglob  { local *FH = shift; print FH  &quot;Typeglob!&quot; }<br/>
+        sub process_reference { local $fh = shift; print $fh &quot;Reference!&quot; }<br/>
+<div class="spacer">
+</div>
+If you want to create many anonymous handles, you should check out the Symbol or IO::Handle modules.</div>
+<div class="subsection">
+<h2>How can I use a filehandle indirectly?</h2> An indirect filehandle is the use of something other than a symbol in a place that a filehandle is expected. Here are ways to get indirect filehandles:<div class="spacer">
+</div>
+<br/>
+        $fh =   SOME_FH;       # bareword is strict-subs hostile<br/>
+        $fh =  &quot;SOME_FH&quot;;      # strict-refs hostile; same package only<br/>
+        $fh =  *SOME_FH;       # typeglob<br/>
+        $fh = \*SOME_FH;       # ref to typeglob (bless-able)<br/>
+        $fh =  *SOME_FH{IO};   # blessed IO::Handle from *SOME_FH typeglob<br/>
+<div class="spacer">
+</div>
+Or, you can use the &quot;new&quot; method from one of the IO::* modules to create an anonymous filehandle and store that in a scalar variable.<div class="spacer">
+</div>
+<br/>
+        use IO::Handle;                     # 5.004 or higher<br/>
+        my $fh = IO::Handle-&gt;new();<br/>
+<div class="spacer">
+</div>
+Then use any of those as you would a normal filehandle. Anywhere that Perl is expecting a filehandle, an indirect filehandle may be used instead. An indirect filehandle is just a scalar variable that contains a filehandle. Functions like &quot;print&quot;, &quot;open&quot;, &quot;seek&quot;, or the &quot;&lt;FH&gt;&quot; diamond operator will accept either a named filehandle or a scalar variable containing one:<div class="spacer">
+</div>
+<br/>
+        ($ifh, $ofh, $efh) = (*STDIN, *STDOUT, *STDERR);<br/>
+        print $ofh &quot;Type it: &quot;;<br/>
+        my $got = &lt;$ifh&gt;<br/>
+        print $efh &quot;What was that: $got&quot;;<br/>
+<div class="spacer">
+</div>
+If you're passing a filehandle to a function, you can write the function in two ways:<div class="spacer">
+</div>
+<br/>
+        sub accept_fh {<br/>
+                my $fh = shift;<br/>
+                print $fh &quot;Sending to indirect filehandle\n&quot;;<br/>
+        }<br/>
+<div class="spacer">
+</div>
+Or it can localize a typeglob and use the filehandle directly:<div class="spacer">
+</div>
+<br/>
+        sub accept_fh {<br/>
+                local *FH = shift;<br/>
+                print  FH &quot;Sending to localized filehandle\n&quot;;<br/>
+        }<br/>
+<div class="spacer">
+</div>
+Both styles work with either objects or typeglobs of real filehandles. (They might also work with strings under some circumstances, but this is risky.)<div class="spacer">
+</div>
+<br/>
+        accept_fh(*STDOUT);<br/>
+        accept_fh($handle);<br/>
+<div class="spacer">
+</div>
+In the examples above, we assigned the filehandle to a scalar variable before using it. That is because only simple scalar variables, not expressions or subscripts of hashes or arrays, can be used with built-ins like &quot;print&quot;, &quot;printf&quot;, or the diamond operator. Using something other than a simple scalar variable as a filehandle is illegal and won't even compile:<div class="spacer">
+</div>
+<br/>
+        my @fd = (*STDIN, *STDOUT, *STDERR);<br/>
+        print $fd[1] &quot;Type it: &quot;;                           # WRONG<br/>
+        my $got = &lt;$fd[0]&gt;                                  # WRONG<br/>
+        print $fd[2] &quot;What was that: $got&quot;;                 # WRONG<br/>
+<div class="spacer">
+</div>
+With &quot;print&quot; and &quot;printf&quot;, you get around this by using a block and an expression where you would place the filehandle:<div class="spacer">
+</div>
+<br/>
+        print  { $fd[1] } &quot;funny stuff\n&quot;;<br/>
+        printf { $fd[1] } &quot;Pity the poor %x.\n&quot;, 3_735_928_559;<br/>
+        # Pity the poor deadbeef.<br/>
+<div class="spacer">
+</div>
+That block is a proper block like any other, so you can put more complicated code there. This sends the message out to one of two places:<div class="spacer">
+</div>
+<br/>
+        my $ok = -x &quot;/bin/cat&quot;;<br/>
+        print { $ok ? $fd[1] : $fd[2] } &quot;cat stat $ok\n&quot;;<br/>
+        print { $fd[ 1+ ($ok || 0) ]  } &quot;cat stat $ok\n&quot;;<br/>
+<div class="spacer">
+</div>
+This approach of treating &quot;print&quot; and &quot;printf&quot; like object methods calls doesn't work for the diamond operator. That's because it's a real operator, not just a function with a comma-less argument. Assuming you've been storing typeglobs in your structure as we did above, you can use the built-in function named &quot;readline&quot; to read a record just as &quot;&lt;&gt;&quot; does. Given the initialization shown above for @fd, this would work, but only because  <i>readline()</i> requires a typeglob. It doesn't work with objects or strings, which might be a bug we haven't fixed yet.<div class="spacer">
+</div>
+<br/>
+        $got = readline($fd[0]);<br/>
+<div class="spacer">
+</div>
+Let it be noted that the flakiness of indirect filehandles is not related to whether they're strings, typeglobs, objects, or anything else. It's the syntax of the fundamental operators. Playing the object game doesn't help you at all here.</div>
+<div class="subsection">
+<h2>How can I set up a footer format to be used with <i>write()</i>?</h2> There's no builtin way to do this, but perlform has a couple of techniques to make it possible for the intrepid hacker.</div>
+<div class="subsection">
+<h2>How can I <i>write()</i> into a string?</h2> (contributed by brian d foy)<div class="spacer">
+</div>
+If you want to &quot;write&quot; into a string, you just have to &lt;open&gt; a filehandle to a string, which Perl has been able to do since Perl 5.6:<div class="spacer">
+</div>
+<br/>
+        open FH, '&gt;', \my $string;<br/>
+        write( FH );<br/>
+<div class="spacer">
+</div>
+Since you want to be a good programmer, you probably want to use a lexical filehandle, even though formats are designed to work with bareword filehandles since the default format names take the filehandle name. However, you can control this with some Perl special per-filehandle variables: $^, which names the top-of-page format, and $~ which shows the line format. You have to change the default filehandle to set these variables:<div class="spacer">
+</div>
+<br/>
+        open my($fh), '&gt;', \my $string;<br/>
+<br/>
+        { # set per-filehandle variables<br/>
+        my $old_fh = select( $fh );<br/>
+        $~ = 'ANIMAL';<br/>
+        $^ = 'ANIMAL_TOP';<br/>
+        select( $old_fh );<br/>
+        }<br/>
+<br/>
+        format ANIMAL_TOP =<br/>
+         ID  Type    Name<br/>
+        .<br/>
+<br/>
+        format ANIMAL =<br/>
+        @##   @&lt;&lt;&lt;    @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;<br/>
+        $id,  $type,  $name<br/>
+        .<br/>
+<div class="spacer">
+</div>
+Although write can work with lexical or package variables, whatever variables you use have to scope in the format. That most likely means you'll want to localize some package variables:<div class="spacer">
+</div>
+<br/>
+        {<br/>
+        local( $id, $type, $name ) = qw( 12 cat Buster );<br/>
+        write( $fh );<br/>
+        }<br/>
+<br/>
+        print $string;<br/>
+<div class="spacer">
+</div>
+There are also some tricks that you can play with &quot;formline&quot; and the accumulator variable $^A, but you lose a lot of the value of formats since &quot;formline&quot; won't handle paging and so on. You end up reimplementing formats when you use them.</div>
+<div class="subsection">
+<h2>How can I open a filehandle to a string?</h2> (contributed by Peter J. Holzer, hjp-usenet2@hjp.at)<div class="spacer">
+</div>
+Since Perl 5.8.0 a file handle referring to a string can be created by calling open with a reference to that string instead of the filename. This file handle can then be used to read from or write to the string:<div class="spacer">
+</div>
+<br/>
+        open(my $fh, '&gt;', \$string) or die &quot;Could not open string for writing&quot;;<br/>
+        print $fh &quot;foo\n&quot;;<br/>
+        print $fh &quot;bar\n&quot;;      # $string now contains &quot;foo\nbar\n&quot;<br/>
+<br/>
+        open(my $fh, '&lt;', \$string) or die &quot;Could not open string for reading&quot;;<br/>
+        my $x = &lt;$fh&gt;;  # $x now contains &quot;foo\n&quot;<br/>
+<div class="spacer">
+</div>
+With older versions of Perl, the &quot;IO::String&quot; module provides similar functionality.</div>
+<div class="subsection">
+<h2>How can I output my numbers with commas added?</h2> (contributed by brian d foy and Benjamin Goldberg)<div class="spacer">
+</div>
+You can use Number::Format to separate places in a number. It handles locale information for those of you who want to insert full stops instead (or anything else that they want to use, really).<div class="spacer">
+</div>
+This subroutine will add commas to your number:<div class="spacer">
+</div>
+<br/>
+        sub commify {<br/>
+                local $_  = shift;<br/>
+                1 while s/^([-+]?\d+)(\d{3})/$1,$2/;<br/>
+                return $_;<br/>
+                }<br/>
+<div class="spacer">
+</div>
+This regex from Benjamin Goldberg will add commas to numbers:<div class="spacer">
+</div>
+<br/>
+        s/(^[-+]?\d+?(?=(?&gt;(?:\d{3})+)(?!\d))|\G\d{3}(?=\d))/$1,/g;<br/>
+<div class="spacer">
+</div>
+It is easier to see with comments:<div class="spacer">
+</div>
+<br/>
+        s/(<br/>
+                ^[-+]?             # beginning of number.<br/>
+                \d+?               # first digits before first comma<br/>
+                (?=                # followed by, (but not included in the match) :<br/>
+                        (?&gt;(?:\d{3})+) # some positive multiple of three digits.<br/>
+                        (?!\d)         # an *exact* multiple, not x * 3 + 1 or whatever.<br/>
+                )<br/>
+                |                  # or:<br/>
+                \G\d{3}            # after the last group, get three digits<br/>
+                (?=\d)             # but they have to have more digits after them.<br/>
+        )/$1,/xg;<br/>
+</div>
+<div class="subsection">
+<h2>How can I translate tildes (~) in a filename?</h2> Use the &lt;&gt; (&quot;glob()&quot;) operator, documented in perlfunc. Versions of Perl older than 5.6 require that you have a shell installed that groks tildes. Later versions of Perl have this feature built in. The &quot;File::KGlob&quot; module (available from CPAN) gives more portable glob functionality.<div class="spacer">
+</div>
+Within Perl, you may use this directly:<div class="spacer">
+</div>
+<br/>
+        $filename =~ s{<br/>
+          ^ ~             # find a leading tilde<br/>
+          (               # save this in $1<br/>
+              [^/]        # a non-slash character<br/>
+                    *     # repeated 0 or more times (0 means me)<br/>
+          )<br/>
+        }{<br/>
+          $1<br/>
+              ? (getpwnam($1))[7]<br/>
+              : ( $ENV{HOME} || $ENV{LOGDIR} )<br/>
+        }ex;<br/>
+</div>
+<div class="subsection">
+<h2>How come when I open a file read-write it wipes it out?</h2> Because you're using something like this, which truncates the file  <i>then</i> gives you read-write access:<div class="spacer">
+</div>
+<br/>
+        open my $fh, '+&gt;', '/path/name'; # WRONG (almost always)<br/>
+<div class="spacer">
+</div>
+Whoops. You should instead use this, which will fail if the file doesn't exist:<div class="spacer">
+</div>
+<br/>
+        open my $fh, '+&lt;', '/path/name'; # open for update<br/>
+<div class="spacer">
+</div>
+Using &quot;&gt;&quot; always clobbers or creates. Using &quot;&lt;&quot; never does either. The &quot;+&quot; doesn't change this.<div class="spacer">
+</div>
+Here are examples of many kinds of file opens. Those using &quot;sysopen&quot; all assume that you've pulled in the constants from &quot;Fcntl&quot;:<div class="spacer">
+</div>
+<br/>
+        use Fcntl;<br/>
+<div class="spacer">
+</div>
+To open file for reading:<div class="spacer">
+</div>
+<br/>
+        open my $fh, '&lt;', $path                               or die $!;<br/>
+        sysopen my $fh, $path, O_RDONLY                       or die $!;<br/>
+<div class="spacer">
+</div>
+To open file for writing, create new file if needed or else truncate old file:<div class="spacer">
+</div>
+<br/>
+        open my $fh, '&gt;', $path                               or die $!;<br/>
+        sysopen my $fh, $path, O_WRONLY|O_TRUNC|O_CREAT       or die $!;<br/>
+        sysopen my $fh, $path, O_WRONLY|O_TRUNC|O_CREAT, 0666 or die $!;<br/>
+<div class="spacer">
+</div>
+To open file for writing, create new file, file must not exist:<div class="spacer">
+</div>
+<br/>
+        sysopen my $fh, $path, O_WRONLY|O_EXCL|O_CREAT        or die $!;<br/>
+        sysopen my $fh, $path, O_WRONLY|O_EXCL|O_CREAT, 0666  or die $!;<br/>
+<div class="spacer">
+</div>
+To open file for appending, create if necessary:<div class="spacer">
+</div>
+<br/>
+        open my $fh, '&gt;&gt;' $path                               or die $!;<br/>
+        sysopen my $fh, $path, O_WRONLY|O_APPEND|O_CREAT      or die $!;<br/>
+        sysopen my $fh, $path, O_WRONLY|O_APPEND|O_CREAT, 0666 or die $!;<br/>
+<div class="spacer">
+</div>
+To open file for appending, file must exist:<div class="spacer">
+</div>
+<br/>
+        sysopen my $fh, $path, O_WRONLY|O_APPEND              or die $!;<br/>
+<div class="spacer">
+</div>
+To open file for update, file must exist:<div class="spacer">
+</div>
+<br/>
+        open my $fh, '+&lt;', $path                              or die $!;<br/>
+        sysopen my $fh, $path, O_RDWR                         or die $!;<br/>
+<div class="spacer">
+</div>
+To open file for update, create file if necessary:<div class="spacer">
+</div>
+<br/>
+        sysopen my $fh, $path, O_RDWR|O_CREAT                 or die $!;<br/>
+        sysopen my $fh, $path, O_RDWR|O_CREAT, 0666           or die $!;<br/>
+<div class="spacer">
+</div>
+To open file for update, file must not exist:<div class="spacer">
+</div>
+<br/>
+        sysopen my $fh, $path, O_RDWR|O_EXCL|O_CREAT          or die $!;<br/>
+        sysopen my $fh, $path, O_RDWR|O_EXCL|O_CREAT, 0666    or die $!;<br/>
+<div class="spacer">
+</div>
+To open a file without blocking, creating if necessary:<div class="spacer">
+</div>
+<br/>
+        sysopen my $fh, '/foo/somefile', O_WRONLY|O_NDELAY|O_CREAT<br/>
+            or die &quot;can't open /foo/somefile: $!&quot;:<br/>
+<div class="spacer">
+</div>
+Be warned that neither creation nor deletion of files is guaranteed to be an atomic operation over NFS. That is, two processes might both successfully create or unlink the same file! Therefore O_EXCL isn't as exclusive as you might wish.<div class="spacer">
+</div>
+See also perlopentut.</div>
+<div class="subsection">
+<h2>Why do I sometimes get an &quot;Argument list too long&quot; when I use &lt;*&gt;?</h2> The &quot;&lt;&gt;&quot; operator performs a globbing operation (see above). In Perl versions earlier than v5.6.0, the internal  <i>glob()</i> operator forks  <i>csh</i>(1) to do the actual glob expansion, but csh can't handle more than 127 items and so gives the error message &quot;Argument list too long&quot;. People who installed tcsh as csh won't have this problem, but their users may be surprised by it.<div class="spacer">
+</div>
+To get around this, either upgrade to Perl v5.6.0 or later, do the glob yourself with  <i>readdir()</i> and patterns, or use a module like File::KGlob, one that doesn't use the shell to do globbing.</div>
+<div class="subsection">
+<h2>Is there a leak/bug in <i>glob()</i>?</h2> (contributed by brian d foy)<div class="spacer">
+</div>
+Starting with Perl 5.6.0, &quot;glob&quot; is implemented internally rather than relying on an external resource. As such, memory issues with &quot;glob&quot; aren't a problem in modern perls.</div>
+<div class="subsection">
+<h2>How can I open a file with a leading &quot;&gt;&quot; or trailing blanks?</h2> (contributed by Brian McCauley)<div class="spacer">
+</div>
+The special two-argument form of Perl's <i>open()</i> function ignores trailing blanks in filenames and infers the mode from certain leading characters (or a trailing &quot;|&quot;). In older versions of Perl this was the only version of  <i>open()</i> and so it is prevalent in old code and books.<div class="spacer">
+</div>
+Unless you have a particular reason to use the two-argument form you should use the three-argument form of  <i>open()</i> which does not treat any characters in the filename as special.<div class="spacer">
+</div>
+<br/>
+        open my $fh, &quot;&lt;&quot;, &quot;  file  &quot;;  # filename is &quot;   file   &quot;<br/>
+        open my $fh, &quot;&gt;&quot;, &quot;&gt;file&quot;;     # filename is &quot;&gt;file&quot;<br/>
+</div>
+<div class="subsection">
+<h2>How can I reliably rename a file?</h2> If your operating system supports a proper  <i>mv</i>(1) utility or its functional equivalent, this works:<div class="spacer">
+</div>
+<br/>
+        rename($old, $new) or system(&quot;mv&quot;, $old, $new);<br/>
+<div class="spacer">
+</div>
+It may be more portable to use the &quot;File::Copy&quot; module instead. You just copy to the new file to the new name (checking return values), then delete the old one. This isn't really the same semantically as a &quot;rename()&quot;, which preserves meta-information like permissions, timestamps, inode info, etc.</div>
+<div class="subsection">
+<h2>How can I lock a file?</h2> Perl's builtin  <i>flock()</i> function (see perlfunc for details) will call  <i>flock</i>(2) if that exists, <i>fcntl</i>(2) if it doesn't (on perl version 5.004 and later), and  <i>lockf</i>(3) if neither of the two previous system calls exists. On some systems, it may even use a different form of native locking. Here are some gotchas with Perl's  <i>flock()</i>:<dl>
+<dt>
+1.</dt>
+<dd>
+Produces a fatal error if none of the three system calls (or their close equivalent) exists.</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+<i>lockf</i>(3) does not provide shared locking, and requires that the filehandle be open for writing (or appending, or read/writing).</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+Some versions of <i>flock()</i> can't lock files over a network (e.g. on NFS file systems), so you'd need to force the use of  <i>fcntl</i>(2) when you build Perl. But even this is dubious at best. See the flock entry of perlfunc and the  <i>INSTALL</i> file in the source distribution for information on building Perl to do this.<div style="height: 1.00em;">
+&#160;</div>
+Two potentially non-obvious but traditional flock semantics are that it waits indefinitely until the lock is granted, and that its locks are  <i>merely advisory</i>. Such discretionary locks are more flexible, but offer fewer guarantees. This means that files locked with  <i>flock()</i> may be modified by programs that do not also use  <i>flock()</i>. Cars that stop for red lights get on well with each other, but not with cars that don't stop for red lights. See the perlport manpage, your port's specific documentation, or your system-specific local manpages for details. It's best to assume traditional behavior if you're writing portable programs. (If you're not, you should as always feel perfectly free to write for your own system's idiosyncrasies (sometimes called &quot;features&quot;). Slavish adherence to portability concerns shouldn't get in the way of your getting your job done.)<div style="height: 1.00em;">
+&#160;</div>
+For more information on file locking, see also &quot;File Locking&quot; in perlopentut if you have it (new for 5.6).</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Why can't I just open(FH, &quot;&gt;file.lock&quot;)?</h2> A common bit of code  <b>NOT TO USE</b> is this:<div class="spacer">
+</div>
+<br/>
+        sleep(3) while -e 'file.lock';  # PLEASE DO NOT USE<br/>
+        open my $lock, '&gt;', 'file.lock'; # THIS BROKEN CODE<br/>
+<div class="spacer">
+</div>
+This is a classic race condition: you take two steps to do something which must be done in one. That's why computer hardware provides an atomic test-and-set instruction. In theory, this &quot;ought&quot; to work:<div class="spacer">
+</div>
+<br/>
+        sysopen my $fh, &quot;file.lock&quot;, O_WRONLY|O_EXCL|O_CREAT<br/>
+                or die &quot;can't open  file.lock: $!&quot;;<br/>
+<div class="spacer">
+</div>
+except that lamentably, file creation (and deletion) is not atomic over NFS, so this won't work (at least, not every time) over the net. Various schemes involving  <i>link()</i> have been suggested, but these tend to involve busy-wait, which is also less than desirable.</div>
+<div class="subsection">
+<h2>I still don't get locking. I just want to increment the number in the file. How can I do this?</h2> Didn't anyone ever tell you web-page hit counters were useless? They don't count number of hits, they're a waste of time, and they serve only to stroke the writer's vanity. It's better to pick a random number; they're more realistic.<div class="spacer">
+</div>
+Anyway, this is what you can do if you can't help yourself.<div class="spacer">
+</div>
+<br/>
+        use Fcntl qw(:DEFAULT :flock);<br/>
+        sysopen my $fh, &quot;numfile&quot;, O_RDWR|O_CREAT or die &quot;can't open numfile: $!&quot;;<br/>
+        flock $fh, LOCK_EX                        or die &quot;can't flock numfile: $!&quot;;<br/>
+        my $num = &lt;$fh&gt; || 0;<br/>
+        seek $fh, 0, 0                            or die &quot;can't rewind numfile: $!&quot;;<br/>
+        truncate $fh, 0                           or die &quot;can't truncate numfile: $!&quot;;<br/>
+        (print $fh $num+1, &quot;\n&quot;)                  or die &quot;can't write numfile: $!&quot;;<br/>
+        close $fh                                 or die &quot;can't close numfile: $!&quot;;<br/>
+<div class="spacer">
+</div>
+Here's a much better web-page hit counter:<div class="spacer">
+</div>
+<br/>
+        $hits = int( (time() - 850_000_000) / rand(1_000) );<br/>
+<div class="spacer">
+</div>
+If the count doesn't impress your friends, then the code might. :-)</div>
+<div class="subsection">
+<h2>All I want to do is append a small amount of text to the end of a file. Do I still have to use locking?</h2> If you are on a system that correctly implements &quot;flock&quot; and you use the example appending code from &quot;perldoc -f flock&quot; everything will be OK even if the OS you are on doesn't implement append mode correctly (if such a system exists). So if you are happy to restrict yourself to OSs that implement &quot;flock&quot; (and that's not really much of a restriction) then that is what you should do.<div class="spacer">
+</div>
+If you know you are only going to use a system that does correctly implement appending (i.e. not Win32) then you can omit the &quot;seek&quot; from the code in the previous answer.<div class="spacer">
+</div>
+If you know you are only writing code to run on an OS and filesystem that does implement append mode correctly (a local filesystem on a modern Unix for example), and you keep the file in block-buffered mode and you write less than one buffer-full of output between each manual flushing of the buffer then each bufferload is almost guaranteed to be written to the end of the file in one chunk without getting intermingled with anyone else's output. You can also use the &quot;syswrite&quot; function which is simply a wrapper around your system's write(2) system call.<div class="spacer">
+</div>
+There is still a small theoretical chance that a signal will interrupt the system-level &quot;write()&quot; operation before completion. There is also a possibility that some STDIO implementations may call multiple system level &quot;write()&quot;s even if the buffer was empty to start. There may be some systems where this probability is reduced to zero, and this is not a concern when using &quot;:perlio&quot; instead of your system's STDIO.</div>
+<div class="subsection">
+<h2>How do I randomly update a binary file?</h2> If you're just trying to patch a binary, in many cases something as simple as this works:<div class="spacer">
+</div>
+<br/>
+        perl -i -pe 's{window manager}{window mangler}g' /usr/bin/emacs<br/>
+<div class="spacer">
+</div>
+However, if you have fixed sized records, then you might do something more like this:<div class="spacer">
+</div>
+<br/>
+        $RECSIZE = 220; # size of record, in bytes<br/>
+        $recno   = 37;  # which record to update<br/>
+        open my $fh, '+&lt;', 'somewhere' or die &quot;can't update somewhere: $!&quot;;<br/>
+        seek $fh, $recno * $RECSIZE, 0;<br/>
+        read $fh, $record, $RECSIZE == $RECSIZE or die &quot;can't read record $recno: $!&quot;;<br/>
+        # munge the record<br/>
+        seek $fh, -$RECSIZE, 1;<br/>
+        print $fh $record;<br/>
+        close $fh;<br/>
+<div class="spacer">
+</div>
+Locking and error checking are left as an exercise for the reader. Don't forget them or you'll be quite sorry.</div>
+<div class="subsection">
+<h2>How do I get a file's timestamp in perl?</h2> If you want to retrieve the time at which the file was last read, written, or had its meta-data (owner, etc) changed, you use the  <b>-A</b>,  <b>-M</b>, or <b>-C</b> file test operations as documented in perlfunc. These retrieve the age of the file (measured against the start-time of your program) in days as a floating point number. Some platforms may not have all of these times. See perlport for details. To retrieve the &quot;raw&quot; time in seconds since the epoch, you would call the stat function, then use &quot;localtime()&quot;, &quot;gmtime()&quot;, or &quot;POSIX::strftime()&quot; to convert this into human-readable form.<div class="spacer">
+</div>
+Here's an example:<div class="spacer">
+</div>
+<br/>
+        my $write_secs = (stat($file))[9];<br/>
+        printf &quot;file %s updated at %s\n&quot;, $file,<br/>
+        scalar localtime($write_secs);<br/>
+<div class="spacer">
+</div>
+If you prefer something more legible, use the File::stat module (part of the standard distribution in version 5.004 and later):<div class="spacer">
+</div>
+<br/>
+        # error checking left as an exercise for reader.<br/>
+        use File::stat;<br/>
+        use Time::localtime;<br/>
+        my $date_string = ctime(stat($file)-&gt;mtime);<br/>
+        print &quot;file $file updated at $date_string\n&quot;;<br/>
+<div class="spacer">
+</div>
+The <i>POSIX::strftime()</i> approach has the benefit of being, in theory, independent of the current locale. See perllocale for details.</div>
+<div class="subsection">
+<h2>How do I set a file's timestamp in perl?</h2> You use the  <i>utime()</i> function documented in &quot;utime&quot; in perlfunc. By way of example, here's a little program that copies the read and write times from its first argument to all the rest of them.<div class="spacer">
+</div>
+<br/>
+        if (@ARGV &lt; 2) {<br/>
+                die &quot;usage: cptimes timestamp_file other_files ...\n&quot;;<br/>
+                }<br/>
+        my $timestamp = shift;<br/>
+        my($atime, $mtime) = (stat($timestamp))[8,9];<br/>
+        utime $atime, $mtime, @ARGV;<br/>
+<div class="spacer">
+</div>
+Error checking is, as usual, left as an exercise for the reader.<div class="spacer">
+</div>
+The perldoc for utime also has an example that has the same effect as  <i>touch</i>(1) on files that <i>already exist</i>.<div class="spacer">
+</div>
+Certain file systems have a limited ability to store the times on a file at the expected level of precision. For example, the FAT and HPFS filesystem are unable to create dates on files with a finer granularity than two seconds. This is a limitation of the filesystems, not of  <i>utime()</i>.</div>
+<div class="subsection">
+<h2>How do I print to more than one file at once?</h2> To connect one filehandle to several output filehandles, you can use the IO::Tee or Tie::FileHandle::Multiplex modules.<div class="spacer">
+</div>
+If you only have to do this once, you can print individually to each filehandle.<div class="spacer">
+</div>
+<br/>
+        for my $fh (FH1, FH2, FH3) { print $fh &quot;whatever\n&quot; }<br/>
+</div>
+<div class="subsection">
+<h2>How can I read in an entire file all at once?</h2> The customary Perl approach for processing all the lines in a file is to do so one line at a time:<div class="spacer">
+</div>
+<br/>
+        open my $input, '&lt;', $file or die &quot;can't open $file: $!&quot;;<br/>
+        while (&lt;$input&gt;) {<br/>
+                chomp;<br/>
+                # do something with $_<br/>
+                }<br/>
+        close $input or die &quot;can't close $file: $!&quot;;<br/>
+<div class="spacer">
+</div>
+This is tremendously more efficient than reading the entire file into memory as an array of lines and then processing it one element at a time, which is often--if not almost always--the wrong approach. Whenever you see someone do this:<div class="spacer">
+</div>
+<br/>
+        my @lines = &lt;INPUT&gt;;<br/>
+<div class="spacer">
+</div>
+You should think long and hard about why you need everything loaded at once. It's just not a scalable solution.<div class="spacer">
+</div>
+If you &quot;mmap&quot; the file with the File::Map module from CPAN, you can virtually load the entire file into a string without actually storing it in memory:<div class="spacer">
+</div>
+<br/>
+        use File::Map qw(map_file);<br/>
+<br/>
+        map_file my $string, $filename;<br/>
+<div class="spacer">
+</div>
+Once mapped, you can treat $string as you would any other string. Since you don't necessarily have to load the data, mmap-ing can be very fast and may not increase your memory footprint.<div class="spacer">
+</div>
+You might also find it more fun to use the standard &quot;Tie::File&quot; module, or the &quot;DB_File&quot; module's $DB_RECNO bindings, which allow you to tie an array to a file so that accessing an element of the array actually accesses the corresponding line in the file.<div class="spacer">
+</div>
+If you want to load the entire file, you can use the &quot;File::Slurp&quot; module to do it in one one simple and efficient step:<div class="spacer">
+</div>
+<br/>
+        use File::Slurp;<br/>
+<br/>
+        my $all_of_it = read_file($filename); # entire file in scalar<br/>
+        my @all_lines = read_file($filename); # one line per element<br/>
+<div class="spacer">
+</div>
+Or you can read the entire file contents into a scalar like this:<div class="spacer">
+</div>
+<br/>
+        my $var;<br/>
+        {<br/>
+        local $/;<br/>
+        open my $fh, '&lt;', $file or die &quot;can't open $file: $!&quot;;<br/>
+        $var = &lt;$fh&gt;;<br/>
+        }<br/>
+<div class="spacer">
+</div>
+That temporarily undefs your record separator, and will automatically close the file at block exit. If the file is already open, just use this:<div class="spacer">
+</div>
+<br/>
+        my $var = do { local $/; &lt;$fh&gt; };<br/>
+<div class="spacer">
+</div>
+You can also use a localized @ARGV to eliminate the &quot;open&quot;:<div class="spacer">
+</div>
+<br/>
+        my $var = do { local( @ARGV, $/ ) = $file; &lt;&gt; };<br/>
+<div class="spacer">
+</div>
+For ordinary files you can also use the &quot;read&quot; function.<div class="spacer">
+</div>
+<br/>
+        read( $fh, $var, -s $fh );<br/>
+<div class="spacer">
+</div>
+That third argument tests the byte size of the data on the $fh filehandle and reads that many bytes into the buffer $var.</div>
+<div class="subsection">
+<h2>How can I read in a file by paragraphs?</h2> Use the $/ variable (see perlvar for details). You can either set it to &quot;&quot; to eliminate empty paragraphs (&quot;abc\n\n\n\ndef&quot;, for instance, gets treated as two paragraphs and not three), or &quot;\n\n&quot; to accept empty paragraphs.<div class="spacer">
+</div>
+Note that a blank line must have no blanks in it. Thus &quot;fred\n&#160;\nstuff\n\n&quot; is one paragraph, but &quot;fred\n\nstuff\n\n&quot; is two.</div>
+<div class="subsection">
+<h2>How can I read a single character from a file?  From the keyboard?</h2> You can use the builtin &quot;getc()&quot; function for most filehandles, but it won't (easily) work on a terminal device. For STDIN, either use the Term::ReadKey module from CPAN or use the sample code in &quot;getc&quot; in perlfunc.<div class="spacer">
+</div>
+If your system supports the portable operating system programming interface (POSIX), you can use the following code, which you'll note turns off echo processing as well.<div class="spacer">
+</div>
+<br/>
+        #!/usr/bin/perl -w<br/>
+        use strict;<br/>
+        $| = 1;<br/>
+        for (1..4) {<br/>
+                print &quot;gimme: &quot;;<br/>
+                my $got = getone();<br/>
+                print &quot;--&gt; $got\n&quot;;<br/>
+                }<br/>
+    exit;<br/>
+<br/>
+        BEGIN {<br/>
+        use POSIX qw(:termios_h);<br/>
+<br/>
+        my ($term, $oterm, $echo, $noecho, $fd_stdin);<br/>
+<br/>
+        my $fd_stdin = fileno(STDIN);<br/>
+<br/>
+        $term     = POSIX::Termios-&gt;new();<br/>
+        $term-&gt;getattr($fd_stdin);<br/>
+        $oterm     = $term-&gt;getlflag();<br/>
+<br/>
+        $echo     = ECHO | ECHOK | ICANON;<br/>
+        $noecho   = $oterm &amp; ~$echo;<br/>
+<br/>
+        sub cbreak {<br/>
+                $term-&gt;setlflag($noecho);<br/>
+                $term-&gt;setcc(VTIME, 1);<br/>
+                $term-&gt;setattr($fd_stdin, TCSANOW);<br/>
+                }<br/>
+<br/>
+        sub cooked {<br/>
+                $term-&gt;setlflag($oterm);<br/>
+                $term-&gt;setcc(VTIME, 0);<br/>
+                $term-&gt;setattr($fd_stdin, TCSANOW);<br/>
+                }<br/>
+<br/>
+        sub getone {<br/>
+                my $key = '';<br/>
+                cbreak();<br/>
+                sysread(STDIN, $key, 1);<br/>
+                cooked();<br/>
+                return $key;<br/>
+                }<br/>
+<br/>
+        }<br/>
+<br/>
+        END { cooked() }<br/>
+<div class="spacer">
+</div>
+The Term::ReadKey module from CPAN may be easier to use. Recent versions include also support for non-portable systems as well.<div class="spacer">
+</div>
+<br/>
+        use Term::ReadKey;<br/>
+        open my $tty, '&lt;', '/dev/tty';<br/>
+        print &quot;Gimme a char: &quot;;<br/>
+        ReadMode &quot;raw&quot;;<br/>
+        my $key = ReadKey 0, $tty;<br/>
+        ReadMode &quot;normal&quot;;<br/>
+        printf &quot;\nYou said %s, char number %03d\n&quot;,<br/>
+                $key, ord $key;<br/>
+</div>
+<div class="subsection">
+<h2>How can I tell whether there's a character waiting on a filehandle?</h2> The very first thing you should do is look into getting the Term::ReadKey extension from CPAN. As we mentioned earlier, it now even has limited support for non-portable (read: not open systems, closed, proprietary, not POSIX, not Unix, etc.) systems.<div class="spacer">
+</div>
+You should also check out the Frequently Asked Questions list in comp.unix.* for things like this: the answer is essentially the same. It's very system-dependent. Here's one solution that works on BSD systems:<div class="spacer">
+</div>
+<br/>
+        sub key_ready {<br/>
+                my($rin, $nfd);<br/>
+                vec($rin, fileno(STDIN), 1) = 1;<br/>
+                return $nfd = select($rin,undef,undef,0);<br/>
+                }<br/>
+<div class="spacer">
+</div>
+If you want to find out how many characters are waiting, there's also the FIONREAD ioctl call to be looked at. The  <i>h2ph</i> tool that comes with Perl tries to convert C include files to Perl code, which can be &quot;require&quot;d. FIONREAD ends up defined as a function in the  <i>sys/ioctl.ph</i> file:<div class="spacer">
+</div>
+<br/>
+        require 'sys/ioctl.ph';<br/>
+<br/>
+        $size = pack(&quot;L&quot;, 0);<br/>
+        ioctl(FH, FIONREAD(), $size)    or die &quot;Couldn't call ioctl: $!\n&quot;;<br/>
+        $size = unpack(&quot;L&quot;, $size);<br/>
+<div class="spacer">
+</div>
+If <i>h2ph</i> wasn't installed or doesn't work for you, you can  <i>grep</i> the include files by hand:<div class="spacer">
+</div>
+<br/>
+        % grep FIONREAD /usr/include/*/*<br/>
+        /usr/include/asm/ioctls.h:#define FIONREAD      0x541B<br/>
+<div class="spacer">
+</div>
+Or write a small C program using the editor of champions:<div class="spacer">
+</div>
+<br/>
+        % cat &gt; fionread.c<br/>
+        #include &lt;sys/ioctl.h&gt;<br/>
+        main() {<br/>
+            printf(&quot;%#08x\n&quot;, FIONREAD);<br/>
+        }<br/>
+        ^D<br/>
+        % cc -o fionread fionread.c<br/>
+        % ./fionread<br/>
+        0x4004667f<br/>
+<div class="spacer">
+</div>
+And then hard-code it, leaving porting as an exercise to your successor.<div class="spacer">
+</div>
+<br/>
+        $FIONREAD = 0x4004667f;         # XXX: opsys dependent<br/>
+<br/>
+        $size = pack(&quot;L&quot;, 0);<br/>
+        ioctl(FH, $FIONREAD, $size)     or die &quot;Couldn't call ioctl: $!\n&quot;;<br/>
+        $size = unpack(&quot;L&quot;, $size);<br/>
+<div class="spacer">
+</div>
+FIONREAD requires a filehandle connected to a stream, meaning that sockets, pipes, and tty devices work, but  <i>not</i> files.</div>
+<div class="subsection">
+<h2>How do I do a &quot;tail -f&quot; in perl?</h2> First try<div class="spacer">
+</div>
+<br/>
+        seek(GWFILE, 0, 1);<br/>
+<div class="spacer">
+</div>
+The statement &quot;seek(GWFILE, 0, 1)&quot; doesn't change the current position, but it does clear the end-of-file condition on the handle, so that the next &quot;&lt;GWFILE&gt;&quot; makes Perl try again to read something.<div class="spacer">
+</div>
+If that doesn't work (it relies on features of your stdio implementation), then you need something more like this:<div class="spacer">
+</div>
+<br/>
+        for (;;) {<br/>
+          for ($curpos = tell(GWFILE); &lt;GWFILE&gt;; $curpos = tell(GWFILE)) {<br/>
+            # search for some stuff and put it into files<br/>
+          }<br/>
+          # sleep for a while<br/>
+          seek(GWFILE, $curpos, 0);  # seek to where we had been<br/>
+        }<br/>
+<div class="spacer">
+</div>
+If this still doesn't work, look into the &quot;clearerr&quot; method from &quot;IO::Handle&quot;, which resets the error and end-of-file states on the handle.<div class="spacer">
+</div>
+There's also a &quot;File::Tail&quot; module from CPAN.</div>
+<div class="subsection">
+<h2>How do I <i>dup()</i> a filehandle in Perl?</h2> If you check &quot;open&quot; in perlfunc, you'll see that several of the ways to call  <i>open()</i> should do the trick. For example:<div class="spacer">
+</div>
+<br/>
+        open my $log, '&gt;&gt;', '/foo/logfile';<br/>
+        open STDERR, '&gt;&amp;LOG';<br/>
+<div class="spacer">
+</div>
+Or even with a literal numeric descriptor:<div class="spacer">
+</div>
+<br/>
+        my $fd = $ENV{MHCONTEXTFD};<br/>
+        open $mhcontext, &quot;&lt;&amp;=$fd&quot;;  # like fdopen(3S)<br/>
+<div class="spacer">
+</div>
+Note that &quot;&lt;&amp;STDIN&quot; makes a copy, but &quot;&lt;&amp;=STDIN&quot; makes an alias. That means if you close an aliased handle, all aliases become inaccessible. This is not true with a copied one.<div class="spacer">
+</div>
+Error checking, as always, has been left as an exercise for the reader.</div>
+<div class="subsection">
+<h2>How do I close a file descriptor by number?</h2> If, for some reason, you have a file descriptor instead of a filehandle (perhaps you used &quot;POSIX::open&quot;), you can use the &quot;close()&quot; function from the &quot;POSIX&quot; module:<div class="spacer">
+</div>
+<br/>
+        use POSIX ();<br/>
+<br/>
+        POSIX::close( $fd );<br/>
+<div class="spacer">
+</div>
+This should rarely be necessary, as the Perl &quot;close()&quot; function is to be used for things that Perl opened itself, even if it was a dup of a numeric descriptor as with &quot;MHCONTEXT&quot; above. But if you really have to, you may be able to do this:<div class="spacer">
+</div>
+<br/>
+        require 'sys/syscall.ph';<br/>
+        my $rc = syscall(&amp;SYS_close, $fd + 0);  # must force numeric<br/>
+        die &quot;can't sysclose $fd: $!&quot; unless $rc == -1;<br/>
+<div class="spacer">
+</div>
+Or, just use the fdopen(3S) feature of &quot;open()&quot;:<div class="spacer">
+</div>
+<br/>
+        {<br/>
+        open my( $fh ), &quot;&lt;&amp;=$fd&quot; or die &quot;Cannot reopen fd=$fd: $!&quot;;<br/>
+        close $fh;<br/>
+        }<br/>
+</div>
+<div class="subsection">
+<h2>Why can't I use &quot;C:\temp\foo&quot; in DOS paths?  Why doesn't `C:\temp\foo.exe` work?</h2> Whoops!  You just put a tab and a formfeed into that filename! Remember that within double quoted strings (&quot;like\this&quot;), the backslash is an escape character. The full list of these is in &quot;Quote and Quote-like Operators&quot; in perlop. Unsurprisingly, you don't have a file called &quot;c:(tab)emp(formfeed)oo&quot; or &quot;c:(tab)emp(formfeed)oo.exe&quot; on your legacy DOS filesystem.<div class="spacer">
+</div>
+Either single-quote your strings, or (preferably) use forward slashes. Since all DOS and Windows versions since something like MS-DOS 2.0 or so have treated &quot;/&quot; and &quot;\&quot; the same in a path, you might as well use the one that doesn't clash with Perl--or the POSIX shell, ANSI C and C++, awk, Tcl, Java, or Python, just to mention a few. POSIX paths are more portable, too.</div>
+<div class="subsection">
+<h2>Why doesn't glob(&quot;*.*&quot;) get all the files?</h2> Because even on non-Unix ports, Perl's glob function follows standard Unix globbing semantics. You'll need &quot;glob(&quot;*&quot;)&quot; to get all (non-hidden) files. This makes  <i>glob()</i> portable even to legacy systems. Your port may include proprietary globbing functions as well. Check its documentation for details.</div>
+<div class="subsection">
+<h2>Why does Perl let me delete read-only files?  Why does &quot;-i&quot; clobber protected files?  Isn't this a bug in Perl?</h2> This is elaborately and painstakingly described in the  <i>file-dir-perms</i> article in the &quot;Far More Than You Ever Wanted To Know&quot; collection in http://www.cpan.org/misc/olddoc/FMTEYEWTK.tgz .<div class="spacer">
+</div>
+The executive summary: learn how your filesystem works. The permissions on a file say what can happen to the data in that file. The permissions on a directory say what can happen to the list of files in that directory. If you delete a file, you're removing its name from the directory (so the operation depends on the permissions of the directory, not of the file). If you try to write to the file, the permissions of the file govern whether you're allowed to.</div>
+<div class="subsection">
+<h2>How do I select a random line from a file?</h2> Short of loading the file into a database or pre-indexing the lines in the file, there are a couple of things that you can do.<div class="spacer">
+</div>
+Here's a reservoir-sampling algorithm from the Camel Book:<div class="spacer">
+</div>
+<br/>
+        srand;<br/>
+        rand($.) &lt; 1 &amp;&amp; ($line = $_) while &lt;&gt;;<br/>
+<div class="spacer">
+</div>
+This has a significant advantage in space over reading the whole file in. You can find a proof of this method in  <i>The Art of Computer</i>  <i>Programming</i>, Volume 2, Section 3.4.2, by Donald E. Knuth.<div class="spacer">
+</div>
+You can use the &quot;File::Random&quot; module which provides a function for that algorithm:<div class="spacer">
+</div>
+<br/>
+        use File::Random qw/random_line/;<br/>
+        my $line = random_line($filename);<br/>
+<div class="spacer">
+</div>
+Another way is to use the &quot;Tie::File&quot; module, which treats the entire file as an array. Simply access a random array element.</div>
+<div class="subsection">
+<h2>Why do I get weird spaces when I print an array of lines?</h2> (contributed by brian d foy)<div class="spacer">
+</div>
+If you are seeing spaces between the elements of your array when you print the array, you are probably interpolating the array in double quotes:<div class="spacer">
+</div>
+<br/>
+        my @animals = qw(camel llama alpaca vicuna);<br/>
+        print &quot;animals are: @animals\n&quot;;<br/>
+<div class="spacer">
+</div>
+It's the double quotes, not the &quot;print&quot;, doing this. Whenever you interpolate an array in a double quote context, Perl joins the elements with spaces (or whatever is in $&quot;, which is a space by default):<div class="spacer">
+</div>
+<br/>
+        animals are: camel llama alpaca vicuna<br/>
+<div class="spacer">
+</div>
+This is different than printing the array without the interpolation:<div class="spacer">
+</div>
+<br/>
+        my @animals = qw(camel llama alpaca vicuna);<br/>
+        print &quot;animals are: &quot;, @animals, &quot;\n&quot;;<br/>
+<div class="spacer">
+</div>
+Now the output doesn't have the spaces between the elements because the elements of @animals simply become part of the list to &quot;print&quot;:<div class="spacer">
+</div>
+<br/>
+        animals are: camelllamaalpacavicuna<br/>
+<div class="spacer">
+</div>
+You might notice this when each of the elements of @array end with a newline. You expect to print one element per line, but notice that every line after the first is indented:<div class="spacer">
+</div>
+<br/>
+        this is a line<br/>
+         this is another line<br/>
+         this is the third line<br/>
+<div class="spacer">
+</div>
+That extra space comes from the interpolation of the array. If you don't want to put anything between your array elements, don't use the array in double quotes. You can send it to print without them:<div class="spacer">
+</div>
+<br/>
+        print @lines;<br/>
+</div>
+<div class="subsection">
+<h2>How do I traverse a directory tree?</h2> (contributed by brian d foy)<div class="spacer">
+</div>
+The &quot;File::Find&quot; module, which comes with Perl, does all of the hard work to traverse a directory structure. It comes with Perl. You simply call the &quot;find&quot; subroutine with a callback subroutine and the directories you want to traverse:<div class="spacer">
+</div>
+<br/>
+        use File::Find;<br/>
+<br/>
+        find( \&amp;wanted, @directories );<br/>
+<br/>
+        sub wanted {<br/>
+                # full path in $File::Find::name<br/>
+                # just filename in $_<br/>
+                ... do whatever you want to do ...<br/>
+                }<br/>
+<div class="spacer">
+</div>
+The &quot;File::Find::Closures&quot;, which you can download from CPAN, provides many ready-to-use subroutines that you can use with &quot;File::Find&quot;.<div class="spacer">
+</div>
+The &quot;File::Finder&quot;, which you can download from CPAN, can help you create the callback subroutine using something closer to the syntax of the &quot;find&quot; command-line utility:<div class="spacer">
+</div>
+<br/>
+        use File::Find;<br/>
+        use File::Finder;<br/>
+<br/>
+        my $deep_dirs = File::Finder-&gt;depth-&gt;type('d')-&gt;ls-&gt;exec('rmdir','{}');<br/>
+<br/>
+        find( $deep_dirs-&gt;as_options, @places );<br/>
+<div class="spacer">
+</div>
+The &quot;File::Find::Rule&quot; module, which you can download from CPAN, has a similar interface, but does the traversal for you too:<div class="spacer">
+</div>
+<br/>
+        use File::Find::Rule;<br/>
+<br/>
+        my @files = File::Find::Rule-&gt;file()<br/>
+                                                         -&gt;name( '*.pm' )<br/>
+                                                         -&gt;in( @INC );<br/>
+</div>
+<div class="subsection">
+<h2>How do I delete a directory tree?</h2> (contributed by brian d foy)<div class="spacer">
+</div>
+If you have an empty directory, you can use Perl's built-in &quot;rmdir&quot;. If the directory is not empty (so, no files or subdirectories), you either have to empty it yourself (a lot of work) or use a module to help you.<div class="spacer">
+</div>
+The &quot;File::Path&quot; module, which comes with Perl, has a &quot;remove_tree&quot; which can take care of all of the hard work for you:<div class="spacer">
+</div>
+<br/>
+        use File::Path qw(remove_tree);<br/>
+<br/>
+        remove_tree( @directories );<br/>
+<div class="spacer">
+</div>
+The &quot;File::Path&quot; module also has a legacy interface to the older &quot;rmtree&quot; subroutine.</div>
+<div class="subsection">
+<h2>How do I copy an entire directory?</h2> (contributed by Shlomi Fish)<div class="spacer">
+</div>
+To do the equivalent of &quot;cp -R&quot; (i.e. copy an entire directory tree recursively) in portable Perl, you'll either need to write something yourself or find a good CPAN module such as  File::Copy::Recursive.</div>
+</div>
+<div class="section">
+<h1>AUTHOR AND COPYRIGHT</h1> Copyright (c) 1997-2010 Tom Christiansen, Nathan Torkington, and other authors as noted. All rights reserved.<div class="spacer">
+</div>
+This documentation is free; you can redistribute it and/or modify it under the same terms as Perl itself.<div class="spacer">
+</div>
+Irrespective of its distribution, all code examples here are in the public domain. You are permitted and encouraged to use this code and any derivatives thereof in your own programs for fun or for profit as you see fit. A simple comment in the code giving credit to the FAQ would be courteous but is not required.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

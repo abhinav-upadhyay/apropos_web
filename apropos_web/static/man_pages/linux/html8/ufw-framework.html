@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+UFW FRAMEWORK(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+UFW FRAMEWORK(8)</td>
+<td class="head-vol">
+October 2011</td>
+<td class="head-rtitle">
+UFW FRAMEWORK(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> ufw-framework - using the ufw framework</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <b>ufw</b> provides both a command line interface and a framework for managing a netfilter firewall. While the  <b>ufw</b> command provides an easy to use interface for managing a firewall, the  <b>ufw</b> framework provides the administrator methods to customize default behavior and add rules not supported by the command line tool. In this way,  <b>ufw</b> can take full advantage of Linux netfilter's power and flexibility.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>OVERVIEW</h1> The framework provides boot time initialization, rules files for adding custom rules, a method for loading netfilter modules, configuration of kernel parameters and configuration of IPv6. The framework consists of the following files:<dl>
+<dt>
+/lib/ufw/ufw-init</dt>
+<dd>
+initialization script</dd>
+</dl>
+<dl>
+<dt>
+/etc/ufw/before[6].rules</dt>
+<dd>
+rules file containing rules evaluated before UI added rules</dd>
+</dl>
+<dl>
+<dt>
+/lib/ufw/user[6].rules</dt>
+<dd>
+rules file containing UI added rules (managed with the <b>ufw</b> command)</dd>
+</dl>
+<dl>
+<dt>
+/etc/ufw/after[6].rules</dt>
+<dd>
+rules file containing rules evaluated after UI added rules</dd>
+</dl>
+<dl>
+<dt>
+/etc/default/ufw</dt>
+<dd>
+high level configuration</dd>
+</dl>
+<dl>
+<dt>
+/etc/ufw/sysctl.conf</dt>
+<dd>
+kernel network tunables</dd>
+</dl>
+<dl>
+<dt>
+/etc/ufw/ufw.conf</dt>
+<dd>
+additional high level configuration<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1>BOOT INITIALIZATION</h1>  <b>ufw</b> is started on boot with /lib/ufw/ufw-init. This script is a standard SysV style initscript used by the  <b>ufw</b> command and should not be modified. It supports the following arguments:<dl>
+<dt>
+start:</dt>
+<dd>
+loads the firewall</dd>
+</dl>
+<dl>
+<dt>
+stop:</dt>
+<dd>
+unloads the firewall</dd>
+</dl>
+<dl>
+<dt>
+restart:</dt>
+<dd>
+reloads the firewall</dd>
+</dl>
+<dl>
+<dt>
+force-reload:</dt>
+<dd>
+same as restart</dd>
+</dl>
+<dl>
+<dt>
+status:</dt>
+<dd>
+basic status of the firewall</dd>
+</dl>
+<dl>
+<dt>
+force-stop:</dt>
+<dd>
+same as stop, except does not check if the firewall is already loaded</dd>
+</dl>
+<dl>
+<dt>
+flush-all:</dt>
+<dd>
+flushes the built-in chains, deletes all non-built-in chains and resets the policy to ACCEPT</dd>
+</dl>
+<div class="spacer">
+</div>
+<b>ufw</b> uses many user-defined chains in addition to the built-in iptables chains. If MANAGE_BUILTINS in /etc/default/ufw is set to 'yes', on stop and reload the built-in chains are flushed. If it is set to 'no', on stop and reload the  <b>ufw</b> secondary chains are removed and the <b>ufw</b> primary chains are flushed. In addition to flushing the  <b>ufw</b> specific chains, it keeps the primary chains in the same order with respect to any other user-defined chains that may have been added. This allows for  <b>ufw</b> to interoperate with other software that may manage their own firewall rules.<div class="spacer">
+</div>
+To ensure your firewall is loading on boot, you must integrate this script into the boot process. Consult your distribution's documentation for the proper way to modify your boot process if  <b>ufw</b> is not already integrated.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>RULES FILES</h1>  <b>ufw</b> is in part a front-end for <b>iptables-restore</b>, with its rules saved in /etc/ufw/before.rules, /etc/ufw/after.rules and /lib/ufw/user.rules. Administrators can customize  <b>before.rules</b> and  <b>after.rules</b> as desired using the standard <b>iptables-restore</b> syntax. Rules are evaluated as follows:  <b>before.rules</b> first, <b>user.rules</b> next, and  <b>after.rules</b> last. IPv6 rules are evaluated in the same way, with the rules files named  <b>before6.rules</b>, <b>user6.rules</b> and  <b>after6.rules</b>. Please note that <b>ufw status</b> only shows rules added with  <b>ufw</b> and not the rules found in the /etc/ufw rules files.<div class="spacer">
+</div>
+<b>Important</b>: <b>ufw</b> only uses the *filter table by default. You may add any other tables such as *nat, *raw and *mangle as desired. For each table a corresponding COMMIT statement is required.<div class="spacer">
+</div>
+After modifying any of these files, you must reload <b>ufw</b> for the rules to take effect.  See the EXAMPLES section for common uses of these rules files.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>MODULES</h1> Netfilter has many different connection tracking modules. These modules are aware of the underlying protocol and allow the administrator to simplify his or her rule sets. You can adjust which netfilter modules to load by adjusting IPT_MODULES in /etc/default/ufw. Some popular modules to load are:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  nf_conntrack_ftp<br/>
+  nf_nat_ftp<br/>
+  nf_conntrack_irc<br/>
+  nf_nat_irc<br/>
+  nf_conntrack_netbios_ns<br/>
+  nf_conntrack_pptp<br/>
+  nf_conntrack_tftp<br/>
+  nf_nat_tftp<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>KERNEL PARAMETERS</h1>  <b>ufw</b> will read in /etc/ufw/sysctl.conf on boot when enabled. Please note that /etc/ufw/sysctl.conf overrides values in the system systcl.conf (usually /etc/sysctl.conf). Administrators can change the file used by modifying /etc/default/ufw.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>IPV6</h1> IPv6 is enabled by default. When disabled, all incoming, outgoing and forwarded packets are dropped, with the exception of traffic on the loopback interface. To adjust this behavior, set IPV6 to 'yes' in /etc/default/ufw. See the  <b>ufw</b> manual page for details.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>EXAMPLES</h1> As mentioned,  <b>ufw</b> loads its rules files into the kernel by using the  <b>iptables-restore</b> and <b>ip6tables-restore</b> commands. Users wanting to add rules to the  <b>ufw</b> rules files manually must be familiar with these as well as the  <b>iptables</b> and <b>ip6tables</b> commands. Below are some common examples of using the  <b>ufw</b> rules files.  All examples assume IPv4 only and that DEFAULT_FORWARD_POLICY in /etc/default/ufw is set to DROP.<div class="subsection">
+<h2>IP Masquerading</h2> To allow IP masquerading for computers from the 10.0.0.0/8 network to share the single IP address on eth0:<dl>
+<dt>
+Edit /etc/ufw/sysctl.conf to have:</dt>
+<dd>
+<br/>
+ net.ipv4.ip_forward=1</dd>
+</dl>
+<dl>
+<dt>
+Add to the end of /etc/ufw/before.rules, after the *filter section:</dt>
+<dd>
+<br/>
+ *nat<br/>
+ :POSTROUTING ACCEPT [0:0]<br/>
+ -A POSTROUTING -s 10.0.0.0/8 -o eth0 -j MASQUERADE<br/>
+ COMMIT</dd>
+</dl>
+<dl>
+<dt>
+If your firewall is using IPv6 tunnels or 6to4 and is also doing NAT, then you should not usually masquerade protocol '41' (ipv6) packets. For example, instead of the above, /etc/ufw/before.rules can be adjusted to have:</dt>
+<dd>
+<br/>
+ *nat<br/>
+ :POSTROUTING ACCEPT [0:0]<br/>
+ -A POSTROUTING -s 10.0.0.0/8 --protocol ! 41 -o eth0 -j MASQUERADE<br/>
+ COMMIT</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Port Redirections</h2> To forward tcp port 80 on eth0 to go to the webserver at 10.0.0.2:<dl>
+<dt>
+Edit /etc/ufw/sysctl.conf to have:</dt>
+<dd>
+<br/>
+ net.ipv4.ip_forward=1</dd>
+</dl>
+<dl>
+<dt>
+Add to the *filter section of /etc/ufw/before.rules:</dt>
+<dd>
+<br/>
+ -A ufw-before-forward -m state --state RELATED,ESTABLISHED \<br/>
+   -j ACCEPT<br/>
+ -A ufw-before-forward -m state --state NEW -i eth0 \<br/>
+   -d 10.0.0.2 -p tcp --dport 80 -j ACCEPT</dd>
+</dl>
+<dl>
+<dt>
+Add to the end of /etc/ufw/before.rules, after the *filter section:</dt>
+<dd>
+<br/>
+ *nat<br/>
+ :PREROUTING ACCEPT [0:0]<br/>
+ -A PREROUTING -p tcp -i eth0 --dport 80 -j DNAT \<br/>
+   --to-destination 10.0.0.2:80<br/>
+ COMMIT<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Egress filtering</h2> To block RFC1918 addresses going out of eth0:<dl>
+<dt>
+Add in the *filter section of /etc/ufw/before.rules:</dt>
+<dd>
+<br/>
+ -A ufw-before-forward -o eth0 -d 10.0.0.0/8 -j REJECT<br/>
+ -A ufw-before-forward -o eth0 -d 172.16.0.0/12 -j REJECT<br/>
+ -A ufw-before-forward -o eth0 -d 192.168.0.0/16 -j REJECT<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Full example</h2> This example combines the other examples and demonstrates a simple routing firewall.  <b>Warning</b>: this setup is only an example to demonstrate the functionality of the  <b>ufw</b> framework in a concise and simple manner and should not be used in production without understanding what each part does and does not do. Your firewall will undoubtedly want to be less open.<div class="spacer">
+</div>
+This router/firewall has two interfaces: eth0 (Internet facing) and eth1 (internal LAN). Internal clients have addresses on the 10.0.0.0/8 network and should be able to connect to anywhere on the Internet. Connections to port 80 from the Internet should be forwarded to 10.0.0.2. Access to ssh port 22 from the administrative workstation (10.0.0.100) to this machine should be allowed. Also make sure no internal traffic goes to the Internet.<dl>
+<dt>
+Edit /etc/ufw/sysctl.conf to have:</dt>
+<dd>
+<br/>
+  net.ipv4.ip_forward=1</dd>
+</dl>
+<dl>
+<dt>
+Add to the *filter section of /etc/ufw/before.rules:</dt>
+<dd>
+<br/>
+ -A ufw-before-forward -m state --state RELATED,ESTABLISHED \<br/>
+   -j ACCEPT<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ -A ufw-before-forward -i eth1 -s 10.0.0.0/8 -o eth0 -m state \<br/>
+   --state NEW -j ACCEPT<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ -A ufw-before-forward -m state --state NEW -i eth0 \<br/>
+   -d 10.0.0.2 -p tcp --dport 80 -j ACCEPT<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ -A ufw-before-forward -o eth0 -d 10.0.0.0/8 -j REJECT<br/>
+ -A ufw-before-forward -o eth0 -d 172.16.0.0/12 -j REJECT<br/>
+ -A ufw-before-forward -o eth0 -d 192.168.0.0/16 -j REJECT</dd>
+</dl>
+<dl>
+<dt>
+Add to the end of /etc/ufw/before.rules, after the *filter section:</dt>
+<dd>
+<br/>
+ *nat<br/>
+ :PREROUTING ACCEPT [0:0]<br/>
+ :POSTROUTING ACCEPT [0:0]<br/>
+ -A PREROUTING -p tcp -i eth0 --dport 80 -j DNAT \<br/>
+   --to-destination 10.0.0.2:80<br/>
+ -A POSTROUTING -s 10.0.0.0/8 -o eth0 -j MASQUERADE<br/>
+ COMMIT</dd>
+</dl>
+<dl>
+<dt>
+For allowing ssh on eth1 from 10.0.0.100, use the <b>ufw</b> command:</dt>
+<dd>
+<br/>
+ # ufw allow in on eth1 from 10.0.0.100 to any port 22 proto tcp<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <b>ufw</b>(8), <b>iptables</b>(8), <b>ip6tables</b>(8), <b>iptables-restore</b>(8), <b>ip6tables-restore</b>(8), <b>sysctl</b>(8), <b>sysctl.conf</b>(5)<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> ufw is Copyright 2008-2011, Canonical Ltd.<div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+ufw and this manual page was originally written by Jamie Strandboge &lt;jamie@canonical.com&gt;</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+</td>
+<td class="foot-os">
+October 2011</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

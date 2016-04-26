@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+MALLOPT(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+MALLOPT(3)</td>
+<td class="head-vol">
+Library Functions Manual</td>
+<td class="head-rtitle">
+MALLOPT(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> mallopt, malloc_trim, malloc_usable_size, malloc_stats, malloc_get_state, malloc_set_state, mallinfo - dynamic allocation tuning</div>
+<div class="section">
+<h1>SYNOPSIS</h1>  <b>#include &lt;malloc.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int mallopt (int</b><i> param,</i><b> int </b><i>value</i><b>);</b><i></i><div style="height: 0.00em;">
+&#160;</div>
+<b>int malloc_trim (size_t</b><i> pad</i><b>);</b><i></i><div style="height: 0.00em;">
+&#160;</div>
+<b>size_t malloc_usable_size (void *</b><i>ptr</i><b>);</b><i></i><div style="height: 0.00em;">
+&#160;</div>
+<b>void malloc_stats (void);</b><div style="height: 0.00em;">
+&#160;</div>
+<b>void *malloc_get_state (void);</b><div style="height: 0.00em;">
+&#160;</div>
+<b>int malloc_set_state (void *</b><i>ptr</i><b>);</b><i></i><div style="height: 0.00em;">
+&#160;</div>
+<b>struct mallinfo mallinfo (void);</b></div>
+<div class="section">
+<h1>DESCRIPTION</h1> These functions allow glibc-specific interaction with the dynamic memory allocation routines.<div style="height: 1.00em;">
+&#160;</div>
+<b>mallopt</b>() allows tuning of the parameters affecting allocation.  <i>param</i> is one of the constants listed below; <i>value</i> should be specified in bytes.<dl>
+<dt>
+<b>M_MXFAST</b></dt>
+<dd>
+Free chunks not larger than the given value are not joined to adjacent free chunks; larger ones are joined.  This is intended to optimize future requests for small chunks of the same size as previously freed chunks.  Allowed values are in the range [0-80]; a value of 0 causes all free chunks to be joined.  Default: 64.</dd>
+</dl>
+<dl>
+<dt>
+<b>M_TRIM_THRESHOLD</b></dt>
+<dd>
+Unused memory is returned to the OS when the size available to be returned exceeds the given value.<div style="height: 1.00em;">
+&#160;</div>
+Note that not all unused memory is able to be returned to the OS; in particular, it is not possible to return an unused block when an in-use block lies between it and the &#8220;top&#8221; of the data segment.  However, the free block may be used to satisfy future allocation requests.<div style="height: 1.00em;">
+&#160;</div>
+Smaller values for this parameter cause <b>sbrk</b>() to be called more frequently with a negative argument, reducing memory usage, but with increased overhead of extra syscalls.  A value of -1 disables trimming.  Default: 128*1024.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>M_TOP_PAD</b></dt>
+<dd>
+When <b>sbrk</b>() is called with a positive argument to allocate additional address space, the given value specifies an additional amount to be allocated, beyond what is necessary to satisfy the request.  This value also defines an amount of address space which is not released to the OS when  <b>sbrk</b>() is called with a negative argument.  Again, the intent is to minimize the number of syscalls, without needlessly using large usage of memory.  Default: 0 (allocation requests are internally rounded up to the page size, and the extra allocated size is already sufficient to reduce the syscall overhead).</dd>
+</dl>
+<dl>
+<dt>
+<b>M_MMAP_THRESHOLD</b></dt>
+<dd>
+When an allocation request larger than the given value cannot be satisfied by an existing free chunk, the memory is guaranteed to be obtained with  <b>mmap</b>().  Smaller requests might be allocated with either of  <b>mmap</b>() or <b>sbrk</b>().  <b>mmap</b>()-allocated memory can be immediately returned to the OS when it is freed, but this is not true for all memory allocated with  <b>sbrk</b>(); however, memory allocated by  <b>mmap</b>() and later freed is neither joined nor reused, so the overhead is greater.  Default: 128*1024.</dd>
+</dl>
+<dl>
+<dt>
+<b>M_MMAP_MAX</b></dt>
+<dd>
+The given value sets the maximum number of <b>mmap</b>()-allocated chunks allowed to be in use at a given time (even if the size of the allocation request exceeds the value of the  <b>M_MMAP_THRESHOLD</b> parameter).  This is useful on systems where the  <b>mmap</b>() implementation scales poorly.  A value of 0 disables the use of  <b>mmap</b>().  Default: 65536.</dd>
+</dl>
+<dl>
+<dt>
+<b>M_CHECK_ACTION</b></dt>
+<dd>
+The 3 low bits of this value control the behavior when heap corruption is detected.<div style="height: 1.00em;">
+&#160;</div>
+If set to 0, errors are silently ignored (but the behavior of the program is undefined).<div style="height: 1.00em;">
+&#160;</div>
+If the low bit is set, an error message is printed; If the third-lowest bit is unset, the message is surrounded by asterisks (&quot;*&quot;) and includes the relevant pointer address.<div style="height: 1.00em;">
+&#160;</div>
+If the second-lowest bit is set, the program is then terminated with  <b>abort</b>().<div style="height: 1.00em;">
+&#160;</div>
+The default value for glibc 2.3.3 and earlier was 1, causing only an informative message to be output.  glibc-2.3.4 changes the default to 3, which also causes the program to abort.</dd>
+</dl>
+<div class="spacer">
+</div>
+<b>malloc_trim</b>() explicitly requests that any unused memory space be returned to the OS.  Note that this happens automatically when  <b>free</b>() is called with a sufficiently large chunk; see the  <b>M_TRIM_THRESHOLD</b> and <b>M_TOP_PAD</b> parameters, above.  <i>pad</i> specifies the number of bytes to be retained for use in future allocation requests; when called by  <b>free</b>(), this is the value of  <b>M_TOP_PAD</b>.<div style="height: 1.00em;">
+&#160;</div>
+<b>malloc_usable_size</b>() returns the number of bytes available in the dynamically allocated buffer  <i>ptr</i>, which may be greater than the requested size (but is guaranteed to be at least as large, if the request was successful).  Typically, you should store the requested allocation size rather than use this function.<div style="height: 1.00em;">
+&#160;</div>
+<b>malloc_stats</b>() outputs to <b>stderr</b> some information about the program's usage of dynamic memory.  Information for each arena is displayed.<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 5.00ex;">
+<b>system bytes</b> is the amount of address space obtained from the OS<div style="height: 1.00em;">
+&#160;</div>
+<b>in use bytes</b> is the amount of that space which the program has requested and are in use.<div style="height: 1.00em;">
+&#160;</div>
+<b>max mmap regions</b> is largest number of  <b>mmap</b>() regions allocated at a given time.<div style="height: 1.00em;">
+&#160;</div>
+<b>max mmap bytes</b> is the largest total amount of address space ever allocated by  <b>mmap</b>() at a given time.<div style="height: 1.00em;">
+&#160;</div>
+<b>system bytes</b> and <b>in use bytes</b> output appears twice, once excluding  <b>mmap</b>, and later including  <b>mmap</b>().</div>
+<div style="height: 1.00em;">
+&#160;</div>
+<b>malloc_get_state</b>() returns a ...  <b>malloc_set_state</b>()<div style="height: 1.00em;">
+&#160;</div>
+<b>mallinfo</b>() returns a <b>struct mallinfo</b> with allocation information, similar to what is printed by  <b>malloc_stats</b>().  The return value is a structure, not a pointer; it is thread-safe.  Only the information for the main arena is returned.  The structure contains the following members:<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>int arena;</b></dt>
+<dd>
+Address space used by the dynamic allocation routines, not including that from  <b>mmap</b>()</dd>
+</dl>
+<dl>
+<dt>
+<b>int ordblks;</b></dt>
+<dd>
+Count of independent, unused chunks</dd>
+</dl>
+<dl>
+<dt>
+<b>int smblks;</b></dt>
+<dd>
+Count of chunks small enough to qualify for fast allocation without being joined to adjacent free chunks; this field is not meaningful in the glibc implementation.</dd>
+</dl>
+<dl>
+<dt>
+<b>int hblks;</b></dt>
+<dd>
+Count of chunks allocated by <b>mmap</b>()</dd>
+</dl>
+<dl>
+<dt>
+<b>int hblkhd;</b></dt>
+<dd>
+Address space allocated by the dynamic allocation routines using  <b>mmap</b>()</dd>
+</dl>
+<dl>
+<dt>
+<b>int usmblks;</b></dt>
+<dd>
+Largest amount of address space ever used by the process; this field is not meaningful in the glibc implementation.</dd>
+</dl>
+<dl>
+<dt>
+<b>int fsmblks;</b></dt>
+<dd>
+Total unused address space in small, non-joined chunks; this field is not meaningful in the glibc implementation.</dd>
+</dl>
+<dl>
+<dt>
+<b>int uordblks;</b></dt>
+<dd>
+Dynamically allocated address space used by the program, including book-keeping overhead per allocation of  <b>sizeof(void *)</b> bytes.</dd>
+</dl>
+<dl>
+<dt>
+<b>int fordblks;</b></dt>
+<dd>
+Unused address space, including that from <b>mmap</b>()</dd>
+</dl>
+<dl>
+<dt>
+<b>int keepcost;</b></dt>
+<dd>
+Upper bound on the address space available for return to the OS by  <b>malloc_trim</b>().</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>RETURN VALUE</h1>  <b>mallopt</b>() returns 1 on success, and 0 on failure.<div style="height: 1.00em;">
+&#160;</div>
+<b>malloc_trim</b>() returns 1 if any memory was returned to the OS, and 0 otherwise.<div style="height: 1.00em;">
+&#160;</div>
+<b>malloc_usable_size</b>() returns the usable size of the allocated region beginning at  <i>ptr</i>, or 0 if <i>ptr</i> is NULL.<div style="height: 1.00em;">
+&#160;</div>
+<b>malloc_get_state</b>() returns a pointer to a description of the state of the allocation routines, or NULL on error.<div style="height: 1.00em;">
+&#160;</div>
+<b>malloc_set_state</b>() returns 0 on success, and nonzero on error.<div style="height: 1.00em;">
+&#160;</div>
+<b>mallinfo</b>() returns a structure containing information about the dynamic memory use of the program.</div>
+<div class="section">
+<h1>NOTES</h1> The glibc malloc implementation is modified to allow use of multiple &quot;arenas&quot;; the  <b>malloc_stats</b>() output is not as described in the header files and documentation, and the  <b>mallinfo()</b> function only returns information for the main arena.<div style="height: 1.00em;">
+&#160;</div>
+The default values listed for the <b>mallopt</b>() parameters may vary between installations, and should only serve as a guideline while tweaking the values; refer to the source code for your distribution's glibc package to establish the real defaults.</div>
+<div class="section">
+<h1>ENVIRONMENT</h1> Since libc 5.4.23, the  <b>mallopt</b>() tuning parameters are accessible at runtime through the following environment variables:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 5.00ex;">
+<b>MALLOC_TRIM_THRESHOLD_</b><div style="height: 0.00em;">
+&#160;</div>
+<b>MALLOC_TOP_PAD_</b><div style="height: 0.00em;">
+&#160;</div>
+<b>MALLOC_MMAP_THRESHOLD_</b><div style="height: 0.00em;">
+&#160;</div>
+<b>MALLOC_MMAP_MAX_</b><div style="height: 0.00em;">
+&#160;</div>
+<b>MALLOC_CHECK_</b></div>
+<div style="height: 1.00em;">
+&#160;</div>
+Only the first byte of <b>MALLOC_CHECK_</b> is considered; &quot;10&quot; is interpreted as 1, and &quot;64&quot; is interpreted as 6.</div>
+<div class="section">
+<h1>CONFORMING TO</h1>  <b>mallopt</b>() and <b>mallinfo</b>(), and <b>M_MXFAST</b> are defined by SVID/XPG.<div style="height: 1.00em;">
+&#160;</div>
+That standard also defines the <b>mallopt</b>() parameters <b>M_NLBLKS</b>, <b>M_GRAIN</b>, and <b>M_KEEP</b>, but these values have no effect in the glibc implementation.<div style="height: 1.00em;">
+&#160;</div>
+The remainder of these functions and variables are GNU extensions, and should not be used in programs intended to be portable.</div>
+<div class="section">
+<h1>AUTHOR</h1> glibc uses a dynamic allocation routines heavily based on the implementation by Doug Lea &lt;dl@cs.oswego.edu&gt;.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>sbrk</b>(2), <b>mmap</b>(2), <b>stderr</b>(2), <b>malloc_hook</b>(3), <b>malloc</b>(3), <b>cfree</b>(3), <b>memalign</b>(3), <b>pvalloc</b>(3).</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+21 May 2006</td>
+<td class="foot-os">
+GNU</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

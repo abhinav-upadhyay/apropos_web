@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+SYSCTL(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SYSCTL(2)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+SYSCTL(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> sysctl - read/write system parameters</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;unistd.h&gt;</b><div style="height: 0.00em;">
+&#160;</div>
+<b>#include &lt;linux/sysctl.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int _sysctl(struct __sysctl_args *</b><i>args</i><b>);</b><br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> <b>Do not use this system call!</b> See NOTES.<div style="height: 1.00em;">
+&#160;</div>
+The <b>_sysctl</b>() call reads and/or writes kernel parameters. For example, the hostname, or the maximum number of open files. The argument has the form<div class="spacer">
+</div>
+<br/>
+<br/>
+struct __sysctl_args {<br/>
+    int    *name;    /* integer vector describing variable */<br/>
+    int     nlen;    /* length of this vector */<br/>
+    void   *oldval;  /* 0 or address where to store old value */<br/>
+    size_t *oldlenp; /* available room for old value,<br/>
+                        overwritten by actual size of old value */<br/>
+    void   *newval;  /* 0 or address of new value */<br/>
+    size_t  newlen;  /* size of new value */<br/>
+};<br/>
+<br/>
+<div class="spacer">
+</div>
+This call does a search in a tree structure, possibly resembling a directory tree under <i>/proc/sys</i>, and if the requested item is found calls some appropriate routine to read or modify the value.</div>
+<div class="section">
+<h1>RETURN VALUE</h1> Upon successful completion, <b>_sysctl</b>() returns 0. Otherwise, a value of -1 is returned and <i>errno</i> is set to indicate the error.</div>
+<div class="section">
+<h1>ERRORS</h1><dl>
+<dt>
+<b>EFAULT</b></dt>
+<dd>
+The invocation asked for the previous value by setting <i>oldval</i> non-NULL, but allowed zero room in <i>oldlenp</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOTDIR</b></dt>
+<dd>
+<i>name</i> was not found.</dd>
+</dl>
+<dl>
+<dt>
+<b>EPERM</b></dt>
+<dd>
+No search permission for one of the encountered &quot;directories&quot;, or no read permission where <i>oldval</i> was nonzero, or no write permission where <i>newval</i> was nonzero.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>CONFORMING TO</h1> This call is Linux-specific, and should not be used in programs intended to be portable. A <b>sysctl</b>() call has been present in Linux since version 1.3.57. It originated in 4.4BSD. Only Linux has the <i>/proc/sys</i> mirror, and the object naming schemes differ between Linux and 4.4BSD, but the declaration of the <b>sysctl</b>() function is the same in both.</div>
+<div class="section">
+<h1>NOTES</h1> Glibc does not provide a wrapper for this system call; call it using <b>syscall</b>(2).<div style="height: 1.00em;">
+&#160;</div>
+Or rather... don't call it: use of this system call has long been discouraged, and it is so unloved that  <b>it is likely to disappear in a future kernel version</b>. Remove it from your programs now; use the <i>/proc/sys</i> interface instead.</div>
+<div class="section">
+<h1>BUGS</h1> The object names vary between kernel versions, making this system call worthless for applications.<div class="spacer">
+</div>
+Not all available objects are properly documented.<div class="spacer">
+</div>
+It is not yet possible to change operating system by writing to <i>/proc/sys/kernel/ostype</i>.</div>
+<div class="section">
+<h1>EXAMPLE</h1><br/>
+#define _GNU_SOURCE<br/>
+#include &lt;unistd.h&gt;<br/>
+#include &lt;sys/syscall.h&gt;<br/>
+#include &lt;string.h&gt;<br/>
+#include &lt;stdio.h&gt;<br/>
+#include &lt;stdlib.h&gt;<br/>
+#include &lt;linux/sysctl.h&gt;<div class="spacer">
+</div>
+<br/>
+int _sysctl(struct __sysctl_args *args );<div class="spacer">
+</div>
+<br/>
+#define OSNAMESZ 100<div class="spacer">
+</div>
+<br/>
+int<br/>
+main(void)<br/>
+{<br/>
+    struct __sysctl_args args;<br/>
+    char osname[OSNAMESZ];<br/>
+    size_t osnamelth;<br/>
+    int name[] = { CTL_KERN, KERN_OSTYPE };<div class="spacer">
+</div>
+<br/>
+    memset(&amp;args, 0, sizeof(struct __sysctl_args));<br/>
+    args.name = name;<br/>
+    args.nlen = sizeof(name)/sizeof(name[0]);<br/>
+    args.oldval = osname;<br/>
+    args.oldlenp = &amp;osnamelth;<div class="spacer">
+</div>
+<br/>
+    osnamelth = sizeof(osname);<div class="spacer">
+</div>
+<br/>
+    if (syscall(SYS__sysctl, &amp;args) == -1) {<br/>
+        perror(&quot;_sysctl&quot;);<br/>
+        exit(EXIT_FAILURE);<br/>
+    }<br/>
+    printf(&quot;This machine is running %*s\n&quot;, osnamelth, osname);<br/>
+    exit(EXIT_SUCCESS);<br/>
+}<br/>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>proc</b>(5)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2008-11-20</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

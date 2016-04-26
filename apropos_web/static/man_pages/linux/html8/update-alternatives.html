@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+update-alternatives(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+update-alternatives(8)</td>
+<td class="head-vol">
+dpkg utilities</td>
+<td class="head-rtitle">
+update-alternatives(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> update-alternatives - maintain symbolic links determining default commands</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>update-alternatives</b> [<i>option</i>...] <i>command</i></div>
+<div class="section">
+<h1>DESCRIPTION</h1> <b>update-alternatives</b> creates, removes, maintains and displays information about the symbolic links comprising the Debian alternatives system.<div class="spacer">
+</div>
+It is possible for several programs fulfilling the same or similar functions to be installed on a single system at the same time. For example, many systems have several text editors installed at once. This gives choice to the users of a system, allowing each to use a different editor, if desired, but makes it difficult for a program to make a good choice for an editor to invoke if the user has not specified a particular preference.<div class="spacer">
+</div>
+Debian's alternatives system aims to solve this problem. A generic name in the filesystem is shared by all files providing interchangeable functionality. The alternatives system and the system administrator together determine which actual file is referenced by this generic name. For example, if the text editors <b>ed</b>(1) and <b>nvi</b>(1) are both installed on the system, the alternatives system will cause the generic name <i>/usr/bin/editor</i> to refer to <i>/usr/bin/nvi</i> by default. The system administrator can override this and cause it to refer to <i>/usr/bin/ed</i> instead, and the alternatives system will not alter this setting until explicitly requested to do so.<div class="spacer">
+</div>
+The generic name is not a direct symbolic link to the selected alternative. Instead, it is a symbolic link to a name in the <i>alternatives</i> <i>directory</i>, which in turn is a symbolic link to the actual file referenced. This is done so that the system administrator's changes can be confined within the <i>/etc</i> directory: the FHS (q.v.) gives reasons why this is a Good Thing.<div class="spacer">
+</div>
+When each package providing a file with a particular functionality is installed, changed or removed, <b>update-alternatives</b> is called to update information about that file in the alternatives system. <b>update-alternatives</b> is usually called from the <b>postinst</b> (configure) or <b>prerm</b> (install) scripts in Debian packages.<div class="spacer">
+</div>
+It is often useful for a number of alternatives to be synchronised, so that they are changed as a group; for example, when several versions of the <b>vi</b>(1) editor are installed, the man page referenced by <i>/usr/share/man/man1/vi.1</i> should correspond to the executable referenced by <i>/usr/bin/vi</i>. <b>update-alternatives</b> handles this by means of <i>master</i> and <i>slave</i> links; when the master is changed, any associated slaves are changed too. A master link and its associated slaves make up a <i>link</i> <i>group</i>.<div class="spacer">
+</div>
+Each link group is, at any given time, in one of two modes: automatic or manual. When a group is in automatic mode, the alternatives system will automatically decide, as packages are installed and removed, whether and how to update the links. In manual mode, the alternatives system will retain the choice of the administrator and avoid changing the links (except when something is broken).<div class="spacer">
+</div>
+Link groups are in automatic mode when they are first introduced to the system. If the system administrator makes changes to the system's automatic settings, this will be noticed the next time <b>update-alternatives</b> is run on the changed link's group, and the group will automatically be switched to manual mode.<div class="spacer">
+</div>
+Each alternative has a <i>priority</i> associated with it. When a link group is in automatic mode, the alternatives pointed to by members of the group will be those which have the highest priority.<div class="spacer">
+</div>
+When using the <b>--config</b> option, <b>update-alternatives</b> will list all of the choices for the link group of which given <i>name</i> is the master alternative name. The current choice is marked with a '*'. You will then be prompted for your choice regarding this link group. Depending on the choice made, the link group might no longer be in <i>auto</i> mode. You will need to use the <b>--auto</b> option in order to return to the automatic mode (or you can rerun <b>--config</b> and select the entry marked as automatic).<div class="spacer">
+</div>
+If you want to configure non-interactively you can use the <b>--set</b> option instead (see below).<div class="spacer">
+</div>
+Different packages providing the same file need to do so <b>cooperatively</b>. In other words, the usage of <b>update-alternatives</b> is <b>mandatory</b> for all involved packages in such case. It is not possible to override some file in a package that does not employ the <b>update-alternatives</b> mechanism.</div>
+<div class="section">
+<h1>TERMINOLOGY</h1> Since the activities of <b>update-alternatives</b> are quite involved, some specific terms will help to explain its operation.<dl>
+<dt>
+generic name (or alternative link)</dt>
+<dd>
+A name, like <i>/usr/bin/editor</i>, which refers, via the alternatives system, to one of a number of files of similar function.</dd>
+</dl>
+<dl>
+<dt>
+alternative name</dt>
+<dd>
+The name of a symbolic link in the alternatives directory.</dd>
+</dl>
+<dl>
+<dt>
+alternative (or alternative path)</dt>
+<dd>
+The name of a specific file in the filesystem, which may be made accessible via a generic name using the alternatives system.</dd>
+</dl>
+<dl>
+<dt>
+alternatives directory</dt>
+<dd>
+A directory, by default <i>/etc/alternatives</i>, containing the symlinks.</dd>
+</dl>
+<dl>
+<dt>
+administrative directory</dt>
+<dd>
+A directory, by default <i>/var/lib/dpkg/alternatives</i>, containing <b>update-alternatives</b>' state information.</dd>
+</dl>
+<dl>
+<dt>
+link group</dt>
+<dd>
+A set of related symlinks, intended to be updated as a group.</dd>
+</dl>
+<dl>
+<dt>
+master link</dt>
+<dd>
+The alternative link in a link group which determines how the other links in the group are configured.</dd>
+</dl>
+<dl>
+<dt>
+slave link</dt>
+<dd>
+An alternative link in a link group which is controlled by the setting of the master link.</dd>
+</dl>
+<dl>
+<dt>
+automatic mode</dt>
+<dd>
+When a link group is in automatic mode, the alternatives system ensures that the links in the group point to the highest priority alternative appropriate for the group.</dd>
+</dl>
+<dl>
+<dt>
+manual mode</dt>
+<dd>
+When a link group is in manual mode, the alternatives system will not make any changes to the system administrator's settings.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>COMMANDS</h1><dl>
+<dt>
+<b>--install</b> <i>link name path priority</i> [<b>--slave</b> <i>link name path</i>]...</dt>
+<dd>
+Add a group of alternatives to the system. <i>link</i> is the generic name for the master link, <i>name</i> is the name of its symlink in the alternatives directory, and <i>path</i> is the alternative being introduced for the master link. The arguments after  <b>--slave</b> are the generic name, symlink name in the alternatives directory and the alternative path for a slave link. Zero or more <b>--slave</b> options, each followed by three arguments, may be specified. Note that the master alternative must exist or the call will fail. However if a slave alternative doesn't exist, the corresponding slave alternative link will simply not be installed (a warning will still be displayed). If some real file is installed where an alternative link has to be installed, it is kept unless  <b>--force</b> is used.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+If the alternative name specified exists already in the alternatives system's records, the information supplied will be added as a new set of alternatives for the group. Otherwise, a new group, set to automatic mode, will be added with this information. If the group is in automatic mode, and the newly added alternatives' priority is higher than any other installed alternatives for this group, the symlinks will be updated to point to the newly added alternatives.</dd>
+</dl>
+<dl>
+<dt>
+<b>--set</b> <i>name path</i></dt>
+<dd>
+Set the program <i>path</i> as alternative for <i>name.</i> This is equivalent to <b>--config</b> but is non-interactive and thus scriptable.</dd>
+</dl>
+<dl>
+<dt>
+<b>--remove</b> <i>name path</i></dt>
+<dd>
+Remove an alternative and all of its associated slave links. <i>name</i> is a name in the alternatives directory, and <i>path</i> is an absolute filename to which <i>name</i> could be linked. If <i>name</i> is indeed linked to <i>path</i>, <i>name</i> will be updated to point to another appropriate alternative (and the group is put back in automatic mode), or removed if there is no such alternative left. Associated slave links will be updated or removed, correspondingly. If the link is not currently pointing to <i>path</i>, no links are changed; only the information about the alternative is removed.</dd>
+</dl>
+<dl>
+<dt>
+<b>--remove-all</b> <i>name</i></dt>
+<dd>
+Remove all alternatives and all of their associated slave links. <i>name</i> is a name in the alternatives directory.</dd>
+</dl>
+<dl>
+<dt>
+<b>--all</b></dt>
+<dd>
+Call <b>--config</b> on all alternatives. It can be usefully combined with  <b>--skip-auto</b> to review and configure all alternatives which are not configured in automatic mode. Broken alternatives are also displayed. Thus a simple way to fix all broken alternatives is to call  <b>yes '' | update-alternatives --force --all</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>--auto</b> <i>name</i></dt>
+<dd>
+Switch the link group behind the alternative for <i>name</i> to automatic mode. In the process, the master symlink and its slaves are updated to point to the highest priority installed alternatives.</dd>
+</dl>
+<dl>
+<dt>
+<b>--display</b> <i>name</i></dt>
+<dd>
+Display information about the link group. Information displayed includes the group's mode (auto or manual), which alternative the master link currently points to, what other alternatives are available (and their corresponding slave alternatives), and the highest priority alternative currently installed.</dd>
+</dl>
+<dl>
+<dt>
+<b>--get-selections</b></dt>
+<dd>
+List all master alternative names (those controlling a link group) and their status. Each line contains up to 3 fields (separated by one or more spaces). The first field is the alternative name, the second one is the status (either &quot;auto&quot; or &quot;manual&quot;), and the last one contains the current choice in the alternative (beware: it's a filename and thus might contain spaces).</dd>
+</dl>
+<dl>
+<dt>
+<b>--set-selections</b></dt>
+<dd>
+Read configuration of alternatives on standard input in the format generated by  <b>update-alternatives --get-selections</b> and reconfigure them accordingly.</dd>
+</dl>
+<dl>
+<dt>
+<b>--query</b> <i>name</i></dt>
+<dd>
+Display information about the link group like --display does, but in a machine parseable way (see section  <b>QUERY FORMAT</b> below).</dd>
+</dl>
+<dl>
+<dt>
+<b>--list</b> <i>name</i></dt>
+<dd>
+Display all targets of the link group.</dd>
+</dl>
+<dl>
+<dt>
+<b>--config</b> <i>name</i></dt>
+<dd>
+Show available alternatives for a link group and allow the user to interactively select which one to use. The link group is updated.</dd>
+</dl>
+<dl>
+<dt>
+<b>--help</b></dt>
+<dd>
+Show the usage message and exit.</dd>
+</dl>
+<dl>
+<dt>
+<b>--version</b></dt>
+<dd>
+Show the version and exit.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>OPTIONS</h1><dl>
+<dt>
+<b>--altdir</b><i> directory</i></dt>
+<dd>
+Specifies the alternatives directory, when this is to be different from the default.</dd>
+</dl>
+<dl>
+<dt>
+<b>--admindir</b><i> directory</i></dt>
+<dd>
+Specifies the administrative directory, when this is to be different from the default.</dd>
+</dl>
+<dl>
+<dt>
+<b>--log</b><i> file</i></dt>
+<dd>
+Specifies the log file, when this is to be different from the default (/var/log/alternatives.log).</dd>
+</dl>
+<dl>
+<dt>
+<b>--force</b></dt>
+<dd>
+Let <b>update-alternatives</b> replace or drop any real file that is installed where an alternative link has to be installed or removed.</dd>
+</dl>
+<dl>
+<dt>
+<b>--skip-auto</b></dt>
+<dd>
+Skip configuration prompt for alternatives which are properly configured in automatic mode. This option is only relevant with  <b>--config</b> or  <b>--all</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>--verbose</b></dt>
+<dd>
+Generate more comments about what <b>update-alternatives</b> is doing.</dd>
+</dl>
+<dl>
+<dt>
+<b>--quiet</b></dt>
+<dd>
+Don't generate any comments unless errors occur.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>ENVIRONMENT</h1><dl>
+<dt>
+<b>DPKG_ADMINDIR</b></dt>
+<dd>
+If set and the <b>--admindir</b> option has not been specified, it will be used as the base administrative directory.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>FILES</h1><dl>
+<dt>
+<i>/etc/alternatives/</i></dt>
+<dd>
+The default alternatives directory. Can be overridden by the <b>--altdir</b> option.</dd>
+</dl>
+<dl>
+<dt>
+<i>/var/lib/dpkg/alternatives/</i></dt>
+<dd>
+The default administration directory. Can be overridden by the <b>--admindir</b> option.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>EXIT STATUS</h1><dl>
+<dt>
+<b>0</b></dt>
+<dd>
+The requested action was successfully performed.</dd>
+</dl>
+<dl>
+<dt>
+<b>2</b></dt>
+<dd>
+Problems were encountered whilst parsing the command line or performing the action.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>QUERY FORMAT</h1> The  <b>update-alternatives --query</b> format is using an RFC822-like flat format. It's made of  <i>n</i> + 1 blocks where <i>n</i> is the number of alternatives available in the queried link group. The first block contains the following fields:<dl>
+<dt>
+<b>Link:</b><i> link</i></dt>
+<dd>
+The generic name of the alternative.</dd>
+</dl>
+<dl>
+<dt>
+<b>Status:</b><i> status</i></dt>
+<dd>
+The status of the alternative (<b>auto</b> or <b>manual</b>).</dd>
+</dl>
+<dl>
+<dt>
+<b>Best:</b><i> best-choice</i></dt>
+<dd>
+The path of the best alternative for this link group. Not present if there is no alternatives available.</dd>
+</dl>
+<dl>
+<dt>
+<b>Value:</b><i> currently-selected-alternative</i></dt>
+<dd>
+The path of the currently selected alternative. It can also take the magic value  <b>none</b>. It is used if the link doesn't exist.</dd>
+</dl>
+<dl>
+<dt>
+The other blocks describe the available alternatives in the queried link group:</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>Alternative:</b><i> path-of-this-alternative</i></dt>
+<dd>
+Path to this block's alternative.</dd>
+</dl>
+<dl>
+<dt>
+<b>Priority:</b><i> priority-value</i></dt>
+<dd>
+Value of the priority of this alternative.</dd>
+</dl>
+<dl>
+<dt>
+<b>Slaves:</b><i> list-of-slaves</i></dt>
+<dd>
+When this header is present, the <b>next</b> lines hold all slave alternatives associated to the master link of the alternative. There is one slave per line. Each line contains one space, the generic name of the slave alternative, another space, and the path to the slave alternative.</dd>
+</dl>
+<dl>
+<dt>
+<b>Example</b></dt>
+<dd>
+<br/>
+$ update-alternatives --query editor<br/>
+Link: editor<br/>
+Status: auto<br/>
+Best: /usr/bin/vim.gtk<br/>
+Value: /usr/bin/vim.gtk<div class="spacer">
+</div>
+<br/>
+Alternative: /bin/ed<br/>
+Priority: -100<br/>
+Slaves:<br/>
+ editor.1.gz /usr/share/man/man1/ed.1.gz<div class="spacer">
+</div>
+<br/>
+Alternative: /usr/bin/vim.gtk<br/>
+Priority: 50<br/>
+Slaves:<br/>
+ editor.1.gz /usr/share/man/man1/vim.1.gz<br/>
+ editor.ru.1.gz /usr/share/man/ru/man1/vim.1.gz<br/>
+ editor.pl.ISO8859-2.1.gz /usr/share/man/pl.ISO8859-2/man1/vim.1.gz<br/>
+ editor.it.ISO8859-1.1.gz /usr/share/man/it.ISO8859-1/man1/vim.1.gz<br/>
+ editor.pl.UTF-8.1.gz /usr/share/man/pl.UTF-8/man1/vim.1.gz<br/>
+ editor.it.1.gz /usr/share/man/it/man1/vim.1.gz<br/>
+ editor.fr.UTF-8.1.gz /usr/share/man/fr.UTF-8/man1/vim.1.gz<br/>
+ editor.fr.1.gz /usr/share/man/fr/man1/vim.1.gz<br/>
+ editor.it.UTF-8.1.gz /usr/share/man/it.UTF-8/man1/vim.1.gz<br/>
+ editor.pl.1.gz /usr/share/man/pl/man1/vim.1.gz<br/>
+ editor.fr.ISO8859-1.1.gz /usr/share/man/fr.ISO8859-1/man1/vim.1.gz<br/>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1>DIAGNOSTICS</h1> With  <b>--verbose</b> <b>update-alternatives</b> chatters incessantly about its activities on its standard output channel. If problems occur, <b>update-alternatives</b> outputs error messages on its standard error channel and returns an exit status of 2. These diagnostics should be self-explanatory; if you do not find them so, please report this as a bug.</div>
+<div class="section">
+<h1>EXAMPLES</h1> There are several packages which provide a text editor compatible with  <b>vi</b>, for example <b>nvi</b> and <b>vim</b>. Which one is used is controlled by the link group  <b>vi</b>, which includes links for the program itself and the associated manpage.<div class="spacer">
+</div>
+To display the available packages which provide <b>vi</b> and the current setting for it, use the  <b>--display</b> action:<div style="margin-left: 5.00ex;">
+<div class="spacer">
+</div>
+<b>update-alternatives --display vi</b></div>
+<div class="spacer">
+</div>
+To choose a particular <b>vi</b> implementation, use this command as root and then select a number from the list:<div style="margin-left: 5.00ex;">
+<div class="spacer">
+</div>
+<b>update-alternatives --config vi</b></div>
+<div class="spacer">
+</div>
+To go back to having the <b>vi</b> implementation chosen automatically, do this as root:<div style="margin-left: 5.00ex;">
+<div class="spacer">
+</div>
+<b>update-alternatives --auto vi</b></div>
+</div>
+<div class="section">
+<h1>BUGS</h1> If you find a bug, please report it using the Debian bug-tracking system.<div class="spacer">
+</div>
+If you find any discrepancy between the operation of <b>update-alternatives</b> and this manual page, it is a bug, either in the implementation or the documentation; please report it.</div>
+<div class="section">
+<h1>AUTHORS</h1> Copyright &#169; 1995 Ian Jackson<div style="height: 0.00em;">
+&#160;</div>
+Copyright &#169; 2009 Rapha&#235;l Hertzog<div style="height: 1.00em;">
+&#160;</div>
+This is free software; see the GNU General Public Licence version 2 or later for copying conditions. There is NO WARRANTY.<div class="spacer">
+</div>
+This manual page is copyright 1997,1998 Charles Briscoe-Smith and others.<div style="height: 1.00em;">
+&#160;</div>
+This is free documentation; see the GNU General Public Licence version 2 or later for copying conditions. There is NO WARRANTY.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>ln</b>(1), FHS, the Filesystem Hierarchy Standard.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-08-14</td>
+<td class="foot-os">
+Debian Project</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+CMS_verify(3SSL)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+CMS_verify(3SSL)</td>
+<td class="head-vol">
+OpenSSL</td>
+<td class="head-rtitle">
+CMS_verify(3SSL)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1><br/>
+ CMS_verify - verify a CMS SignedData structure<br/>
+</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ #include &lt;openssl/cms.h&gt;<br/>
+<br/>
+ int CMS_verify(CMS_ContentInfo *cms, STACK_OF(X509) *certs, X509_STORE *store, BIO *indata, BIO *out, unsigned int flags);<br/>
+<br/>
+ STACK_OF(X509) *CMS_get0_signers(CMS_ContentInfo *cms);<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <i>CMS_verify()</i> verifies a CMS SignedData structure. <b>cms</b> is the CMS_ContentInfo structure to verify.  <b>certs</b> is a set of certificates in which to search for the signing certificate(s).  <b>store</b> is a trusted certificate store used for chain verification.  <b>indata</b> is the detached content if the content is not present in  <b>cms</b>. The content is written to <b>out</b> if it is not NULL.<div class="spacer">
+</div>
+<b>flags</b> is an optional set of flags, which can be used to modify the verify operation.<div class="spacer">
+</div>
+<i>CMS_get0_signers()</i> retrieves the signing certificate(s) from <b>cms</b>, it must be called after a successful  <i>CMS_verify()</i> operation.</div>
+<div class="section">
+<h1>VERIFY PROCESS</h1> Normally the verify process proceeds as follows.<div class="spacer">
+</div>
+Initially some sanity checks are performed on <b>cms</b>. The type of <b>cms</b> must be SignedData. There must be at least one signature on the data and if the content is detached  <b>indata</b> cannot be <b>NULL</b>.<div class="spacer">
+</div>
+An attempt is made to locate all the signing certificate(s), first looking in the  <b>certs</b> parameter (if it is not NULL) and then looking in any certificates contained in the  <b>cms</b> structure itself. If any signing certificate cannot be located the operation fails.<div class="spacer">
+</div>
+Each signing certificate is chain verified using the <b>smimesign</b> purpose and the supplied trusted certificate store. Any internal certificates in the message are used as untrusted CAs. If CRL checking is enabled in  <b>store</b> any internal CRLs are used in addition to attempting to look them up in  <b>store</b>. If any chain verify fails an error code is returned.<div class="spacer">
+</div>
+Finally the signed content is read (and written to <b>out</b> is it is not NULL) and the signature's checked.<div class="spacer">
+</div>
+If all signature's verify correctly then the function is successful.<div class="spacer">
+</div>
+Any of the following flags (ored together) can be passed in the <b>flags</b> parameter to change the default verify behaviour.<div class="spacer">
+</div>
+If <b>CMS_NOINTERN</b> is set the certificates in the message itself are not searched when locating the signing certificate(s). This means that all the signing certificates must be in the  <b>certs</b> parameter.<div class="spacer">
+</div>
+If <b>CMS_NOCRL</b> is set and CRL checking is enabled in <b>store</b> then any CRLs in the message itself are ignored.<div class="spacer">
+</div>
+If the <b>CMS_TEXT</b> flag is set MIME headers for type <b>text/plain</b> are deleted from the content. If the content is not of type  <b>text/plain</b> then an error is returned.<div class="spacer">
+</div>
+If <b>CMS_NO_SIGNER_CERT_VERIFY</b> is set the signing certificates are not verified.<div class="spacer">
+</div>
+If <b>CMS_NO_ATTR_VERIFY</b> is set the signed attributes signature is not verified.<div class="spacer">
+</div>
+If <b>CMS_NO_CONTENT_VERIFY</b> is set then the content digest is not checked.</div>
+<div class="section">
+<h1>NOTES</h1> One application of  <b>CMS_NOINTERN</b> is to only accept messages signed by a small number of certificates. The acceptable certificates would be passed in the  <b>certs</b> parameter. In this case if the signer is not one of the certificates supplied in  <b>certs</b> then the verify will fail because the signer cannot be found.<div class="spacer">
+</div>
+In some cases the standard techniques for looking up and validating certificates are not appropriate: for example an application may wish to lookup certificates in a database or perform customised verification. This can be achieved by setting and verifying the signers certificates manually using the signed data utility functions.<div class="spacer">
+</div>
+Care should be taken when modifying the default verify behaviour, for example setting  <b>CMS_NO_CONTENT_VERIFY</b> will totally disable all content verification and any modified content will be considered valid. This combination is however useful if one merely wishes to write the content to  <b>out</b> and its validity is not considered important.<div class="spacer">
+</div>
+Chain verification should arguably be performed using the signing time rather than the current time. However since the signing time is supplied by the signer it cannot be trusted without additional evidence (such as a trusted timestamp).</div>
+<div class="section">
+<h1>RETURN VALUES</h1>  <i>CMS_verify()</i> returns 1 for a successful verification and zero if an error occurred.<div class="spacer">
+</div>
+<i>CMS_get0_signers()</i> returns all signers or NULL if an error occurred.<div class="spacer">
+</div>
+The error can be obtained from <i>ERR_get_error</i>(3)</div>
+<div class="section">
+<h1>BUGS</h1> The trusted certificate store is not searched for the signing certificate, this is primarily due to the inadequacies of the current  <b>X509_STORE</b> functionality.<div class="spacer">
+</div>
+The lack of single pass processing means that the signed content must all be held in memory if it is not detached.</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <i>ERR_get_error</i>(3), <i>CMS_sign</i>(3)</div>
+<div class="section">
+<h1>HISTORY</h1>  <i>CMS_verify()</i> was added to OpenSSL 0.9.8</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2008-04-10</td>
+<td class="foot-os">
+1.0.1</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

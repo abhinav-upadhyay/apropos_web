@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+TAP::Parser::Grammar(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+TAP::Parser::Grammar(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+TAP::Parser::Grammar(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> TAP::Parser::Grammar - A grammar for the Test Anything Protocol.</div>
+<div class="section">
+<h1>VERSION</h1> Version 3.23</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  use TAP::Parser::Grammar;<br/>
+  my $grammar = $self-&gt;make_grammar({<br/>
+    iterator =&gt; $tap_parser_iterator,<br/>
+    parser   =&gt; $tap_parser,<br/>
+    version  =&gt; 12,<br/>
+  });<br/>
+<br/>
+  my $result = $grammar-&gt;tokenize;<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> &quot;TAP::Parser::Grammar&quot; tokenizes lines from a TAP::Parser::Iterator and constructs TAP::Parser::Result subclasses to represent the tokens.<div class="spacer">
+</div>
+Do not attempt to use this class directly.  It won't make sense.  It's mainly here to ensure that we will be able to have pluggable grammars when TAP is expanded at some future date (plus, this stuff was really cluttering the parser).</div>
+<div class="section">
+<h1>METHODS</h1><div class="subsection">
+<h2>Class Methods</h2>  <i></i><i>&quot;new&quot;</i><i></i><div class="spacer">
+</div>
+<br/>
+  my $grammar = TAP::Parser::Grammar-&gt;new({<br/>
+      iterator =&gt; $iterator,<br/>
+      parser   =&gt; $parser,<br/>
+      version  =&gt; $version,<br/>
+  });<br/>
+<div class="spacer">
+</div>
+Returns TAP::Parser grammar object that will parse the TAP stream from the specified iterator.  Both &quot;iterator&quot; and &quot;parser&quot; are required arguments. If &quot;version&quot; is not set it defaults to 12 (see &quot;set_version&quot; for more details).</div>
+<div class="subsection">
+<h2>Instance Methods</h2>  <i></i><i>&quot;set_version&quot;</i><i></i><div class="spacer">
+</div>
+<br/>
+  $grammar-&gt;set_version(13);<br/>
+<div class="spacer">
+</div>
+Tell the grammar which TAP syntax version to support. The lowest supported version is 12. Although 'TAP version' isn't valid version 12 syntax it is accepted so that higher version numbers may be parsed.<div class="spacer">
+</div>
+<i></i><i>&quot;tokenize&quot;</i><i></i><div class="spacer">
+</div>
+<br/>
+  my $token = $grammar-&gt;tokenize;<br/>
+<div class="spacer">
+</div>
+This method will return a TAP::Parser::Result object representing the current line of TAP.<div class="spacer">
+</div>
+<i></i><i>&quot;token_types&quot;</i><i></i><div class="spacer">
+</div>
+<br/>
+  my @types = $grammar-&gt;token_types;<br/>
+<div class="spacer">
+</div>
+Returns the different types of tokens which this grammar can parse.<div class="spacer">
+</div>
+<i></i><i>&quot;syntax_for&quot;</i><i></i><div class="spacer">
+</div>
+<br/>
+  my $syntax = $grammar-&gt;syntax_for($token_type);<br/>
+<div class="spacer">
+</div>
+Returns a pre-compiled regular expression which will match a chunk of TAP corresponding to the token type.  For example (not that you should really pay attention to this, &quot;$grammar-&gt;syntax_for('comment')&quot; will return &quot;qr/^#(.*)/&quot;.<div class="spacer">
+</div>
+<i></i><i>&quot;handler_for&quot;</i><i></i><div class="spacer">
+</div>
+<br/>
+  my $handler = $grammar-&gt;handler_for($token_type);<br/>
+<div class="spacer">
+</div>
+Returns a code reference which, when passed an appropriate line of TAP, returns the lexed token corresponding to that line.  As a result, the basic TAP parsing loop looks similar to the following:<div class="spacer">
+</div>
+<br/>
+ my @tokens;<br/>
+ my $grammar = TAP::Grammar-&gt;new;<br/>
+ LINE: while ( defined( my $line = $parser-&gt;_next_chunk_of_tap ) ) {<br/>
+     for my $type ( $grammar-&gt;token_types ) {<br/>
+         my $syntax  = $grammar-&gt;syntax_for($type);<br/>
+         if ( $line =~ $syntax ) {<br/>
+             my $handler = $grammar-&gt;handler_for($type);<br/>
+             push @tokens =&gt; $grammar-&gt;$handler($line);<br/>
+             next LINE;<br/>
+         }<br/>
+     }<br/>
+     push @tokens =&gt; $grammar-&gt;_make_unknown_token($line);<br/>
+ }<br/>
+</div>
+</div>
+<div class="section">
+<h1>TAP GRAMMAR</h1>  <b>NOTE:</b>  This grammar is slightly out of date.  There's still some discussion about it and a new one will be provided when we have things better defined.<div class="spacer">
+</div>
+The TAP::Parser does not use a formal grammar because TAP is essentially a stream-based protocol.  In fact, it's quite legal to have an infinite stream. For the same reason that we don't apply regexes to streams, we're not using a formal grammar here.  Instead, we parse the TAP in lines.<div class="spacer">
+</div>
+For purposes for forward compatibility, any result which does not match the following grammar is currently referred to as TAP::Parser::Result::Unknown.  It is  <i>not</i> a parse error.<div class="spacer">
+</div>
+A formal grammar would look similar to the following:<div class="spacer">
+</div>
+<br/>
+ (*<br/>
+     For the time being, I'm cheating on the EBNF by allowing<br/>
+     certain terms to be defined by POSIX character classes by<br/>
+     using the following syntax:<br/>
+<br/>
+       digit ::= [:digit:]<br/>
+<br/>
+     As far as I am aware, that's not valid EBNF.  Sue me.  I<br/>
+     didn't know how to write &quot;char&quot; otherwise (Unicode issues).<br/>
+     Suggestions welcome.<br/>
+ *)<br/>
+<br/>
+ tap            ::= version? { comment | unknown } leading_plan lines<br/>
+                    |<br/>
+                    lines trailing_plan {comment}<br/>
+<br/>
+ version        ::= 'TAP version ' positiveInteger {positiveInteger} &quot;\n&quot;<br/>
+<br/>
+ leading_plan   ::= plan skip_directive? &quot;\n&quot;<br/>
+<br/>
+ trailing_plan  ::= plan &quot;\n&quot;<br/>
+<br/>
+ plan           ::= '1..' nonNegativeInteger<br/>
+<br/>
+ lines          ::= line {line}<br/>
+<br/>
+ line           ::= (comment | test | unknown | bailout ) &quot;\n&quot;<br/>
+<br/>
+ test           ::= status positiveInteger? description? directive?<br/>
+<br/>
+ status         ::= 'not '? 'ok '<br/>
+<br/>
+ description    ::= (character - (digit | '#')) {character - '#'}<br/>
+<br/>
+ directive      ::= todo_directive | skip_directive<br/>
+<br/>
+ todo_directive ::= hash_mark 'TODO' ' ' {character}<br/>
+<br/>
+ skip_directive ::= hash_mark 'SKIP' ' ' {character}<br/>
+<br/>
+ comment        ::= hash_mark {character}<br/>
+<br/>
+ hash_mark      ::= '#' {' '}<br/>
+<br/>
+ bailout        ::= 'Bail out!' {character}<br/>
+<br/>
+ unknown        ::= { (character - &quot;\n&quot;) }<br/>
+<br/>
+ (* POSIX character classes and other terminals *)<br/>
+<br/>
+ digit              ::= [:digit:]<br/>
+ character          ::= ([:print:] - &quot;\n&quot;)<br/>
+ positiveInteger    ::= ( digit - '0' ) {digit}<br/>
+ nonNegativeInteger ::= digit {digit}<br/>
+</div>
+<div class="section">
+<h1>SUBCLASSING</h1> Please see &quot;SUBCLASSING&quot; in TAP::Parser for a subclassing overview.<div class="spacer">
+</div>
+If you <i>really</i> want to subclass TAP::Parser's grammar the best thing to do is read through the code.  There's no easy way of summarizing it here.</div>
+<div class="section">
+<h1>SEE ALSO</h1> TAP::Object, TAP::Parser, TAP::Parser::Iterator, TAP::Parser::Result,</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-19</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

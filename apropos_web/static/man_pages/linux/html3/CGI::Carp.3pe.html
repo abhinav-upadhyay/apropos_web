@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+CGI::Carp(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+CGI::Carp(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+CGI::Carp(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> CGI::Carp - CGI routines for writing to the HTTPD (or other) error log</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    use CGI::Carp;<br/>
+<br/>
+    croak &quot;We're outta here!&quot;;<br/>
+    confess &quot;It was my fault: $!&quot;;<br/>
+    carp &quot;It was your fault!&quot;;   <br/>
+    warn &quot;I'm confused&quot;;<br/>
+    die  &quot;I'm dying.\n&quot;;<br/>
+<br/>
+    use CGI::Carp qw(cluck);<br/>
+    cluck &quot;I wouldn't do that if I were you&quot;;<br/>
+<br/>
+    use CGI::Carp qw(fatalsToBrowser);<br/>
+    die &quot;Fatal error messages are now sent to browser&quot;;<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> CGI scripts have a nasty habit of leaving warning messages in the error logs that are neither time stamped nor fully identified.  Tracking down the script that caused the error is a pain.  This fixes that.  Replace the usual<div class="spacer">
+</div>
+<br/>
+    use Carp;<br/>
+<div class="spacer">
+</div>
+with<div class="spacer">
+</div>
+<br/>
+    use CGI::Carp<br/>
+<div class="spacer">
+</div>
+And the standard <i>warn()</i>, die (), <i>croak()</i>, <i>confess()</i> and <i>carp()</i> calls will automagically be replaced with functions that write out nicely time-stamped messages to the HTTP server error log.<div class="spacer">
+</div>
+For example:<div class="spacer">
+</div>
+<br/>
+   [Fri Nov 17 21:40:43 1995] test.pl: I'm confused at test.pl line 3.<br/>
+   [Fri Nov 17 21:40:43 1995] test.pl: Got an error message: Permission denied.<br/>
+   [Fri Nov 17 21:40:43 1995] test.pl: I'm dying.<br/>
+</div>
+<div class="section">
+<h1>REDIRECTING ERROR MESSAGES</h1> By default, error messages are sent to STDERR.  Most HTTPD servers direct STDERR to the server's error log.  Some applications may wish to keep private error logs, distinct from the server's error log, or they may wish to direct error messages to STDOUT so that the browser will receive them.<div class="spacer">
+</div>
+The &quot;carpout()&quot; function is provided for this purpose.  Since  <i>carpout()</i> is not exported by default, you must import it explicitly by saying<div class="spacer">
+</div>
+<br/>
+   use CGI::Carp qw(carpout);<br/>
+<div class="spacer">
+</div>
+The <i>carpout()</i> function requires one argument, which should be a reference to an open filehandle for writing errors.  It should be called in a &quot;BEGIN&quot; block at the top of the CGI application so that compiler errors will be caught.  Example:<div class="spacer">
+</div>
+<br/>
+   BEGIN {<br/>
+     use CGI::Carp qw(carpout);<br/>
+     open(LOG, &quot;&gt;&gt;/usr/local/cgi-logs/mycgi-log&quot;) or<br/>
+       die(&quot;Unable to open mycgi-log: $!\n&quot;);<br/>
+     carpout(LOG);<br/>
+   }<br/>
+<div class="spacer">
+</div>
+<i>carpout()</i> does not handle file locking on the log for you at this point. Also, note that  <i>carpout()</i> does not work with in-memory file handles, although a patch would be welcome to address that.<div class="spacer">
+</div>
+The real STDERR is not closed -- it is moved to CGI::Carp::SAVEERR.  Some servers, when dealing with CGI scripts, close their connection to the browser when the script closes STDOUT and STDERR.  CGI::Carp::SAVEERR is there to prevent this from happening prematurely.<div class="spacer">
+</div>
+You can pass filehandles to <i>carpout()</i> in a variety of ways.  The &quot;correct&quot; way according to Tom Christiansen is to pass a reference to a filehandle GLOB:<div class="spacer">
+</div>
+<br/>
+    carpout(\*LOG);<br/>
+<div class="spacer">
+</div>
+This looks weird to mere mortals however, so the following syntaxes are accepted as well:<div class="spacer">
+</div>
+<br/>
+    carpout(LOG);<br/>
+    carpout(main::LOG);<br/>
+    carpout(main'LOG);<br/>
+    carpout(\LOG);<br/>
+    carpout(\'main::LOG');<br/>
+<br/>
+    ... and so on<br/>
+<div class="spacer">
+</div>
+FileHandle and other objects work as well.<div class="spacer">
+</div>
+Use of <i>carpout()</i> is not great for performance, so it is recommended for debugging purposes or for moderate-use applications.  A future version of this module may delay redirecting STDERR until one of the CGI::Carp methods is called to prevent the performance hit.</div>
+<div class="section">
+<h1>MAKING PERL ERRORS APPEAR IN THE BROWSER WINDOW</h1> If you want to send fatal (die, confess) errors to the browser, ask to import the special &quot;fatalsToBrowser&quot; subroutine:<div class="spacer">
+</div>
+<br/>
+    use CGI::Carp qw(fatalsToBrowser);<br/>
+    die &quot;Bad error here&quot;;<br/>
+<div class="spacer">
+</div>
+Fatal errors will now be echoed to the browser as well as to the log.  CGI::Carp arranges to send a minimal HTTP header to the browser so that even errors that occur in the early compile phase will be seen. Nonfatal errors will still be directed to the log file only (unless redirected with carpout).<div class="spacer">
+</div>
+Note that fatalsToBrowser may <b>not</b> work well with mod_perl version 2.0 and higher.<div class="subsection">
+<h2>Changing the default message</h2> By default, the software error message is followed by a note to contact the Webmaster by e-mail with the time and date of the error. If this message is not to your liking, you can change it using the  <i>set_message()</i> routine.  This is not imported by default; you should import it on the  <i>use()</i> line:<div class="spacer">
+</div>
+<br/>
+    use CGI::Carp qw(fatalsToBrowser set_message);<br/>
+    set_message(&quot;It's not a bug, it's a feature!&quot;);<br/>
+<div class="spacer">
+</div>
+You may also pass in a code reference in order to create a custom error message.  At run time, your code will be called with the text of the error message that caused the script to die.  Example:<div class="spacer">
+</div>
+<br/>
+    use CGI::Carp qw(fatalsToBrowser set_message);<br/>
+    BEGIN {<br/>
+       sub handle_errors {<br/>
+          my $msg = shift;<br/>
+          print &quot;&lt;h1&gt;Oh gosh&lt;/h1&gt;&quot;;<br/>
+          print &quot;&lt;p&gt;Got an error: $msg&lt;/p&gt;&quot;;<br/>
+      }<br/>
+      set_message(\&amp;handle_errors);<br/>
+    }<br/>
+<div class="spacer">
+</div>
+In order to correctly intercept compile-time errors, you should call  <i>set_message()</i> from within a BEGIN{} block.</div>
+</div>
+<div class="section">
+<h1>DOING MORE THAN PRINTING A MESSAGE IN THE EVENT OF PERL ERRORS</h1> If fatalsToBrowser in conjunction with set_message does not provide you with all of the functionality you need, you can go one step further by specifying a function to be executed any time a script calls &quot;die&quot;, has a syntax error, or dies unexpectedly at runtime with a line like &quot;undef-&gt; <i>explode()</i>;&quot;.<div class="spacer">
+</div>
+<br/>
+    use CGI::Carp qw(set_die_handler);<br/>
+    BEGIN {<br/>
+       sub handle_errors {<br/>
+          my $msg = shift;<br/>
+          print &quot;content-type: text/html\n\n&quot;;<br/>
+          print &quot;&lt;h1&gt;Oh gosh&lt;/h1&gt;&quot;;<br/>
+          print &quot;&lt;p&gt;Got an error: $msg&lt;/p&gt;&quot;;<br/>
+<br/>
+          #proceed to send an email to a system administrator,<br/>
+          #write a detailed message to the browser and/or a log,<br/>
+          #etc....<br/>
+      }<br/>
+      set_die_handler(\&amp;handle_errors);<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Notice that if you use <i>set_die_handler()</i>, you must handle sending HTML headers to the browser yourself if you are printing a message.<div class="spacer">
+</div>
+If you use <i>set_die_handler()</i>, you will most likely interfere with the behavior of fatalsToBrowser, so you must use this or that, not both.<div class="spacer">
+</div>
+Using <i>set_die_handler()</i> sets SIG{__DIE__} (as does fatalsToBrowser), and there is only one SIG{__DIE__}. This means that if you are attempting to set SIG{__DIE__} yourself, you may interfere with this module's functionality, or this module may interfere with your module's functionality.<div class="subsection">
+<h2>SUPPRESSING PERL ERRORS APPEARING IN THE BROWSER WINDOW</h2> A problem sometimes encountered when using fatalsToBrowser is when a &quot;die()&quot; is done inside an &quot;eval&quot; body or expression. Even though the fatalsToBrower support takes precautions to avoid this, you still may get the error message printed to STDOUT. This may have some undesireable effects when the purpose of doing the eval is to determine which of several algorithms is to be used.<div class="spacer">
+</div>
+By setting $CGI::Carp::TO_BROWSER to 0 you can suppress printing the &quot;die&quot; messages but without all of the complexity of using &quot;set_die_handler&quot;. You can localize this effect to inside &quot;eval&quot; bodies if this is desireable: For example:<div class="spacer">
+</div>
+<br/>
+ eval {<br/>
+   local $CGI::Carp::TO_BROWSER = 0;<br/>
+   die &quot;Fatal error messages not sent browser&quot;<br/>
+ }<br/>
+ # $@ will contain error message<br/>
+</div>
+</div>
+<div class="section">
+<h1>MAKING WARNINGS APPEAR AS HTML COMMENTS</h1> It is now also possible to make non-fatal errors appear as HTML comments embedded in the output of your program.  To enable this feature, export the new &quot;warningsToBrowser&quot; subroutine.  Since sending warnings to the browser before the HTTP headers have been sent would cause an error, any warnings are stored in an internal buffer until you call the  <i>warningsToBrowser()</i> subroutine with a true argument:<div class="spacer">
+</div>
+<br/>
+    use CGI::Carp qw(fatalsToBrowser warningsToBrowser);<br/>
+    use CGI qw(:standard);<br/>
+    print header();<br/>
+    warningsToBrowser(1);<br/>
+<div class="spacer">
+</div>
+You may also give a false argument to <i>warningsToBrowser()</i> to prevent warnings from being sent to the browser while you are printing some content where HTML comments are not allowed:<div class="spacer">
+</div>
+<br/>
+    warningsToBrowser(0);    # disable warnings<br/>
+    print &quot;&lt;script type=\&quot;text/javascript\&quot;&gt;&lt;!--\n&quot;;<br/>
+    print_some_javascript_code();<br/>
+    print &quot;//--&gt;&lt;/script&gt;\n&quot;;<br/>
+    warningsToBrowser(1);    # re-enable warnings<br/>
+<div class="spacer">
+</div>
+Note: In this respect <i>warningsToBrowser()</i> differs fundamentally from  <i>fatalsToBrowser()</i>, which you should never call yourself!</div>
+<div class="section">
+<h1>OVERRIDING THE NAME OF THE PROGRAM</h1> CGI::Carp includes the name of the program that generated the error or warning in the messages written to the log and the browser window. Sometimes, Perl can get confused about what the actual name of the executed program was.  In these cases, you can override the program name that CGI::Carp will use for all messages.<div class="spacer">
+</div>
+The quick way to do that is to tell CGI::Carp the name of the program in its use statement.  You can do that by adding &quot;name=cgi_carp_log_name&quot; to your &quot;use&quot; statement.  For example:<div class="spacer">
+</div>
+<br/>
+    use CGI::Carp qw(name=cgi_carp_log_name);<br/>
+<div class="spacer">
+</div>
+.  If you want to change the program name partway through the program, you can use the &quot;set_progname()&quot; function instead.  It is not exported by default, you must import it explicitly by saying<div class="spacer">
+</div>
+<br/>
+    use CGI::Carp qw(set_progname);<br/>
+<div class="spacer">
+</div>
+Once you've done that, you can change the logged name of the program at any time by calling<div class="spacer">
+</div>
+<br/>
+    set_progname(new_program_name);<br/>
+<div class="spacer">
+</div>
+You can set the program back to the default by calling<div class="spacer">
+</div>
+<br/>
+    set_progname(undef);<br/>
+<div class="spacer">
+</div>
+Note that this override doesn't happen until after the program has compiled, so any compile-time errors will still show up with the non-overridden program name</div>
+<div class="section">
+<h1>CHANGE LOG</h1> 3.51 Added $CGI::Carp::TO_BROWSER<div class="spacer">
+</div>
+1.29 Patch from Peter Whaite to fix the unfixable problem of CGI::Carp<br/>
+     not behaving correctly in an <i>eval()</i> context.<div class="spacer">
+</div>
+1.05 <i>carpout()</i> added and minor corrections by Marc Hedlund<br/>
+     &lt;hedlund@best.com&gt; on 11/26/95.<div class="spacer">
+</div>
+1.06 <i>fatalsToBrowser()</i> no longer aborts for fatal errors within<br/>
+     <i>eval()</i> statements.<div class="spacer">
+</div>
+1.08 <i>set_message()</i> added and <i>carpout()</i> expanded to allow for FileHandle<br/>
+     objects.<div class="spacer">
+</div>
+1.09 <i>set_message()</i> now allows users to pass a code REFERENCE for<br/>
+     really custom error messages.  croak and carp are now<br/>
+     exported by default.  Thanks to Gunther Birznieks for the<br/>
+     patches.<div class="spacer">
+</div>
+1.10 Patch from Chris Dean (ctdean@cogit.com) to allow<br/>
+     module to run correctly under mod_perl.<div class="spacer">
+</div>
+1.11 Changed order of &amp;gt; and &amp;lt; escapes.<div class="spacer">
+</div>
+1.12 Changed <i>die()</i> on line 217 to CORE::die to avoid <b>-w</b> warning.<div class="spacer">
+</div>
+1.13 Added <i>cluck()</i> to make the module orthogonal with Carp.<br/>
+     More mod_perl related fixes.<div class="spacer">
+</div>
+1.20 Patch from Ilmari Karonen (perl@itz.pp.sci.fi):  Added<br/>
+     <i>warningsToBrowser()</i>.  Replaced &lt;CODE&gt; tags with &lt;PRE&gt; in<br/>
+     <i>fatalsToBrowser()</i> output.<div class="spacer">
+</div>
+1.23 <i>ineval()</i> now checks both $^S and inspects the message for the &quot;eval&quot; pattern<br/>
+     (hack alert!) in order to accommodate various combinations of Perl and<br/>
+     mod_perl.<div class="spacer">
+</div>
+1.24 Patch from Scott Gifford (sgifford@suspectclass.com): Add support<br/>
+     for overriding program name.<div class="spacer">
+</div>
+1.26 Replaced CORE::GLOBAL::die with the evil $SIG{__DIE__} because the<br/>
+     former isn't working in some people's hands.  There is no such thing<br/>
+     as reliable exception handling in Perl.<div class="spacer">
+</div>
+1.27 Replaced tell STDOUT with bytes=tell STDOUT.</div>
+<div class="section">
+<h1>AUTHORS</h1> Copyright 1995-2002, Lincoln D. Stein.  All rights reserved.<div class="spacer">
+</div>
+This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.<div class="spacer">
+</div>
+Address bug reports and comments to: lstein@cshl.org</div>
+<div class="section">
+<h1>SEE ALSO</h1> Carp, CGI::Base, CGI::BasePlus, CGI::Request, CGI::MiniSvr, CGI::Form, CGI::Response</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-19</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

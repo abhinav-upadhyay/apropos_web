@@ -1,0 +1,2778 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+IP6TABLES(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+IP6TABLES(8)</td>
+<td class="head-vol">
+iptables 1.4.12</td>
+<td class="head-rtitle">
+IP6TABLES(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> ip6tables &#8212; IPv6 packet filter administration</div>
+<div class="section">
+<h1>SYNOPSIS</h1>  <b>ip6tables</b> [<b>-t</b> <i>table</i>] {<b>-A</b>|<b>-C</b>|<b>-D</b>}  <i>chain rule-specification</i> [<i>options...</i>]<div class="spacer">
+</div>
+<b>ip6tables</b> [<b>-t</b> <i>table</i>] <b>-I</b> <i>chain</i> [<i>rulenum</i>]  <i>rule-specification</i> [<i>options...</i>]<div class="spacer">
+</div>
+<b>ip6tables</b> [<b>-t</b> <i>table</i>] <b>-R</b> <i>chain rulenum</i>  <i>rule-specification</i> [<i>options...</i>]<div class="spacer">
+</div>
+<b>ip6tables</b> [<b>-t</b> <i>table</i>] <b>-D</b> <i>chain rulenum</i> [ <i>options...</i>]<div class="spacer">
+</div>
+<b>ip6tables</b> [<b>-t</b> <i>table</i>] <b>-S</b> [<i>chain</i> [<i>rulenum</i>]]<div class="spacer">
+</div>
+<b>ip6tables</b> [<b>-t</b> <i>table</i>] {<b>-F</b>|<b>-L</b>|<b>-Z</b>} [ <i>chain</i> [<i>rulenum</i>]] [<i>options...</i>]<div class="spacer">
+</div>
+<b>ip6tables</b> [<b>-t</b> <i>table</i>] <b>-N</b> <i>chain</i><div class="spacer">
+</div>
+<b>ip6tables</b> [<b>-t</b> <i>table</i>] <b>-X</b> [<i>chain</i>]<div class="spacer">
+</div>
+<b>ip6tables</b> [<b>-t</b> <i>table</i>] <b>-P</b> <i>chain target</i> [ <i>options...</i>]<div class="spacer">
+</div>
+<b>ip6tables</b> [<b>-t</b> <i>table</i>] <b>-E</b> <i>old-chain-name new-chain-name</i></div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <b>Ip6tables</b> is used to set up, maintain, and inspect the tables of IPv6 packet filter rules in the Linux kernel.  Several different tables may be defined.  Each table contains a number of built-in chains and may also contain user-defined chains.<div class="spacer">
+</div>
+Each chain is a list of rules which can match a set of packets.  Each rule specifies what to do with a packet that matches.  This is called a `target', which may be a jump to a user-defined chain in the same table.</div>
+<div class="section">
+<h1>TARGETS</h1> A firewall rule specifies criteria for a packet and a target.  If the packet does not match, the next rule in the chain is the examined; if it does match, then the next rule is specified by the value of the target, which can be the name of a user-defined chain or one of the special values  <b>ACCEPT</b>, <b>DROP</b>, <b>QUEUE</b> or <b>RETURN</b>.<div class="spacer">
+</div>
+<b>ACCEPT</b> means to let the packet through.  <b>DROP</b> means to drop the packet on the floor.  <b>QUEUE</b> means to pass the packet to userspace. (How the packet can be received by a userspace process differs by the particular queue handler.  2.4.x and 2.6.x kernels up to 2.6.13 include the  <b>ip_queue</b> queue handler.  Kernels 2.6.14 and later additionally include the  <b>nfnetlink_queue</b> queue handler.  Packets with a target of QUEUE will be sent to queue number '0' in this case. Please also see the  <b>NFQUEUE</b> target as described later in this man page.)  <b>RETURN</b> means stop traversing this chain and resume at the next rule in the previous (calling) chain.  If the end of a built-in chain is reached or a rule in a built-in chain with target  <b>RETURN</b> is matched, the target specified by the chain policy determines the fate of the packet.</div>
+<div class="section">
+<h1>TABLES</h1> There are currently three independent tables (which tables are present at any time depends on the kernel configuration options and which modules are present).<dl>
+<dt>
+<b>-t</b>, <b>--table</b> <i>table</i></dt>
+<dd>
+This option specifies the packet matching table which the command should operate on.  If the kernel is configured with automatic module loading, an attempt will be made to load the appropriate module for that table if it is not already there.<div style="height: 1.00em;">
+&#160;</div>
+The tables are as follows:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>filter</b>:</dt>
+<dd>
+This is the default table (if no -t option is passed). It contains the built-in chains  <b>INPUT</b> (for packets destined to local sockets),  <b>FORWARD</b> (for packets being routed through the box), and  <b>OUTPUT</b> (for locally-generated packets).</dd>
+</dl>
+<dl>
+<dt>
+<b>mangle</b>:</dt>
+<dd>
+This table is used for specialized packet alteration.  Until kernel 2.4.17 it had two built-in chains:  <b>PREROUTING</b> (for altering incoming packets before routing) and  <b>OUTPUT</b> (for altering locally-generated packets before routing). Since kernel 2.4.18, three other built-in chains are also supported:  <b>INPUT</b> (for packets coming into the box itself), <b>FORWARD</b> (for altering packets being routed through the box), and  <b>POSTROUTING</b> (for altering packets as they are about to go out).</dd>
+</dl>
+<dl>
+<dt>
+<b>raw</b>:</dt>
+<dd>
+This table is used mainly for configuring exemptions from connection tracking in combination with the NOTRACK target.  It registers at the netfilter hooks with higher priority and is thus called before ip_conntrack, or any other IP tables.  It provides the following built-in chains:  <b>PREROUTING</b> (for packets arriving via any network interface)  <b>OUTPUT</b> (for packets generated by local processes)</dd>
+</dl>
+<dl>
+<dt>
+<b>security</b>:</dt>
+<dd>
+This table is used for Mandatory Access Control (MAC) networking rules, such as those enabled by the  <b>SECMARK</b> and <b>CONNSECMARK</b> targets. Mandatory Access Control is implemented by Linux Security Modules such as SELinux.  The security table is called after the filter table, allowing any Discretionary Access Control (DAC) rules in the filter table to take effect before MAC rules.  This table provides the following built-in chains:  <b>INPUT</b> (for packets coming into the box itself),  <b>OUTPUT</b> (for altering locally-generated packets before routing), and  <b>FORWARD</b> (for altering packets being routed through the box).</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>OPTIONS</h1> The options that are recognized by  <b>ip6tables</b> can be divided into several different groups.<div class="subsection">
+<h2>COMMANDS</h2> These options specify the specific action to perform.  Only one of them can be specified on the command line unless otherwise specified below.  For all the long versions of the command and option names, you need to use only enough letters to ensure that  <b>ip6tables</b> can differentiate it from all other options.<dl>
+<dt>
+<b>-A</b>, <b>--append</b> <i>chain rule-specification</i></dt>
+<dd>
+Append one or more rules to the end of the selected chain. When the source and/or destination names resolve to more than one address, a rule will be added for each possible address combination.</dd>
+</dl>
+<dl>
+<dt>
+<b>-C</b>, <b>--check</b> <i>chain rule-specification</i></dt>
+<dd>
+Check whether a rule matching the specification does exist in the selected chain. This command uses the same logic as  <b>-D</b> to find a matching entry, but does not alter the existing iptables configuration and uses its exit code to indicate success or failure.</dd>
+</dl>
+<dl>
+<dt>
+<b>-D</b>, <b>--delete</b> <i>chain rule-specification</i></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>-D</b>, <b>--delete</b> <i>chain rulenum</i></dt>
+<dd>
+Delete one or more rules from the selected chain.  There are two versions of this command: the rule can be specified as a number in the chain (starting at 1 for the first rule) or a rule to match.</dd>
+</dl>
+<dl>
+<dt>
+<b>-I</b>, <b>--insert</b> <i>chain</i> [<i>rulenum</i>] <i>rule-specification</i></dt>
+<dd>
+Insert one or more rules in the selected chain as the given rule number.  So, if the rule number is 1, the rule or rules are inserted at the head of the chain.  This is also the default if no rule number is specified.</dd>
+</dl>
+<dl>
+<dt>
+<b>-R</b>, <b>--replace</b> <i>chain rulenum rule-specification</i></dt>
+<dd>
+Replace a rule in the selected chain.  If the source and/or destination names resolve to multiple addresses, the command will fail.  Rules are numbered starting at 1.</dd>
+</dl>
+<dl>
+<dt>
+<b>-L</b>, <b>--list</b> [<i>chain</i>]</dt>
+<dd>
+List all rules in the selected chain.  If no chain is selected, all chains are listed. Like every other ip6tables command, it applies to the specified table (filter is the default).</dd>
+</dl>
+<dl>
+<dt>
+<div class="spacer">
+</div>
+</dt>
+<dd>
+Please note that it is often used with the <b>-n</b> option, in order to avoid long reverse DNS lookups. It is legal to specify the  <b>-Z</b> (zero) option as well, in which case the chain(s) will be atomically listed and zeroed.  The exact output is affected by the other arguments given. The exact rules are suppressed until you use<br/>
+ ip6tables -L -v<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>-S</b>, <b>--list-rules</b> [<i>chain</i>]</dt>
+<dd>
+Print all rules in the selected chain.  If no chain is selected, all chains are printed like ip6tables-save. Like every other ip6tables command, it applies to the specified table (filter is the default).</dd>
+</dl>
+<dl>
+<dt>
+<b>-F</b>, <b>--flush</b> [<i>chain</i>]</dt>
+<dd>
+Flush the selected chain (all the chains in the table if none is given). This is equivalent to deleting all the rules one by one.</dd>
+</dl>
+<dl>
+<dt>
+<b>-Z</b>, <b>--zero</b> [<i>chain</i> [<i>rulenum</i>]]</dt>
+<dd>
+Zero the packet and byte counters in all chains, or only the given chain, or only the given rule in a chain. It is legal to specify the  <b>-L</b>, <b>--list</b> (list) option as well, to see the counters immediately before they are cleared. (See above.)</dd>
+</dl>
+<dl>
+<dt>
+<b>-N</b>, <b>--new-chain</b> <i>chain</i></dt>
+<dd>
+Create a new user-defined chain by the given name.  There must be no target of that name already.</dd>
+</dl>
+<dl>
+<dt>
+<b>-X</b>, <b>--delete-chain</b> [<i>chain</i>]</dt>
+<dd>
+Delete the optional user-defined chain specified.  There must be no references to the chain.  If there are, you must delete or replace the referring rules before the chain can be deleted.  The chain must be empty, i.e. not contain any rules.  If no argument is given, it will attempt to delete every non-builtin chain in the table.</dd>
+</dl>
+<dl>
+<dt>
+<b>-P</b>, <b>--policy</b> <i>chain target</i></dt>
+<dd>
+Set the policy for the chain to the given target.  See the section <b>TARGETS</b> for the legal targets.  Only built-in (non-user-defined) chains can have policies, and neither built-in nor user-defined chains can be policy targets.</dd>
+</dl>
+<dl>
+<dt>
+<b>-E</b>, <b>--rename-chain</b> <i>old-chain new-chain</i></dt>
+<dd>
+Rename the user specified chain to the user supplied name.  This is cosmetic, and has no effect on the structure of the table.</dd>
+</dl>
+<dl>
+<dt>
+<b>-A</b>, <b>--append</b> <i>chain rule-specification</i></dt>
+<dd>
+Append one or more rules to the end of the selected chain. When the source and/or destination names resolve to more than one address, a rule will be added for each possible address combination.</dd>
+</dl>
+<dl>
+<dt>
+<b>-h</b></dt>
+<dd>
+Help. Give a (currently very brief) description of the command syntax.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>PARAMETERS</h2> The following parameters make up a rule specification (as used in the add, delete, insert, replace and append commands).<dl>
+<dt>
+[<b>!</b>] <b>-p</b>, <b>--protocol</b> <i>protocol</i></dt>
+<dd>
+The protocol of the rule or of the packet to check. The specified protocol can be one of  <b>tcp</b>, <b>udp</b>, <b>udplite</b>,  <b>icmpv6</b>, <b>esp</b>, <b>mh</b> or the special keyword &quot;<b>all</b>&quot;, or it can be a numeric value, representing one of these protocols or a different one. A protocol name from /etc/protocols is also allowed. But IPv6 extension headers except  <b>esp</b> are not allowed.  <b>esp</b> and <b>ipv6-nonext</b> can be used with Kernel version 2.6.11 or later. A &quot;!&quot; argument before the protocol inverts the test.  The number zero is equivalent to  <b>all</b>. &quot;<b>all</b>&quot; will match with all protocols and is taken as default when this option is omitted.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>-s</b>, <b>--source</b> <i>address</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Source specification.  <i>Address</i> can be either be a hostname, a network IP address (with  <b>/</b><i>mask</i>), or a plain IP address. Names will be resolved once only, before the rule is submitted to the kernel. Please note that specifying any name to be resolved with a remote query such as DNS is a really bad idea. (Resolving network names is not supported at this time.) The  <i>mask</i> is a plain number, specifying the number of 1's at the left side of the network mask. A &quot;!&quot; argument before the address specification inverts the sense of the address. The flag  <b>--src</b> is an alias for this option. Multiple addresses can be specified, but this will  <b>expand to multiple</b>  <b>rules</b> (when adding with -A), or will cause multiple rules to be deleted (with -D).</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>-d</b>, <b>--destination</b> <i>address</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Destination specification. See the description of the  <b>-s</b> (source) flag for a detailed description of the syntax.  The flag  <b>--dst</b> is an alias for this option.</dd>
+</dl>
+<dl>
+<dt>
+<b>-j</b>, <b>--jump</b> <i>target</i></dt>
+<dd>
+This specifies the target of the rule; i.e., what to do if the packet matches it.  The target can be a user-defined chain (other than the one this rule is in), one of the special builtin targets which decide the fate of the packet immediately, or an extension (see  <b>EXTENSIONS</b> below).  If this option is omitted in a rule (and  <b>-g</b> is not used), then matching the rule will have no effect on the packet's fate, but the counters on the rule will be incremented.</dd>
+</dl>
+<dl>
+<dt>
+<b>-g</b>, <b>--goto</b> <i>chain</i></dt>
+<dd>
+This specifies that the processing should continue in a user specified chain. Unlike the --jump option return will not continue processing in this chain but instead in the chain that called us via --jump.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>-i</b>, <b>--in-interface</b> <i>name</i></dt>
+<dd>
+Name of an interface via which a packet was received (only for packets entering the  <b>INPUT</b>, <b>FORWARD</b> and <b>PREROUTING</b> chains).  When the &quot;!&quot; argument is used before the interface name, the sense is inverted.  If the interface name ends in a &quot;+&quot;, then any interface which begins with this name will match.  If this option is omitted, any interface name will match.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>-o</b>, <b>--out-interface</b> <i>name</i></dt>
+<dd>
+Name of an interface via which a packet is going to be sent (for packets entering the  <b>FORWARD</b>, <b>OUTPUT</b> and <b>POSTROUTING</b> chains).  When the &quot;!&quot; argument is used before the interface name, the sense is inverted.  If the interface name ends in a &quot;+&quot;, then any interface which begins with this name will match.  If this option is omitted, any interface name will match.</dd>
+</dl>
+<dl>
+<dt>
+<b>-c</b>, <b>--set-counters</b> <i>packets bytes</i></dt>
+<dd>
+This enables the administrator to initialize the packet and byte counters of a rule (during  <b>INSERT</b>, <b>APPEND</b>, <b>REPLACE</b> operations).</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>OTHER OPTIONS</h2> The following additional options can be specified:<dl>
+<dt>
+<b>-v</b>, <b>--verbose</b></dt>
+<dd>
+Verbose output.  This option makes the list command show the interface name, the rule options (if any), and the TOS masks.  The packet and byte counters are also listed, with the suffix 'K', 'M' or 'G' for 1000, 1,000,000 and 1,000,000,000 multipliers respectively (but see the  <b>-x</b> flag to change this). For appending, insertion, deletion and replacement, this causes detailed information on the rule or rules to be printed.  <b>-v</b> may be specified multiple times to possibly emit more detailed debug statements.</dd>
+</dl>
+<dl>
+<dt>
+<b>-n</b>, <b>--numeric</b></dt>
+<dd>
+Numeric output. IP addresses and port numbers will be printed in numeric format. By default, the program will try to display them as host names, network names, or services (whenever applicable).</dd>
+</dl>
+<dl>
+<dt>
+<b>-x</b>, <b>--exact</b></dt>
+<dd>
+Expand numbers. Display the exact value of the packet and byte counters, instead of only the rounded number in K's (multiples of 1000) M's (multiples of 1000K) or G's (multiples of 1000M).  This option is only relevant for the  <b>-L</b> command.</dd>
+</dl>
+<dl>
+<dt>
+<b>--line-numbers</b></dt>
+<dd>
+When listing rules, add line numbers to the beginning of each rule, corresponding to that rule's position in the chain.</dd>
+</dl>
+<dl>
+<dt>
+<b>--modprobe=</b><i>command</i></dt>
+<dd>
+When adding or inserting rules into a chain, use <i>command</i> to load any necessary modules (targets, match extensions, etc).</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>MATCH EXTENSIONS</h1> ip6tables can use extended packet matching modules.  These are loaded in two ways: implicitly, when  <b>-p</b> or <b>--protocol</b> is specified, or with the  <b>-m</b> or <b>--match</b> options, followed by the matching module name; after these, various extra command line options become available, depending on the specific module.  You can specify multiple extended match modules in one line, and you can use the  <b>-h</b> or <b>--help</b> options after the module has been specified to receive help specific to that module.<div class="subsection">
+<h2>ah</h2> This module matches the parameters in Authentication header of IPsec packets.<dl>
+<dt>
+[<b>!</b>] <b>--ahspi</b> <i>spi</i>[<b>:</b><i>spi</i>]</dt>
+<dd>
+Matches SPI.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ahlen</b> <i>length</i></dt>
+<dd>
+Total length of this header in octets.</dd>
+</dl>
+<dl>
+<dt>
+<b>--ahres</b></dt>
+<dd>
+Matches if the reserved field is filled with zero.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>cluster</h2> Allows you to deploy gateway and back-end load-sharing clusters without the need of load-balancers.<div class="spacer">
+</div>
+This match requires that all the nodes see the same packets. Thus, the cluster match decides if this node has to handle a packet given the following options:<dl>
+<dt>
+<b>--cluster-total-nodes</b> <i>num</i></dt>
+<dd>
+Set number of total nodes in cluster.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--cluster-local-node</b> <i>num</i></dt>
+<dd>
+Set the local node number ID.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--cluster-local-nodemask</b> <i>mask</i></dt>
+<dd>
+Set the local node number ID mask. You can use this option instead of  <b>--cluster-local-node</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>--cluster-hash-seed</b> <i>value</i></dt>
+<dd>
+Set seed value of the Jenkins hash.</dd>
+</dl>
+<div class="spacer">
+</div>
+Example:<dl>
+<dt>
+</dt>
+<dd>
+iptables -A PREROUTING -t mangle -i eth1 -m cluster --cluster-total-nodes 2 --cluster-local-node 1 --cluster-hash-seed 0xdeadbeef -j MARK --set-mark 0xffff</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+iptables -A PREROUTING -t mangle -i eth2 -m cluster --cluster-total-nodes 2 --cluster-local-node 1 --cluster-hash-seed 0xdeadbeef -j MARK --set-mark 0xffff</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+iptables -A PREROUTING -t mangle -i eth1 -m mark ! --mark 0xffff -j DROP</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+iptables -A PREROUTING -t mangle -i eth2 -m mark ! --mark 0xffff -j DROP</dd>
+</dl>
+<div class="spacer">
+</div>
+And the following commands to make all nodes see the same packets:<dl>
+<dt>
+</dt>
+<dd>
+ip maddr add 01:00:5e:00:01:01 dev eth1</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+ip maddr add 01:00:5e:00:01:02 dev eth2</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+arptables -A OUTPUT -o eth1 --h-length 6 -j mangle --mangle-mac-s 01:00:5e:00:01:01</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+arptables -A INPUT -i eth1 --h-length 6 --destination-mac 01:00:5e:00:01:01 -j mangle --mangle-mac-d 00:zz:yy:xx:5a:27</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+arptables -A OUTPUT -o eth2 --h-length 6 -j mangle --mangle-mac-s 01:00:5e:00:01:02</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+arptables -A INPUT -i eth2 --h-length 6 --destination-mac 01:00:5e:00:01:02 -j mangle --mangle-mac-d 00:zz:yy:xx:5a:27</dd>
+</dl>
+<div class="spacer">
+</div>
+In the case of TCP connections, pickup facility has to be disabled to avoid marking TCP ACK packets coming in the reply direction as valid.<dl>
+<dt>
+</dt>
+<dd>
+echo 0 &gt; /proc/sys/net/netfilter/nf_conntrack_tcp_loose</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>comment</h2> Allows you to add comments (up to 256 characters) to any rule.<dl>
+<dt>
+<b>--comment</b> <i>comment</i></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+Example:</dt>
+<dd>
+iptables -A INPUT -i eth1 -m comment --comment &quot;my local LAN&quot;</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>connbytes</h2> Match by how many bytes or packets a connection (or one of the two flows constituting the connection) has transferred so far, or by average bytes per packet.<div class="spacer">
+</div>
+The counters are 64-bit and are thus not expected to overflow ;)<div class="spacer">
+</div>
+The primary use is to detect long-lived downloads and mark them to be scheduled using a lower priority band in traffic control.<div class="spacer">
+</div>
+The transferred bytes per connection can also be viewed through `conntrack -L` and accessed via ctnetlink.<div class="spacer">
+</div>
+NOTE that for connections which have no accounting information, the match will always return false. The &quot;net.netfilter.nf_conntrack_acct&quot; sysctl flag controls whether  <b>new</b> connections will be byte/packet counted. Existing connection flows will not be gaining/losing a/the accounting structure when be sysctl flag is flipped.<dl>
+<dt>
+[<b>!</b>] <b>--connbytes</b> <i>from</i>[<b>:</b><i>to</i>]</dt>
+<dd>
+match packets from a connection whose packets/bytes/average packet size is more than FROM and less than TO bytes/packets. if TO is omitted only FROM check is done. &quot;!&quot; is used to match packets not falling in the range.</dd>
+</dl>
+<dl>
+<dt>
+<b>--connbytes-dir</b> {<b>original</b>|<b>reply</b>|<b>both</b>}</dt>
+<dd>
+which packets to consider</dd>
+</dl>
+<dl>
+<dt>
+<b>--connbytes-mode</b> {<b>packets</b>|<b>bytes</b>|<b>avgpkt</b>}</dt>
+<dd>
+whether to check the amount of packets, number of bytes transferred or the average size (in bytes) of all packets received so far. Note that when &quot;both&quot; is used together with &quot;avgpkt&quot;, and data is going (mainly) only in one direction (for example HTTP), the average packet size will be about half of the actual data packets.</dd>
+</dl>
+<dl>
+<dt>
+Example:</dt>
+<dd>
+iptables .. -m connbytes --connbytes 10000:100000 --connbytes-dir both --connbytes-mode bytes ...</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>connlimit</h2> Allows you to restrict the number of parallel connections to a server per client IP address (or client address block).<dl>
+<dt>
+<b>--connlimit-upto</b> <i>n</i></dt>
+<dd>
+Match if the number of existing connections is below or equal <i>n</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>--connlimit-above</b> <i>n</i></dt>
+<dd>
+Match if the number of existing connections is above <i>n</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>--connlimit-mask</b> <i>prefix_length</i></dt>
+<dd>
+Group hosts using the prefix length. For IPv4, this must be a number between (including) 0 and 32. For IPv6, between 0 and 128. If not specified, the maximum prefix length for the applicable protocol is used.</dd>
+</dl>
+<dl>
+<dt>
+<b>--connlimit-saddr</b></dt>
+<dd>
+Apply the limit onto the source group.</dd>
+</dl>
+<dl>
+<dt>
+<b>--connlimit-daddr</b></dt>
+<dd>
+Apply the limit onto the destination group.</dd>
+</dl>
+<div class="spacer">
+</div>
+Examples:<dl>
+<dt>
+# allow 2 telnet connections per client host</dt>
+<dd>
+iptables -A INPUT -p tcp --syn --dport 23 -m connlimit --connlimit-above 2 -j REJECT</dd>
+</dl>
+<dl>
+<dt>
+# you can also match the other way around:</dt>
+<dd>
+iptables -A INPUT -p tcp --syn --dport 23 -m connlimit --connlimit-upto 2 -j ACCEPT</dd>
+</dl>
+<dl>
+<dt>
+# limit the number of parallel HTTP requests to 16 per class C sized source network (24 bit netmask)</dt>
+<dd>
+iptables -p tcp --syn --dport 80 -m connlimit --connlimit-above 16 --connlimit-mask 24 -j REJECT</dd>
+</dl>
+<dl>
+<dt>
+# limit the number of parallel HTTP requests to 16 for the link local network</dt>
+<dd>
+(ipv6) ip6tables -p tcp --syn --dport 80 -s fe80::/64 -m connlimit --connlimit-above 16 --connlimit-mask 64 -j REJECT</dd>
+</dl>
+<dl>
+<dt>
+# Limit the number of connections to a particular host:</dt>
+<dd>
+ip6tables -p tcp --syn --dport 49152:65535 -d 2001:db8::1 -m connlimit --connlimit-above 100 -j REJECT</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>connmark</h2> This module matches the netfilter mark field associated with a connection (which can be set using the  <b>CONNMARK</b> target below).<dl>
+<dt>
+[<b>!</b>] <b>--mark</b> <i>value</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Matches packets in connections with the given mark value (if a mask is specified, this is logically ANDed with the mark before the comparison).</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>conntrack</h2> This module, when combined with connection tracking, allows access to the connection tracking state for this packet/connection.<dl>
+<dt>
+[<b>!</b>] <b>--ctstate</b> <i>statelist</i></dt>
+<dd>
+<i>statelist</i> is a comma separated list of the connection states to match. Possible states are listed below.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ctproto</b> <i>l4proto</i></dt>
+<dd>
+Layer-4 protocol to match (by number or name)</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ctorigsrc</b> <i>address</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ctorigdst</b> <i>address</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ctreplsrc</b> <i>address</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ctrepldst</b> <i>address</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Match against original/reply source/destination address</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ctorigsrcport</b> <i>port</i>[<b>:</b><i>port</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ctorigdstport</b> <i>port</i>[<b>:</b><i>port</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ctreplsrcport</b> <i>port</i>[<b>:</b><i>port</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ctrepldstport</b> <i>port</i>[<b>:</b><i>port</i>]</dt>
+<dd>
+Match against original/reply source/destination port (TCP/UDP/etc.) or GRE key. Matching against port ranges is only supported in kernel versions above 2.6.38.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ctstatus</b> <i>statelist</i></dt>
+<dd>
+<i>statuslist</i> is a comma separated list of the connection statuses to match. Possible statuses are listed below.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ctexpire</b> <i>time</i>[<b>:</b><i>time</i>]</dt>
+<dd>
+Match remaining lifetime in seconds against given value or range of values (inclusive)</dd>
+</dl>
+<dl>
+<dt>
+<b>--ctdir</b> {<b>ORIGINAL</b>|<b>REPLY</b>}</dt>
+<dd>
+Match packets that are flowing in the specified direction. If this flag is not specified at all, matches packets in both directions.</dd>
+</dl>
+<div class="spacer">
+</div>
+States for <b>--ctstate</b>:<dl>
+<dt>
+<b>INVALID</b></dt>
+<dd>
+meaning that the packet is associated with no known connection</dd>
+</dl>
+<dl>
+<dt>
+<b>NEW</b></dt>
+<dd>
+meaning that the packet has started a new connection, or otherwise associated with a connection which has not seen packets in both directions, and</dd>
+</dl>
+<dl>
+<dt>
+<b>ESTABLISHED</b></dt>
+<dd>
+meaning that the packet is associated with a connection which has seen packets in both directions,</dd>
+</dl>
+<dl>
+<dt>
+<b>RELATED</b></dt>
+<dd>
+meaning that the packet is starting a new connection, but is associated with an existing connection, such as an FTP data transfer, or an ICMP error.</dd>
+</dl>
+<dl>
+<dt>
+<b>UNTRACKED</b></dt>
+<dd>
+meaning that the packet is not tracked at all, which happens if you use the NOTRACK target in raw table.</dd>
+</dl>
+<dl>
+<dt>
+<b>SNAT</b></dt>
+<dd>
+A virtual state, matching if the original source address differs from the reply destination.</dd>
+</dl>
+<dl>
+<dt>
+<b>DNAT</b></dt>
+<dd>
+A virtual state, matching if the original destination differs from the reply source.</dd>
+</dl>
+<div class="spacer">
+</div>
+Statuses for <b>--ctstatus</b>:<dl>
+<dt>
+<b>NONE</b></dt>
+<dd>
+None of the below.</dd>
+</dl>
+<dl>
+<dt>
+<b>EXPECTED</b></dt>
+<dd>
+This is an expected connection (i.e. a conntrack helper set it up)</dd>
+</dl>
+<dl>
+<dt>
+<b>SEEN_REPLY</b></dt>
+<dd>
+Conntrack has seen packets in both directions.</dd>
+</dl>
+<dl>
+<dt>
+<b>ASSURED</b></dt>
+<dd>
+Conntrack entry should never be early-expired.</dd>
+</dl>
+<dl>
+<dt>
+<b>CONFIRMED</b></dt>
+<dd>
+Connection is confirmed: originating packet has left box.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>cpu</h2><dl>
+<dt>
+[<b>!</b>] <b>--cpu</b> <i>number</i></dt>
+<dd>
+Match cpu handling this packet. cpus are numbered from 0 to NR_CPUS-1 Can be used in combination with RPS (Remote Packet Steering) or multiqueue NICs to spread network traffic on different queues.</dd>
+</dl>
+<div class="spacer">
+</div>
+Example:<div class="spacer">
+</div>
+iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 0 -j REDIRECT --to-port 8080<div class="spacer">
+</div>
+iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 1 -j REDIRECT --to-port 8081<div class="spacer">
+</div>
+Available since Linux 2.6.36.</div>
+<div class="subsection">
+<h2>dccp</h2><dl>
+<dt>
+[<b>!</b>] <b>--source-port</b>,<b>--sport</b> <i>port</i>[<b>:</b><i>port</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--destination-port</b>,<b>--dport</b> <i>port</i>[<b>:</b><i>port</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--dccp-types</b> <i>mask</i></dt>
+<dd>
+Match when the DCCP packet type is one of 'mask'. 'mask' is a comma-separated list of packet types.  Packet types are: <b>REQUEST RESPONSE DATA ACK DATAACK CLOSEREQ CLOSE RESET SYNC SYNCACK INVALID</b>.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--dccp-option</b> <i>number</i></dt>
+<dd>
+Match if DCP option set.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>dscp</h2> This module matches the 6 bit DSCP field within the TOS field in the IP header.  DSCP has superseded TOS within the IETF.<dl>
+<dt>
+[<b>!</b>] <b>--dscp</b> <i>value</i></dt>
+<dd>
+Match against a numeric (decimal or hex) value [0-63].</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--dscp-class</b> <i>class</i></dt>
+<dd>
+Match the DiffServ class. This value may be any of the BE, EF, AFxx or CSx classes.  It will then be converted into its according numeric value.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>dst</h2> This module matches the parameters in Destination Options header<dl>
+<dt>
+[<b>!</b>] <b>--dst-len</b> <i>length</i></dt>
+<dd>
+Total length of this header in octets.</dd>
+</dl>
+<dl>
+<dt>
+<b>--dst-opts</b> <i>type</i>[<b>:</b><i>length</i>][<b>,</b><i>type</i>[<b>:</b><i>length</i>]...]</dt>
+<dd>
+numeric type of option and the length of the option data in octets.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>esp</h2> This module matches the SPIs in ESP header of IPsec packets.<dl>
+<dt>
+[<b>!</b>] <b>--espspi</b> <i>spi</i>[<b>:</b><i>spi</i>]</dt>
+<dd>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>eui64</h2> This module matches the EUI-64 part of a stateless autoconfigured IPv6 address. It compares the EUI-64 derived from the source MAC address in Ethernet frame with the lower 64 bits of the IPv6 source address. But &quot;Universal/Local&quot; bit is not compared. This module doesn't match other link layer frame, and is only valid in the <b>PREROUTING</b>, <b>INPUT</b> and <b>FORWARD</b> chains.</div>
+<div class="subsection">
+<h2>frag</h2> This module matches the parameters in Fragment header.<dl>
+<dt>
+[<b>!</b>] <b>--fragid</b> <i>id</i>[<b>:</b><i>id</i>]</dt>
+<dd>
+Matches the given Identification or range of it.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--fraglen</b> <i>length</i></dt>
+<dd>
+This option cannot be used with kernel version 2.6.10 or later. The length of Fragment header is static and this option doesn't make sense.</dd>
+</dl>
+<dl>
+<dt>
+<b>--fragres</b></dt>
+<dd>
+Matches if the reserved fields are filled with zero.</dd>
+</dl>
+<dl>
+<dt>
+<b>--fragfirst</b></dt>
+<dd>
+Matches on the first fragment.</dd>
+</dl>
+<dl>
+<dt>
+<b>--fragmore</b></dt>
+<dd>
+Matches if there are more fragments.</dd>
+</dl>
+<dl>
+<dt>
+<b>--fraglast</b></dt>
+<dd>
+Matches if this is the last fragment.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>hashlimit</h2>  <b>hashlimit</b> uses hash buckets to express a rate limiting match (like the  <b>limit</b> match) for a group of connections using a <b>single</b> iptables rule. Grouping can be done per-hostgroup (source and/or destination address) and/or per-port. It gives you the ability to express &quot; <i>N</i> packets per time quantum per group&quot; (see below for some examples).<div class="spacer">
+</div>
+A hash limit option (<b>--hashlimit-upto</b>, <b>--hashlimit-above</b>) and  <b>--hashlimit-name</b> are required.<dl>
+<dt>
+<b>--hashlimit-upto</b> <i>amount</i>[<b>/second</b>|<b>/minute</b>|<b>/hour</b>|<b>/day</b>]</dt>
+<dd>
+Match if the rate is below or equal to <i>amount</i>/quantum. It is specified as a number, with an optional time quantum suffix; the default is 3/hour.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hashlimit-above</b> <i>amount</i>[<b>/second</b>|<b>/minute</b>|<b>/hour</b>|<b>/day</b>]</dt>
+<dd>
+Match if the rate is above <i>amount</i>/quantum.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hashlimit-burst</b> <i>amount</i></dt>
+<dd>
+Maximum initial number of packets to match: this number gets recharged by one every time the limit specified above is not reached, up to this number; the default is 5.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hashlimit-mode</b> {<b>srcip</b>|<b>srcport</b>|<b>dstip</b>|<b>dstport</b>}<b>,</b>...</dt>
+<dd>
+A comma-separated list of objects to take into consideration. If no --hashlimit-mode option is given, hashlimit acts like limit, but at the expensive of doing the hash housekeeping.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hashlimit-srcmask</b> <i>prefix</i></dt>
+<dd>
+When --hashlimit-mode srcip is used, all source addresses encountered will be grouped according to the given prefix length and the so-created subnet will be subject to hashlimit.  <i>prefix</i> must be between (inclusive) 0 and 32. Note that --hashlimit-srcmask 0 is basically doing the same thing as not specifying srcip for --hashlimit-mode, but is technically more expensive.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hashlimit-dstmask</b> <i>prefix</i></dt>
+<dd>
+Like --hashlimit-srcmask, but for destination addresses.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hashlimit-name</b> <i>foo</i></dt>
+<dd>
+The name for the /proc/net/ipt_hashlimit/foo entry.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hashlimit-htable-size</b> <i>buckets</i></dt>
+<dd>
+The number of buckets of the hash table</dd>
+</dl>
+<dl>
+<dt>
+<b>--hashlimit-htable-max</b> <i>entries</i></dt>
+<dd>
+Maximum entries in the hash.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hashlimit-htable-expire</b> <i>msec</i></dt>
+<dd>
+After how many milliseconds do hash entries expire.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hashlimit-htable-gcinterval</b> <i>msec</i></dt>
+<dd>
+How many milliseconds between garbage collection intervals.</dd>
+</dl>
+<div class="spacer">
+</div>
+Examples:<dl>
+<dt>
+matching on source host</dt>
+<dd>
+&quot;1000 packets per second for every host in 192.168.0.0/16&quot; =&gt; -s 192.168.0.0/16 --hashlimit-mode srcip --hashlimit-upto 1000/sec</dd>
+</dl>
+<dl>
+<dt>
+matching on source port</dt>
+<dd>
+&quot;100 packets per second for every service of 192.168.1.1&quot; =&gt; -s 192.168.1.1 --hashlimit-mode srcport --hashlimit-upto 100/sec</dd>
+</dl>
+<dl>
+<dt>
+matching on subnet</dt>
+<dd>
+&quot;10000 packets per minute for every /28 subnet (groups of 8 addresses) in 10.0.0.0/8&quot; =&gt; -s 10.0.0.8 --hashlimit-mask 28 --hashlimit-upto 10000/min</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>hbh</h2> This module matches the parameters in Hop-by-Hop Options header<dl>
+<dt>
+[<b>!</b>] <b>--hbh-len</b> <i>length</i></dt>
+<dd>
+Total length of this header in octets.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hbh-opts</b> <i>type</i>[<b>:</b><i>length</i>][<b>,</b><i>type</i>[<b>:</b><i>length</i>]...]</dt>
+<dd>
+numeric type of option and the length of the option data in octets.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>helper</h2> This module matches packets related to a specific conntrack-helper.<dl>
+<dt>
+[<b>!</b>] <b>--helper</b> <i>string</i></dt>
+<dd>
+Matches packets related to the specified conntrack-helper.</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<div class="spacer">
+</div>
+string can be &quot;ftp&quot; for packets related to a ftp-session on default port. For other ports append -portnr to the value, ie. &quot;ftp-2121&quot;.<div class="spacer">
+</div>
+Same rules apply for other conntrack-helpers.</div>
+</div>
+<div class="subsection">
+<h2>hl</h2> This module matches the Hop Limit field in the IPv6 header.<dl>
+<dt>
+[<b>!</b>] <b>--hl-eq</b> <i>value</i></dt>
+<dd>
+Matches if Hop Limit equals <i>value</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hl-lt</b> <i>value</i></dt>
+<dd>
+Matches if Hop Limit is less than <i>value</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hl-gt</b> <i>value</i></dt>
+<dd>
+Matches if Hop Limit is greater than <i>value</i>.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>icmp6</h2> This extension can be used if `--protocol ipv6-icmp' or `--protocol icmpv6' is specified. It provides the following option:<dl>
+<dt>
+[<b>!</b>] <b>--icmpv6-type</b> <i>type</i>[<b>/</b><i>code</i>]|<i>typename</i></dt>
+<dd>
+This allows specification of the ICMPv6 type, which can be a numeric ICMPv6 <i>type</i>, <i>type</i> and <i>code</i>, or one of the ICMPv6 type names shown by the command<br/>
+ ip6tables -p ipv6-icmp -h<br/>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>iprange</h2> This matches on a given arbitrary range of IP addresses.<dl>
+<dt>
+[<b>!</b>] <b>--src-range</b> <i>from</i>[<b>-</b><i>to</i>]</dt>
+<dd>
+Match source IP in the specified range.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--dst-range</b> <i>from</i>[<b>-</b><i>to</i>]</dt>
+<dd>
+Match destination IP in the specified range.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>ipv6header</h2> This module matches IPv6 extension headers and/or upper layer header.<dl>
+<dt>
+<b>--soft</b></dt>
+<dd>
+Matches if the packet includes <b>any</b> of the headers specified with  <b>--header</b>.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--header</b> <i>header</i>[<b>,</b><i>header</i>...]</dt>
+<dd>
+Matches the packet which EXACTLY includes all specified headers. The headers encapsulated with ESP header are out of scope. Possible  <i>header</i> types can be:</dd>
+</dl>
+<dl>
+<dt>
+<b>hop</b>|<b>hop-by-hop</b></dt>
+<dd>
+Hop-by-Hop Options header</dd>
+</dl>
+<dl>
+<dt>
+<b>dst</b></dt>
+<dd>
+Destination Options header</dd>
+</dl>
+<dl>
+<dt>
+<b>route</b></dt>
+<dd>
+Routing header</dd>
+</dl>
+<dl>
+<dt>
+<b>frag</b></dt>
+<dd>
+Fragment header</dd>
+</dl>
+<dl>
+<dt>
+<b>auth</b></dt>
+<dd>
+Authentication header</dd>
+</dl>
+<dl>
+<dt>
+<b>esp</b></dt>
+<dd>
+Encapsulating Security Payload header</dd>
+</dl>
+<dl>
+<dt>
+<b>none</b></dt>
+<dd>
+No Next header which matches 59 in the 'Next Header field' of IPv6 header or any IPv6 extension headers</dd>
+</dl>
+<dl>
+<dt>
+<b>proto</b></dt>
+<dd>
+which matches any upper layer protocol header. A protocol name from /etc/protocols and numeric value also allowed. The number 255 is equivalent to  <b>proto</b>.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>ipvs</h2> Match IPVS connection properties.<dl>
+<dt>
+[<b>!</b>] <b>--ipvs</b></dt>
+<dd>
+packet belongs to an IPVS connection</dd>
+</dl>
+<dl>
+<dt>
+Any of the following options implies --ipvs (even negated)</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--vproto</b> <i>protocol</i></dt>
+<dd>
+VIP protocol to match; by number or name, e.g. &quot;tcp&quot;</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--vaddr</b> <i>address</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+VIP address to match</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--vport</b> <i>port</i></dt>
+<dd>
+VIP port to match; by number or name, e.g. &quot;http&quot;</dd>
+</dl>
+<dl>
+<dt>
+<b>--vdir</b> {<b>ORIGINAL</b>|<b>REPLY</b>}</dt>
+<dd>
+flow direction of packet</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--vmethod</b> {<b>GATE</b>|<b>IPIP</b>|<b>MASQ</b>}</dt>
+<dd>
+IPVS forwarding method used</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--vportctl</b> <i>port</i></dt>
+<dd>
+VIP port of the controlling connection to match, e.g. 21 for FTP</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>length</h2> This module matches the length of the layer-3 payload (e.g. layer-4 packet) of a packet against a specific value or range of values.<dl>
+<dt>
+[<b>!</b>] <b>--length</b> <i>length</i>[<b>:</b><i>length</i>]</dt>
+<dd>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>limit</h2> This module matches at a limited rate using a token bucket filter. A rule using this extension will match until this limit is reached. It can be used in combination with the <b>LOG</b> target to give limited logging, for example.<div class="spacer">
+</div>
+xt_limit has no negation support - you will have to use -m hashlimit ! --hashlimit  <i>rate</i> in this case whilst omitting --hashlimit-mode.<dl>
+<dt>
+<b>--limit</b> <i>rate</i>[<b>/second</b>|<b>/minute</b>|<b>/hour</b>|<b>/day</b>]</dt>
+<dd>
+Maximum average matching rate: specified as a number, with an optional `/second', `/minute', `/hour', or `/day' suffix; the default is 3/hour.</dd>
+</dl>
+<dl>
+<dt>
+<b>--limit-burst</b> <i>number</i></dt>
+<dd>
+Maximum initial number of packets to match: this number gets recharged by one every time the limit specified above is not reached, up to this number; the default is 5.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>mac</h2><dl>
+<dt>
+[<b>!</b>] <b>--mac-source</b> <i>address</i></dt>
+<dd>
+Match source MAC address.  It must be of the form XX:XX:XX:XX:XX:XX. Note that this only makes sense for packets coming from an Ethernet device and entering the <b>PREROUTING</b>, <b>FORWARD</b> or <b>INPUT</b> chains.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>mark</h2> This module matches the netfilter mark field associated with a packet (which can be set using the <b>MARK</b> target below).<dl>
+<dt>
+[<b>!</b>] <b>--mark</b> <i>value</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Matches packets with the given unsigned mark value (if a <i>mask</i> is specified, this is logically ANDed with the  <i>mask</i> before the comparison).</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>mh</h2> This extension is loaded if `--protocol ipv6-mh' or `--protocol mh' is specified. It provides the following option:<dl>
+<dt>
+[<b>!</b>] <b>--mh-type</b> <i>type</i>[<b>:</b><i>type</i>]</dt>
+<dd>
+This allows specification of the Mobility Header(MH) type, which can be a numeric MH <i>type</i>, <i>type</i> or one of the MH type names shown by the command<br/>
+ ip6tables -p ipv6-mh -h<br/>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>multiport</h2> This module matches a set of source or destination ports.  Up to 15 ports can be specified.  A port range (port:port) counts as two ports.  It can only be used in conjunction with  <b>-p tcp</b> or  <b>-p udp</b>.<dl>
+<dt>
+[<b>!</b>] <b>--source-ports</b>,<b>--sports</b> <i>port</i>[<b>,</b><i>port</i>|<b>,</b><i>port</i><b>:</b><i>port</i>]...</dt>
+<dd>
+Match if the source port is one of the given ports.  The flag  <b>--sports</b> is a convenient alias for this option. Multiple ports or port ranges are separated using a comma, and a port range is specified using a colon.  <b>53,1024:65535</b> would therefore match ports 53 and all from 1024 through 65535.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--destination-ports</b>,<b>--dports</b> <i>port</i>[<b>,</b><i>port</i>|<b>,</b><i>port</i><b>:</b><i>port</i>]...</dt>
+<dd>
+Match if the destination port is one of the given ports.  The flag  <b>--dports</b> is a convenient alias for this option.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--ports</b> <i>port</i>[<b>,</b><i>port</i>|<b>,</b><i>port</i><b>:</b><i>port</i>]...</dt>
+<dd>
+Match if either the source or destination ports are equal to one of the given ports.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>owner</h2> This module attempts to match various characteristics of the packet creator, for locally generated packets. This match is only valid in the OUTPUT and POSTROUTING chains. Forwarded packets do not have any socket associated with them. Packets from kernel threads do have a socket, but usually no owner.<dl>
+<dt>
+[<b>!</b>] <b>--uid-owner</b> <i>username</i></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--uid-owner</b> <i>userid</i>[<b>-</b><i>userid</i>]</dt>
+<dd>
+Matches if the packet socket's file structure (if it has one) is owned by the given user. You may also specify a numerical UID, or an UID range.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--gid-owner</b> <i>groupname</i></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--gid-owner</b> <i>groupid</i>[<b>-</b><i>groupid</i>]</dt>
+<dd>
+Matches if the packet socket's file structure is owned by the given group. You may also specify a numerical GID, or a GID range.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--socket-exists</b></dt>
+<dd>
+Matches if the packet is associated with a socket.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>physdev</h2> This module matches on the bridge port input and output devices enslaved to a bridge device. This module is a part of the infrastructure that enables a transparent bridging IP firewall and is only useful for kernel versions above version 2.5.44.<dl>
+<dt>
+[<b>!</b>] <b>--physdev-in</b> <i>name</i></dt>
+<dd>
+Name of a bridge port via which a packet is received (only for packets entering the <b>INPUT</b>, <b>FORWARD</b> and <b>PREROUTING</b> chains). If the interface name ends in a &quot;+&quot;, then any interface which begins with this name will match. If the packet didn't arrive through a bridge device, this packet won't match this option, unless '!' is used.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--physdev-out</b> <i>name</i></dt>
+<dd>
+Name of a bridge port via which a packet is going to be sent (for packets entering the <b>FORWARD</b>, <b>OUTPUT</b> and <b>POSTROUTING</b> chains).  If the interface name ends in a &quot;+&quot;, then any interface which begins with this name will match. Note that in the <b>nat</b> and <b>mangle</b> <b>OUTPUT</b> chains one cannot match on the bridge output port, however one can in the <b>filter OUTPUT</b> chain. If the packet won't leave by a bridge device or if it is yet unknown what the output device will be, then the packet won't match this option, unless '!' is used.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--physdev-is-in</b></dt>
+<dd>
+Matches if the packet has entered through a bridge interface.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--physdev-is-out</b></dt>
+<dd>
+Matches if the packet will leave through a bridge interface.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--physdev-is-bridged</b></dt>
+<dd>
+Matches if the packet is being bridged and therefore is not being routed. This is only useful in the FORWARD and POSTROUTING chains.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>pkttype</h2> This module matches the link-layer packet type.<dl>
+<dt>
+[<b>!</b>] <b>--pkt-type</b> {<b>unicast</b>|<b>broadcast</b>|<b>multicast</b>}</dt>
+<dd>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>policy</h2> This modules matches the policy used by IPsec for handling a packet.<dl>
+<dt>
+<b>--dir</b> {<b>in</b>|<b>out</b>}</dt>
+<dd>
+Used to select whether to match the policy used for decapsulation or the policy that will be used for encapsulation. <b>in</b> is valid in the <b>PREROUTING, INPUT and FORWARD</b> chains, <b>out</b> is valid in the <b>POSTROUTING, OUTPUT and FORWARD</b> chains.</dd>
+</dl>
+<dl>
+<dt>
+<b>--pol</b> {<b>none</b>|<b>ipsec</b>}</dt>
+<dd>
+Matches if the packet is subject to IPsec processing. <b>--pol none</b> cannot be combined with  <b>--strict</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>--strict</b></dt>
+<dd>
+Selects whether to match the exact policy or match if any rule of the policy matches the given policy.</dd>
+</dl>
+<div class="spacer">
+</div>
+For each policy element that is to be described, one can use one or more of the following options. When  <b>--strict</b> is in effect, at least one must be used per element.<dl>
+<dt>
+[<b>!</b>] <b>--reqid</b> <i>id</i></dt>
+<dd>
+Matches the reqid of the policy rule. The reqid can be specified with <b>setkey(8)</b> using <b>unique:id</b> as level.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--spi</b> <i>spi</i></dt>
+<dd>
+Matches the SPI of the SA.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--proto</b> {<b>ah</b>|<b>esp</b>|<b>ipcomp</b>}</dt>
+<dd>
+Matches the encapsulation protocol.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--mode</b> {<b>tunnel</b>|<b>transport</b>}</dt>
+<dd>
+Matches the encapsulation mode.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--tunnel-src</b> <i>addr</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Matches the source end-point address of a tunnel mode SA. Only valid with  <b>--mode tunnel</b>.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--tunnel-dst</b> <i>addr</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Matches the destination end-point address of a tunnel mode SA. Only valid with  <b>--mode tunnel</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>--next</b></dt>
+<dd>
+Start the next element in the policy specification. Can only be used with  <b>--strict</b>.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>quota</h2> Implements network quotas by decrementing a byte counter with each packet. The condition matches until the byte counter reaches zero. Behavior is reversed with negation (i.e. the condition does not match until the byte counter reaches zero).<dl>
+<dt>
+[<b>!</b>] <b>--quota</b> <i>bytes</i></dt>
+<dd>
+The quota in bytes.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>rateest</h2> The rate estimator can match on estimated rates as collected by the RATEEST target. It supports matching on absolute bps/pps values, comparing two rate estimators and matching on the difference between two rate estimators.<div class="spacer">
+</div>
+For a better understanding of the available options, these are all possible combinations:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>rateest</b> <i>operator</i> <b>rateest-bps</b></dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>rateest</b> <i>operator</i> <b>rateest-pps</b></dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+(<b>rateest</b> minus <b>rateest-bps1</b>) <i>operator</i> <b>rateest-bps2</b></dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+(<b>rateest</b> minus <b>rateest-pps1</b>) <i>operator</i> <b>rateest-pps2</b></dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>rateest1</b> <i>operator</i> <b>rateest2</b> <b>rateest-bps</b>(without rate!)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<b>rateest1</b> <i>operator</i> <b>rateest2</b> <b>rateest-pps</b>(without rate!)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+(<b>rateest1</b> minus <b>rateest-bps1</b>) <i>operator</i> ( <b>rateest2</b> minus <b>rateest-bps2</b>)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+(<b>rateest1</b> minus <b>rateest-pps1</b>) <i>operator</i> ( <b>rateest2</b> minus <b>rateest-pps2</b>)</dd>
+</dl>
+<dl>
+<dt>
+<b>--rateest-delta</b></dt>
+<dd>
+For each estimator (either absolute or relative mode), calculate the difference between the estimator-determined flow rate and the static value chosen with the BPS/PPS options. If the flow rate is higher than the specified BPS/PPS, 0 will be used instead of a negative value. In other words, &quot;max(0, rateest#_rate - rateest#_bps)&quot; is used.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--rateest-lt</b></dt>
+<dd>
+Match if rate is less than given rate/estimator.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--rateest-gt</b></dt>
+<dd>
+Match if rate is greater than given rate/estimator.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--rateest-eq</b></dt>
+<dd>
+Match if rate is equal to given rate/estimator.</dd>
+</dl>
+<div class="spacer">
+</div>
+In the so-called &quot;absolute mode&quot;, only one rate estimator is used and compared against a static value, while in &quot;relative mode&quot;, two rate estimators are compared against another.<dl>
+<dt>
+<b>--rateest</b> <i>name</i></dt>
+<dd>
+Name of the one rate estimator for absolute mode.</dd>
+</dl>
+<dl>
+<dt>
+<b>--rateest1</b> <i>name</i></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>--rateest2</b> <i>name</i></dt>
+<dd>
+The names of the two rate estimators for relative mode.</dd>
+</dl>
+<dl>
+<dt>
+<b>--rateest-bps</b> [<i>value</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>--rateest-pps</b> [<i>value</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>--rateest-bps1</b> [<i>value</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>--rateest-bps2</b> [<i>value</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>--rateest-pps1</b> [<i>value</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>--rateest-pps2</b> [<i>value</i>]</dt>
+<dd>
+Compare the estimator(s) by bytes or packets per second, and compare against the chosen value. See the above bullet list for which option is to be used in which case. A unit suffix may be used - available ones are: bit, [kmgt]bit, [KMGT]ibit, Bps, [KMGT]Bps, [KMGT]iBps.</dd>
+</dl>
+<div class="spacer">
+</div>
+Example: This is what can be used to route outgoing data connections from an FTP server over two lines based on the available bandwidth at the time the data connection was started:<div class="spacer">
+</div>
+# Estimate outgoing rates<div class="spacer">
+</div>
+iptables -t mangle -A POSTROUTING -o eth0 -j RATEEST --rateest-name eth0 --rateest-interval 250ms --rateest-ewma 0.5s<div class="spacer">
+</div>
+iptables -t mangle -A POSTROUTING -o ppp0 -j RATEEST --rateest-name ppp0 --rateest-interval 250ms --rateest-ewma 0.5s<div class="spacer">
+</div>
+# Mark based on available bandwidth<div class="spacer">
+</div>
+iptables -t mangle -A balance -m conntrack --ctstate NEW -m helper --helper ftp -m rateest --rateest-delta --rateest1 eth0 --rateest-bps1 2.5mbit --rateest-gt --rateest2 ppp0 --rateest-bps2 2mbit -j CONNMARK --set-mark 1<div class="spacer">
+</div>
+iptables -t mangle -A balance -m conntrack --ctstate NEW -m helper --helper ftp -m rateest --rateest-delta --rateest1 ppp0 --rateest-bps1 2mbit --rateest-gt --rateest2 eth0 --rateest-bps2 2.5mbit -j CONNMARK --set-mark 2<div class="spacer">
+</div>
+iptables -t mangle -A balance -j CONNMARK --restore-mark</div>
+<div class="subsection">
+<h2>recent</h2> Allows you to dynamically create a list of IP addresses and then match against that list in a few different ways.<div class="spacer">
+</div>
+For example, you can create a &quot;badguy&quot; list out of people attempting to connect to port 139 on your firewall and then DROP all future packets from them without considering them.<div class="spacer">
+</div>
+<b>--set</b>, <b>--rcheck</b>, <b>--update</b> and <b>--remove</b> are mutually exclusive.<dl>
+<dt>
+<b>--name</b> <i>name</i></dt>
+<dd>
+Specify the list to use for the commands. If no name is given then  <b>DEFAULT</b> will be used.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--set</b></dt>
+<dd>
+This will add the source address of the packet to the list. If the source address is already in the list, this will update the existing entry. This will always return success (or failure if  <b>!</b> is passed in).</dd>
+</dl>
+<dl>
+<dt>
+<b>--rsource</b></dt>
+<dd>
+Match/save the source address of each packet in the recent list table. This is the default.</dd>
+</dl>
+<dl>
+<dt>
+<b>--rdest</b></dt>
+<dd>
+Match/save the destination address of each packet in the recent list table.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--rcheck</b></dt>
+<dd>
+Check if the source address of the packet is currently in the list.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--update</b></dt>
+<dd>
+Like <b>--rcheck</b>, except it will update the &quot;last seen&quot; timestamp if it matches.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--remove</b></dt>
+<dd>
+Check if the source address of the packet is currently in the list and if so that address will be removed from the list and the rule will return true. If the address is not found, false is returned.</dd>
+</dl>
+<dl>
+<dt>
+<b>--seconds</b> <i>seconds</i></dt>
+<dd>
+This option must be used in conjunction with one of <b>--rcheck</b> or  <b>--update</b>. When used, this will narrow the match to only happen when the address is in the list and was seen within the last given number of seconds.</dd>
+</dl>
+<dl>
+<dt>
+<b>--reap</b> <i>reap</i></dt>
+<dd>
+This option can only be used in conjunction with <b>--seconds</b>. When used, this will cause entries older then 'seconds' to be purged.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hitcount</b> <i>hits</i></dt>
+<dd>
+This option must be used in conjunction with one of <b>--rcheck</b> or  <b>--update</b>. When used, this will narrow the match to only happen when the address is in the list and packets had been received greater than or equal to the given value. This option may be used along with  <b>--seconds</b> to create an even narrower match requiring a certain number of hits within a specific time frame. The maximum value for the hitcount parameter is given by the &quot;ip_pkt_list_tot&quot; parameter of the xt_recent kernel module. Exceeding this value on the command line will cause the rule to be rejected.</dd>
+</dl>
+<dl>
+<dt>
+<b>--rttl</b></dt>
+<dd>
+This option may only be used in conjunction with one of <b>--rcheck</b> or  <b>--update</b>. When used, this will narrow the match to only happen when the address is in the list and the TTL of the current packet matches that of the packet which hit the  <b>--set</b> rule. This may be useful if you have problems with people faking their source address in order to DoS you via this module by disallowing others access to your site by sending bogus packets to you.</dd>
+</dl>
+<div class="spacer">
+</div>
+Examples:<dl>
+<dt>
+</dt>
+<dd>
+iptables -A FORWARD -m recent --name badguy --rcheck --seconds 60 -j DROP</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+iptables -A FORWARD -p tcp -i eth0 --dport 139 -m recent --name badguy --set -j DROP</dd>
+</dl>
+<div class="spacer">
+</div>
+Steve's ipt_recent website (http://snowman.net/projects/ipt_recent/) also has some examples of usage.<div class="spacer">
+</div>
+<b>/proc/net/xt_recent/*</b> are the current lists of addresses and information about each entry of each list.<div class="spacer">
+</div>
+Each file in <b>/proc/net/xt_recent/</b> can be read from to see the current list or written two using the following commands to modify the list:<dl>
+<dt>
+<b>echo +</b><i>addr</i><b> &gt;/proc/net/xt_recent/DEFAULT</b></dt>
+<dd>
+to add <i>addr</i> to the DEFAULT list</dd>
+</dl>
+<dl>
+<dt>
+<b>echo -</b><i>addr</i><b> &gt;/proc/net/xt_recent/DEFAULT</b></dt>
+<dd>
+to remove <i>addr</i> from the DEFAULT list</dd>
+</dl>
+<dl>
+<dt>
+<b>echo / &gt;/proc/net/xt_recent/DEFAULT</b></dt>
+<dd>
+to flush the DEFAULT list (remove all entries).</dd>
+</dl>
+<div class="spacer">
+</div>
+The module itself accepts parameters, defaults shown:<dl>
+<dt>
+<b>ip_list_tot</b>=<i>100</i></dt>
+<dd>
+Number of addresses remembered per table.</dd>
+</dl>
+<dl>
+<dt>
+<b>ip_pkt_list_tot</b>=<i>20</i></dt>
+<dd>
+Number of packets per address remembered.</dd>
+</dl>
+<dl>
+<dt>
+<b>ip_list_hash_size</b>=<i>0</i></dt>
+<dd>
+Hash table size. 0 means to calculate it based on ip_list_tot, default: 512.</dd>
+</dl>
+<dl>
+<dt>
+<b>ip_list_perms</b>=<i>0644</i></dt>
+<dd>
+Permissions for /proc/net/xt_recent/* files.</dd>
+</dl>
+<dl>
+<dt>
+<b>ip_list_uid</b>=<i>0</i></dt>
+<dd>
+Numerical UID for ownership of /proc/net/xt_recent/* files.</dd>
+</dl>
+<dl>
+<dt>
+<b>ip_list_gid</b>=<i>0</i></dt>
+<dd>
+Numerical GID for ownership of /proc/net/xt_recent/* files.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>rt</h2> Match on IPv6 routing header<dl>
+<dt>
+[<b>!</b>] <b>--rt-type</b> <i>type</i></dt>
+<dd>
+Match the type (numeric).</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--rt-segsleft</b> <i>num</i>[<b>:</b><i>num</i>]</dt>
+<dd>
+Match the `segments left' field (range).</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--rt-len</b> <i>length</i></dt>
+<dd>
+Match the length of this header.</dd>
+</dl>
+<dl>
+<dt>
+<b>--rt-0-res</b></dt>
+<dd>
+Match the reserved field, too (type=0)</dd>
+</dl>
+<dl>
+<dt>
+<b>--rt-0-addrs</b> <i>addr</i>[<b>,</b><i>addr</i>...]</dt>
+<dd>
+Match type=0 addresses (list).</dd>
+</dl>
+<dl>
+<dt>
+<b>--rt-0-not-strict</b></dt>
+<dd>
+List of type=0 addresses is not a strict list.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>sctp</h2><dl>
+<dt>
+[<b>!</b>] <b>--source-port</b>,<b>--sport</b> <i>port</i>[<b>:</b><i>port</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--destination-port</b>,<b>--dport</b> <i>port</i>[<b>:</b><i>port</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--chunk-types</b> {<b>all</b>|<b>any</b>|<b>only</b>} <i>chunktype</i>[<b>:</b><i>flags</i>] [...]</dt>
+<dd>
+The flag letter in upper case indicates that the flag is to match if set, in the lower case indicates to match if unset.<div style="height: 1.00em;">
+&#160;</div>
+Chunk types: DATA INIT INIT_ACK SACK HEARTBEAT HEARTBEAT_ACK ABORT SHUTDOWN SHUTDOWN_ACK ERROR COOKIE_ECHO COOKIE_ACK ECN_ECNE ECN_CWR SHUTDOWN_COMPLETE ASCONF ASCONF_ACK FORWARD_TSN<div style="height: 1.00em;">
+&#160;</div>
+chunk type            available flags<div style="height: 0.00em;">
+&#160;</div>
+DATA                  I U B E i u b e<div style="height: 0.00em;">
+&#160;</div>
+ABORT                 T t<div style="height: 0.00em;">
+&#160;</div>
+SHUTDOWN_COMPLETE     T t<div style="height: 1.00em;">
+&#160;</div>
+(lowercase means flag should be &quot;off&quot;, uppercase means &quot;on&quot;)</dd>
+</dl>
+<div class="spacer">
+</div>
+Examples:<div style="height: 1.00em;">
+&#160;</div>
+iptables -A INPUT -p sctp --dport 80 -j DROP<div style="height: 1.00em;">
+&#160;</div>
+iptables -A INPUT -p sctp --chunk-types any DATA,INIT -j DROP<div style="height: 1.00em;">
+&#160;</div>
+iptables -A INPUT -p sctp --chunk-types any DATA:Be -j ACCEPT</div>
+<div class="subsection">
+<h2>set</h2> This module matches IP sets which can be defined by ipset(8).<dl>
+<dt>
+[<b>!</b>] <b>--match-set</b> <i>setname</i> <i>flag</i>[<b>,</b><i>flag</i>]...</dt>
+<dd>
+where flags are the comma separated list of <b>src</b> and/or <b>dst</b> specifications and there can be no more than six of them. Hence the command</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+<br/>
+ iptables -A FORWARD -m set --match-set test src,dst</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+will match packets, for which (if the set type is ipportmap) the source address and destination port pair can be found in the specified set. If the set type of the specified set is single dimension (for example ipmap), then the command will match packets for which the source address can be found in the specified set.</dd>
+</dl>
+<div class="spacer">
+</div>
+The option <b>--match-set</b> can be replaced by <b>--set</b> if that does not clash with an option of other extensions.<div class="spacer">
+</div>
+Use of -m set requires that ipset kernel support is provided. As standard kernels do not ship this currently, the ipset or Xtables-addons package needs to be installed.</div>
+<div class="subsection">
+<h2>socket</h2> This matches if an open socket can be found by doing a socket lookup on the packet.<dl>
+<dt>
+<b>--transparent</b></dt>
+<dd>
+Ignore non-transparent sockets.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>state</h2> This module, when combined with connection tracking, allows access to the connection tracking state for this packet.<dl>
+<dt>
+[<b>!</b>] <b>--state</b> <i>state</i></dt>
+<dd>
+Where state is a comma separated list of the connection states to match.  Possible states are <b>INVALID</b> meaning that the packet could not be identified for some reason which includes running out of memory and ICMP errors which don't correspond to any known connection, <b>ESTABLISHED</b> meaning that the packet is associated with a connection which has seen packets in both directions, <b>NEW</b> meaning that the packet has started a new connection, or otherwise associated with a connection which has not seen packets in both directions, and <b>RELATED</b> meaning that the packet is starting a new connection, but is associated with an existing connection, such as an FTP data transfer, or an ICMP error. <b>UNTRACKED</b> meaning that the packet is not tracked at all, which happens if you use the NOTRACK target in raw table.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>statistic</h2> This module matches packets based on some statistic condition. It supports two distinct modes settable with the  <b>--mode</b> option.<div class="spacer">
+</div>
+Supported options:<dl>
+<dt>
+<b>--mode</b> <i>mode</i></dt>
+<dd>
+Set the matching mode of the matching rule, supported modes are <b>random</b> and <b>nth.</b></dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--probability</b> <i>p</i></dt>
+<dd>
+Set the probability for a packet to be randomly matched. It only works with the  <b>random</b> mode. <i>p</i> must be within 0.0 and 1.0. The supported granularity is in 1/2147483648th increments.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--every</b> <i>n</i></dt>
+<dd>
+Match one packet every nth packet. It works only with the <b>nth</b> mode (see also the  <b>--packet</b> option).</dd>
+</dl>
+<dl>
+<dt>
+<b>--packet</b> <i>p</i></dt>
+<dd>
+Set the initial counter value (0 &lt;= p &lt;= n-1, default 0) for the <b>nth</b> mode.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>string</h2> This modules matches a given string by using some pattern matching strategy. It requires a linux kernel &gt;= 2.6.14.<dl>
+<dt>
+<b>--algo</b> {<b>bm</b>|<b>kmp</b>}</dt>
+<dd>
+Select the pattern matching strategy. (bm = Boyer-Moore, kmp = Knuth-Pratt-Morris)</dd>
+</dl>
+<dl>
+<dt>
+<b>--from</b> <i>offset</i></dt>
+<dd>
+Set the offset from which it starts looking for any matching. If not passed, default is 0.</dd>
+</dl>
+<dl>
+<dt>
+<b>--to</b> <i>offset</i></dt>
+<dd>
+Set the offset up to which should be scanned. That is, byte <i>offset</i>-1 (counting from 0) is the last one that is scanned. If not passed, default is the packet size.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--string</b> <i>pattern</i></dt>
+<dd>
+Matches the given pattern.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--hex-string</b> <i>pattern</i></dt>
+<dd>
+Matches the given pattern in hex notation.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>tcp</h2> These extensions can be used if `--protocol tcp' is specified. It provides the following options:<dl>
+<dt>
+[<b>!</b>] <b>--source-port</b>,<b>--sport</b> <i>port</i>[<b>:</b><i>port</i>]</dt>
+<dd>
+Source port or port range specification. This can either be a service name or a port number. An inclusive range can also be specified, using the format  <i>first</i><b>:</b><i>last</i>. If the first port is omitted, &quot;0&quot; is assumed; if the last is omitted, &quot;65535&quot; is assumed. If the first port is greater than the second one they will be swapped. The flag  <b>--sport</b> is a convenient alias for this option.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--destination-port</b>,<b>--dport</b> <i>port</i>[<b>:</b><i>port</i>]</dt>
+<dd>
+Destination port or port range specification.  The flag  <b>--dport</b> is a convenient alias for this option.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--tcp-flags</b> <i>mask</i> <i>comp</i></dt>
+<dd>
+Match when the TCP flags are as specified.  The first argument <i>mask</i> is the flags which we should examine, written as a comma-separated list, and the second argument  <i>comp</i> is a comma-separated list of flags which must be set.  Flags are: <b>SYN ACK FIN RST URG PSH ALL NONE</b>. Hence the command<br/>
+ iptables -A FORWARD -p tcp --tcp-flags SYN,ACK,FIN,RST SYN<br/>
+will only match packets with the SYN flag set, and the ACK, FIN and RST flags unset.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--syn</b></dt>
+<dd>
+Only match TCP packets with the SYN bit set and the ACK,RST and FIN bits cleared.  Such packets are used to request TCP connection initiation; for example, blocking such packets coming in an interface will prevent incoming TCP connections, but outgoing TCP connections will be unaffected. It is equivalent to  <b>--tcp-flags SYN,RST,ACK,FIN SYN</b>. If the &quot;!&quot; flag precedes the &quot;--syn&quot;, the sense of the option is inverted.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--tcp-option</b> <i>number</i></dt>
+<dd>
+Match if TCP option set.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>tcpmss</h2> This matches the TCP MSS (maximum segment size) field of the TCP header.  You can only use this on TCP SYN or SYN/ACK packets, since the MSS is only negotiated during the TCP handshake at connection startup time.<dl>
+<dt>
+[<b>!</b>] <b>--mss</b> <i>value</i>[<b>:</b><i>value</i>]</dt>
+<dd>
+Match a given TCP MSS value or range.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>time</h2> This matches if the packet arrival time/date is within a given range. All options are optional, but are ANDed when specified. All times are interpreted as UTC by default.<dl>
+<dt>
+<b>--datestart</b> <i>YYYY</i>[<b>-</b><i>MM</i>[<b>-</b><i>DD</i>[<b>T</b><i>hh</i>[<b>:</b><i>mm</i>[<b>:</b><i>ss</i>]]]]]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>--datestop</b> <i>YYYY</i>[<b>-</b><i>MM</i>[<b>-</b><i>DD</i>[<b>T</b><i>hh</i>[<b>:</b><i>mm</i>[<b>:</b><i>ss</i>]]]]]</dt>
+<dd>
+Only match during the given time, which must be in ISO 8601 &quot;T&quot; notation. The possible time range is 1970-01-01T00:00:00 to 2038-01-19T04:17:07.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+If --datestart or --datestop are not specified, it will default to 1970-01-01 and 2038-01-19, respectively.</dd>
+</dl>
+<dl>
+<dt>
+<b>--timestart</b> <i>hh</i><b>:</b><i>mm</i>[<b>:</b><i>ss</i>]</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>--timestop</b> <i>hh</i><b>:</b><i>mm</i>[<b>:</b><i>ss</i>]</dt>
+<dd>
+Only match during the given daytime. The possible time range is 00:00:00 to 23:59:59. Leading zeroes are allowed (e.g. &quot;06:03&quot;) and correctly interpreted as base-10.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--monthdays</b> <i>day</i>[<b>,</b><i>day</i>...]</dt>
+<dd>
+Only match on the given days of the month. Possible values are <b>1</b> to  <b>31</b>. Note that specifying <b>31</b> will of course not match on months which do not have a 31st day; the same goes for 28- or 29-day February.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--weekdays</b> <i>day</i>[<b>,</b><i>day</i>...]</dt>
+<dd>
+Only match on the given weekdays. Possible values are <b>Mon</b>, <b>Tue</b>,  <b>Wed</b>, <b>Thu</b>, <b>Fri</b>, <b>Sat</b>, <b>Sun</b>, or values from <b>1</b> to  <b>7</b>, respectively. You may also use two-character variants (<b>Mo</b>,  <b>Tu</b>, etc.).</dd>
+</dl>
+<dl>
+<dt>
+<b>--kerneltz</b></dt>
+<dd>
+Use the kernel timezone instead of UTC to determine whether a packet meets the time regulations.</dd>
+</dl>
+<div class="spacer">
+</div>
+About kernel timezones: Linux keeps the system time in UTC, and always does so. On boot, system time is initialized from a referential time source. Where this time source has no timezone information, such as the x86 CMOS RTC, UTC will be assumed. If the time source is however not in UTC, userspace should provide the correct system time and timezone to the kernel once it has the information.<div class="spacer">
+</div>
+Local time is a feature on top of the (timezone independent) system time. Each process has its own idea of local time, specified via the TZ environment variable. The kernel also has its own timezone offset variable. The TZ userspace environment variable specifies how the UTC-based system time is displayed, e.g. when you run date(1), or what you see on your desktop clock. The TZ string may resolve to different offsets at different dates, which is what enables the automatic time-jumping in userspace. when DST changes. The kernel's timezone offset variable is used when it has to convert between non-UTC sources, such as FAT filesystems, to UTC (since the latter is what the rest of the system uses).<div class="spacer">
+</div>
+The caveat with the kernel timezone is that Linux distributions may ignore to set the kernel timezone, and instead only set the system time. Even if a particular distribution does set the timezone at boot, it is usually does not keep the kernel timezone offset - which is what changes on DST - up to date. ntpd will not touch the kernel timezone, so running it will not resolve the issue. As such, one may encounter a timezone that is always +0000, or one that is wrong half of the time of the year. As such,  <b>using --kerneltz is highly</b>  <b>discouraged.</b><div class="spacer">
+</div>
+EXAMPLES. To match on weekends, use:<dl>
+<dt>
+</dt>
+<dd>
+-m time --weekdays Sa,Su</dd>
+</dl>
+<div class="spacer">
+</div>
+Or, to match (once) on a national holiday block:<dl>
+<dt>
+</dt>
+<dd>
+-m time --datestart 2007-12-24 --datestop 2007-12-27</dd>
+</dl>
+<div class="spacer">
+</div>
+Since the stop time is actually inclusive, you would need the following stop time to not match the first second of the new day:<dl>
+<dt>
+</dt>
+<dd>
+-m time --datestart 2007-01-01T17:00 --datestop 2007-01-01T23:59:59</dd>
+</dl>
+<div class="spacer">
+</div>
+During lunch hour:<dl>
+<dt>
+</dt>
+<dd>
+-m time --timestart 12:30 --timestop 13:30</dd>
+</dl>
+<div class="spacer">
+</div>
+The fourth Friday in the month:<dl>
+<dt>
+</dt>
+<dd>
+-m time --weekdays Fr --monthdays 22,23,24,25,26,27,28</dd>
+</dl>
+<div class="spacer">
+</div>
+(Note that this exploits a certain mathematical property. It is not possible to say &quot;fourth Thursday OR fourth Friday&quot; in one rule. It is possible with multiple rules, though.)</div>
+<div class="subsection">
+<h2>tos</h2> This module matches the 8-bit Type of Service field in the IPv4 header (i.e. including the &quot;Precedence&quot; bits) or the (also 8-bit) Priority field in the IPv6 header.<dl>
+<dt>
+[<b>!</b>] <b>--tos</b> <i>value</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Matches packets with the given TOS mark value. If a mask is specified, it is logically ANDed with the TOS mark before the comparison.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--tos</b> <i>symbol</i></dt>
+<dd>
+You can specify a symbolic name when using the tos match for IPv4. The list of recognized TOS names can be obtained by calling iptables with  <b>-m tos -h</b>. Note that this implies a mask of 0x3F, i.e. all but the ECN bits.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>u32</h2> U32 tests whether quantities of up to 4 bytes extracted from a packet have specified values. The specification of what to extract is general enough to find data at given offsets from tcp headers or payloads.<dl>
+<dt>
+[<b>!</b>] <b>--u32</b> <i>tests</i></dt>
+<dd>
+The argument amounts to a program in a small language described below.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+tests := location &quot;=&quot; value | tests &quot;&amp;&amp;&quot; location &quot;=&quot; value</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+value := range | value &quot;,&quot; range</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+range := number | number &quot;:&quot; number</dd>
+</dl>
+<div class="spacer">
+</div>
+a single number, <i>n</i>, is interpreted the same as <i>n:n</i>. <i>n:m</i> is interpreted as the range of numbers  <b>&gt;=n</b> and <b>&lt;=m</b>.<dl>
+<dt>
+<div class="spacer">
+</div>
+</dt>
+<dd>
+location := number | location operator number</dd>
+</dl>
+<dl>
+<dt>
+<div class="spacer">
+</div>
+</dt>
+<dd>
+operator := &quot;&amp;&quot; | &quot;&lt;&lt;&quot; | &quot;&gt;&gt;&quot; | &quot;@&quot;</dd>
+</dl>
+<div class="spacer">
+</div>
+The operators <b>&amp;</b>, <b>&lt;&lt;</b>, <b>&gt;&gt;</b> and <b>&amp;&amp;</b> mean the same as in C. The  <b>=</b> is really a set membership operator and the value syntax describes a set. The  <b>@</b> operator is what allows moving to the next header and is described further below.<div class="spacer">
+</div>
+There are currently some artificial implementation limits on the size of the tests:<dl>
+<dt>
+    *</dt>
+<dd>
+no more than 10 of &quot;<b>=</b>&quot; (and 9 &quot;<b>&amp;&amp;</b>&quot;s) in the u32 argument</dd>
+</dl>
+<dl>
+<dt>
+    *</dt>
+<dd>
+no more than 10 ranges (and 9 commas) per value</dd>
+</dl>
+<dl>
+<dt>
+    *</dt>
+<dd>
+no more than 10 numbers (and 9 operators) per location</dd>
+</dl>
+<div class="spacer">
+</div>
+To describe the meaning of location, imagine the following machine that interprets it. There are three registers:<dl>
+<dt>
+</dt>
+<dd>
+A is of type <b>char *</b>, initially the address of the IP header</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+B and C are unsigned 32 bit integers, initially zero</dd>
+</dl>
+<div class="spacer">
+</div>
+The instructions are:<dl>
+<dt>
+</dt>
+<dd>
+number B = number;</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+C = (*(A+B)&lt;&lt;24) + (*(A+B+1)&lt;&lt;16) + (*(A+B+2)&lt;&lt;8) + *(A+B+3)</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+&amp;number C = C &amp; number</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+&lt;&lt; number C = C &lt;&lt; number</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+&gt;&gt; number C = C &gt;&gt; number</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+@number A = A + C; then do the instruction number</dd>
+</dl>
+<div class="spacer">
+</div>
+Any access of memory outside [skb-&gt;data,skb-&gt;end] causes the match to fail. Otherwise the result of the computation is the final value of C.<div class="spacer">
+</div>
+Whitespace is allowed but not required in the tests. However, the characters that do occur there are likely to require shell quoting, so it is a good idea to enclose the arguments in quotes.<div class="spacer">
+</div>
+Example:<dl>
+<dt>
+</dt>
+<dd>
+match IP packets with total length &gt;= 256</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+The IP header contains a total length field in bytes 2-3.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+--u32 &quot;<b>0 &amp; 0xFFFF = 0x100:0xFFFF</b>&quot;</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+read bytes 0-3</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+AND that with 0xFFFF (giving bytes 2-3), and test whether that is in the range [0x100:0xFFFF]</dd>
+</dl>
+<div class="spacer">
+</div>
+Example: (more realistic, hence more complicated)<dl>
+<dt>
+</dt>
+<dd>
+match ICMP packets with icmp type 0</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+First test that it is an ICMP packet, true iff byte 9 (protocol) = 1</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+--u32 &quot;<b>6 &amp; 0xFF = 1 &amp;&amp;</b> ...</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+read bytes 6-9, use <b>&amp;</b> to throw away bytes 6-8 and compare the result to 1. Next test that it is not a fragment. (If so, it might be part of such a packet but we cannot always tell.) N.B.: This test is generally needed if you want to match anything beyond the IP header. The last 6 bits of byte 6 and all of byte 7 are 0 iff this is a complete packet (not a fragment). Alternatively, you can allow first fragments by only testing the last 5 bits of byte 6.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+<br/>
+ ... <b>4 &amp; 0x3FFF = 0 &amp;&amp;</b> ...</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+Last test: the first byte past the IP header (the type) is 0. This is where we have to use the @syntax. The length of the IP header (IHL) in 32 bit words is stored in the right half of byte 0 of the IP header itself.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+<br/>
+ ... <b>0 &gt;&gt; 22 &amp; 0x3C @ 0 &gt;&gt; 24 = 0</b>&quot;</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+The first 0 means read bytes 0-3, <b>&gt;&gt;22</b> means shift that 22 bits to the right. Shifting 24 bits would give the first byte, so only 22 bits is four times that plus a few more bits.  <b>&amp;3C</b> then eliminates the two extra bits on the right and the first four bits of the first byte. For instance, if IHL=5, then the IP header is 20 (4 x 5) bytes long. In this case, bytes 0-1 are (in binary) xxxx0101 yyzzzzzz,  <b>&gt;&gt;22</b> gives the 10 bit value xxxx0101yy and  <b>&amp;3C</b> gives 010100. <b>@</b> means to use this number as a new offset into the packet, and read four bytes starting from there. This is the first 4 bytes of the ICMP payload, of which byte 0 is the ICMP type. Therefore, we simply shift the value 24 to the right to throw out all but the first byte and compare the result with 0.</dd>
+</dl>
+<div class="spacer">
+</div>
+Example:<dl>
+<dt>
+</dt>
+<dd>
+TCP payload bytes 8-12 is any of 1, 2, 5 or 8</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+First we test that the packet is a tcp packet (similar to ICMP).</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+--u32 &quot;<b>6 &amp; 0xFF = 6 &amp;&amp;</b> ...</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+Next, test that it is not a fragment (same as above).</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+<br/>
+ ... <b>0 &gt;&gt; 22 &amp; 0x3C @ 12 &gt;&gt; 26 &amp; 0x3C @ 8 = 1,2,5,8</b>&quot;</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+<b>0&gt;&gt;22&amp;3C</b> as above computes the number of bytes in the IP header. <b>@</b> makes this the new offset into the packet, which is the start of the TCP header. The length of the TCP header (again in 32 bit words) is the left half of byte 12 of the TCP header. The  <b>12&gt;&gt;26&amp;3C</b> computes this length in bytes (similar to the IP header before). &quot;@&quot; makes this the new offset, which is the start of the TCP payload. Finally, 8 reads bytes 8-12 of the payload and  <b>=</b> checks whether the result is any of 1, 2, 5 or 8.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>udp</h2> These extensions can be used if `--protocol udp' is specified. It provides the following options:<dl>
+<dt>
+[<b>!</b>] <b>--source-port</b>,<b>--sport</b> <i>port</i>[<b>:</b><i>port</i>]</dt>
+<dd>
+Source port or port range specification. See the description of the  <b>--source-port</b> option of the TCP extension for details.</dd>
+</dl>
+<dl>
+<dt>
+[<b>!</b>] <b>--destination-port</b>,<b>--dport</b> <i>port</i>[<b>:</b><i>port</i>]</dt>
+<dd>
+Destination port or port range specification. See the description of the  <b>--destination-port</b> option of the TCP extension for details.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>TARGET EXTENSIONS</h1> ip6tables can use extended target modules: the following are included in the standard distribution.<div class="subsection">
+<h2>AUDIT</h2> This target allows to create audit records for packets hitting the target. It can be used to record accepted, dropped, and rejected packets. See auditd(8) for additional details.<dl>
+<dt>
+<b>--type</b> {<b>accept</b>|<b>drop</b>|<b>reject</b>}</dt>
+<dd>
+Set type of audit record.</dd>
+</dl>
+<div class="spacer">
+</div>
+Example:<dl>
+<dt>
+</dt>
+<dd>
+iptables -N AUDIT_DROP</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+iptables -A AUDIT_DROP -j AUDIT --type drop</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+iptables -A AUDIT_DROP -j DROP</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>CHECKSUM</h2> This target allows to selectively work around broken/old applications. It can only be used in the mangle table.<dl>
+<dt>
+<b>--checksum-fill</b></dt>
+<dd>
+Compute and fill in the checksum in a packet that lacks a checksum. This is particularly useful, if you need to work around old applications such as dhcp clients, that do not work well with checksum offloads, but don't want to disable checksum offload in your device.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>CLASSIFY</h2> This module allows you to set the skb-&gt;priority value (and thus classify the packet into a specific CBQ class).<dl>
+<dt>
+<b>--set-class</b> <i>major</i><b>:</b><i>minor</i></dt>
+<dd>
+Set the major and minor class value. The values are always interpreted as hexadecimal even if no 0x prefix is given.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>CONNMARK</h2> This module sets the netfilter mark value associated with a connection. The mark is 32 bits wide.<dl>
+<dt>
+<b>--set-xmark</b> <i>value</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Zero out the bits given by <i>mask</i> and XOR <i>value</i> into the ctmark.</dd>
+</dl>
+<dl>
+<dt>
+<b>--save-mark</b> [<b>--nfmask</b> <i>nfmask</i>] [<b>--ctmask</b> <i>ctmask</i>]</dt>
+<dd>
+Copy the packet mark (nfmark) to the connection mark (ctmark) using the given masks. The new nfmark value is determined as follows:</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+ctmark = (ctmark &amp; ~ctmask) ^ (nfmark &amp; nfmask)</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+i.e. <i>ctmask</i> defines what bits to clear and <i>nfmask</i> what bits of the nfmark to XOR into the ctmark.  <i>ctmask</i> and <i>nfmask</i> default to 0xFFFFFFFF.</dd>
+</dl>
+<dl>
+<dt>
+<b>--restore-mark</b> [<b>--nfmask</b> <i>nfmask</i>] [<b>--ctmask</b> <i>ctmask</i>]</dt>
+<dd>
+Copy the connection mark (ctmark) to the packet mark (nfmark) using the given masks. The new ctmark value is determined as follows:</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+nfmark = (nfmark &amp; ~<i>nfmask</i>) ^ (ctmark &amp; <i>ctmask</i>);</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+i.e. <i>nfmask</i> defines what bits to clear and <i>ctmask</i> what bits of the ctmark to XOR into the nfmark.  <i>ctmask</i> and <i>nfmask</i> default to 0xFFFFFFFF.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+<b>--restore-mark</b> is only valid in the <b>mangle</b> table.</dd>
+</dl>
+<div class="spacer">
+</div>
+The following mnemonics are available for <b>--set-xmark</b>:<dl>
+<dt>
+<b>--and-mark</b> <i>bits</i></dt>
+<dd>
+Binary AND the ctmark with <i>bits</i>. (Mnemonic for <b>--set-xmark</b>  <b>0/</b><i>invbits</i>, where <i>invbits</i> is the binary negation of <i>bits</i>.)</dd>
+</dl>
+<dl>
+<dt>
+<b>--or-mark</b> <i>bits</i></dt>
+<dd>
+Binary OR the ctmark with <i>bits</i>. (Mnemonic for <b>--set-xmark</b>  <i>bits</i><b>/</b><i>bits</i>.)</dd>
+</dl>
+<dl>
+<dt>
+<b>--xor-mark</b> <i>bits</i></dt>
+<dd>
+Binary XOR the ctmark with <i>bits</i>. (Mnemonic for <b>--set-xmark</b>  <i>bits</i><b>/0</b>.)</dd>
+</dl>
+<dl>
+<dt>
+<b>--set-mark</b> <i>value</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Set the connection mark. If a mask is specified then only those bits set in the mask are modified.</dd>
+</dl>
+<dl>
+<dt>
+<b>--save-mark</b> [<b>--mask</b> <i>mask</i>]</dt>
+<dd>
+Copy the nfmark to the ctmark. If a mask is specified, only those bits are copied.</dd>
+</dl>
+<dl>
+<dt>
+<b>--restore-mark</b> [<b>--mask</b> <i>mask</i>]</dt>
+<dd>
+Copy the ctmark to the nfmark. If a mask is specified, only those bits are copied. This is only valid in the  <b>mangle</b> table.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>CONNSECMARK</h2> This module copies security markings from packets to connections (if unlabeled), and from connections back to packets (also only if unlabeled).  Typically used in conjunction with SECMARK, it is valid in the <b>security</b> table (for backwards compatibility with older kernels, it is also valid in the <b>mangle</b> table).<dl>
+<dt>
+<b>--save</b></dt>
+<dd>
+If the packet has a security marking, copy it to the connection if the connection is not marked.</dd>
+</dl>
+<dl>
+<dt>
+<b>--restore</b></dt>
+<dd>
+If the packet does not have a security marking, and the connection does, copy the security marking from the connection to the packet.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>CT</h2> The CT target allows to set parameters for a packet or its associated connection. The target attaches a &quot;template&quot; connection tracking entry to the packet, which is then used by the conntrack core when initializing a new ct entry. This target is thus only valid in the &quot;raw&quot; table.<dl>
+<dt>
+<b>--notrack</b></dt>
+<dd>
+Disables connection tracking for this packet.</dd>
+</dl>
+<dl>
+<dt>
+<b>--helper</b> <i>name</i></dt>
+<dd>
+Use the helper identified by <i>name</i> for the connection. This is more flexible than loading the conntrack helper modules with preset ports.</dd>
+</dl>
+<dl>
+<dt>
+<b>--ctevents</b> <i>event</i>[<b>,</b>...]</dt>
+<dd>
+Only generate the specified conntrack events for this connection. Possible event types are:  <b>new</b>, <b>related</b>, <b>destroy</b>, <b>reply</b>,  <b>assured</b>, <b>protoinfo</b>, <b>helper</b>, <b>mark</b> (this refers to the ctmark, not nfmark),  <b>natseqinfo</b>, <b>secmark</b> (ctsecmark).</dd>
+</dl>
+<dl>
+<dt>
+<b>--expevents</b> <i>event</i>[<b>,</b>...]</dt>
+<dd>
+Only generate the specified expectation events for this connection. Possible event types are:  <b>new</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>--zone</b> <i>id</i></dt>
+<dd>
+Assign this packet to zone <i>id</i> and only have lookups done in that zone. By default, packets have zone 0.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>DSCP</h2> This target allows to alter the value of the DSCP bits within the TOS header of the IPv4 packet.  As this manipulates a packet, it can only be used in the mangle table.<dl>
+<dt>
+<b>--set-dscp</b> <i>value</i></dt>
+<dd>
+Set the DSCP field to a numerical value (can be decimal or hex)</dd>
+</dl>
+<dl>
+<dt>
+<b>--set-dscp-class</b> <i>class</i></dt>
+<dd>
+Set the DSCP field to a DiffServ class.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>HL</h2> This is used to modify the Hop Limit field in IPv6 header. The Hop Limit field is similar to what is known as TTL value in IPv4.  Setting or incrementing the Hop Limit field can potentially be very dangerous, so it should be avoided at any cost. This target is only valid in <b>mangle</b> table.<div class="spacer">
+</div>
+<b>Don't ever set or increment the value on packets that leave your local network!</b><dl>
+<dt>
+<b>--hl-set</b> <i>value</i></dt>
+<dd>
+Set the Hop Limit to `value'.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hl-dec</b> <i>value</i></dt>
+<dd>
+Decrement the Hop Limit `value' times.</dd>
+</dl>
+<dl>
+<dt>
+<b>--hl-inc</b> <i>value</i></dt>
+<dd>
+Increment the Hop Limit `value' times.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>IDLETIMER</h2> This target can be used to identify when interfaces have been idle for a certain period of time.  Timers are identified by labels and are created when a rule is set with a new label.  The rules also take a timeout value (in seconds) as an option.  If more than one rule uses the same timer label, the timer will be restarted whenever any of the rules get a hit.  One entry for each timer is created in sysfs.  This attribute contains the timer remaining for the timer to expire.  The attributes are located under the xt_idletimer class:<div class="spacer">
+</div>
+/sys/class/xt_idletimer/timers/&lt;label&gt;<div class="spacer">
+</div>
+When the timer expires, the target module sends a sysfs notification to the userspace, which can then decide what to do (eg. disconnect to save power).<dl>
+<dt>
+<b>--timeout</b> <i>amount</i></dt>
+<dd>
+This is the time in seconds that will trigger the notification.</dd>
+</dl>
+<dl>
+<dt>
+<b>--label</b> <i>string</i></dt>
+<dd>
+This is a unique identifier for the timer.  The maximum length for the label string is 27 characters.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>LOG</h2> Turn on kernel logging of matching packets.  When this option is set for a rule, the Linux kernel will print some information on all matching packets (like most IPv6 IPv6-header fields) via the kernel log (where it can be read with <i>dmesg</i> or <i>syslogd</i>(8)). This is a &quot;non-terminating target&quot;, i.e. rule traversal continues at the next rule.  So if you want to LOG the packets you refuse, use two separate rules with the same matching criteria, first using target LOG then DROP (or REJECT).<dl>
+<dt>
+<b>--log-level</b> <i>level</i></dt>
+<dd>
+Level of logging (numeric or see <i>syslog.conf</i>(5)).</dd>
+</dl>
+<dl>
+<dt>
+<b>--log-prefix</b> <i>prefix</i></dt>
+<dd>
+Prefix log messages with the specified prefix; up to 29 letters long, and useful for distinguishing messages in the logs.</dd>
+</dl>
+<dl>
+<dt>
+<b>--log-tcp-sequence</b></dt>
+<dd>
+Log TCP sequence numbers. This is a security risk if the log is readable by users.</dd>
+</dl>
+<dl>
+<dt>
+<b>--log-tcp-options</b></dt>
+<dd>
+Log options from the TCP packet header.</dd>
+</dl>
+<dl>
+<dt>
+<b>--log-ip-options</b></dt>
+<dd>
+Log options from the IPv6 packet header.</dd>
+</dl>
+<dl>
+<dt>
+<b>--log-uid</b></dt>
+<dd>
+Log the userid of the process which generated the packet.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>MARK</h2> This target is used to set the Netfilter mark value associated with the packet. It can, for example, be used in conjunction with routing based on fwmark (needs iproute2). If you plan on doing so, note that the mark needs to be set in the PREROUTING chain of the mangle table to affect routing. The mark field is 32 bits wide.<dl>
+<dt>
+<b>--set-xmark</b> <i>value</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Zeroes out the bits given by <i>mask</i> and XORs <i>value</i> into the packet mark (&quot;nfmark&quot;). If  <i>mask</i> is omitted, 0xFFFFFFFF is assumed.</dd>
+</dl>
+<dl>
+<dt>
+<b>--set-mark</b> <i>value</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Zeroes out the bits given by <i>mask</i> and ORs <i>value</i> into the packet mark. If  <i>mask</i> is omitted, 0xFFFFFFFF is assumed.</dd>
+</dl>
+<div class="spacer">
+</div>
+The following mnemonics are available:<dl>
+<dt>
+<b>--and-mark</b> <i>bits</i></dt>
+<dd>
+Binary AND the nfmark with <i>bits</i>. (Mnemonic for <b>--set-xmark</b>  <b>0/</b><i>invbits</i>, where <i>invbits</i> is the binary negation of <i>bits</i>.)</dd>
+</dl>
+<dl>
+<dt>
+<b>--or-mark</b> <i>bits</i></dt>
+<dd>
+Binary OR the nfmark with <i>bits</i>. (Mnemonic for <b>--set-xmark</b>  <i>bits</i><b>/</b><i>bits</i>.)</dd>
+</dl>
+<dl>
+<dt>
+<b>--xor-mark</b> <i>bits</i></dt>
+<dd>
+Binary XOR the nfmark with <i>bits</i>. (Mnemonic for <b>--set-xmark</b>  <i>bits</i><b>/0</b>.)</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>NFLOG</h2> This target provides logging of matching packets. When this target is set for a rule, the Linux kernel will pass the packet to the loaded logging backend to log the packet. This is usually used in combination with nfnetlink_log as logging backend, which will multicast the packet through a <i>netlink</i> socket to the specified multicast group. One or more userspace processes may subscribe to the group to receive the packets. Like LOG, this is a non-terminating target, i.e. rule traversal continues at the next rule.<dl>
+<dt>
+<b>--nflog-group</b> <i>nlgroup</i></dt>
+<dd>
+The netlink group (0 - 2^16-1) to which packets are (only applicable for nfnetlink_log). The default value is 0.</dd>
+</dl>
+<dl>
+<dt>
+<b>--nflog-prefix</b> <i>prefix</i></dt>
+<dd>
+A prefix string to include in the log message, up to 64 characters long, useful for distinguishing messages in the logs.</dd>
+</dl>
+<dl>
+<dt>
+<b>--nflog-range</b> <i>size</i></dt>
+<dd>
+The number of bytes to be copied to userspace (only applicable for nfnetlink_log). nfnetlink_log instances may specify their own range, this option overrides it.</dd>
+</dl>
+<dl>
+<dt>
+<b>--nflog-threshold</b> <i>size</i></dt>
+<dd>
+Number of packets to queue inside the kernel before sending them to userspace (only applicable for nfnetlink_log). Higher values result in less overhead per packet, but increase delay until the packets reach userspace. The default value is 1.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>NFQUEUE</h2> This target is an extension of the QUEUE target. As opposed to QUEUE, it allows you to put a packet into any specific queue, identified by its 16-bit queue number. It can only be used with Kernel versions 2.6.14 or later, since it requires the <b>nfnetlink_queue</b> kernel support. The  <b>queue-balance</b> option was added in Linux 2.6.31,  <b>queue-bypass</b> in 2.6.39.<dl>
+<dt>
+<b>--queue-num</b> <i>value</i></dt>
+<dd>
+This specifies the QUEUE number to use. Valid queue numbers are 0 to 65535. The default value is 0.</dd>
+</dl>
+<dl>
+<dt>
+<b>--queue-balance</b> <i>value</i><b>:</b><i>value</i></dt>
+<dd>
+This specifies a range of queues to use. Packets are then balanced across the given queues. This is useful for multicore systems: start multiple instances of the userspace program on queues x, x+1, .. x+n and use &quot;--queue-balance  <i>x</i><b>:</b><i>x+n</i>&quot;. Packets belonging to the same connection are put into the same nfqueue.</dd>
+</dl>
+<dl>
+<dt>
+<b>--queue-bypass</b></dt>
+<dd>
+By default, if no userspace program is listening on an NFQUEUE, then all packets that are to be queued are dropped.  When this option is used, the NFQUEUE rule is silently bypassed instead. The packet will move on to the next rule.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>NOTRACK</h2> This target disables connection tracking for all packets matching that rule.<div class="spacer">
+</div>
+It can only be used in the <b>raw</b> table.</div>
+<div class="subsection">
+<h2>RATEEST</h2> The RATEEST target collects statistics, performs rate estimation calculation and saves the results for later evaluation using the  <b>rateest</b> match.<dl>
+<dt>
+<b>--rateest-name</b> <i>name</i></dt>
+<dd>
+Count matched packets into the pool referred to by <i>name</i>, which is freely choosable.</dd>
+</dl>
+<dl>
+<dt>
+<b>--rateest-interval</b> <i>amount</i>{<b>s</b>|<b>ms</b>|<b>us</b>}</dt>
+<dd>
+Rate measurement interval, in seconds, milliseconds or microseconds.</dd>
+</dl>
+<dl>
+<dt>
+<b>--rateest-ewmalog</b> <i>value</i></dt>
+<dd>
+Rate measurement averaging time constant.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>REJECT</h2> This is used to send back an error packet in response to the matched packet: otherwise it is equivalent to <b>DROP</b> so it is a terminating TARGET, ending rule traversal. This target is only valid in the <b>INPUT</b>, <b>FORWARD</b> and <b>OUTPUT</b> chains, and user-defined chains which are only called from those chains.  The following option controls the nature of the error packet returned:<dl>
+<dt>
+<b>--reject-with</b> <i>type</i></dt>
+<dd>
+The type given can be  <b>icmp6-no-route</b>,  <b>no-route</b>,  <b>icmp6-adm-prohibited</b>,  <b>adm-prohibited</b>,  <b>icmp6-addr-unreachable</b>,  <b>addr-unreach</b>,  <b>icmp6-port-unreachable</b> or  <b>port-unreach</b> which return the appropriate ICMPv6 error message ( <b>port-unreach</b> is the default). Finally, the option  <b>tcp-reset</b> can be used on rules which only match the TCP protocol: this causes a TCP RST packet to be sent back.  This is mainly useful for blocking <i>ident</i> (113/tcp) probes which frequently occur when sending mail to broken mail hosts (which won't accept your mail otherwise).  <b>tcp-reset</b> can only be used with kernel versions 2.6.14 or later.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>SECMARK</h2> This is used to set the security mark value associated with the packet for use by security subsystems such as SELinux.  It is valid in the <b>security</b> table (for backwards compatibility with older kernels, it is also valid in the <b>mangle</b> table). The mark is 32 bits wide.<dl>
+<dt>
+<b>--selctx</b> <i>security_context</i></dt>
+<dd>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>SET</h2> This modules adds and/or deletes entries from IP sets which can be defined by ipset(8).<dl>
+<dt>
+<b>--add-set</b> <i>setname</i> <i>flag</i>[<b>,</b><i>flag</i>...]</dt>
+<dd>
+add the address(es)/port(s) of the packet to the sets</dd>
+</dl>
+<dl>
+<dt>
+<b>--del-set</b> <i>setname</i> <i>flag</i>[<b>,</b><i>flag</i>...]</dt>
+<dd>
+delete the address(es)/port(s) of the packet from the sets</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+where flags are <b>src</b> and/or <b>dst</b> specifications and there can be no more than six of them.</dd>
+</dl>
+<dl>
+<dt>
+<b>--timeout</b> <i>value</i></dt>
+<dd>
+when adding entry, the timeout value to use instead of the default one from the set definition</dd>
+</dl>
+<dl>
+<dt>
+<b>--exist</b></dt>
+<dd>
+when adding entry if it already exists, reset the timeout value to the specified one or to the default from the set definition</dd>
+</dl>
+<div class="spacer">
+</div>
+Use of -j SET requires that ipset kernel support is provided. As standard kernels do not ship this currently, the ipset or Xtables-addons package needs to be installed.</div>
+<div class="subsection">
+<h2>TCPMSS</h2> This target allows to alter the MSS value of TCP SYN packets, to control the maximum size for that connection (usually limiting it to your outgoing interface's MTU minus 40 for IPv4 or 60 for IPv6, respectively). Of course, it can only be used in conjunction with  <b>-p tcp</b>.<div class="spacer">
+</div>
+This target is used to overcome criminally braindead ISPs or servers which block &quot;ICMP Fragmentation Needed&quot; or &quot;ICMPv6 Packet Too Big&quot; packets.  The symptoms of this problem are that everything works fine from your Linux firewall/router, but machines behind it can never exchange large packets:<dl>
+<dt>
+1.</dt>
+<dd>
+Web browsers connect, then hang with no data received.</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+Small mail works fine, but large emails hang.</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+ssh works fine, but scp hangs after initial handshaking.</dd>
+</dl>
+<div class="spacer">
+</div>
+Workaround: activate this option and add a rule to your firewall configuration like:<dl>
+<dt>
+</dt>
+<dd>
+<br/>
+ iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN<br/>
+             -j TCPMSS --clamp-mss-to-pmtu</dd>
+</dl>
+<dl>
+<dt>
+<b>--set-mss</b> <i>value</i></dt>
+<dd>
+Explicitly sets MSS option to specified value. If the MSS of the packet is already lower than  <i>value</i>, it will <b>not</b> be increased (from Linux 2.6.25 onwards) to avoid more problems with hosts relying on a proper MSS.</dd>
+</dl>
+<dl>
+<dt>
+<b>--clamp-mss-to-pmtu</b></dt>
+<dd>
+Automatically clamp MSS value to (path_MTU - 40 for IPv4; -60 for IPv6). This may not function as desired where asymmetric routes with differing path MTU exist &#8212; the kernel uses the path MTU which it would use to send packets from itself to the source and destination IP addresses. Prior to Linux 2.6.25, only the path MTU to the destination IP address was considered by this option; subsequent kernels also consider the path MTU to the source IP address.</dd>
+</dl>
+<div class="spacer">
+</div>
+These options are mutually exclusive.</div>
+<div class="subsection">
+<h2>TCPOPTSTRIP</h2> This target will strip TCP options off a TCP packet. (It will actually replace them by NO-OPs.) As such, you will need to add the  <b>-p tcp</b> parameters.<dl>
+<dt>
+<b>--strip-options</b> <i>option</i>[<b>,</b><i>option</i>...]</dt>
+<dd>
+Strip the given option(s). The options may be specified by TCP option number or by symbolic name. The list of recognized options can be obtained by calling iptables with  <b>-j TCPOPTSTRIP -h</b>.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>TEE</h2> The  <b>TEE</b> target will clone a packet and redirect this clone to another machine on the  <b>local</b> network segment. In other words, the nexthop must be the target, or you will have to configure the nexthop to forward it further if so desired.<dl>
+<dt>
+<b>--gateway</b> <i>ipaddr</i></dt>
+<dd>
+Send the cloned packet to the host reachable at the given IP address. Use of 0.0.0.0 (for IPv4 packets) or :: (IPv6) is invalid.</dd>
+</dl>
+<div class="spacer">
+</div>
+To forward all incoming traffic on eth0 to an Network Layer logging box:<div class="spacer">
+</div>
+-t mangle -A PREROUTING -i eth0 -j TEE --gateway 2001:db8::1</div>
+<div class="subsection">
+<h2>TOS</h2> This module sets the Type of Service field in the IPv4 header (including the &quot;precedence&quot; bits) or the Priority field in the IPv6 header. Note that TOS shares the same bits as DSCP and ECN. The TOS target is only valid in the  <b>mangle</b> table.<dl>
+<dt>
+<b>--set-tos</b> <i>value</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Zeroes out the bits given by <i>mask</i> (see NOTE below) and XORs <i>value</i> into the TOS/Priority field. If  <i>mask</i> is omitted, 0xFF is assumed.</dd>
+</dl>
+<dl>
+<dt>
+<b>--set-tos</b> <i>symbol</i></dt>
+<dd>
+You can specify a symbolic name when using the TOS target for IPv4. It implies a mask of 0xFF (see NOTE below). The list of recognized TOS names can be obtained by calling iptables with  <b>-j TOS -h</b>.</dd>
+</dl>
+<div class="spacer">
+</div>
+The following mnemonics are available:<dl>
+<dt>
+<b>--and-tos</b> <i>bits</i></dt>
+<dd>
+Binary AND the TOS value with <i>bits</i>. (Mnemonic for <b>--set-tos</b>  <b>0/</b><i>invbits</i>, where <i>invbits</i> is the binary negation of <i>bits</i>. See NOTE below.)</dd>
+</dl>
+<dl>
+<dt>
+<b>--or-tos</b> <i>bits</i></dt>
+<dd>
+Binary OR the TOS value with <i>bits</i>. (Mnemonic for <b>--set-tos</b>  <i>bits</i><b>/</b><i>bits</i>. See NOTE below.)</dd>
+</dl>
+<dl>
+<dt>
+<b>--xor-tos</b> <i>bits</i></dt>
+<dd>
+Binary XOR the TOS value with <i>bits</i>. (Mnemonic for <b>--set-tos</b>  <i>bits</i><b>/0</b>. See NOTE below.)</dd>
+</dl>
+<div class="spacer">
+</div>
+NOTE: In Linux kernels up to and including 2.6.38, with the exception of longterm releases 2.6.32.42 (or later) and 2.6.33.15 (or later), there is a bug whereby IPv6 TOS mangling does not behave as documented and differs from the IPv4 version. The TOS mask indicates the bits one wants to zero out, so it needs to be inverted before applying it to the original TOS field. However, the aformentioned kernels forgo the inversion which breaks --set-tos and its mnemonics.</div>
+<div class="subsection">
+<h2>TPROXY</h2> This target is only valid in the  <b>mangle</b> table, in the <b>PREROUTING</b> chain and user-defined chains which are only called from this chain. It redirects the packet to a local socket without changing the packet header in any way. It can also change the mark value which can then be used in advanced routing rules. It takes three options:<dl>
+<dt>
+<b>--on-port</b> <i>port</i></dt>
+<dd>
+This specifies a destination port to use. It is a required option, 0 means the new destination port is the same as the original. This is only valid if the rule also specifies  <b>-p tcp</b> or <b>-p udp</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>--on-ip</b> <i>address</i></dt>
+<dd>
+This specifies a destination address to use. By default the address is the IP address of the incoming interface. This is only valid if the rule also specifies  <b>-p tcp</b> or <b>-p udp</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>--tproxy-mark</b> <i>value</i>[<b>/</b><i>mask</i>]</dt>
+<dd>
+Marks packets with the given value/mask. The fwmark value set here can be used by advanced routing. (Required for transparent proxying to work: otherwise these packets will get forwarded, which is probably not what you want.)</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>TRACE</h2> This target marks packes so that the kernel will log every rule which match the packets as those traverse the tables, chains, rules.<div class="spacer">
+</div>
+A logging backend, such as ip(6)t_LOG or nfnetlink_log, must be loaded for this to be visible. The packets are logged with the string prefix: &quot;TRACE: tablename:chainname:type:rulenum &quot; where type can be &quot;rule&quot; for plain rule, &quot;return&quot; for implicit rule at the end of a user defined chain and &quot;policy&quot; for the policy of the built in chains.<div style="height: 0.00em;">
+&#160;</div>
+It can only be used in the <b>raw</b> table.</div>
+</div>
+<div class="section">
+<h1>DIAGNOSTICS</h1> Various error messages are printed to standard error.  The exit code is 0 for correct functioning.  Errors which appear to be caused by invalid or abused command line parameters cause an exit code of 2, and other errors cause an exit code of 1.</div>
+<div class="section">
+<h1>BUGS</h1> Bugs?  What's this? ;-) Well... the counters are not reliable on sparc64.</div>
+<div class="section">
+<h1>COMPATIBILITY WITH IPCHAINS</h1> This  <b>ip6tables</b> is very similar to ipchains by Rusty Russell.  The main difference is that the chains  <b>INPUT</b> and <b>OUTPUT</b> are only traversed for packets coming into the local host and originating from the local host respectively.  Hence every packet only passes through one of the three chains (except loopback traffic, which involves both INPUT and OUTPUT chains); previously a forwarded packet would pass through all three.<div class="spacer">
+</div>
+The other main difference is that <b>-i</b> refers to the input interface;  <b>-o</b> refers to the output interface, and both are available for packets entering the  <b>FORWARD</b> chain. There are several other changes in ip6tables.</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <b>ip6tables-save</b>(8),  <b>ip6tables-restore</b>(8),  <b>iptables</b>(8),  <b>iptables-save</b>(8),  <b>iptables-restore</b>(8),  <b>libipq</b>(3).<div class="spacer">
+</div>
+The packet-filtering-HOWTO details iptables usage for packet filtering, the netfilter-extensions-HOWTO details the extensions that are not in the standard distribution, and the netfilter-hacking-HOWTO details the netfilter internals.<div style="height: 0.00em;">
+&#160;</div>
+See <b>http://www.netfilter.org/</b>.</div>
+<div class="section">
+<h1>AUTHORS</h1> Rusty Russell wrote iptables, in early consultation with Michael Neuling.<div class="spacer">
+</div>
+Marc Boucher made Rusty abandon ipnatctl by lobbying for a generic packet selection framework in iptables, then wrote the mangle table, the owner match, the mark stuff, and ran around doing cool stuff everywhere.<div class="spacer">
+</div>
+James Morris wrote the TOS target, and tos match.<div class="spacer">
+</div>
+Jozsef Kadlecsik wrote the REJECT target.<div class="spacer">
+</div>
+Harald Welte wrote the ULOG and NFQUEUE target, the new libiptc, as well as TTL match+target and libipulog.<div class="spacer">
+</div>
+The Netfilter Core Team is: Marc Boucher, Martin Josefsson, Yasuyuki Kozakai, Jozsef Kadlecsik, Patrick McHardy, James Morris, Pablo Neira Ayuso, Harald Welte and Rusty Russell.<div class="spacer">
+</div>
+ip6tables man page created by Andras Kis-Szabo, based on iptables man page written by Herve Eychenne &lt;rv@wallfire.org&gt;.</div>
+<div class="section">
+<h1>VERSION</h1> This manual page applies to ip6tables @PACKAGE_VERSION@.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+</td>
+<td class="foot-os">
+iptables 1.4.12</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

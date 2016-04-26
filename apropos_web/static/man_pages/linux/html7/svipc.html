@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+SVIPC(7)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SVIPC(7)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+SVIPC(7)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> svipc - System V interprocess communication mechanisms</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;sys/types.h&gt;</b> <b>#include &lt;sys/ipc.h&gt;</b> <b>#include &lt;sys/msg.h&gt;</b> <b>#include &lt;sys/sem.h&gt;</b> <b>#include &lt;sys/shm.h&gt;</b><br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This manual page refers to the Linux implementation of the System V interprocess communication (IPC) mechanisms: message queues, semaphore sets, and shared memory segments. In the following, the word <i>resource</i> means an instantiation of one among such mechanisms.<div class="subsection">
+<h2>Resource Access Permissions</h2> For each resource, the system uses a common structure of type <i>struct ipc_perm</i> to store information needed in determining permissions to perform an IPC operation. The <i>ipc_perm</i> structure, defined by the <i>&lt;sys/ipc.h&gt;</i> system header file, includes the following members:<br/>
+<div class="spacer">
+</div>
+<br/>
+struct ipc_perm {<br/>
+    uid_t          cuid;   /* creator user ID */<br/>
+    gid_t          cgid;   /* creator group ID */<br/>
+    uid_t          uid;    /* owner user ID */<br/>
+    gid_t          gid;    /* owner group ID */<br/>
+    unsigned short mode;   /* r/w permissions */<br/>
+};<br/>
+<br/>
+<div class="spacer">
+</div>
+The <i>mode</i> member of the <i>ipc_perm</i> structure defines, with its lower 9 bits, the access permissions to the resource for a process executing an IPC system call. The permissions are interpreted as follows:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    0400    Read by user.<br/>
+    0200    Write by user.<div style="height: 0.50em;">
+&#160;</div>
+<br/>
+    0040    Read by group.<br/>
+    0020    Write by group.<div style="height: 0.50em;">
+&#160;</div>
+<br/>
+    0004    Read by others.<br/>
+    0002    Write by others.<br/>
+<div class="spacer">
+</div>
+Bits 0100, 0010, and 0001 (the execute bits) are unused by the system. Furthermore, &quot;write&quot; effectively means &quot;alter&quot; for a semaphore set.<div class="spacer">
+</div>
+The same system header file also defines the following symbolic constants:<dl>
+<dt>
+<b>IPC_CREAT</b></dt>
+<dd>
+Create entry if key doesn't exist.</dd>
+</dl>
+<dl>
+<dt>
+<b>IPC_EXCL</b></dt>
+<dd>
+Fail if key exists.</dd>
+</dl>
+<dl>
+<dt>
+<b>IPC_NOWAIT</b></dt>
+<dd>
+Error if request must wait.</dd>
+</dl>
+<dl>
+<dt>
+<b>IPC_PRIVATE</b></dt>
+<dd>
+Private key.</dd>
+</dl>
+<dl>
+<dt>
+<b>IPC_RMID</b></dt>
+<dd>
+Remove resource.</dd>
+</dl>
+<dl>
+<dt>
+<b>IPC_SET</b></dt>
+<dd>
+Set resource options.</dd>
+</dl>
+<dl>
+<dt>
+<b>IPC_STAT</b></dt>
+<dd>
+Get resource options.</dd>
+</dl>
+<div class="spacer">
+</div>
+Note that <b>IPC_PRIVATE</b> is a <i>key_t</i> type, while all the other symbolic constants are flag fields and can be OR'ed into an <i>int</i> type variable.</div>
+<div class="subsection">
+<h2>Message Queues</h2> A message queue is uniquely identified by a positive integer (its <i>msqid</i>) and has an associated data structure of type <i>struct msqid_ds</i>, defined in <i>&lt;sys/msg.h&gt;</i>, containing the following members:<br/>
+<div class="spacer">
+</div>
+<br/>
+struct msqid_ds {<br/>
+    struct ipc_perm msg_perm;<br/>
+    msgqnum_t       msg_qnum;    /* no of messages on queue */<br/>
+    msglen_t        msg_qbytes;  /* bytes max on a queue */<br/>
+    pid_t           msg_lspid;   /* PID of last msgsnd(2) call */<br/>
+    pid_t           msg_lrpid;   /* PID of last msgrcv(2) call */<br/>
+    time_t          msg_stime;   /* last msgsnd(2) time */<br/>
+    time_t          msg_rtime;   /* last msgrcv(2) time */<br/>
+    time_t          msg_ctime;   /* last change time */<br/>
+};<br/>
+<br/>
+<dl>
+<dt>
+<i>msg_perm</i></dt>
+<dd>
+<i>ipc_perm</i> structure that specifies the access permissions on the message queue.</dd>
+</dl>
+<dl>
+<dt>
+<i>msg_qnum</i></dt>
+<dd>
+Number of messages currently on the message queue.</dd>
+</dl>
+<dl>
+<dt>
+<i>msg_qbytes</i></dt>
+<dd>
+Maximum number of bytes of message text allowed on the message queue.</dd>
+</dl>
+<dl>
+<dt>
+<i>msg_lspid</i></dt>
+<dd>
+ID of the process that performed the last <b>msgsnd</b>(2) system call.</dd>
+</dl>
+<dl>
+<dt>
+<i>msg_lrpid</i></dt>
+<dd>
+ID of the process that performed the last <b>msgrcv</b>(2) system call.</dd>
+</dl>
+<dl>
+<dt>
+<i>msg_stime</i></dt>
+<dd>
+Time of the last <b>msgsnd</b>(2) system call.</dd>
+</dl>
+<dl>
+<dt>
+<i>msg_rtime</i></dt>
+<dd>
+Time of the last <b>msgrcv</b>(2) system call.</dd>
+</dl>
+<dl>
+<dt>
+<i>msg_ctime</i></dt>
+<dd>
+Time of the last system call that changed a member of the <i>msqid_ds</i> structure.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Semaphore Sets</h2> A semaphore set is uniquely identified by a positive integer (its <i>semid</i>) and has an associated data structure of type <i>struct semid_ds</i>, defined in <i>&lt;sys/sem.h&gt;</i>, containing the following members:<br/>
+<div class="spacer">
+</div>
+<br/>
+struct semid_ds {<br/>
+    struct ipc_perm sem_perm;<br/>
+    time_t          sem_otime;   /* last operation time */<br/>
+    time_t          sem_ctime;   /* last change time */<br/>
+    unsigned long   sem_nsems;   /* count of sems in set */<br/>
+};<br/>
+<br/>
+<dl>
+<dt>
+<i>sem_perm</i></dt>
+<dd>
+<i>ipc_perm</i> structure that specifies the access permissions on the semaphore set.</dd>
+</dl>
+<dl>
+<dt>
+<i>sem_otime</i></dt>
+<dd>
+Time of last <b>semop</b>(2) system call.</dd>
+</dl>
+<dl>
+<dt>
+<i>sem_ctime</i></dt>
+<dd>
+Time of last <b>semctl</b>(2) system call that changed a member of the above structure or of one semaphore belonging to the set.</dd>
+</dl>
+<dl>
+<dt>
+<i>sem_nsems</i></dt>
+<dd>
+Number of semaphores in the set. Each semaphore of the set is referenced by a nonnegative integer ranging from <b>0</b> to <i>sem_nsems-1</i>.</dd>
+</dl>
+<div class="spacer">
+</div>
+A semaphore is a data structure of type <i>struct sem</i> containing the following members:<br/>
+<div class="spacer">
+</div>
+<br/>
+struct sem {<br/>
+    int semval;  /* semaphore value */<br/>
+    int sempid;  /* PID for last operation */<br/>
+};<br/>
+<br/>
+<dl>
+<dt>
+<i>semval</i></dt>
+<dd>
+Semaphore value: a nonnegative integer.</dd>
+</dl>
+<dl>
+<dt>
+<i>sempid</i></dt>
+<dd>
+ID of the last process that performed a semaphore operation on this semaphore.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Shared Memory Segments</h2> A shared memory segment is uniquely identified by a positive integer (its <i>shmid</i>) and has an associated data structure of type <i>struct shmid_ds</i>, defined in <i>&lt;sys/shm.h&gt;</i>, containing the following members:<br/>
+<div class="spacer">
+</div>
+<br/>
+struct shmid_ds {<br/>
+    struct ipc_perm shm_perm;<br/>
+    size_t          shm_segsz;   /* size of segment */<br/>
+    pid_t           shm_cpid;    /* PID of creator */<br/>
+    pid_t           shm_lpid;    /* PID, last operation */<br/>
+    shmatt_t        shm_nattch;  /* no. of current attaches */<br/>
+    time_t          shm_atime;   /* time of last attach */<br/>
+    time_t          shm_dtime;   /* time of last detach */<br/>
+    time_t          shm_ctime;   /* time of last change */<br/>
+};<br/>
+<br/>
+<dl>
+<dt>
+<i>shm_perm</i></dt>
+<dd>
+<i>ipc_perm</i> structure that specifies the access permissions on the shared memory segment.</dd>
+</dl>
+<dl>
+<dt>
+<i>shm_segsz</i></dt>
+<dd>
+Size in bytes of the shared memory segment.</dd>
+</dl>
+<dl>
+<dt>
+<i>shm_cpid</i></dt>
+<dd>
+ID of the process that created the shared memory segment.</dd>
+</dl>
+<dl>
+<dt>
+<i>shm_lpid</i></dt>
+<dd>
+ID of the last process that executed a <b>shmat</b>(2) or <b>shmdt</b>(2) system call.</dd>
+</dl>
+<dl>
+<dt>
+<i>shm_nattch</i></dt>
+<dd>
+Number of current alive attaches for this shared memory segment.</dd>
+</dl>
+<dl>
+<dt>
+<i>shm_atime</i></dt>
+<dd>
+Time of the last <b>shmat</b>(2) system call.</dd>
+</dl>
+<dl>
+<dt>
+<i>shm_dtime</i></dt>
+<dd>
+Time of the last <b>shmdt</b>(2) system call.</dd>
+</dl>
+<dl>
+<dt>
+<i>shm_ctime</i></dt>
+<dd>
+Time of the last <b>shmctl</b>(2) system call that changed <i>shmid_ds</i>.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>ipc</b>(2), <b>msgctl</b>(2), <b>msgget</b>(2), <b>msgrcv</b>(2), <b>msgsnd</b>(2), <b>semctl</b>(2), <b>semget</b>(2), <b>semop</b>(2), <b>shmat</b>(2), <b>shmctl</b>(2), <b>shmdt</b>(2), <b>shmget</b>(2), <b>ftok</b>(3)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2009-01-26</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

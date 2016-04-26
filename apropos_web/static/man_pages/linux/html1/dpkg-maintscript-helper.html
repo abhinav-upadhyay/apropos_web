@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+dpkg-maintscript-helper(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+dpkg-maintscript-helper(1)</td>
+<td class="head-vol">
+dpkg suite</td>
+<td class="head-rtitle">
+dpkg-maintscript-helper(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> dpkg-maintscript-helper - works around known dpkg limitations in maintainer scripts</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>dpkg-maintscript-helper</b> <i>command</i> [<i>parameter</i>...] <b>--</b> <i>maint-script-parameter</i>...</div>
+<div class="section">
+<h1>COMMANDS AND PARAMETERS</h1>  <b>rm_conffile</b> <i>conffile</i> [<i>lastversion</i> [<i>package</i>]]<div class="spacer">
+</div>
+<b>mv_conffile</b> <i>oldconffile</i> <i>newconffile</i> [<i>lastversion</i> [<i>package</i>]]</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This program is designed to be run within maintainer scripts to achieve some tasks that dpkg can't (yet) handle natively either because of design decisions or due to current limitations.<div class="spacer">
+</div>
+Many of those tasks require coordinated actions from several maintainer scripts ( <b>preinst</b>, <b>postinst</b>, <b>prerm</b>, <b>postrm</b>). To avoid mistakes the same call simply needs to be put in all scripts and the program will automatically adapt its behaviour based on the environment variable  <b>DPKG_MAINTSCRIPT_NAME</b> and on the maintainer scripts arguments that you have to forward after a double dash.</div>
+<div class="section">
+<h1>CONFFILE RELATED TASKS</h1> When upgrading a package, dpkg will not automatically remove a conffile (a configuration file for which dpkg should preserve user changes) if it is not present in the newer version. There are two principal reasons for this; the first is that the conffile could've been dropped by accident and the next version could restore it, users wouldn't want their changes thrown away. The second is to allow packages to transition files from a dpkg-maintained conffile to a file maintained by the package's maintainer scripts, usually with a tool like debconf or ucf.<div class="spacer">
+</div>
+This means that if a package is intended to rename or remove a conffile, it must explicitly do so and  <b>dpkg-maintscript-helper</b> can be used to implement graceful deletion and moving of conffiles within maintainer scripts.<div class="subsection">
+<h2>REMOVING A CONFFILE</h2> If a conffile is completely removed, it should be removed from disk, unless the user has modified it. If there are local modifications, they should be preserved. If the package upgrades aborts, the newly obsolete conffile should not disappear.<div class="spacer">
+</div>
+All of this is implemented by putting the following shell snippet in the  <b>preinst</b>, <b>postinst</b> and <b>postrm</b> maintainer scripts:<div class="spacer">
+</div>
+<br/>
+    dpkg-maintscript-helper rm_conffile \<br/>
+        <i>conffile</i> <i>lastversion</i> <i>package</i> -- &quot;$@&quot;<div class="spacer">
+</div>
+<i>conffile</i> is the filename of the conffile to remove.  <i>lastversion</i> is the last version of the package that contained the conffile (or the last version of the package that did not take care to remove the obsolete conffile if this was not immediately implemented). If  <i>lastversion</i> is empty or omitted, then the operation is tried on every upgrade.  <i>package</i> is the package name, it's optional as it will default to $DPKG_MAINTSCRIPT_PACKAGE (this variable is set by dpkg to the name of the package acted upon). All the parameters of the maintainer scripts have to be forwarded to the program after &quot;--&quot;.<div class="spacer">
+</div>
+Current implementation: in the <b>preinst</b>, it checks if the conffile was modified and renames it either to  <i>conffile</i><b>.dpkg-remove</b> (if not modified) or to  <i>conffile</i><b>.dpkg-backup</b> (if modified). In the  <b>postinst</b>, the latter file is renamed to <i>conffile</i><b>.dpkg-bak</b> and kept for reference as it contains user modifications but the former will be removed. If the package upgrade aborts, the  <b>postrm</b> reinstalls the original conffile. During purge, the  <b>postrm</b> will also delete the  <b>.dpkg-bak</b> file kept up to now.</div>
+<div class="subsection">
+<h2>RENAMING A CONFFILE</h2> If a conffile is moved from one location to another, you need to make sure you move across any changes the user has made. This may seem a simple change to the  <b>preinst</b> script at first, however that will result in the user being prompted by dpkg to approve the conffile edits even though they are not responsible of them.<div class="spacer">
+</div>
+Graceful renaming can be implemented by putting the following shell snippet in the  <b>preinst</b>, <b>postinst</b> and <b>postrm</b> maintainer scripts:<div class="spacer">
+</div>
+<br/>
+    dpkg-maintscript-helper mv_conffile \<br/>
+        <i>oldconffile</i> <i>newconffile</i> <i>lastversion</i> <i>package</i> -- &quot;$@&quot;<div class="spacer">
+</div>
+<i>oldconffile</i> and <i>newconffile</i> are the old and new name of the conffile to rename.  <i>lastversion</i> is the last version of the package that contained the conffile with the old name. If  <i>lastversion</i> is empty or omitted, then the operation is tried on every upgrade (note: it's safer to give the version and have the operation tried only once).  <i>package</i> is the package name, it's optional as it will default to $DPKG_MAINTSCRIPT_PACKAGE (this variable is set by dpkg to the name of the package acted upon). All the parameters of the maintainer scripts have to be forwarded to the program after &quot;--&quot;.<div class="spacer">
+</div>
+Current implementation: the <b>preinst</b> checks if the conffile has been modified, if yes it's left on place otherwise it's renamed to  <i>oldconffile</i><b>.dpkg-remove</b>. On configuration, the <b>postinst</b> removes  <i>oldconffile</i><b>.dpkg-remove</b> and renames <i>oldconffile</i> to  <i>newconffile</i> if <i>oldconffile</i> is still available. On abort-upgrade/abort-install, the  <b>postrm</b> renames  <i>oldconffile</i><b>.dpkg-remove</b> back to <i>oldconffile</i> if required.</div>
+</div>
+<div class="section">
+<h1>INTEGRATION IN PACKAGES</h1> Given that  <b>dpkg-maintscript-helper</b> is used in the <b>preinst</b>, using it unconditionally requires a pre-dependency to ensure that the required version of dpkg has been unpacked before. The required version depends on the command used, for  <b>rm_conffile</b> and <b>mv_conffile</b> it is 1.15.7.2:<div class="spacer">
+</div>
+<br/>
+    <b>Pre-Depends:</b> dpkg (&gt;= 1.15.7.2)<div class="spacer">
+</div>
+But in many cases the operation done by the program is not critical for the package, and instead of using a pre-dependency we can call the program only if we know that the required command is supported by the currently installed dpkg:<div class="spacer">
+</div>
+<br/>
+    if dpkg-maintscript-helper supports <i>command</i>; then<br/>
+        dpkg-maintscript-helper <i>command</i> ...<br/>
+    fi</div>
+<div class="section">
+<h1>AUTHORS</h1> Copyright &#169; 2010 Rapha&#235;l Hertzog<div style="height: 0.00em;">
+&#160;</div>
+Copyright &#169; 2008 Joey Hess<div style="height: 0.00em;">
+&#160;</div>
+Copyright &#169; 2007 Guillem Jover<div style="height: 0.00em;">
+&#160;</div>
+Copyright &#169; 2005 Scott James Remnant<div style="height: 1.00em;">
+&#160;</div>
+This is free software; see the GNU General Public Licence version 2 or later for copying conditions. There is NO WARRANTY.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-08-14</td>
+<td class="foot-os">
+Debian Project</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

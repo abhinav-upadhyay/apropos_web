@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+XML::Simple(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+XML::Simple(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+XML::Simple(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> XML::Simple - Easy API to maintain XML (esp config files)</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    use XML::Simple;<br/>
+<br/>
+    my $ref = XMLin([&lt;xml file or string&gt;] [, &lt;options&gt;]);<br/>
+<br/>
+    my $xml = XMLout($hashref [, &lt;options&gt;]);<br/>
+<div class="spacer">
+</div>
+Or the object oriented way:<div class="spacer">
+</div>
+<br/>
+    require XML::Simple;<br/>
+<br/>
+    my $xs = XML::Simple-&gt;new(options);<br/>
+<br/>
+    my $ref = $xs-&gt;XMLin([&lt;xml file or string&gt;] [, &lt;options&gt;]);<br/>
+<br/>
+    my $xml = $xs-&gt;XMLout($hashref [, &lt;options&gt;]);<br/>
+<div class="spacer">
+</div>
+(or see &quot;SAX SUPPORT&quot; for 'the SAX way').<div class="spacer">
+</div>
+To catch common errors:<div class="spacer">
+</div>
+<br/>
+    use XML::Simple qw(:strict);<br/>
+<div class="spacer">
+</div>
+(see &quot;STRICT MODE&quot; for more details).</div>
+<div class="section">
+<h1>QUICK START</h1> Say you have a script called  <b>foo</b> and a file of configuration options called  <b>foo.xml</b> containing this:<div class="spacer">
+</div>
+<br/>
+  &lt;config logdir=&quot;/var/log/foo/&quot; debugfile=&quot;/tmp/foo.debug&quot;&gt;<br/>
+    &lt;server name=&quot;sahara&quot; osname=&quot;solaris&quot; osversion=&quot;2.6&quot;&gt;<br/>
+      &lt;address&gt;10.0.0.101&lt;/address&gt;<br/>
+      &lt;address&gt;10.0.1.101&lt;/address&gt;<br/>
+    &lt;/server&gt;<br/>
+    &lt;server name=&quot;gobi&quot; osname=&quot;irix&quot; osversion=&quot;6.5&quot;&gt;<br/>
+      &lt;address&gt;10.0.0.102&lt;/address&gt;<br/>
+    &lt;/server&gt;<br/>
+    &lt;server name=&quot;kalahari&quot; osname=&quot;linux&quot; osversion=&quot;2.0.34&quot;&gt;<br/>
+      &lt;address&gt;10.0.0.103&lt;/address&gt;<br/>
+      &lt;address&gt;10.0.1.103&lt;/address&gt;<br/>
+    &lt;/server&gt;<br/>
+  &lt;/config&gt;<br/>
+<div class="spacer">
+</div>
+The following lines of code in <b>foo</b>:<div class="spacer">
+</div>
+<br/>
+  use XML::Simple;<br/>
+<br/>
+  my $config = XMLin();<br/>
+<div class="spacer">
+</div>
+will 'slurp' the configuration options into the hashref $config (because no arguments are passed to &quot;XMLin()&quot; the name and location of the XML file will be inferred from name and location of the script).  You can dump out the contents of the hashref using Data::Dumper:<div class="spacer">
+</div>
+<br/>
+  use Data::Dumper;<br/>
+<br/>
+  print Dumper($config);<br/>
+<div class="spacer">
+</div>
+which will produce something like this (formatting has been adjusted for brevity):<div class="spacer">
+</div>
+<br/>
+  {<br/>
+      'logdir'        =&gt; '/var/log/foo/',<br/>
+      'debugfile'     =&gt; '/tmp/foo.debug',<br/>
+      'server'        =&gt; {<br/>
+          'sahara'        =&gt; {<br/>
+              'osversion'     =&gt; '2.6',<br/>
+              'osname'        =&gt; 'solaris',<br/>
+              'address'       =&gt; [ '10.0.0.101', '10.0.1.101' ]<br/>
+          },<br/>
+          'gobi'          =&gt; {<br/>
+              'osversion'     =&gt; '6.5',<br/>
+              'osname'        =&gt; 'irix',<br/>
+              'address'       =&gt; '10.0.0.102'<br/>
+          },<br/>
+          'kalahari'      =&gt; {<br/>
+              'osversion'     =&gt; '2.0.34',<br/>
+              'osname'        =&gt; 'linux',<br/>
+              'address'       =&gt; [ '10.0.0.103', '10.0.1.103' ]<br/>
+          }<br/>
+      }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+Your script could then access the name of the log directory like this:<div class="spacer">
+</div>
+<br/>
+  print $config-&gt;{logdir};<br/>
+<div class="spacer">
+</div>
+similarly, the second address on the server 'kalahari' could be referenced as:<div class="spacer">
+</div>
+<br/>
+  print $config-&gt;{server}-&gt;{kalahari}-&gt;{address}-&gt;[1];<br/>
+<div class="spacer">
+</div>
+What could be simpler?  (Rhetorical).<div class="spacer">
+</div>
+For simple requirements, that's really all there is to it.  If you want to store your XML in a different directory or file, or pass it in as a string or even pass it in via some derivative of an IO::Handle, you'll need to check out &quot;OPTIONS&quot;.  If you want to turn off or tweak the array folding feature (that neat little transformation that produced $config-&gt;{server}) you'll find options for that as well.<div class="spacer">
+</div>
+If you want to generate XML (for example to write a modified version of $config back out as XML), check out &quot;XMLout()&quot;.<div class="spacer">
+</div>
+If your needs are not so simple, this may not be the module for you.  In that case, you might want to read &quot;WHERE TO FROM HERE?&quot;.</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The XML::Simple module provides a simple API layer on top of an underlying XML parsing module (either XML::Parser or one of the SAX2 parser modules).  Two functions are exported: &quot;XMLin()&quot; and &quot;XMLout()&quot;.  Note: you can explicity request the lower case versions of the function names: &quot;xml_in()&quot; and &quot;xml_out()&quot;.<div class="spacer">
+</div>
+The simplest approach is to call these two functions directly, but an optional object oriented interface (see &quot;OPTIONAL OO INTERFACE&quot; below) allows them to be called as methods of an  <b>XML::Simple</b> object.  The object interface can also be used at either end of a SAX pipeline.<div class="subsection">
+<h2><i>XMLin()</i></h2> Parses XML formatted data and returns a reference to a data structure which contains the same information in a more readily accessible form.  (Skip down to &quot;EXAMPLES&quot; below, for more sample code).<div class="spacer">
+</div>
+&quot;XMLin()&quot; accepts an optional XML specifier followed by zero or more 'name =&gt; value' option pairs.  The XML specifier can be one of the following:<dl>
+<dt>
+A filename</dt>
+<dd>
+If the filename contains no directory components &quot;XMLin()&quot; will look for the file in each directory in the SearchPath (see &quot;OPTIONS&quot; below) or in the current directory if the SearchPath option is not defined.  eg:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $ref = XMLin('/etc/params.xml');<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Note, the filename '-' can be used to parse from STDIN.</dd>
+</dl>
+<dl>
+<dt>
+undef</dt>
+<dd>
+If there is no XML specifier, &quot;XMLin()&quot; will check the script directory and each of the SearchPath directories for a file with the same name as the script but with the extension '.xml'.  Note: if you wish to specify options, you must specify the value 'undef'.  eg:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $ref = XMLin(undef, ForceArray =&gt; 1);<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+A string of XML</dt>
+<dd>
+A string containing XML (recognised by the presence of '&lt;' and '&gt;' characters) will be parsed directly.  eg:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $ref = XMLin('&lt;opt username=&quot;bob&quot; password=&quot;flurp&quot; /&gt;');<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+An IO::Handle object</dt>
+<dd>
+An IO::Handle object will be read to EOF and its contents parsed. eg:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $fh = IO::File-&gt;new('/etc/params.xml');<br/>
+  $ref = XMLin($fh);<br/>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2><i>XMLout()</i></h2> Takes a data structure (generally a hashref) and returns an XML encoding of that structure.  If the resulting XML is parsed using &quot;XMLin()&quot;, it should return a data structure equivalent to the original (see caveats below).<div class="spacer">
+</div>
+The &quot;XMLout()&quot; function can also be used to output the XML as SAX events see the &quot;Handler&quot; option and &quot;SAX SUPPORT&quot; for more details).<div class="spacer">
+</div>
+When translating hashes to XML, hash keys which have a leading '-' will be silently skipped.  This is the approved method for marking elements of a data structure which should be ignored by &quot;XMLout&quot;.  (Note: If these items were not skipped the key names would be emitted as element or attribute names with a leading '-' which would not be valid XML).</div>
+<div class="subsection">
+<h2>Caveats</h2> Some care is required in creating data structures which will be passed to &quot;XMLout()&quot;.  Hash keys from the data structure will be encoded as either XML element names or attribute names.  Therefore, you should use hash key names which conform to the relatively strict XML naming rules:<div class="spacer">
+</div>
+Names in XML must begin with a letter.  The remaining characters may be letters, digits, hyphens (-), underscores (_) or full stops (.).  It is also allowable to include one colon (:) in an element name but this should only be used when working with namespaces ( <b>XML::Simple</b> can only usefully work with namespaces when teamed with a SAX Parser).<div class="spacer">
+</div>
+You can use other punctuation characters in hash values (just not in hash keys) however  <b>XML::Simple</b> does not support dumping binary data.<div class="spacer">
+</div>
+If you break these rules, the current implementation of &quot;XMLout()&quot; will simply emit non-compliant XML which will be rejected if you try to read it back in.  (A later version of  <b>XML::Simple</b> might take a more proactive approach).<div class="spacer">
+</div>
+Note also that although you can nest hashes and arrays to arbitrary levels, circular data structures are not supported and will cause &quot;XMLout()&quot; to die.<div class="spacer">
+</div>
+If you wish to 'round-trip' arbitrary data structures from Perl to XML and back to Perl, then you should probably disable array folding (using the KeyAttr option) both with &quot;XMLout()&quot; and with &quot;XMLin()&quot;.  If you still don't get the expected results, you may prefer to use XML::Dumper which is designed for exactly that purpose.<div class="spacer">
+</div>
+Refer to &quot;WHERE TO FROM HERE?&quot; if &quot;XMLout()&quot; is too simple for your needs.</div>
+</div>
+<div class="section">
+<h1>OPTIONS</h1>  <b>XML::Simple</b> supports a number of options (in fact as each release of  <b>XML::Simple</b> adds more options, the module's claim to the name 'Simple' becomes increasingly tenuous).  If you find yourself repeatedly having to specify the same options, you might like to investigate &quot;OPTIONAL OO INTERFACE&quot; below.<div class="spacer">
+</div>
+If you can't be bothered reading the documentation, refer to &quot;STRICT MODE&quot; to automatically catch common mistakes.<div class="spacer">
+</div>
+Because there are so many options, it's hard for new users to know which ones are important, so here are the two you really need to know about:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+check out &quot;ForceArray&quot; because you'll almost certainly want to turn it on</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+make sure you know what the &quot;KeyAttr&quot; option does and what its default value is because it may surprise you otherwise (note in particular that 'KeyAttr' affects both &quot;XMLin&quot; and &quot;XMLout&quot;)</dd>
+</dl>
+<div class="spacer">
+</div>
+The option name headings below have a trailing 'comment' - a hash followed by two pieces of metadata:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Options are marked with '<i>in</i>' if they are recognised by &quot;XMLin()&quot; and ' <i>out</i>' if they are recognised by &quot;XMLout()&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Each option is also flagged to indicate whether it is:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ 'important'   - don't use the module until you understand this one<br/>
+ 'handy'       - you can skip this on the first time through<br/>
+ 'advanced'    - you can skip this on the second time through<br/>
+ 'SAX only'    - don't worry about this unless you're using SAX (or<br/>
+                 alternatively if you need this, you also need SAX)<br/>
+ 'seldom used' - you'll probably never use this unless you were the<br/>
+                 person that requested the feature<br/>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+The options are listed alphabetically:<div class="spacer">
+</div>
+Note: option names are no longer case sensitive so you can use the mixed case versions shown here; all lower case as required by versions 2.03 and earlier; or you can add underscores between the words (eg: key_attr).<div class="subsection">
+<h2>AttrIndent =&gt; 1 <i># out - handy</i></h2> When you are using &quot;XMLout()&quot;, enable this option to have attributes printed one-per-line with sensible indentation rather than all on one line.</div>
+<div class="subsection">
+<h2>Cache =&gt; [ cache schemes ] <i># in - advanced</i></h2> Because loading the  <b>XML::Parser</b> module and parsing an XML file can consume a significant number of CPU cycles, it is often desirable to cache the output of &quot;XMLin()&quot; for later reuse.<div class="spacer">
+</div>
+When parsing from a named file, <b>XML::Simple</b> supports a number of caching schemes.  The 'Cache' option may be used to specify one or more schemes (using an anonymous array).  Each scheme will be tried in turn in the hope of finding a cached pre-parsed representation of the XML file.  If no cached copy is found, the file will be parsed and the first cache scheme in the list will be used to save a copy of the results.  The following cache schemes have been implemented:<dl>
+<dt>
+storable</dt>
+<dd>
+Utilises <b>Storable.pm</b> to read/write a cache file with the same name as the XML file but with the extension .stor</dd>
+</dl>
+<dl>
+<dt>
+memshare</dt>
+<dd>
+When a file is first parsed, a copy of the resulting data structure is retained in memory in the  <b>XML::Simple</b> module's namespace.  Subsequent calls to parse the same file will return a reference to this structure.  This cached version will persist only for the life of the Perl interpreter (which in the case of mod_perl for example, may be some significant time).<div style="height: 1.00em;">
+&#160;</div>
+Because each caller receives a reference to the same data structure, a change made by one caller will be visible to all.  For this reason, the reference returned should be treated as read-only.</dd>
+</dl>
+<dl>
+<dt>
+memcopy</dt>
+<dd>
+This scheme works identically to 'memshare' (above) except that each caller receives a reference to a new data structure which is a copy of the cached version.  Copying the data structure will add a little processing overhead, therefore this scheme should only be used where the caller intends to modify the data structure (or wishes to protect itself from others who might).  This scheme uses  <b>Storable.pm</b> to perform the copy.</dd>
+</dl>
+<div class="spacer">
+</div>
+Warning! The memory-based caching schemes compare the timestamp on the file to the time when it was last parsed.  If the file is stored on an NFS filesystem (or other network share) and the clock on the file server is not exactly synchronised with the clock where your script is run, updates to the source XML file may appear to be ignored.</div>
+<div class="subsection">
+<h2>ContentKey =&gt; 'keyname' <i># in+out - seldom used</i></h2> When text content is parsed to a hash value, this option let's you specify a name for the hash key to override the default 'content'.  So for example:<div class="spacer">
+</div>
+<br/>
+  XMLin('&lt;opt one=&quot;1&quot;&gt;Text&lt;/opt&gt;', ContentKey =&gt; 'text')<br/>
+<div class="spacer">
+</div>
+will parse to:<div class="spacer">
+</div>
+<br/>
+  { 'one' =&gt; 1, 'text' =&gt; 'Text' }<br/>
+<div class="spacer">
+</div>
+instead of:<div class="spacer">
+</div>
+<br/>
+  { 'one' =&gt; 1, 'content' =&gt; 'Text' }<br/>
+<div class="spacer">
+</div>
+&quot;XMLout()&quot; will also honour the value of this option when converting a hashref to XML.<div class="spacer">
+</div>
+You can also prefix your selected key name with a '-' character to have &quot;XMLin()&quot; try a little harder to eliminate unnecessary 'content' keys after array folding.  For example:<div class="spacer">
+</div>
+<br/>
+  XMLin(<br/>
+    '&lt;opt&gt;&lt;item name=&quot;one&quot;&gt;First&lt;/item&gt;&lt;item name=&quot;two&quot;&gt;Second&lt;/item&gt;&lt;/opt&gt;', <br/>
+    KeyAttr =&gt; {item =&gt; 'name'}, <br/>
+    ForceArray =&gt; [ 'item' ],<br/>
+    ContentKey =&gt; '-content'<br/>
+  )<br/>
+<div class="spacer">
+</div>
+will parse to:<div class="spacer">
+</div>
+<br/>
+  {<br/>
+    'item' =&gt; {<br/>
+      'one' =&gt;  'First'<br/>
+      'two' =&gt;  'Second'<br/>
+    }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+rather than this (without the '-'):<div class="spacer">
+</div>
+<br/>
+  {<br/>
+    'item' =&gt; {<br/>
+      'one' =&gt; { 'content' =&gt; 'First' }<br/>
+      'two' =&gt; { 'content' =&gt; 'Second' }<br/>
+    }<br/>
+  }<br/>
+</div>
+<div class="subsection">
+<h2>DataHandler =&gt; code_ref <i># in - SAX only</i></h2> When you use an  <b>XML::Simple</b> object as a SAX handler, it will return a 'simple tree' data structure in the same format as &quot;XMLin()&quot; would return.  If this option is set (to a subroutine reference), then when the tree is built the subroutine will be called and passed two arguments: a reference to the  <b>XML::Simple</b> object and a reference to the data tree.  The return value from the subroutine will be returned to the SAX driver.  (See &quot;SAX SUPPORT&quot; for more details).</div>
+<div class="subsection">
+<h2>ForceArray =&gt; 1 <i># in - important</i></h2> This option should be set to '1' to force nested elements to be represented as arrays even when there is only one.  Eg, with ForceArray enabled, this XML:<div class="spacer">
+</div>
+<br/>
+    &lt;opt&gt;<br/>
+      &lt;name&gt;value&lt;/name&gt;<br/>
+    &lt;/opt&gt;<br/>
+<div class="spacer">
+</div>
+would parse to this:<div class="spacer">
+</div>
+<br/>
+    {<br/>
+      'name' =&gt; [<br/>
+                  'value'<br/>
+                ]<br/>
+    }<br/>
+<div class="spacer">
+</div>
+instead of this (the default):<div class="spacer">
+</div>
+<br/>
+    {<br/>
+      'name' =&gt; 'value'<br/>
+    }<br/>
+<div class="spacer">
+</div>
+This option is especially useful if the data structure is likely to be written back out as XML and the default behaviour of rolling single nested elements up into attributes is not desirable.<div class="spacer">
+</div>
+If you are using the array folding feature, you should almost certainly enable this option.  If you do not, single nested elements will not be parsed to arrays and therefore will not be candidates for folding to a hash.  (Given that the default value of 'KeyAttr' enables array folding, the default value of this option should probably also have been enabled too - sorry).</div>
+<div class="subsection">
+<h2>ForceArray =&gt; [ names ] <i># in - important</i></h2> This alternative (and preferred) form of the 'ForceArray' option allows you to specify a list of element names which should always be forced into an array representation, rather than the 'all or nothing' approach above.<div class="spacer">
+</div>
+It is also possible (since version 2.05) to include compiled regular expressions in the list - any element names which match the pattern will be forced to arrays.  If the list contains only a single regex, then it is not necessary to enclose it in an arrayref.  Eg:<div class="spacer">
+</div>
+<br/>
+  ForceArray =&gt; qr/_list$/<br/>
+</div>
+<div class="subsection">
+<h2>ForceContent =&gt; 1 <i># in - seldom used</i></h2> When &quot;XMLin()&quot; parses elements which have text content as well as attributes, the text content must be represented as a hash value rather than a simple scalar.  This option allows you to force text content to always parse to a hash value even when there are no attributes.  So for example:<div class="spacer">
+</div>
+<br/>
+  XMLin('&lt;opt&gt;&lt;x&gt;text1&lt;/x&gt;&lt;y a=&quot;2&quot;&gt;text2&lt;/y&gt;&lt;/opt&gt;', ForceContent =&gt; 1)<br/>
+<div class="spacer">
+</div>
+will parse to:<div class="spacer">
+</div>
+<br/>
+  {<br/>
+    'x' =&gt; {           'content' =&gt; 'text1' },<br/>
+    'y' =&gt; { 'a' =&gt; 2, 'content' =&gt; 'text2' }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+instead of:<div class="spacer">
+</div>
+<br/>
+  {<br/>
+    'x' =&gt; 'text1',<br/>
+    'y' =&gt; { 'a' =&gt; 2, 'content' =&gt; 'text2' }<br/>
+  }<br/>
+</div>
+<div class="subsection">
+<h2>GroupTags =&gt; { grouping tag =&gt; grouped tag } <i># in+out - handy</i></h2> You can use this option to eliminate extra levels of indirection in your Perl data structure.  For example this XML:<div class="spacer">
+</div>
+<br/>
+  &lt;opt&gt;<br/>
+   &lt;searchpath&gt;<br/>
+     &lt;dir&gt;/usr/bin&lt;/dir&gt;<br/>
+     &lt;dir&gt;/usr/local/bin&lt;/dir&gt;<br/>
+     &lt;dir&gt;/usr/X11/bin&lt;/dir&gt;<br/>
+   &lt;/searchpath&gt;<br/>
+ &lt;/opt&gt;<br/>
+<div class="spacer">
+</div>
+Would normally be read into a structure like this:<div class="spacer">
+</div>
+<br/>
+  {<br/>
+    searchpath =&gt; {<br/>
+                    dir =&gt; [ '/usr/bin', '/usr/local/bin', '/usr/X11/bin' ]<br/>
+                  }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+But when read in with the appropriate value for 'GroupTags':<div class="spacer">
+</div>
+<br/>
+  my $opt = XMLin($xml, GroupTags =&gt; { searchpath =&gt; 'dir' });<br/>
+<div class="spacer">
+</div>
+It will return this simpler structure:<div class="spacer">
+</div>
+<br/>
+  {<br/>
+    searchpath =&gt; [ '/usr/bin', '/usr/local/bin', '/usr/X11/bin' ]<br/>
+  }<br/>
+<div class="spacer">
+</div>
+The grouping element (&quot;&lt;searchpath&gt;&quot; in the example) must not contain any attributes or elements other than the grouped element.<div class="spacer">
+</div>
+You can specify multiple 'grouping element' to 'grouped element' mappings in the same hashref.  If this option is combined with &quot;KeyAttr&quot;, the array folding will occur first and then the grouped element names will be eliminated.<div class="spacer">
+</div>
+&quot;XMLout&quot; will also use the grouptag mappings to re-introduce the tags around the grouped elements.  Beware though that this will occur in all places that the 'grouping tag' name occurs - you probably don't want to use the same name for elements as well as attributes.</div>
+<div class="subsection">
+<h2>Handler =&gt; object_ref <i># out - SAX only</i></h2> Use the 'Handler' option to have &quot;XMLout()&quot; generate SAX events rather than returning a string of XML.  For more details see &quot;SAX SUPPORT&quot; below.<div class="spacer">
+</div>
+Note: the current implementation of this option generates a string of XML and uses a SAX parser to translate it into SAX events.  The normal encoding rules apply here - your data must be UTF8 encoded unless you specify an alternative encoding via the 'XMLDecl' option; and by the time the data reaches the handler object, it will be in UTF8 form regardless of the encoding you supply.  A future implementation of this option may generate the events directly.</div>
+<div class="subsection">
+<h2>KeepRoot =&gt; 1 <i># in+out - handy</i></h2> In its attempt to return a data structure free of superfluous detail and unnecessary levels of indirection, &quot;XMLin()&quot; normally discards the root element name.  Setting the 'KeepRoot' option to '1' will cause the root element name to be retained.  So after executing this code:<div class="spacer">
+</div>
+<br/>
+  $config = XMLin('&lt;config tempdir=&quot;/tmp&quot; /&gt;', KeepRoot =&gt; 1)<br/>
+<div class="spacer">
+</div>
+You'll be able to reference the tempdir as &quot;$config-&gt;{config}-&gt;{tempdir}&quot; instead of the default &quot;$config-&gt;{tempdir}&quot;.<div class="spacer">
+</div>
+Similarly, setting the 'KeepRoot' option to '1' will tell &quot;XMLout()&quot; that the data structure already contains a root element name and it is not necessary to add another.</div>
+<div class="subsection">
+<h2>KeyAttr =&gt; [ list ] <i># in+out - important</i></h2> This option controls the 'array folding' feature which translates nested elements from an array to a hash.  It also controls the 'unfolding' of hashes to arrays.<div class="spacer">
+</div>
+For example, this XML:<div class="spacer">
+</div>
+<br/>
+    &lt;opt&gt;<br/>
+      &lt;user login=&quot;grep&quot; fullname=&quot;Gary R Epstein&quot; /&gt;<br/>
+      &lt;user login=&quot;stty&quot; fullname=&quot;Simon T Tyson&quot; /&gt;<br/>
+    &lt;/opt&gt;<br/>
+<div class="spacer">
+</div>
+would, by default, parse to this:<div class="spacer">
+</div>
+<br/>
+    {<br/>
+      'user' =&gt; [<br/>
+                  {<br/>
+                    'login' =&gt; 'grep',<br/>
+                    'fullname' =&gt; 'Gary R Epstein'<br/>
+                  },<br/>
+                  {<br/>
+                    'login' =&gt; 'stty',<br/>
+                    'fullname' =&gt; 'Simon T Tyson'<br/>
+                  }<br/>
+                ]<br/>
+    }<br/>
+<div class="spacer">
+</div>
+If the option 'KeyAttr =&gt; &quot;login&quot;' were used to specify that the 'login' attribute is a key, the same XML would parse to:<div class="spacer">
+</div>
+<br/>
+    {<br/>
+      'user' =&gt; {<br/>
+                  'stty' =&gt; {<br/>
+                              'fullname' =&gt; 'Simon T Tyson'<br/>
+                            },<br/>
+                  'grep' =&gt; {<br/>
+                              'fullname' =&gt; 'Gary R Epstein'<br/>
+                            }<br/>
+                }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+The key attribute names should be supplied in an arrayref if there is more than one.  &quot;XMLin()&quot; will attempt to match attribute names in the order supplied.  &quot;XMLout()&quot; will use the first attribute name supplied when 'unfolding' a hash into an array.<div class="spacer">
+</div>
+Note 1: The default value for 'KeyAttr' is ['name', 'key', 'id'].  If you do not want folding on input or unfolding on output you must setting this option to an empty list to disable the feature.<div class="spacer">
+</div>
+Note 2: If you wish to use this option, you should also enable the &quot;ForceArray&quot; option.  Without 'ForceArray', a single nested element will be rolled up into a scalar rather than an array and therefore will not be folded (since only arrays get folded).</div>
+<div class="subsection">
+<h2>KeyAttr =&gt; { list } <i># in+out - important</i></h2> This alternative (and preferred) method of specifiying the key attributes allows more fine grained control over which elements are folded and on which attributes.  For example the option 'KeyAttr =&gt; { package =&gt; 'id' } will cause any package elements to be folded on the 'id' attribute.  No other elements which have an 'id' attribute will be folded at all.<div class="spacer">
+</div>
+Note: &quot;XMLin()&quot; will generate a warning (or a fatal error in &quot;STRICT MODE&quot;) if this syntax is used and an element which does not have the specified key attribute is encountered (eg: a 'package' element without an 'id' attribute, to use the example above).  Warnings will only be generated if  <b>-w</b> is in force.<div class="spacer">
+</div>
+Two further variations are made possible by prefixing a '+' or a '-' character to the attribute name:<div class="spacer">
+</div>
+The option 'KeyAttr =&gt; { user =&gt; &quot;+login&quot; }' will cause this XML:<div class="spacer">
+</div>
+<br/>
+    &lt;opt&gt;<br/>
+      &lt;user login=&quot;grep&quot; fullname=&quot;Gary R Epstein&quot; /&gt;<br/>
+      &lt;user login=&quot;stty&quot; fullname=&quot;Simon T Tyson&quot; /&gt;<br/>
+    &lt;/opt&gt;<br/>
+<div class="spacer">
+</div>
+to parse to this data structure:<div class="spacer">
+</div>
+<br/>
+    {<br/>
+      'user' =&gt; {<br/>
+                  'stty' =&gt; {<br/>
+                              'fullname' =&gt; 'Simon T Tyson',<br/>
+                              'login'    =&gt; 'stty'<br/>
+                            },<br/>
+                  'grep' =&gt; {<br/>
+                              'fullname' =&gt; 'Gary R Epstein',<br/>
+                              'login'    =&gt; 'grep'<br/>
+                            }<br/>
+                }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+The '+' indicates that the value of the key attribute should be copied rather than moved to the folded hash key.<div class="spacer">
+</div>
+A '-' prefix would produce this result:<div class="spacer">
+</div>
+<br/>
+    {<br/>
+      'user' =&gt; {<br/>
+                  'stty' =&gt; {<br/>
+                              'fullname' =&gt; 'Simon T Tyson',<br/>
+                              '-login'    =&gt; 'stty'<br/>
+                            },<br/>
+                  'grep' =&gt; {<br/>
+                              'fullname' =&gt; 'Gary R Epstein',<br/>
+                              '-login'    =&gt; 'grep'<br/>
+                            }<br/>
+                }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+As described earlier, &quot;XMLout&quot; will ignore hash keys starting with a '-'.</div>
+<div class="subsection">
+<h2>NoAttr =&gt; 1 <i># in+out - handy</i></h2> When used with &quot;XMLout()&quot;, the generated XML will contain no attributes. All hash key/values will be represented as nested elements instead.<div class="spacer">
+</div>
+When used with &quot;XMLin()&quot;, any attributes in the XML will be ignored.</div>
+<div class="subsection">
+<h2>NoEscape =&gt; 1 <i># out - seldom used</i></h2> By default, &quot;XMLout()&quot; will translate the characters '&lt;', '&gt;', '&amp;' and '&quot;' to '&amp;lt;', '&amp;gt;', '&amp;amp;' and '&amp;quot' respectively.  Use this option to suppress escaping (presumably because you've already escaped the data in some more sophisticated manner).</div>
+<div class="subsection">
+<h2>NoIndent =&gt; 1 <i># out - seldom used</i></h2> Set this option to 1 to disable &quot;XMLout()&quot;'s default 'pretty printing' mode. With this option enabled, the XML output will all be on one line (unless there are newlines in the data) - this may be easier for downstream processing.</div>
+<div class="subsection">
+<h2>NoSort =&gt; 1 <i># out - seldom used</i></h2> Newer versions of XML::Simple sort elements and attributes alphabetically (*), by default.  Enable this option to suppress the sorting - possibly for backwards compatibility.<div class="spacer">
+</div>
+* Actually, sorting is alphabetical but 'key' attribute or element names (as in 'KeyAttr') sort first.  Also, when a hash of hashes is 'unfolded', the elements are sorted alphabetically by the value of the key field.</div>
+<div class="subsection">
+<h2>NormaliseSpace =&gt; 0 | 1 | 2 <i># in - handy</i></h2> This option controls how whitespace in text content is handled.  Recognised values for the option are:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+0 = (default) whitespace is passed through unaltered (except of course for the normalisation of whitespace in attribute values which is mandated by the XML recommendation)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+1 = whitespace is normalised in any value used as a hash key (normalising means removing leading and trailing whitespace and collapsing sequences of whitespace characters to a single space)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+2 = whitespace is normalised in all text content</dd>
+</dl>
+<div class="spacer">
+</div>
+Note: you can spell this option with a 'z' if that is more natural for you.</div>
+<div class="subsection">
+<h2>NSExpand =&gt; 1 <i># in+out handy - SAX only</i></h2> This option controls namespace expansion - the translation of element and attribute names of the form 'prefix:name' to '{uri}name'.  For example the element name 'xsl:template' might be expanded to: '{http://www.w3.org/1999/XSL/Transform}template'.<div class="spacer">
+</div>
+By default, &quot;XMLin()&quot; will return element names and attribute names exactly as they appear in the XML.  Setting this option to 1 will cause all element and attribute names to be expanded to include their namespace prefix.<div class="spacer">
+</div>
+<i>Note: You must be using a SAX parser for this option to work (ie: it does not</i>  <i>work with XML::Parser)</i>.<div class="spacer">
+</div>
+This option also controls whether &quot;XMLout()&quot; performs the reverse translation from '{uri}name' back to 'prefix:name'.  The default is no translation.  If your data contains expanded names, you should set this option to 1 otherwise &quot;XMLout&quot; will emit XML which is not well formed.<div class="spacer">
+</div>
+<i>Note: You must have the XML::NamespaceSupport module installed if you want</i>  <i></i><i>&quot;XMLout()&quot;</i><i> to translate URIs back to prefixes</i>.</div>
+<div class="subsection">
+<h2>NumericEscape =&gt; 0 | 1 | 2 <i># out - handy</i></h2> Use this option to have 'high' (non-ASCII) characters in your Perl data structure converted to numeric entities (eg: &amp;#8364;) in the XML output.  Three levels are possible:<div class="spacer">
+</div>
+0 - default: no numeric escaping (OK if you're writing out UTF8)<div class="spacer">
+</div>
+1 - only characters above 0xFF are escaped (ie: characters in the 0x80-FF range are not escaped), possibly useful with ISO8859-1 output<div class="spacer">
+</div>
+2 - all characters above 0x7F are escaped (good for plain ASCII output)</div>
+<div class="subsection">
+<h2>OutputFile =&gt; &lt;file specifier&gt; <i># out - handy</i></h2> The default behaviour of &quot;XMLout()&quot; is to return the XML as a string.  If you wish to write the XML to a file, simply supply the filename using the 'OutputFile' option.<div class="spacer">
+</div>
+This option also accepts an IO handle object - especially useful in Perl 5.8.0 and later for output using an encoding other than UTF-8, eg:<div class="spacer">
+</div>
+<br/>
+  open my $fh, '&gt;:encoding(iso-8859-1)', $path or die &quot;open($path): $!&quot;;<br/>
+  XMLout($ref, OutputFile =&gt; $fh);<br/>
+<div class="spacer">
+</div>
+Note, XML::Simple does not require that the object you pass in to the OutputFile option inherits from IO::Handle - it simply assumes the object supports a &quot;print&quot; method.</div>
+<div class="subsection">
+<h2>ParserOpts =&gt; [ XML::Parser Options ] <i># in - don't use this</i></h2>  <i>Note: This option is now officially deprecated.  If you find it useful, email</i>  <i>the author with an example of what you use it for.  Do not use this option to</i>  <i>set the ProtocolEncoding, that's just plain wrong - fix the XML</i>.<div class="spacer">
+</div>
+This option allows you to pass parameters to the constructor of the underlying XML::Parser object (which of course assumes you're not using SAX).</div>
+<div class="subsection">
+<h2>RootName =&gt; 'string' <i># out - handy</i></h2> By default, when &quot;XMLout()&quot; generates XML, the root element will be named 'opt'.  This option allows you to specify an alternative name.<div class="spacer">
+</div>
+Specifying either undef or the empty string for the RootName option will produce XML with no root elements.  In most cases the resulting XML fragment will not be 'well formed' and therefore could not be read back in by &quot;XMLin()&quot;. Nevertheless, the option has been found to be useful in certain circumstances.</div>
+<div class="subsection">
+<h2>SearchPath =&gt; [ list ] <i># in - handy</i></h2> If you pass &quot;XMLin()&quot; a filename, but the filename include no directory component, you can use this option to specify which directories should be searched to locate the file.  You might use this option to search first in the user's home directory, then in a global directory such as /etc.<div class="spacer">
+</div>
+If a filename is provided to &quot;XMLin()&quot; but SearchPath is not defined, the file is assumed to be in the current directory.<div class="spacer">
+</div>
+If the first parameter to &quot;XMLin()&quot; is undefined, the default SearchPath will contain only the directory in which the script itself is located. Otherwise the default SearchPath will be empty.</div>
+<div class="subsection">
+<h2>SuppressEmpty =&gt; 1 | '' | undef <i># in+out - handy</i></h2> This option controls what &quot;XMLin()&quot; should do with empty elements (no attributes and no content).  The default behaviour is to represent them as empty hashes.  Setting this option to a true value (eg: 1) will cause empty elements to be skipped altogether.  Setting the option to 'undef' or the empty string will cause empty elements to be represented as the undefined value or the empty string respectively.  The latter two alternatives are a little easier to test for in your code than a hash with no keys.<div class="spacer">
+</div>
+The option also controls what &quot;XMLout()&quot; does with undefined values.  Setting the option to undef causes undefined values to be output as empty elements (rather than empty attributes), it also suppresses the generation of warnings about undefined values.  Setting the option to a true value (eg: 1) causes undefined values to be skipped altogether on output.</div>
+<div class="subsection">
+<h2>ValueAttr =&gt; [ names ] <i># in - handy</i></h2> Use this option to deal elements which always have a single attribute and no content.  Eg:<div class="spacer">
+</div>
+<br/>
+  &lt;opt&gt;<br/>
+    &lt;colour value=&quot;red&quot; /&gt;<br/>
+    &lt;size   value=&quot;XXL&quot; /&gt;<br/>
+  &lt;/opt&gt;<br/>
+<div class="spacer">
+</div>
+Setting &quot;ValueAttr =&gt; [ 'value' ]&quot; will cause the above XML to parse to:<div class="spacer">
+</div>
+<br/>
+  {<br/>
+    colour =&gt; 'red',<br/>
+    size   =&gt; 'XXL'<br/>
+  }<br/>
+<div class="spacer">
+</div>
+instead of this (the default):<div class="spacer">
+</div>
+<br/>
+  {<br/>
+    colour =&gt; { value =&gt; 'red' },<br/>
+    size   =&gt; { value =&gt; 'XXL' }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+Note: This form of the ValueAttr option is not compatible with &quot;XMLout()&quot; - since the attribute name is discarded at parse time, the original XML cannot be reconstructed.</div>
+<div class="subsection">
+<h2>ValueAttr =&gt; { element =&gt; attribute, ... } <i># in+out - handy</i></h2> This (preferred) form of the ValueAttr option requires you to specify both the element and the attribute names.  This is not only safer, it also allows the original XML to be reconstructed by &quot;XMLout()&quot;.<div class="spacer">
+</div>
+Note: You probably don't want to use this option and the NoAttr option at the same time.</div>
+<div class="subsection">
+<h2>Variables =&gt; { name =&gt; value } <i># in - handy</i></h2> This option allows variables in the XML to be expanded when the file is read. (there is no facility for putting the variable names back if you regenerate XML using &quot;XMLout&quot;).<div class="spacer">
+</div>
+A 'variable' is any text of the form &quot;${name}&quot; which occurs in an attribute value or in the text content of an element.  If 'name' matches a key in the supplied hashref, &quot;${name}&quot; will be replaced with the corresponding value from the hashref.  If no matching key is found, the variable will not be replaced. Names must match the regex: &quot;[\w.]+&quot; (ie: only 'word' characters and dots are allowed).</div>
+<div class="subsection">
+<h2>VarAttr =&gt; 'attr_name' <i># in - handy</i></h2> In addition to the variables defined using &quot;Variables&quot;, this option allows variables to be defined in the XML.  A variable definition consists of an element with an attribute called 'attr_name' (the value of the &quot;VarAttr&quot; option).  The value of the attribute will be used as the variable name and the text content of the element will be used as the value.  A variable defined in this way will override a variable defined using the &quot;Variables&quot; option.  For example:<div class="spacer">
+</div>
+<br/>
+  XMLin( '&lt;opt&gt;<br/>
+            &lt;dir name=&quot;prefix&quot;&gt;/usr/local/apache&lt;/dir&gt;<br/>
+            &lt;dir name=&quot;exec_prefix&quot;&gt;${prefix}&lt;/dir&gt;<br/>
+            &lt;dir name=&quot;bindir&quot;&gt;${exec_prefix}/bin&lt;/dir&gt;<br/>
+          &lt;/opt&gt;',<br/>
+         VarAttr =&gt; 'name', ContentKey =&gt; '-content'<br/>
+        );<br/>
+<div class="spacer">
+</div>
+produces the following data structure:<div class="spacer">
+</div>
+<br/>
+  {<br/>
+    dir =&gt; {<br/>
+             prefix      =&gt; '/usr/local/apache',<br/>
+             exec_prefix =&gt; '/usr/local/apache',<br/>
+             bindir      =&gt; '/usr/local/apache/bin',<br/>
+           }<br/>
+  }<br/>
+</div>
+<div class="subsection">
+<h2>XMLDecl =&gt; 1  or  XMLDecl =&gt; 'string'  <i># out - handy</i></h2> If you want the output from &quot;XMLout()&quot; to start with the optional XML declaration, simply set the option to '1'.  The default XML declaration is:<div class="spacer">
+</div>
+<br/>
+        &lt;?xml version='1.0' standalone='yes'?&gt;<br/>
+<div class="spacer">
+</div>
+If you want some other string (for example to declare an encoding value), set the value of this option to the complete string you require.</div>
+</div>
+<div class="section">
+<h1>OPTIONAL OO INTERFACE</h1> The procedural interface is both simple and convenient however there are a couple of reasons why you might prefer to use the object oriented (OO) interface:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+to define a set of default values which should be used on all subsequent calls to &quot;XMLin()&quot; or &quot;XMLout()&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+to override methods in <b>XML::Simple</b> to provide customised behaviour</dd>
+</dl>
+<div class="spacer">
+</div>
+The default values for the options described above are unlikely to suit everyone.  The OO interface allows you to effectively override  <b>XML::Simple</b>'s defaults with your preferred values.  It works like this:<div class="spacer">
+</div>
+First create an XML::Simple parser object with your preferred defaults:<div class="spacer">
+</div>
+<br/>
+  my $xs = XML::Simple-&gt;new(ForceArray =&gt; 1, KeepRoot =&gt; 1);<br/>
+<div class="spacer">
+</div>
+then call &quot;XMLin()&quot; or &quot;XMLout()&quot; as a method of that object:<div class="spacer">
+</div>
+<br/>
+  my $ref = $xs-&gt;XMLin($xml);<br/>
+  my $xml = $xs-&gt;XMLout($ref);<br/>
+<div class="spacer">
+</div>
+You can also specify options when you make the method calls and these values will be merged with the values specified when the object was created.  Values specified in a method call take precedence.<div class="spacer">
+</div>
+Note: when called as methods, the &quot;XMLin()&quot; and &quot;XMLout()&quot; routines may be called as &quot;xml_in()&quot; or &quot;xml_out()&quot;.  The method names are aliased so the only difference is the aesthetics.<div class="subsection">
+<h2>Parsing Methods</h2> You can explicitly call one of the following methods rather than rely on the &quot;xml_in()&quot; method automatically determining whether the target to be parsed is a string, a file or a filehandle:<dl>
+<dt>
+parse_string(text)</dt>
+<dd>
+Works exactly like the &quot;xml_in()&quot; method but assumes the first argument is a string of XML (or a reference to a scalar containing a string of XML).</dd>
+</dl>
+<dl>
+<dt>
+parse_file(filename)</dt>
+<dd>
+Works exactly like the &quot;xml_in()&quot; method but assumes the first argument is the name of a file containing XML.</dd>
+</dl>
+<dl>
+<dt>
+parse_fh(file_handle)</dt>
+<dd>
+Works exactly like the &quot;xml_in()&quot; method but assumes the first argument is a filehandle which can be read to get XML.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Hook Methods</h2> You can make your own class which inherits from XML::Simple and overrides certain behaviours.  The following methods may provide useful 'hooks' upon which to hang your modified behaviour.  You may find other undocumented methods by examining the source, but those may be subject to change in future releases.<dl>
+<dt>
+handle_options(direction, name =&gt; value ...)</dt>
+<dd>
+This method will be called when one of the parsing methods or the &quot;XMLout()&quot; method is called.  The initial argument will be a string (either 'in' or 'out') and the remaining arguments will be name value pairs.</dd>
+</dl>
+<dl>
+<dt>
+<i>default_config_file()</i></dt>
+<dd>
+Calculates and returns the name of the file which should be parsed if no filename is passed to &quot;XMLin()&quot; (default: &quot;$0.xml&quot;).</dd>
+</dl>
+<dl>
+<dt>
+build_simple_tree(filename, string)</dt>
+<dd>
+Called from &quot;XMLin()&quot; or any of the parsing methods.  Takes either a file name as the first argument or &quot;undef&quot; followed by a 'string' as the second argument.  Returns a simple tree data structure.  You could override this method to apply your own transformations before the data structure is returned to the caller.</dd>
+</dl>
+<dl>
+<dt>
+<i>new_hashref()</i></dt>
+<dd>
+When the 'simple tree' data structure is being built, this method will be called to create any required anonymous hashrefs.</dd>
+</dl>
+<dl>
+<dt>
+sorted_keys(name, hashref)</dt>
+<dd>
+Called when &quot;XMLout()&quot; is translating a hashref to XML.  This routine returns a list of hash keys in the order that the corresponding attributes/elements should appear in the output.</dd>
+</dl>
+<dl>
+<dt>
+escape_value(string)</dt>
+<dd>
+Called from &quot;XMLout()&quot;, takes a string and returns a copy of the string with XML character escaping rules applied.</dd>
+</dl>
+<dl>
+<dt>
+numeric_escape(string)</dt>
+<dd>
+Called from &quot;escape_value()&quot;, to handle non-ASCII characters (depending on the value of the NumericEscape option).</dd>
+</dl>
+<dl>
+<dt>
+copy_hash(hashref, extra_key =&gt; value, ...)</dt>
+<dd>
+Called from &quot;XMLout()&quot;, when 'unfolding' a hash of hashes into an array of hashes.  You might wish to override this method if you're using tied hashes and don't want them to get untied.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Cache Methods</h2> XML::Simple implements three caching schemes ('storable', 'memshare' and 'memcopy').  You can implement a custom caching scheme by implementing two methods - one for reading from the cache and one for writing to it.<div class="spacer">
+</div>
+For example, you might implement a new 'dbm' scheme that stores cached data structures using the MLDBM module.  First, you would add a &quot;cache_read_dbm()&quot; method which accepted a filename for use as a lookup key and returned a data structure on success, or undef on failure.  Then, you would implement a &quot;cache_read_dbm()&quot; method which accepted a data structure and a filename.<div class="spacer">
+</div>
+You would use this caching scheme by specifying the option:<div class="spacer">
+</div>
+<br/>
+  Cache =&gt; [ 'dbm' ]<br/>
+</div>
+</div>
+<div class="section">
+<h1>STRICT MODE</h1> If you import the  <b>XML::Simple</b> routines like this:<div class="spacer">
+</div>
+<br/>
+  use XML::Simple qw(:strict);<br/>
+<div class="spacer">
+</div>
+the following common mistakes will be detected and treated as fatal errors<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Failing to explicitly set the &quot;KeyAttr&quot; option - if you can't be bothered reading about this option, turn it off with: KeyAttr =&gt; [ ]</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Failing to explicitly set the &quot;ForceArray&quot; option - if you can't be bothered reading about this option, set it to the safest mode with: ForceArray =&gt; 1</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Setting ForceArray to an array, but failing to list all the elements from the KeyAttr hash.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Data error - KeyAttr is set to say { part =&gt; 'partnum' } but the XML contains one or more &lt;part&gt; elements without a 'partnum' attribute (or nested element).  Note: if strict mode is not set but -w is, this condition triggers a warning.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Data error - as above, but non-unique values are present in the key attribute (eg: more than one &lt;part&gt; element with the same partnum).  This will also trigger a warning if strict mode is not enabled.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Data error - as above, but value of key attribute (eg: partnum) is not a scalar string (due to nested elements etc).  This will also trigger a warning if strict mode is not enabled.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SAX SUPPORT</h1> From version 1.08_01,  <b>XML::Simple</b> includes support for SAX (the Simple API for XML) - specifically SAX2.<div class="spacer">
+</div>
+In a typical SAX application, an XML parser (or SAX 'driver') module generates SAX events (start of element, character data, end of element, etc) as it parses an XML document and a 'handler' module processes the events to extract the required data.  This simple model allows for some interesting and powerful possibilities:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Applications written to the SAX API can extract data from huge XML documents without the memory overheads of a DOM or tree API.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The SAX API allows for plug and play interchange of parser modules without having to change your code to fit a new module's API.  A number of SAX parsers are available with capabilities ranging from extreme portability to blazing performance.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A SAX 'filter' module can implement both a handler interface for receiving data and a generator interface for passing modified data on to a downstream handler.  Filters can be chained together in 'pipelines'.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+One filter module might split a data stream to direct data to two or more downstream handlers.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Generating SAX events is not the exclusive preserve of XML parsing modules. For example, a module might extract data from a relational database using DBI and pass it on to a SAX pipeline for filtering and formatting.</dd>
+</dl>
+<div class="spacer">
+</div>
+<b>XML::Simple</b> can operate at either end of a SAX pipeline.  For example, you can take a data structure in the form of a hashref and pass it into a SAX pipeline using the 'Handler' option on &quot;XMLout()&quot;:<div class="spacer">
+</div>
+<br/>
+  use XML::Simple;<br/>
+  use Some::SAX::Filter;<br/>
+  use XML::SAX::Writer;<br/>
+<br/>
+  my $ref = {<br/>
+               ....   # your data here<br/>
+            };<br/>
+<br/>
+  my $writer = XML::SAX::Writer-&gt;new();<br/>
+  my $filter = Some::SAX::Filter-&gt;new(Handler =&gt; $writer);<br/>
+  my $simple = XML::Simple-&gt;new(Handler =&gt; $filter);<br/>
+  $simple-&gt;XMLout($ref);<br/>
+<div class="spacer">
+</div>
+You can also put <b>XML::Simple</b> at the opposite end of the pipeline to take advantage of the simple 'tree' data structure once the relevant data has been isolated through filtering:<div class="spacer">
+</div>
+<br/>
+  use XML::SAX;<br/>
+  use Some::SAX::Filter;<br/>
+  use XML::Simple;<br/>
+<br/>
+  my $simple = XML::Simple-&gt;new(ForceArray =&gt; 1, KeyAttr =&gt; ['partnum']);<br/>
+  my $filter = Some::SAX::Filter-&gt;new(Handler =&gt; $simple);<br/>
+  my $parser = XML::SAX::ParserFactory-&gt;parser(Handler =&gt; $filter);<br/>
+<br/>
+  my $ref = $parser-&gt;parse_uri('some_huge_file.xml');<br/>
+<br/>
+  print $ref-&gt;{part}-&gt;{'555-1234'};<br/>
+<div class="spacer">
+</div>
+You can build a filter by using an XML::Simple object as a handler and setting its DataHandler option to point to a routine which takes the resulting tree, modifies it and sends it off as SAX events to a downstream handler:<div class="spacer">
+</div>
+<br/>
+  my $writer = XML::SAX::Writer-&gt;new();<br/>
+  my $filter = XML::Simple-&gt;new(<br/>
+                 DataHandler =&gt; sub {<br/>
+                                  my $simple = shift;<br/>
+                                  my $data = shift;<br/>
+<br/>
+                                  # Modify $data here<br/>
+<br/>
+                                  $simple-&gt;XMLout($data, Handler =&gt; $writer);<br/>
+                                }<br/>
+               );<br/>
+  my $parser = XML::SAX::ParserFactory-&gt;parser(Handler =&gt; $filter);<br/>
+<br/>
+  $parser-&gt;parse_uri($filename);<br/>
+<div class="spacer">
+</div>
+<i>Note: In this last example, the 'Handler' option was specified in the call to</i>  <i></i><i>&quot;XMLout()&quot;</i><i> but it could also have been specified in the constructor</i>.</div>
+<div class="section">
+<h1>ENVIRONMENT</h1> If you don't care which parser module  <b>XML::Simple</b> uses then skip this section entirely (it looks more complicated than it really is).<div class="spacer">
+</div>
+<b>XML::Simple</b> will default to using a <b>SAX</b> parser if one is available or  <b>XML::Parser</b> if SAX is not available.<div class="spacer">
+</div>
+You can dictate which parser module is used by setting either the environment variable 'XML_SIMPLE_PREFERRED_PARSER' or the package variable $XML::Simple::PREFERRED_PARSER to contain the module name.  The following rules are used:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The package variable takes precedence over the environment variable if both are defined.  To force <b>XML::Simple</b> to ignore the environment settings and use its default rules, you can set the package variable to an empty string.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If the 'preferred parser' is set to the string 'XML::Parser', then XML::Parser will be used (or &quot;XMLin()&quot; will die if XML::Parser is not installed).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If the 'preferred parser' is set to some other value, then it is assumed to be the name of a SAX parser module and is passed to XML::SAX::ParserFactory. If XML::SAX is not installed, or the requested parser module is not installed, then &quot;XMLin()&quot; will die.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If the 'preferred parser' is not defined at all (the normal default state), an attempt will be made to load XML::SAX.  If XML::SAX is installed, then a parser module will be selected according to XML::SAX::ParserFactory's normal rules (which typically means the last SAX parser installed).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+if the 'preferred parser' is not defined and <b>XML::SAX</b> is not installed, then  <b>XML::Parser</b> will be used.  &quot;XMLin()&quot; will die if XML::Parser is not installed.</dd>
+</dl>
+<div class="spacer">
+</div>
+Note: The <b>XML::SAX</b> distribution includes an XML parser written entirely in Perl.  It is very portable but it is not very fast.  You should consider installing XML::LibXML or XML::SAX::Expat if they are available for your platform.</div>
+<div class="section">
+<h1>ERROR HANDLING</h1> The XML standard is very clear on the issue of non-compliant documents.  An error in parsing any single element (for example a missing end tag) must cause the whole document to be rejected.   <b>XML::Simple</b> will die with an appropriate message if it encounters a parsing error.<div class="spacer">
+</div>
+If dying is not appropriate for your application, you should arrange to call &quot;XMLin()&quot; in an eval block and look for errors in $@.  eg:<div class="spacer">
+</div>
+<br/>
+    my $config = eval { XMLin() };<br/>
+    PopUpMessage($@) if($@);<br/>
+<div class="spacer">
+</div>
+Note, there is a common misconception that use of <b>eval</b> will significantly slow down a script.  While that may be true when the code being eval'd is in a string, it is not true of code like the sample above.</div>
+<div class="section">
+<h1>EXAMPLES</h1> When &quot;XMLin()&quot; reads the following very simple piece of XML:<div class="spacer">
+</div>
+<br/>
+    &lt;opt username=&quot;testuser&quot; password=&quot;frodo&quot;&gt;&lt;/opt&gt;<br/>
+<div class="spacer">
+</div>
+it returns the following data structure:<div class="spacer">
+</div>
+<br/>
+    {<br/>
+      'username' =&gt; 'testuser',<br/>
+      'password' =&gt; 'frodo'<br/>
+    }<br/>
+<div class="spacer">
+</div>
+The identical result could have been produced with this alternative XML:<div class="spacer">
+</div>
+<br/>
+    &lt;opt username=&quot;testuser&quot; password=&quot;frodo&quot; /&gt;<br/>
+<div class="spacer">
+</div>
+Or this (although see 'ForceArray' option for variations):<div class="spacer">
+</div>
+<br/>
+    &lt;opt&gt;<br/>
+      &lt;username&gt;testuser&lt;/username&gt;<br/>
+      &lt;password&gt;frodo&lt;/password&gt;<br/>
+    &lt;/opt&gt;<br/>
+<div class="spacer">
+</div>
+Repeated nested elements are represented as anonymous arrays:<div class="spacer">
+</div>
+<br/>
+    &lt;opt&gt;<br/>
+      &lt;person firstname=&quot;Joe&quot; lastname=&quot;Smith&quot;&gt;<br/>
+        &lt;email&gt;joe@smith.com&lt;/email&gt;<br/>
+        &lt;email&gt;jsmith@yahoo.com&lt;/email&gt;<br/>
+      &lt;/person&gt;<br/>
+      &lt;person firstname=&quot;Bob&quot; lastname=&quot;Smith&quot;&gt;<br/>
+        &lt;email&gt;bob@smith.com&lt;/email&gt;<br/>
+      &lt;/person&gt;<br/>
+    &lt;/opt&gt;<br/>
+<br/>
+    {<br/>
+      'person' =&gt; [<br/>
+                    {<br/>
+                      'email' =&gt; [<br/>
+                                   'joe@smith.com',<br/>
+                                   'jsmith@yahoo.com'<br/>
+                                 ],<br/>
+                      'firstname' =&gt; 'Joe',<br/>
+                      'lastname' =&gt; 'Smith'<br/>
+                    },<br/>
+                    {<br/>
+                      'email' =&gt; 'bob@smith.com',<br/>
+                      'firstname' =&gt; 'Bob',<br/>
+                      'lastname' =&gt; 'Smith'<br/>
+                    }<br/>
+                  ]<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Nested elements with a recognised key attribute are transformed (folded) from an array into a hash keyed on the value of that attribute (see the &quot;KeyAttr&quot; option):<div class="spacer">
+</div>
+<br/>
+    &lt;opt&gt;<br/>
+      &lt;person key=&quot;jsmith&quot; firstname=&quot;Joe&quot; lastname=&quot;Smith&quot; /&gt;<br/>
+      &lt;person key=&quot;tsmith&quot; firstname=&quot;Tom&quot; lastname=&quot;Smith&quot; /&gt;<br/>
+      &lt;person key=&quot;jbloggs&quot; firstname=&quot;Joe&quot; lastname=&quot;Bloggs&quot; /&gt;<br/>
+    &lt;/opt&gt;<br/>
+<br/>
+    {<br/>
+      'person' =&gt; {<br/>
+                    'jbloggs' =&gt; {<br/>
+                                   'firstname' =&gt; 'Joe',<br/>
+                                   'lastname' =&gt; 'Bloggs'<br/>
+                                 },<br/>
+                    'tsmith' =&gt; {<br/>
+                                  'firstname' =&gt; 'Tom',<br/>
+                                  'lastname' =&gt; 'Smith'<br/>
+                                },<br/>
+                    'jsmith' =&gt; {<br/>
+                                  'firstname' =&gt; 'Joe',<br/>
+                                  'lastname' =&gt; 'Smith'<br/>
+                                }<br/>
+                  }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+The &lt;anon&gt; tag can be used to form anonymous arrays:<div class="spacer">
+</div>
+<br/>
+    &lt;opt&gt;<br/>
+      &lt;head&gt;&lt;anon&gt;Col 1&lt;/anon&gt;&lt;anon&gt;Col 2&lt;/anon&gt;&lt;anon&gt;Col 3&lt;/anon&gt;&lt;/head&gt;<br/>
+      &lt;data&gt;&lt;anon&gt;R1C1&lt;/anon&gt;&lt;anon&gt;R1C2&lt;/anon&gt;&lt;anon&gt;R1C3&lt;/anon&gt;&lt;/data&gt;<br/>
+      &lt;data&gt;&lt;anon&gt;R2C1&lt;/anon&gt;&lt;anon&gt;R2C2&lt;/anon&gt;&lt;anon&gt;R2C3&lt;/anon&gt;&lt;/data&gt;<br/>
+      &lt;data&gt;&lt;anon&gt;R3C1&lt;/anon&gt;&lt;anon&gt;R3C2&lt;/anon&gt;&lt;anon&gt;R3C3&lt;/anon&gt;&lt;/data&gt;<br/>
+    &lt;/opt&gt;<br/>
+<br/>
+    {<br/>
+      'head' =&gt; [<br/>
+                  [ 'Col 1', 'Col 2', 'Col 3' ]<br/>
+                ],<br/>
+      'data' =&gt; [<br/>
+                  [ 'R1C1', 'R1C2', 'R1C3' ],<br/>
+                  [ 'R2C1', 'R2C2', 'R2C3' ],<br/>
+                  [ 'R3C1', 'R3C2', 'R3C3' ]<br/>
+                ]<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Anonymous arrays can be nested to arbirtrary levels and as a special case, if the surrounding tags for an XML document contain only an anonymous array the arrayref will be returned directly rather than the usual hashref:<div class="spacer">
+</div>
+<br/>
+    &lt;opt&gt;<br/>
+      &lt;anon&gt;&lt;anon&gt;Col 1&lt;/anon&gt;&lt;anon&gt;Col 2&lt;/anon&gt;&lt;/anon&gt;<br/>
+      &lt;anon&gt;&lt;anon&gt;R1C1&lt;/anon&gt;&lt;anon&gt;R1C2&lt;/anon&gt;&lt;/anon&gt;<br/>
+      &lt;anon&gt;&lt;anon&gt;R2C1&lt;/anon&gt;&lt;anon&gt;R2C2&lt;/anon&gt;&lt;/anon&gt;<br/>
+    &lt;/opt&gt;<br/>
+<br/>
+    [<br/>
+      [ 'Col 1', 'Col 2' ],<br/>
+      [ 'R1C1', 'R1C2' ],<br/>
+      [ 'R2C1', 'R2C2' ]<br/>
+    ]<br/>
+<div class="spacer">
+</div>
+Elements which only contain text content will simply be represented as a scalar.  Where an element has both attributes and text content, the element will be represented as a hashref with the text content in the 'content' key (see the &quot;ContentKey&quot; option):<div class="spacer">
+</div>
+<br/>
+  &lt;opt&gt;<br/>
+    &lt;one&gt;first&lt;/one&gt;<br/>
+    &lt;two attr=&quot;value&quot;&gt;second&lt;/two&gt;<br/>
+  &lt;/opt&gt;<br/>
+<br/>
+  {<br/>
+    'one' =&gt; 'first',<br/>
+    'two' =&gt; { 'attr' =&gt; 'value', 'content' =&gt; 'second' }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+Mixed content (elements which contain both text content and nested elements) will be not be represented in a useful way - element order and significant whitespace will be lost.  If you need to work with mixed content, then XML::Simple is not the right tool for your job - check out the next section.</div>
+<div class="section">
+<h1>WHERE TO FROM HERE?</h1>  <b>XML::Simple</b> is able to present a simple API because it makes some assumptions on your behalf.  These include:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+You're not interested in text content consisting only of whitespace</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+You don't mind that when things get slurped into a hash the order is lost</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+You don't want fine-grained control of the formatting of generated XML</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+You would never use a hash key that was not a legal XML element name</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+You don't need help converting between different encodings</dd>
+</dl>
+<div class="spacer">
+</div>
+In a serious XML project, you'll probably outgrow these assumptions fairly quickly.  This section of the document used to offer some advice on chosing a more powerful option.  That advice has now grown into the 'Perl-XML FAQ' document which you can find at: &lt;http://perl-xml.sourceforge.net/faq/&gt;<div class="spacer">
+</div>
+The advice in the FAQ boils down to a quick explanation of tree versus event based parsers and then recommends:<div class="spacer">
+</div>
+For event based parsing, use SAX (do not set out to write any new code for XML::Parser's handler API - it is obselete).<div class="spacer">
+</div>
+For tree-based parsing, you could choose between the 'Perlish' approach of XML::Twig and more standards based DOM implementations - preferably one with XPath support.</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <b>XML::Simple</b> requires either XML::Parser or XML::SAX.<div class="spacer">
+</div>
+To generate documents with namespaces, XML::NamespaceSupport is required.<div class="spacer">
+</div>
+The optional caching functions require Storable.<div class="spacer">
+</div>
+Answers to Frequently Asked Questions about XML::Simple are bundled with this distribution as: XML::Simple::FAQ</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright 1999-2004 Grant McLean &lt;grantm@cpan.org&gt;<div class="spacer">
+</div>
+This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2007-08-15</td>
+<td class="foot-os">
+perl v5.10.1</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

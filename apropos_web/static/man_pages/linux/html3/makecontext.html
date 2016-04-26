@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+MAKECONTEXT(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+MAKECONTEXT(3)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+MAKECONTEXT(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> makecontext, swapcontext - manipulate user context</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;ucontext.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<b>void makecontext(ucontext_t *</b><i>ucp</i><b>, void (*</b><i>func</i><b>)(),</b> <b>int </b><i>argc</i><b>, ...);</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int swapcontext(ucontext_t *</b><i>oucp</i><b>, ucontext_t *</b><i>ucp</i><b>);</b></div>
+<div class="section">
+<h1>DESCRIPTION</h1> In a System V-like environment, one has the type  <i>ucontext_t</i> defined in <i>&lt;ucontext.h&gt;</i> and the four functions <b>getcontext</b>(2), <b>setcontext</b>(2), <b>makecontext</b>() and <b>swapcontext</b>() that allow user-level context switching between multiple threads of control within a process.<div class="spacer">
+</div>
+For the type and the first two functions, see <b>getcontext</b>(2).<div class="spacer">
+</div>
+The <b>makecontext</b>() function modifies the context pointed to by  <i>ucp</i> (which was obtained from a call to <b>getcontext</b>(2)). Before invoking <b>makecontext</b>(), the caller must allocate a new stack for this context and assign its address to  <i>ucp-&gt;uc_stack</i>, and define a successor context and assign its address to  <i>ucp-&gt;uc_link</i>.<div style="height: 1.00em;">
+&#160;</div>
+When this context is later activated (using <b>setcontext</b>(2) or <b>swapcontext</b>()) the function  <i>func</i> is called, and passed the series of integer (<i>int</i>) arguments that follow <i>argc</i>; the caller must specify the number of these arguments in <i>argc</i>. When this function returns, the successor context is activated. If the successor context pointer is NULL, the thread exits.<div class="spacer">
+</div>
+The <b>swapcontext</b>() function saves the current context in the structure pointed to by  <i>oucp</i>, and then activates the context pointed to by  <i>ucp</i>.</div>
+<div class="section">
+<h1>RETURN VALUE</h1> When successful, <b>swapcontext</b>() does not return. (But we may return later, in case  <i>oucp</i> is activated, in which case it looks like <b>swapcontext</b>() returns 0.) On error, <b>swapcontext</b>() returns -1 and sets  <i>errno</i> appropriately.</div>
+<div class="section">
+<h1>ERRORS</h1><dl>
+<dt>
+<b>ENOMEM</b></dt>
+<dd>
+Insufficient stack space left.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>VERSIONS</h1> <b>makecontext</b>() and <b>swapcontext</b>() are provided in glibc since version 2.1.</div>
+<div class="section">
+<h1>CONFORMING TO</h1> SUSv2, POSIX.1-2001. POSIX.1-2008 removes the specifications of <b>makecontext</b>() and <b>swapcontext</b>(), citing portability issues, and recommending that applications be rewritten to use POSIX threads instead.</div>
+<div class="section">
+<h1>NOTES</h1> The interpretation of  <i>ucp-&gt;uc_stack</i> is just as in <b>sigaltstack</b>(2), namely, this struct contains the start and length of a memory area to be used as the stack, regardless of the direction of growth of the stack. Thus, it is not necessary for the user program to worry about this direction.<div style="height: 1.00em;">
+&#160;</div>
+On architectures where <i>int</i> and pointer types are the same size (e.g., x86-32, where both types are 32 bits), you may be able to get away with passing pointers as arguments to <b>makecontext</b>() following <i>argc</i>. However, doing this is not guaranteed to be portable, is undefined according to the standards, and won't work on architectures where pointers are larger than <i>int</i>s. Nevertheless, starting with version 2.8, glibc makes some changes to <b>makecontext</b>(), to permit this on some 64-bit architectures (e.g., x86-64).</div>
+<div class="section">
+<h1>EXAMPLE</h1> The example program below demonstrates the use of <b>getcontext</b>(2), <b>makecontext</b>(), and <b>swapcontext</b>(). Running the program produces the following output:<br/>
+<div class="spacer">
+</div>
+<br/>
+$<b> ./a.out</b><br/>
+main: swapcontext(&amp;uctx_main, &amp;uctx_func2)<br/>
+func2: started<br/>
+func2: swapcontext(&amp;uctx_func2, &amp;uctx_func1)<br/>
+func1: started<br/>
+func1: swapcontext(&amp;uctx_func1, &amp;uctx_func2)<br/>
+func2: returning<br/>
+func1: returning<br/>
+main: exiting<br/>
+<br/>
+<div class="subsection">
+<h2>Program source</h2> <br/>
+#include &lt;ucontext.h&gt;<br/>
+#include &lt;stdio.h&gt;<br/>
+#include &lt;stdlib.h&gt;<div class="spacer">
+</div>
+<br/>
+static ucontext_t uctx_main, uctx_func1, uctx_func2;<div class="spacer">
+</div>
+<br/>
+#define handle_error(msg) \<br/>
+    do { perror(msg); exit(EXIT_FAILURE); } while (0)<div class="spacer">
+</div>
+<br/>
+static void<br/>
+func1(void)<br/>
+{<br/>
+    printf(&quot;func1: started\n&quot;);<br/>
+    printf(&quot;func1: swapcontext(&amp;uctx_func1, &amp;uctx_func2)\n&quot;);<br/>
+    if (swapcontext(&amp;uctx_func1, &amp;uctx_func2) == -1)<br/>
+        handle_error(&quot;swapcontext&quot;);<br/>
+    printf(&quot;func1: returning\n&quot;);<br/>
+}<div class="spacer">
+</div>
+<br/>
+static void<br/>
+func2(void)<br/>
+{<br/>
+    printf(&quot;func2: started\n&quot;);<br/>
+    printf(&quot;func2: swapcontext(&amp;uctx_func2, &amp;uctx_func1)\n&quot;);<br/>
+    if (swapcontext(&amp;uctx_func2, &amp;uctx_func1) == -1)<br/>
+        handle_error(&quot;swapcontext&quot;);<br/>
+    printf(&quot;func2: returning\n&quot;);<br/>
+}<div class="spacer">
+</div>
+<br/>
+int<br/>
+main(int argc, char *argv[])<br/>
+{<br/>
+    char func1_stack[16384];<br/>
+    char func2_stack[16384];<div class="spacer">
+</div>
+<br/>
+    if (getcontext(&amp;uctx_func1) == -1)<br/>
+        handle_error(&quot;getcontext&quot;);<br/>
+    uctx_func1.uc_stack.ss_sp = func1_stack;<br/>
+    uctx_func1.uc_stack.ss_size = sizeof(func1_stack);<br/>
+    uctx_func1.uc_link = &amp;uctx_main;<br/>
+    makecontext(&amp;uctx_func1, func1, 0);<div class="spacer">
+</div>
+<br/>
+    if (getcontext(&amp;uctx_func2) == -1)<br/>
+        handle_error(&quot;getcontext&quot;);<br/>
+    uctx_func2.uc_stack.ss_sp = func2_stack;<br/>
+    uctx_func2.uc_stack.ss_size = sizeof(func2_stack);<br/>
+    /* Successor context is f1(), unless argc &gt; 1 */<br/>
+    uctx_func2.uc_link = (argc &gt; 1) ? NULL : &amp;uctx_func1;<br/>
+    makecontext(&amp;uctx_func2, func2, 0);<div class="spacer">
+</div>
+<br/>
+    printf(&quot;main: swapcontext(&amp;uctx_main, &amp;uctx_func2)\n&quot;);<br/>
+    if (swapcontext(&amp;uctx_main, &amp;uctx_func2) == -1)<br/>
+        handle_error(&quot;swapcontext&quot;);<div class="spacer">
+</div>
+<br/>
+    printf(&quot;main: exiting\n&quot;);<br/>
+    exit(EXIT_SUCCESS);<br/>
+}<br/>
+</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>getcontext</b>(2), <b>sigaction</b>(2), <b>sigaltstack</b>(2), <b>sigprocmask</b>(2), <b>sigsetjmp</b>(3)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2009-03-31</td>
+<td class="foot-os">
+GNU</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

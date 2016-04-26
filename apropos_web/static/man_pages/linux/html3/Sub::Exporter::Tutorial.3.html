@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Sub::Exporter::Tutorial(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Sub::Exporter::Tutorial(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Sub::Exporter::Tutorial(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Sub::Exporter::Tutorial - a friendly guide to exporting with Sub::Exporter</div>
+<div class="section">
+<h1>DESCRIPTION</h1><div class="subsection">
+<h2>What's an Exporter?</h2> When you &quot;use&quot; a module, first it is required, then its &quot;import&quot; method is called.  The Perl documentation tells us that the following two lines are equivalent:<div class="spacer">
+</div>
+<br/>
+  use Module LIST;<br/>
+<br/>
+  BEGIN { require Module; Module-&gt;import(LIST); }<br/>
+<div class="spacer">
+</div>
+The import method is the module's <i>exporter</i>.</div>
+<div class="subsection">
+<h2>The Basics of Sub::Exporter</h2> Sub::Exporter builds a custom exporter which can then be installed into your module.  It builds this method based on configuration passed to its &quot;setup_exporter&quot; method.<div class="spacer">
+</div>
+A very basic use case might look like this:<div class="spacer">
+</div>
+<br/>
+  package Addition;<br/>
+  use Sub::Exporter;<br/>
+  Sub::Exporter::setup_exporter({ exports =&gt; [ qw(plus) ]});<br/>
+<br/>
+  sub plus { my ($x, $y) = @_; return $x + $y; }<br/>
+<div class="spacer">
+</div>
+This would mean that when someone used your Addition module, they could have its &quot;plus&quot; routine imported into their package:<div class="spacer">
+</div>
+<br/>
+  use Addition qw(plus);<br/>
+<br/>
+  my $z = plus(2, 2); # this works, because now plus is in the main package<br/>
+<div class="spacer">
+</div>
+That syntax to set up the exporter, above, is a little verbose, so for the simple case of just naming some exports, you can write this:<div class="spacer">
+</div>
+<br/>
+  use Sub::Exporter -setup =&gt; { exports =&gt; [ qw(plus) ] };<br/>
+<div class="spacer">
+</div>
+...which is the same as the original example -- except that now the exporter is built and installed at compile time.  Well, that and you typed less.</div>
+<div class="subsection">
+<h2>Using Export Groups</h2> You can specify whole groups of things that should be exportable together. These are called groups.  Exporter calls these tags.  To specify groups, you just pass a &quot;groups&quot; key in your exporter configuration:<div class="spacer">
+</div>
+<br/>
+  package Food;<br/>
+  use Sub::Exporter -setup =&gt; {<br/>
+    exports =&gt; [ qw(apple banana beef fluff lox rabbit) ],<br/>
+    groups  =&gt; {<br/>
+      fauna  =&gt; [ qw(beef lox rabbit) ],<br/>
+      flora  =&gt; [ qw(apple banana) ],<br/>
+    }<br/>
+  };<br/>
+<div class="spacer">
+</div>
+Now, to import all that delicious foreign meat, your consumer needs only to write:<div class="spacer">
+</div>
+<br/>
+  use Food qw(:fauna);<br/>
+  use Food qw(-fauna);<br/>
+<div class="spacer">
+</div>
+Either one of the above is acceptable.  A colon is more traditional, but barewords with a leading colon can't be enquoted by a fat arrow.  We'll see why that matters later on.<div class="spacer">
+</div>
+Groups can contain other groups.  If you include a group name (with the leading dash or colon) in a group definition, it will be expanded recursively when the exporter is called.  The exporter will  <b>not</b> recurse into the same group twice while expanding groups.<div class="spacer">
+</div>
+There are two special groups:  &quot;all&quot; and &quot;default&quot;.  The &quot;all&quot; group is defined by default, and contains all exportable subs.  You can redefine it, if you want to export only a subset when all exports are requested.  The &quot;default&quot; group is the set of routines to export when nothing specific is requested.  By default, there is no &quot;default&quot; group.</div>
+<div class="subsection">
+<h2>Renaming Your Imports</h2> Sometimes you want to import something, but you don't like the name as which it's imported.  Sub::Exporter can rename your imports for you.  If you wanted to import &quot;lox&quot; from the Food package, but you don't like the name, you could write this:<div class="spacer">
+</div>
+<br/>
+  use Food lox =&gt; { -as =&gt; 'salmon' };<br/>
+<div class="spacer">
+</div>
+Now you'd get the &quot;lox&quot; routine, but it would be called salmon in your package.  You can also rename entire groups by using the &quot;prefix&quot; option:<div class="spacer">
+</div>
+<br/>
+  use Food -fauna =&gt; { -prefix =&gt; 'cute_little_' };<br/>
+<div class="spacer">
+</div>
+Now you can call your &quot;cute_little_rabbit&quot; routine.  (You can also call &quot;cute_little_beef&quot;, but that hardly seems as enticing.)<div class="spacer">
+</div>
+When you define groups, you can include renaming.<div class="spacer">
+</div>
+<br/>
+  use Sub::Exporter -setup =&gt; {<br/>
+    exports =&gt; [ qw(apple banana beef fluff lox rabbit) ],<br/>
+    groups  =&gt; {<br/>
+      fauna  =&gt; [ qw(beef lox), rabbit =&gt; { -as =&gt; 'coney' } ],<br/>
+    }<br/>
+  };<br/>
+<div class="spacer">
+</div>
+A prefix on a group like that does the right thing.  This is when it's useful to use a dash instead of a colon to indicate a group: you can put a fat arrow between the group and its arguments, then.<div class="spacer">
+</div>
+<br/>
+  use Food -fauna =&gt; { -prefix =&gt; 'lovely_' };<br/>
+<br/>
+  eat( lovely_coney ); # this works<br/>
+<div class="spacer">
+</div>
+Prefixes also apply recursively.  That means that this code works:<div class="spacer">
+</div>
+<br/>
+  use Sub::Exporter -setup =&gt; {<br/>
+    exports =&gt; [ qw(apple banana beef fluff lox rabbit) ],<br/>
+    groups  =&gt; {<br/>
+      fauna   =&gt; [ qw(beef lox), rabbit =&gt; { -as =&gt; 'coney' } ],<br/>
+      allowed =&gt; [ -fauna =&gt; { -prefix =&gt; 'willing_' }, 'banana' ],<br/>
+    }<br/>
+  };<br/>
+<br/>
+  ...<br/>
+<br/>
+  use Food -allowed =&gt; { -prefix =&gt; 'any_' };<br/>
+<br/>
+  $dinner = any_willing_coney; # yum!<br/>
+<div class="spacer">
+</div>
+Groups can also be passed a &quot;-suffix&quot; argument.<div class="spacer">
+</div>
+Finally, if the &quot;-as&quot; argument to an exported routine is a reference to a scalar, a reference to the routine will be placed in that scalar.</div>
+<div class="subsection">
+<h2>Building Subroutines to Order</h2> Sometimes, you want to export things that you don't have on hand.  You might want to offer customized routines built to the specification of your consumer; that's just good business!  With Sub::Exporter, this is easy.<div class="spacer">
+</div>
+To offer subroutines to order, you need to provide a generator when you set up your exporter.  A generator is just a routine that returns a new routine. perlref is talking about these when it discusses closures and function templates. The canonical example of a generator builds a unique incrementor; here's how you'd do that with Sub::Exporter;<div class="spacer">
+</div>
+<br/>
+  package Package::Counter;<br/>
+  use Sub::Exporter -setup =&gt; {<br/>
+    exports =&gt; [ counter =&gt; sub { my $i = 0; sub { $i++ } } ],<br/>
+    groups  =&gt; { default =&gt; [ qw(counter) ] },<br/>
+  };<br/>
+<div class="spacer">
+</div>
+Now anyone can use your Package::Counter module and he'll receive a &quot;counter&quot; in his package.  It will count up by one, and will never interfere with anyone else's counter.<div class="spacer">
+</div>
+This isn't very useful, though, unless the consumer can explain what he wants. This is done, in part, by supplying arguments when importing.  The following example shows how a generator can take and use arguments:<div class="spacer">
+</div>
+<br/>
+  package Package::Counter;<br/>
+<br/>
+  sub _build_counter {<br/>
+    my ($class, $arg) = @_;<br/>
+    $arg ||= {};<br/>
+    my $i = $arg-&gt;{start} || 0;<br/>
+    return sub { $i++ };<br/>
+  }<br/>
+<br/>
+  use Sub::Exporter -setup =&gt; {<br/>
+    exports =&gt; [ counter =&gt; \'_build_counter' ],<br/>
+    groups  =&gt; { default =&gt; [ qw(counter) ] },<br/>
+  };<br/>
+<div class="spacer">
+</div>
+Now, the consumer can (if he wants) specify a starting value for his counter:<div class="spacer">
+</div>
+<br/>
+  use Package::Counter counter =&gt; { start =&gt; 10 };<br/>
+<div class="spacer">
+</div>
+Arguments to a group are passed along to the generators of routines in that group, but Sub::Exporter arguments -- anything beginning with a dash -- are never passed in.  When groups are nested, the arguments are merged as the groups are expanded.<div class="spacer">
+</div>
+Notice, too, that in the example above, we gave a reference to a method <i>name</i> rather than a method  <i>implementation</i>.  By giving the name rather than the subroutine, we make it possible for subclasses of our &quot;Package::Counter&quot; module to replace the &quot;_build_counter&quot; method.<div class="spacer">
+</div>
+When a generator is called, it is passed four parameters:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+the invocant on which the exporter was called</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+the name of the export being generated (not the name it's being installed as)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+the arguments supplied for the routine</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+the collection of generic arguments</dd>
+</dl>
+<div class="spacer">
+</div>
+The fourth item is the last major feature that hasn't been covered.</div>
+<div class="subsection">
+<h2>Argument Collectors</h2> Sometimes you will want to accept arguments once that can then be available to any subroutine that you're going to export.  To do this, you specify collectors, like this:<div class="spacer">
+</div>
+<br/>
+  use Menu::Airline<br/>
+  use Sub::Exporter -setup =&gt; {<br/>
+    exports =&gt;  ... ,<br/>
+    groups  =&gt;  ... ,<br/>
+    collectors =&gt; [ qw(allergies ethics) ],<br/>
+  };<br/>
+<div class="spacer">
+</div>
+Collectors look like normal exports in the import call, but they don't do anything but collect data which can later be passed to generators.  If the module was used like this:<div class="spacer">
+</div>
+<br/>
+  use Menu::Airline allergies =&gt; [ qw(peanuts) ], ethics =&gt; [ qw(vegan) ];<br/>
+<div class="spacer">
+</div>
+...the consumer would get a salad.  Also, all the generators would be passed, as their fourth argument, something like this:<div class="spacer">
+</div>
+<br/>
+  { allerges =&gt; [ qw(peanuts) ], ethics =&gt; [ qw(vegan) ] }<br/>
+<div class="spacer">
+</div>
+Generators may have arguments in their definition, as well.  These must be code refs that perform validation of the collected values.  They are passed the collection value and may return true or false.  If they return false, the exporter will throw an exception.</div>
+<div class="subsection">
+<h2>Generating Many Routines in One Scope</h2> Sometimes it's useful to have multiple routines generated in one scope.  This way they can share lexical data which is otherwise unavailable.  To do this, you can supply a generator for a group which returns a hashref of names and code references.  This generator is passed all the usual data, and the group may receive the usual &quot;-prefix&quot; or &quot;-suffix&quot; arguments.</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Ricardo SIGNES, &quot;&lt;rjbs@cpan.org&gt;&quot;</div>
+<div class="section">
+<h1>SEE ALSO</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Sub::Exporter for complete documentation and references to other exporters.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright 2007 Ricardo SIGNES.  This program is free software;  you can redistribute it and/or modify it under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2008-11-21</td>
+<td class="foot-os">
+perl v5.10.1</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

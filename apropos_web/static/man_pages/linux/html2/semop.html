@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+SEMOP(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SEMOP(2)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+SEMOP(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> semop, semtimedop - semaphore operations</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;sys/types.h&gt;</b> <b>#include &lt;sys/ipc.h&gt;</b> <b>#include &lt;sys/sem.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int semop(int </b><i>semid</i><b>, struct sembuf *</b><i>sops</i><b>, unsigned </b><i>nsops</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int semtimedop(int </b><i>semid</i><b>, struct sembuf *</b><i>sops</i><b>, unsigned </b><i>nsops</i><b>,</b><br/>
+<b>               struct timespec *</b><i>timeout</i><b>);</b><br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+Feature Test Macro Requirements for glibc (see <b>feature_test_macros</b>(7)):<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<b>semtimedop</b>(): _GNU_SOURCE</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Each semaphore in a semaphore set has the following associated values:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+unsigned short  semval;   /* semaphore value */<br/>
+unsigned short  semzcnt;  /* # waiting for zero */<br/>
+unsigned short  semncnt;  /* # waiting for increase */<br/>
+pid_t           sempid;   /* process that did last op */<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+<b>semop</b>() performs operations on selected semaphores in the set indicated by <i>semid</i>. Each of the <i>nsops</i> elements in the array pointed to by <i>sops</i> specifies an operation to be performed on a single semaphore. The elements of this structure are of type <i>struct sembuf</i>, containing the following members:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+unsigned short sem_num;  /* semaphore number */<br/>
+short          sem_op;   /* semaphore operation */<br/>
+short          sem_flg;  /* operation flags */<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+Flags recognized in <i>sem_flg</i> are <b>IPC_NOWAIT</b> and <b>SEM_UNDO</b>. If an operation specifies <b>SEM_UNDO</b>, it will be automatically undone when the process terminates.<div class="spacer">
+</div>
+The set of operations contained in <i>sops</i> is performed in <i>array order</i>, and <i>atomically</i>, that is, the operations are performed either as a complete unit, or not at all. The behavior of the system call if not all operations can be performed immediately depends on the presence of the <b>IPC_NOWAIT</b> flag in the individual <i>sem_flg</i> fields, as noted below.<div style="height: 1.00em;">
+&#160;</div>
+Each operation is performed on the <i>sem_num</i>-th semaphore of the semaphore set, where the first semaphore of the set is numbered 0. There are three types of operation, distinguished by the value of <i>sem_op</i>.<div class="spacer">
+</div>
+If <i>sem_op</i> is a positive integer, the operation adds this value to the semaphore value (<i>semval</i>). Furthermore, if <b>SEM_UNDO</b> is specified for this operation, the system updates the process undo count (<i>semadj</i>) for this semaphore. This operation can always proceed&#8212;it never forces a process to wait. The calling process must have alter permission on the semaphore set.<div class="spacer">
+</div>
+If <i>sem_op</i> is zero, the process must have read permission on the semaphore set. This is a &quot;wait-for-zero&quot; operation: if <i>semval</i> is zero, the operation can immediately proceed. Otherwise, if <b>IPC_NOWAIT</b> is specified in <i>sem_flg</i>, <b>semop</b>() fails with <i>errno</i> set to <b>EAGAIN</b> (and none of the operations in <i>sops</i> is performed). Otherwise <i>semzcnt</i> (the count of processes waiting until this semaphore's value becomes zero) is incremented by one and the process sleeps until one of the following occurs:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>semval</i> becomes 0, at which time the value of <i>semzcnt</i> is decremented.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The semaphore set is removed: <b>semop</b>() fails, with <i>errno</i> set to <b>EIDRM</b>.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The calling process catches a signal: the value of <i>semzcnt</i> is decremented and <b>semop</b>() fails, with <i>errno</i> set to <b>EINTR</b>.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The time limit specified by <i>timeout</i> in a <b>semtimedop</b>() call expires: <b>semop</b>() fails, with <i>errno</i> set to <b>EAGAIN</b>.</dd>
+</dl>
+<div class="spacer">
+</div>
+If <i>sem_op</i> is less than zero, the process must have alter permission on the semaphore set. If <i>semval</i> is greater than or equal to the absolute value of <i>sem_op</i>, the operation can proceed immediately: the absolute value of <i>sem_op</i> is subtracted from <i>semval</i>, and, if <b>SEM_UNDO</b> is specified for this operation, the system updates the process undo count (<i>semadj</i>) for this semaphore. If the absolute value of <i>sem_op</i> is greater than <i>semval</i>, and <b>IPC_NOWAIT</b> is specified in <i>sem_flg</i>, <b>semop</b>() fails, with <i>errno</i> set to <b>EAGAIN</b> (and none of the operations in <i>sops</i> is performed). Otherwise <i>semncnt</i> (the counter of processes waiting for this semaphore's value to increase) is incremented by one and the process sleeps until one of the following occurs:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>semval</i> becomes greater than or equal to the absolute value of <i>sem_op</i>, at which time the value of <i>semncnt</i> is decremented, the absolute value of <i>sem_op</i> is subtracted from <i>semval</i> and, if <b>SEM_UNDO</b> is specified for this operation, the system updates the process undo count (<i>semadj</i>) for this semaphore.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The semaphore set is removed from the system: <b>semop</b>() fails, with <i>errno</i> set to <b>EIDRM</b>.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The calling process catches a signal: the value of <i>semncnt</i> is decremented and <b>semop</b>() fails, with <i>errno</i> set to <b>EINTR</b>.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The time limit specified by <i>timeout</i> in a <b>semtimedop</b>() call expires: the system call fails, with <i>errno</i> set to <b>EAGAIN</b>.</dd>
+</dl>
+<div class="spacer">
+</div>
+On successful completion, the <i>sempid</i> value for each semaphore specified in the array pointed to by <i>sops</i> is set to the process ID of the calling process. In addition, the <i>sem_otime</i> is set to the current time.<div class="spacer">
+</div>
+<b>semtimedop</b>() behaves identically to <b>semop</b>() except that in those cases were the calling process would sleep, the duration of that sleep is limited by the amount of elapsed time specified by the <i>timespec</i> structure whose address is passed in the <i>timeout</i> argument. If the specified time limit has been reached, <b>semtimedop</b>() fails with <i>errno</i> set to <b>EAGAIN</b> (and none of the operations in <i>sops</i> is performed). If the <i>timeout</i> argument is NULL, then <b>semtimedop</b>() behaves exactly like <b>semop</b>().</div>
+<div class="section">
+<h1>RETURN VALUE</h1> If successful <b>semop</b>() and <b>semtimedop</b>() return 0; otherwise they return -1 with <i>errno</i> indicating the error.</div>
+<div class="section">
+<h1>ERRORS</h1> On failure, <i>errno</i> is set to one of the following:<dl>
+<dt>
+<b>E2BIG</b></dt>
+<dd>
+The argument <i>nsops</i> is greater than <b>SEMOPM</b>, the maximum number of operations allowed per system call.</dd>
+</dl>
+<dl>
+<dt>
+<b>EACCES</b></dt>
+<dd>
+The calling process does not have the permissions required to perform the specified semaphore operations, and does not have the <b>CAP_IPC_OWNER</b> capability.</dd>
+</dl>
+<dl>
+<dt>
+<b>EAGAIN</b></dt>
+<dd>
+An operation could not proceed immediately and either <b>IPC_NOWAIT</b> was specified in <i>sem_flg</i> or the time limit specified in <i>timeout</i> expired.</dd>
+</dl>
+<dl>
+<dt>
+<b>EFAULT</b></dt>
+<dd>
+An address specified in either the <i>sops</i> or the <i>timeout</i> argument isn't accessible.</dd>
+</dl>
+<dl>
+<dt>
+<b>EFBIG</b></dt>
+<dd>
+For some operation the value of <i>sem_num</i> is less than 0 or greater than or equal to the number of semaphores in the set.</dd>
+</dl>
+<dl>
+<dt>
+<b>EIDRM</b></dt>
+<dd>
+The semaphore set was removed.</dd>
+</dl>
+<dl>
+<dt>
+<b>EINTR</b></dt>
+<dd>
+While blocked in this system call, the process caught a signal; see <b>signal</b>(7).</dd>
+</dl>
+<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+The semaphore set doesn't exist, or <i>semid</i> is less than zero, or <i>nsops</i> has a nonpositive value.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOMEM</b></dt>
+<dd>
+The <i>sem_flg</i> of some operation specified <b>SEM_UNDO</b> and the system does not have enough memory to allocate the undo structure.</dd>
+</dl>
+<dl>
+<dt>
+<b>ERANGE</b></dt>
+<dd>
+For some operation <i>sem_op+semval</i> is greater than <b>SEMVMX</b>, the implementation dependent maximum value for <i>semval</i>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>VERSIONS</h1> <b>semtimedop</b>() first appeared in Linux 2.5.52, and was subsequently backported into kernel 2.4.22. Glibc support for <b>semtimedop</b>() first appeared in version 2.3.3.</div>
+<div class="section">
+<h1>CONFORMING TO</h1> SVr4, POSIX.1-2001.</div>
+<div class="section">
+<h1>NOTES</h1> The <i>sem_undo</i> structures of a process aren't inherited by the child produced by <b>fork</b>(2), but they are inherited across an <b>execve</b>(2) system call.<div class="spacer">
+</div>
+<b>semop</b>() is never automatically restarted after being interrupted by a signal handler, regardless of the setting of the <b>SA_RESTART</b> flag when establishing a signal handler.<div class="spacer">
+</div>
+<i>semadj</i> is a per-process integer which is simply the (negative) count of all semaphore operations performed specifying the <b>SEM_UNDO</b> flag. When a semaphore's value is directly set using the <b>SETVAL</b> or <b>SETALL</b> request to <b>semctl</b>(2), the corresponding <i>semadj</i> values in all processes are cleared.<div class="spacer">
+</div>
+The <i>semval</i>, <i>sempid</i>, <i>semzcnt</i>, and <i>semnct</i> values for a semaphore can all be retrieved using appropriate <b>semctl</b>(2) calls.<div class="spacer">
+</div>
+The following limits on semaphore set resources affect the <b>semop</b>() call:<dl>
+<dt>
+<b>SEMOPM</b></dt>
+<dd>
+Maximum number of operations allowed for one <b>semop</b>() call (32) (on Linux, this limit can be read and modified via the third field of <i>/proc/sys/kernel/sem</i>).</dd>
+</dl>
+<dl>
+<dt>
+<b>SEMVMX</b></dt>
+<dd>
+Maximum allowable value for <i>semval</i>: implementation dependent (32767).</dd>
+</dl>
+<div class="spacer">
+</div>
+The implementation has no intrinsic limits for the adjust on exit maximum value (<b>SEMAEM</b>), the system wide maximum number of undo structures (<b>SEMMNU</b>) and the per-process maximum number of undo entries system parameters.</div>
+<div class="section">
+<h1>BUGS</h1> When a process terminates, its set of associated <i>semadj</i> structures is used to undo the effect of all of the semaphore operations it performed with the <b>SEM_UNDO</b> flag. This raises a difficulty: if one (or more) of these semaphore adjustments would result in an attempt to decrease a semaphore's value below zero, what should an implementation do? One possible approach would be to block until all the semaphore adjustments could be performed. This is however undesirable since it could force process termination to block for arbitrarily long periods. Another possibility is that such semaphore adjustments could be ignored altogether (somewhat analogously to failing when <b>IPC_NOWAIT</b> is specified for a semaphore operation). Linux adopts a third approach: decreasing the semaphore value as far as possible (i.e., to zero) and allowing process termination to proceed immediately.<div style="height: 1.00em;">
+&#160;</div>
+In kernels 2.6.x, x &lt;= 10, there is a bug that in some circumstances prevents a process that is waiting for a semaphore value to become zero from being woken up when the value does actually become zero. This bug is fixed in kernel 2.6.11.</div>
+<div class="section">
+<h1>EXAMPLE</h1> The following code segment uses <b>semop</b>() to atomically wait for the value of semaphore 0 to become zero, and then increment the semaphore value by one.<div class="spacer">
+</div>
+<br/>
+    struct sembuf sops[2];<br/>
+    int semid;<div class="spacer">
+</div>
+<br/>
+    /* Code to set <i>semid</i> omitted */<div class="spacer">
+</div>
+<br/>
+    sops[0].sem_num = 0;        /* Operate on semaphore 0 */<br/>
+    sops[0].sem_op = 0;         /* Wait for value to equal 0 */<br/>
+    sops[0].sem_flg = 0;<div class="spacer">
+</div>
+<br/>
+    sops[1].sem_num = 0;        /* Operate on semaphore 0 */<br/>
+    sops[1].sem_op = 1;         /* Increment value by one */<br/>
+    sops[1].sem_flg = 0;<div class="spacer">
+</div>
+<br/>
+    if (semop(semid, sops, 2) == -1) {<br/>
+        perror(&quot;semop&quot;);<br/>
+        exit(EXIT_FAILURE);<br/>
+    }<br/>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>semctl</b>(2), <b>semget</b>(2), <b>sigaction</b>(2), <b>capabilities</b>(7), <b>sem_overview</b>(7), <b>svipc</b>(7), <b>time</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2008-10-04</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

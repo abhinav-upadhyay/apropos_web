@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+autodie::exception(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+autodie::exception(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+autodie::exception(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> autodie::exception - Exceptions from autodying functions.</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    eval {<br/>
+        use autodie;<br/>
+<br/>
+        open(my $fh, '&lt;', 'some_file.txt');<br/>
+<br/>
+        ...<br/>
+    };<br/>
+<br/>
+    if (my $E = $@) {<br/>
+        say &quot;Ooops!  &quot;,$E-&gt;caller,&quot; had problems: $@&quot;;<br/>
+    }<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> When an autodie enabled function fails, it generates an &quot;autodie::exception&quot; object.  This can be interrogated to determine further information about the error that occurred.<div class="spacer">
+</div>
+This document is broken into two sections; those methods that are most useful to the end-developer, and those methods for anyone wishing to subclass or get very familiar with &quot;autodie::exception&quot;.<div class="subsection">
+<h2>Common Methods</h2> These methods are intended to be used in the everyday dealing of exceptions.<div class="spacer">
+</div>
+The following assume that the error has been copied into a separate scalar:<div class="spacer">
+</div>
+<br/>
+    if ($E = $@) {<br/>
+        ...<br/>
+    }<br/>
+<div class="spacer">
+</div>
+This is not required, but is recommended in case any code is called which may reset or alter $@.<div class="spacer">
+</div>
+<i>args</i><div class="spacer">
+</div>
+<br/>
+    my $array_ref = $E-&gt;args;<br/>
+<div class="spacer">
+</div>
+Provides a reference to the arguments passed to the subroutine that died.<div class="spacer">
+</div>
+<i>function</i><div class="spacer">
+</div>
+<br/>
+    my $sub = $E-&gt;function;<br/>
+<div class="spacer">
+</div>
+The subroutine (including package) that threw the exception.<div class="spacer">
+</div>
+<i>file</i><div class="spacer">
+</div>
+<br/>
+    my $file = $E-&gt;file;<br/>
+<div class="spacer">
+</div>
+The file in which the error occurred (eg, &quot;myscript.pl&quot; or &quot;MyTest.pm&quot;).<div class="spacer">
+</div>
+<i>package</i><div class="spacer">
+</div>
+<br/>
+    my $package = $E-&gt;package;<br/>
+<div class="spacer">
+</div>
+The package from which the exceptional subroutine was called.<div class="spacer">
+</div>
+<i>caller</i><div class="spacer">
+</div>
+<br/>
+    my $caller = $E-&gt;caller;<br/>
+<div class="spacer">
+</div>
+The subroutine that <i>called</i> the exceptional code.<div class="spacer">
+</div>
+<i>line</i><div class="spacer">
+</div>
+<br/>
+    my $line = $E-&gt;line;<br/>
+<div class="spacer">
+</div>
+The line in &quot;$E-&gt;file&quot; where the exceptional code was called.<div class="spacer">
+</div>
+<i>context</i><div class="spacer">
+</div>
+<br/>
+    my $context = $E-&gt;context;<br/>
+<div class="spacer">
+</div>
+The context in which the subroutine was called.  This can be 'list', 'scalar', or undefined (unknown).  It will never be 'void', as &quot;autodie&quot; always captures the return value in one way or another.<div class="spacer">
+</div>
+<i>return</i><div class="spacer">
+</div>
+<br/>
+    my $return_value = $E-&gt;return;<br/>
+<div class="spacer">
+</div>
+The value(s) returned by the failed subroutine.  When the subroutine was called in a list context, this will always be a reference to an array containing the results.  When the subroutine was called in a scalar context, this will be the actual scalar returned.<div class="spacer">
+</div>
+<i>errno</i><div class="spacer">
+</div>
+<br/>
+    my $errno = $E-&gt;errno;<br/>
+<div class="spacer">
+</div>
+The value of $! at the time when the exception occurred.<div class="spacer">
+</div>
+<b>NOTE</b>: This method will leave the main &quot;autodie::exception&quot; class and become part of a role in the future.  You should only call &quot;errno&quot; for exceptions where $! would reasonably have been set on failure.<div class="spacer">
+</div>
+<i>eval_error</i><div class="spacer">
+</div>
+<br/>
+    my $old_eval_error = $E-&gt;eval_error;<br/>
+<div class="spacer">
+</div>
+The contents of $@ immediately after autodie triggered an exception.  This may be useful when dealing with modules such as Text::Balanced that set (but do not throw) $@ on error.<div class="spacer">
+</div>
+<i>matches</i><div class="spacer">
+</div>
+<br/>
+    if ( $e-&gt;matches('open') ) { ... }<br/>
+<br/>
+    if ( $e ~~ 'open' ) { ... }<br/>
+<div class="spacer">
+</div>
+&quot;matches&quot; is used to determine whether a given exception matches a particular role.  On Perl 5.10, using smart-match (&quot;~~&quot;) with an &quot;autodie::exception&quot; object will use &quot;matches&quot; underneath.<div class="spacer">
+</div>
+An exception is considered to match a string if:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+For a string not starting with a colon, the string exactly matches the package and subroutine that threw the exception.  For example, &quot;MyModule::log&quot;.  If the string does not contain a package name, &quot;CORE::&quot; is assumed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+For a string that does start with a colon, if the subroutine throwing the exception  <i>does</i> that behaviour.  For example, the &quot;CORE::open&quot; subroutine does &quot;:file&quot;, &quot;:io&quot; and &quot;:all&quot;.<div style="height: 1.00em;">
+&#160;</div>
+See &quot;CATEGORIES&quot; in autodie for futher information.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Advanced methods</h2> The following methods, while usable from anywhere, are primarily intended for developers wishing to subclass &quot;autodie::exception&quot;, write code that registers custom error messages, or otherwise work closely with the &quot;autodie::exception&quot; model.<div class="spacer">
+</div>
+<i>register</i><div class="spacer">
+</div>
+<br/>
+    autodie::exception-&gt;register( 'CORE::open' =&gt; \&amp;mysub );<br/>
+<div class="spacer">
+</div>
+The &quot;register&quot; method allows for the registration of a message handler for a given subroutine.  The full subroutine name including the package should be used.<div class="spacer">
+</div>
+Registered message handlers will receive the &quot;autodie::exception&quot; object as the first parameter.<div class="spacer">
+</div>
+<i>add_file_and_line</i><div class="spacer">
+</div>
+<br/>
+    say &quot;Problem occurred&quot;,$@-&gt;add_file_and_line;<br/>
+<div class="spacer">
+</div>
+Returns the string &quot; at %s line %d&quot;, where %s is replaced with the filename, and %d is replaced with the line number.<div class="spacer">
+</div>
+Primarily intended for use by format handlers.<div class="spacer">
+</div>
+<i>stringify</i><div class="spacer">
+</div>
+<br/>
+    say &quot;The error was: &quot;,$@-&gt;stringify;<br/>
+<div class="spacer">
+</div>
+Formats the error as a human readable string.  Usually there's no reason to call this directly, as it is used automatically if an &quot;autodie::exception&quot; object is ever used as a string.<div class="spacer">
+</div>
+Child classes can override this method to change how they're stringified.<div class="spacer">
+</div>
+<i>format_default</i><div class="spacer">
+</div>
+<br/>
+    my $error_string = $E-&gt;format_default;<br/>
+<div class="spacer">
+</div>
+This produces the default error string for the given exception,  <i>without using any registered message handlers</i>.  It is primarily intended to be called from a message handler when they have been passed an exception they don't want to format.<div class="spacer">
+</div>
+Child classes can override this method to change how default messages are formatted.<div class="spacer">
+</div>
+<i>new</i><div class="spacer">
+</div>
+<br/>
+    my $error = autodie::exception-&gt;new(<br/>
+        args =&gt; \@_,<br/>
+        function =&gt; &quot;CORE::open&quot;,<br/>
+        errno =&gt; $!,<br/>
+        context =&gt; 'scalar',<br/>
+        return =&gt; undef,<br/>
+    );<br/>
+<div class="spacer">
+</div>
+Creates a new &quot;autodie::exception&quot; object.  Normally called directly from an autodying function.  The &quot;function&quot; argument is required, its the function we were trying to call that generated the exception.  The &quot;args&quot; parameter is optional.<div class="spacer">
+</div>
+The &quot;errno&quot; value is optional.  In versions of &quot;autodie::exception&quot; 1.99 and earlier the code would try to automatically use the current value of $!, but this was unreliable and is no longer supported.<div class="spacer">
+</div>
+Atrributes such as package, file, and caller are determined automatically, and cannot be specified.</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> autodie, autodie::exception::system</div>
+<div class="section">
+<h1>LICENSE</h1> Copyright (C)2008 Paul Fenwick<div class="spacer">
+</div>
+This is free software.  You may modify and/or redistribute this code under the same terms as Perl 5.10 itself, or, at your option, any later version of Perl 5.</div>
+<div class="section">
+<h1>AUTHOR</h1> Paul Fenwick &lt;pjf@perltraining.com.au&gt;</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

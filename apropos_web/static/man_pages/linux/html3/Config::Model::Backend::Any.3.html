@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Config::Model::Backend::Any(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Config::Model::Backend::Any(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Config::Model::Backend::Any(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Config::Model::Backend::Any - Virtual class for other backends</div>
+<div class="section">
+<h1>VERSION</h1> version 2.005</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ package Config::Model::Backend::Foo ;<br/>
+ use Any::Moose ;<br/>
+ use Log::Log4perl qw(get_logger :levels);<br/>
+<br/>
+ extends 'Config::Model::Backend::Any';<br/>
+<br/>
+ # optional<br/>
+ sub suffix { <br/>
+   return '.foo';<br/>
+ }<br/>
+<br/>
+ # mandatory<br/>
+ sub read {<br/>
+    my $self = shift ;<br/>
+    my %args = @_ ;<br/>
+<br/>
+    # args are:<br/>
+    # root       =&gt; './my_test',  # fake root directory, userd for tests<br/>
+    # config_dir =&gt; /etc/foo',    # absolute path <br/>
+    # file       =&gt; 'foo.conf',   # file name<br/>
+    # file_path  =&gt; './my_test/etc/foo/foo.conf' <br/>
+    # io_handle  =&gt; $io           # IO::File object<br/>
+    # check      =&gt; yes|no|skip<br/>
+<br/>
+    return 0 unless defined $args{io_handle} ; # or die?<br/>
+<br/>
+    foreach ($args{io_handle}-&gt;getlines) {<br/>
+        chomp ;<br/>
+        s/#.*/ ;<br/>
+        next unless /\S/; # skip blank line<br/>
+<br/>
+        # $data is 'foo=bar' which is compatible with load <br/>
+        $self-&gt;node-&gt;load(step =&gt; $_, check =&gt; $args{check} ) ;<br/>
+    }<br/>
+    return 1 ;<br/>
+ }<br/>
+<br/>
+ # mandatory<br/>
+ sub write {<br/>
+    my $self = shift ;<br/>
+    my %args = @_ ;<br/>
+<br/>
+    # args are:<br/>
+    # root       =&gt; './my_test',  # fake root directory, userd for tests<br/>
+    # config_dir =&gt; /etc/foo',    # absolute path <br/>
+    # file       =&gt; 'foo.conf',   # file name<br/>
+    # file_path  =&gt; './my_test/etc/foo/foo.conf' <br/>
+    # io_handle  =&gt; $io           # IO::File object<br/>
+    # check      =&gt; yes|no|skip<br/>
+<br/>
+    my $ioh = $args{io_handle} ;<br/>
+<br/>
+    foreach my $elt ($self-&gt;node-&gt;get_element_name) {<br/>
+        my $obj =  $self-&gt;node-&gt;fetch_element($elt) ;<br/>
+        my $v   = $self-&gt;node-&gt;grab_value($elt) ;<br/>
+<br/>
+        # write value<br/>
+        $ioh-&gt;print(qq!$elt=&quot;$v&quot;\n!) if defined $v ;<br/>
+        $ioh-&gt;print(&quot;\n&quot;)            if defined $v ;<br/>
+    }<br/>
+<br/>
+    return 1;<br/>
+ }<br/>
+<br/>
+ no Any::Moose ;<br/>
+ __PACKAGE__-&gt;meta-&gt;make_immutable ;<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This Moose class is to be inherited by other backend plugin classes<div class="spacer">
+</div>
+See &quot;read callback&quot; in Config::Model::AutoRead and &quot;write callback&quot; in Config::Model::AutoRead for more details on the method that must be provided by any backend classes.</div>
+<div class="section">
+<h1>CONSTRUCTOR</h1><div class="subsection">
+<h2>new ( node =&gt; $node_obj, name =&gt; backend_name )</h2> The constructor should be used only by Config::Model::Node.</div>
+</div>
+<div class="section">
+<h1>Methods to override</h1><div class="subsection">
+<h2>annotation</h2> Whether the backend supports to read and write annotation. Default is 0. Override if your backend supports annotations</div>
+</div>
+<div class="section">
+<h1>Methods</h1><div class="subsection">
+<h2>read_global_comments( lines , comment_char)</h2> Read the global comments (i.e. the first block of comments until the first blank or non comment line) and store them as root node annotation. The first parameter (&quot;lines&quot;)<br/>
+ is an array ref containing file lines.</div>
+<div class="subsection">
+<h2>associates_comments_with_data ( lines , comment_char)</h2> This method will extract comments from the passed lines and associate them with actual data found in the file lines. Data is associated with comments preceding or on the same line as the data. Returns a list of [ data, comment ] .<div class="spacer">
+</div>
+Example:<div class="spacer">
+</div>
+<br/>
+  # Foo comments<br/>
+  foo= 1<br/>
+  Baz = 0 # Baz comments<br/>
+<div class="spacer">
+</div>
+will return<div class="spacer">
+</div>
+<br/>
+  ( [  'foo= 1', 'Foo comments'  ] , [ 'Baz = 0' , 'Baz comments' ] )<br/>
+</div>
+<div class="subsection">
+<h2>write_global_comments( io_handle , comment_char)</h2> Write global comments from configuration root annotation into the io_handle (if defined). Returns the string written to the io_handle.</div>
+<div class="subsection">
+<h2>write_data_and_comments( io_handle , comment_char , data1, comment1, data2, comment2 ...)</h2> Write data and comments in the &quot;io_handle&quot; (if defined). Comments are written before the data. Returns the string written to the io_handle. If a data is undef, the comment will be written on its own line.</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Dominique Dumont, (ddumont at cpan dot org)</div>
+<div class="section">
+<h1>SEE ALSO</h1> Config::Model, Config::Model::AutoRead, Config::Model::Node, Config::Model::Backend::Yaml,</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2012-02-24</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

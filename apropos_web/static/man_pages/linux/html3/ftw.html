@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+FTW(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+FTW(3)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+FTW(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> ftw, nftw - file tree walk</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;ftw.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int ftw(const char *</b><i>dirpath</i><b>,</b><br/>
+<b>        int (*</b><i>fn</i><b>) (const char *</b><i>fpath</i><b>, const struct stat *</b><i>sb</i><b>,</b><br/>
+<b>                   int </b><i>typeflag</i><b>),</b><br/>
+<b>        int </b><i>nopenfd</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>#define _XOPEN_SOURCE 500</b>   /* See feature_test_macros(7) */ <b>#include &lt;ftw.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int nftw(const char *</b><i>dirpath</i><b>,</b><br/>
+<b>        int (*</b><i>fn</i><b>) (const char *</b><i>fpath</i><b>, const struct stat *</b><i>sb</i><b>,</b><br/>
+<b>                   int </b><i>typeflag</i><b>, struct FTW *</b><i>ftwbuf</i><b>),</b><br/>
+<b>        int </b><i>nopenfd</i><b>, int </b><i>flags</i><b>);</b><br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> <b>ftw</b>() walks through the directory tree that is located under the directory  <i>dirpath</i>, and calls  <i>fn</i>() once for each entry in the tree. By default, directories are handled before the files and subdirectories they contain (preorder traversal).<div style="height: 1.00em;">
+&#160;</div>
+To avoid using up all of the calling process's file descriptors,  <i>nopenfd</i> specifies the maximum number of directories that <b>ftw</b>() will hold open simultaneously. When the search depth exceeds this, <b>ftw</b>() will become slower because directories have to be closed and reopened. <b>ftw</b>() uses at most one file descriptor for each level in the directory tree.<div style="height: 1.00em;">
+&#160;</div>
+For each entry found in the tree, <b>ftw</b>() calls  <i>fn</i>() with three arguments: <i>fpath</i>, <i>sb</i>, and <i>typeflag</i>. <i>fpath</i> is the pathname of the entry, and is expressed either as a pathname relative to the calling process's current working directory at the time of the call to <b>ftw</b>(), if <i>dirpath</i> was expressed as a relative pathname, or as an absolute pathname, if <i>dirpath</i> was expressed as an absolute pathname. <i>sb</i> is a pointer to the <i>stat</i> structure returned by a call to <b>stat</b>(2) for <i>fpath</i>. <i>typeflag</i> is an integer that has one of the following values:<dl>
+<dt>
+<b>FTW_F</b></dt>
+<dd>
+<i>fpath</i> is a regular file.</dd>
+</dl>
+<dl>
+<dt>
+<b>FTW_D</b></dt>
+<dd>
+<i>fpath</i> is a directory.</dd>
+</dl>
+<dl>
+<dt>
+<b>FTW_DNR</b></dt>
+<dd>
+<i>fpath</i> is a directory which can't be read.</dd>
+</dl>
+<dl>
+<dt>
+<b>FTW_NS</b></dt>
+<dd>
+The <b>stat</b>(2) call failed on <i>fpath</i>, which is not a symbolic link.<div style="height: 1.00em;">
+&#160;</div>
+If <i>fpath</i> is a symbolic link and <b>stat</b>(2) failed, POSIX.1-2001 states that it is undefined whether  <b>FTW_NS</b> or <b>FTW_SL</b> (see below) is passed in <i>typeflag</i>.</dd>
+</dl>
+<div class="spacer">
+</div>
+To stop the tree walk, <i>fn</i>() returns a nonzero value; this value will become the return value of <b>ftw</b>(). As long as  <i>fn</i>() returns 0, <b>ftw</b>() will continue either until it has traversed the entire tree, in which case it will return zero, or until it encounters an error (such as a <b>malloc</b>(3) failure), in which case it will return -1.<div class="spacer">
+</div>
+Because <b>ftw</b>() uses dynamic data structures, the only safe way to exit out of a tree walk is to return a nonzero value from  <i>fn</i>(). To allow a signal to terminate the walk without causing a memory leak, have the handler set a global flag that is checked by  <i>fn</i>().  <i>Don't</i> use <b>longjmp</b>(3) unless the program is going to terminate.<div class="subsection">
+<h2>nftw()</h2> The function <b>nftw</b>() is the same as <b>ftw</b>(), except that it has one additional argument,  <i>flags</i>, and calls  <i>fn</i>() with one more argument, <i>ftwbuf</i>.<div style="height: 1.00em;">
+&#160;</div>
+This <i>flags</i> argument is formed by ORing zero or more of the following flags:<dl>
+<dt>
+<b>FTW_ACTIONRETVAL</b> (since glibc 2.3.3)</dt>
+<dd>
+If this glibc-specific flag is set, then <b>nftw</b>() handles the return value from <i>fn</i>() differently. <i>fn</i>() should return one of the following values:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>FTW_CONTINUE</b></dt>
+<dd>
+Instructs <b>nftw</b>() to continue normally.</dd>
+</dl>
+<dl>
+<dt>
+<b>FTW_SKIP_SIBLINGS</b></dt>
+<dd>
+If <i>fn</i>() returns this value, then siblings of the current entry will be skipped, and processing continues in the parent.</dd>
+</dl>
+<dl>
+<dt>
+<b>FTW_SKIP_SUBTREE</b></dt>
+<dd>
+If <i>fn</i>() is called with an entry that is a directory ( <i>typeflag</i> is <b>FTW_D</b>), this return value will prevent objects within that directory from being passed as arguments to  <i>fn</i>(). <b>nftw</b>() continues processing with the next sibling of the directory.</dd>
+</dl>
+<dl>
+<dt>
+<b>FTW_STOP</b></dt>
+<dd>
+Causes <b>nftw</b>() to return immediately with the return value  <b>FTW_STOP</b>.</dd>
+</dl>
+<div class="spacer">
+</div>
+Other return values could be associated with new actions in the future;  <i>fn</i>() should not return values other than those listed above.<div style="height: 1.00em;">
+&#160;</div>
+The feature test macro <b>_GNU_SOURCE</b> must be defined (before including <i>any</i> header files) in order to obtain the definition of  <b>FTW_ACTIONRETVAL</b> from <i>&lt;ftw.h&gt;</i>.</div>
+<dl>
+<dt>
+<b>FTW_CHDIR</b></dt>
+<dd>
+If set, do a <b>chdir</b>(2) to each directory before handling its contents. This is useful if the program needs to perform some action in the directory in which  <i>fpath</i> resides.</dd>
+</dl>
+<dl>
+<dt>
+<b>FTW_DEPTH</b></dt>
+<dd>
+If set, do a post-order traversal, that is, call <i>fn</i>() for the directory itself  <i>after</i> handling the contents of the directory and its subdirectories. (By default, each directory is handled  <i>before</i> its contents.)</dd>
+</dl>
+<dl>
+<dt>
+<b>FTW_MOUNT</b></dt>
+<dd>
+If set, stay within the same file system (i.e., do not cross mount points).</dd>
+</dl>
+<dl>
+<dt>
+<b>FTW_PHYS</b></dt>
+<dd>
+If set, do not follow symbolic links. (This is what you want.) If not set, symbolic links are followed, but no file is reported twice.<div style="height: 1.00em;">
+&#160;</div>
+If <b>FTW_PHYS</b> is not set, but <b>FTW_DEPTH</b> is set, then the function <i>fn</i>() is never called for a directory that would be a descendant of itself.</dd>
+</dl>
+<div class="spacer">
+</div>
+For each entry in the directory tree, <b>nftw</b>() calls <i>fn</i>() with four arguments. <i>fpath</i> and <i>sb</i> are as for <b>ftw</b>(). <i>typeflag</i> may receive any of the same values as with <b>ftw</b>(), or any of the following values:<dl>
+<dt>
+<b>FTW_DP</b></dt>
+<dd>
+<i>fpath</i> is a directory, and  <b>FTW_DEPTH</b> was specified in <i>flags</i>. All of the files and subdirectories within  <i>fpath</i> have been processed.</dd>
+</dl>
+<dl>
+<dt>
+<b>FTW_SL</b></dt>
+<dd>
+<i>fpath</i> is a symbolic link, and  <b>FTW_PHYS</b> was set in <i>flags</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>FTW_SLN</b></dt>
+<dd>
+<i>fpath</i> is a symbolic link pointing to a nonexistent file. (This occurs only if  <b>FTW_PHYS</b> is not set.)</dd>
+</dl>
+<div class="spacer">
+</div>
+The fourth argument that <b>nftw</b>() supplies when calling  <i>fn</i>() is a structure of type  <i>FTW</i>:<br/>
+<div class="spacer">
+</div>
+<br/>
+struct FTW {<br/>
+    int base;<br/>
+    int level;<br/>
+};<div class="spacer">
+</div>
+<br/>
+<br/>
+<i>base</i> is the offset of the filename (i.e., basename component) in the pathname given in <i>fpath</i>. <i>level</i> is the depth of <i>fpath</i> in the directory tree, relative to the root of the tree (<i>dirpath</i>, which has depth 0).</div>
+</div>
+<div class="section">
+<h1>RETURN VALUE</h1> These functions return 0 on success, and -1 if an error occurs.<div style="height: 1.00em;">
+&#160;</div>
+If <i>fn</i>() returns nonzero, then the tree walk is terminated and the value returned by  <i>fn</i>() is returned as the result of <b>ftw</b>() or <b>nftw</b>().<div style="height: 1.00em;">
+&#160;</div>
+If <b>nftw</b>() is called with the  <b>FTW_ACTIONRETVAL</b> flag, then the only nonzero value that should be used by  <i>fn</i>() to terminate the tree walk is  <b>FTW_STOP</b>, and that value is returned as the result of <b>nftw</b>().</div>
+<div class="section">
+<h1>CONFORMING TO</h1> POSIX.1-2001, SVr4, SUSv1. POSIX.1-2008 marks <b>ftw</b>() as obsolete.</div>
+<div class="section">
+<h1>NOTES</h1> POSIX.1-2001 note that the results are unspecified if <i>fn</i> does not preserve the current working directory.<div class="spacer">
+</div>
+The function <b>nftw</b>() and the use of  <b>FTW_SL</b> with <b>ftw</b>() were introduced in SUSv1.<div class="spacer">
+</div>
+On some systems <b>ftw</b>() will never use  <b>FTW_SL</b>, on other systems <b>FTW_SL</b> occurs only for symbolic links that do not point to an existing file, and again on other systems <b>ftw</b>() will use  <b>FTW_SL</b> for each symbolic link. For predictable control, use <b>nftw</b>().<div class="spacer">
+</div>
+Under Linux, libc4 and libc5 and glibc 2.0.6 will use  <b>FTW_F</b> for all objects (files, symbolic links, FIFOs, etc.) that can be stat'ed but are not a directory.<div style="height: 1.00em;">
+&#160;</div>
+The function <b>nftw</b>() is available since glibc 2.1.<div style="height: 1.00em;">
+&#160;</div>
+<b>FTW_ACTIONRETVAL</b> is glibc-specific.</div>
+<div class="section">
+<h1>EXAMPLE</h1> The following program traverses the directory tree under the path named in its first command-line argument, or under the current directory if no argument is supplied. It displays various information about each file. The second command-line argument can be used to specify characters that control the value assigned to the  <i>flags</i> argument when calling <b>nftw</b>().<div class="spacer">
+</div>
+<br/>
+#define _XOPEN_SOURCE 500<br/>
+#include &lt;ftw.h&gt;<br/>
+#include &lt;stdio.h&gt;<br/>
+#include &lt;stdlib.h&gt;<br/>
+#include &lt;string.h&gt;<br/>
+#include &lt;stdint.h&gt;<div class="spacer">
+</div>
+<br/>
+static int<br/>
+display_info(const char *fpath, const struct stat *sb,<br/>
+             int tflag, struct FTW *ftwbuf)<br/>
+{<br/>
+    printf(&quot;%-3s %2d %7jd   %-40s %d %s\n&quot;,<br/>
+        (tflag == FTW_D) ?   &quot;d&quot;   : (tflag == FTW_DNR) ? &quot;dnr&quot; :<br/>
+        (tflag == FTW_DP) ?  &quot;dp&quot;  : (tflag == FTW_F) ?   &quot;f&quot; :<br/>
+        (tflag == FTW_NS) ?  &quot;ns&quot;  : (tflag == FTW_SL) ?  &quot;sl&quot; :<br/>
+        (tflag == FTW_SLN) ? &quot;sln&quot; : &quot;???&quot;,<br/>
+        ftwbuf-&gt;level, (intmax_t) sb-&gt;st_size,<br/>
+        fpath, ftwbuf-&gt;base, fpath + ftwbuf-&gt;base);<br/>
+    return 0;           /* To tell nftw() to continue */<br/>
+}<div class="spacer">
+</div>
+<br/>
+int<br/>
+main(int argc, char *argv[])<br/>
+{<br/>
+    int flags = 0;<div class="spacer">
+</div>
+<br/>
+    if (argc &gt; 2 &amp;&amp; strchr(argv[2], 'd') != NULL)<br/>
+        flags |= FTW_DEPTH;<br/>
+    if (argc &gt; 2 &amp;&amp; strchr(argv[2], 'p') != NULL)<br/>
+        flags |= FTW_PHYS;<div class="spacer">
+</div>
+<br/>
+    if (nftw((argc &lt; 2) ? &quot;.&quot; : argv[1], display_info, 20, flags)<br/>
+            == -1) {<br/>
+        perror(&quot;nftw&quot;);<br/>
+        exit(EXIT_FAILURE);<br/>
+    }<br/>
+    exit(EXIT_SUCCESS);<br/>
+}<br/>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>stat</b>(2), <b>fts</b>(3), <b>readdir</b>(3)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2010-09-20</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

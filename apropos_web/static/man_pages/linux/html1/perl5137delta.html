@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PERL5137DELTA(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERL5137DELTA(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+PERL5137DELTA(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perl5137delta - what is new for perl v5.13.7</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This document describes differences between the 5.13.6 release and the 5.13.7 release.<div class="spacer">
+</div>
+If you are upgrading from an earlier release such as 5.13.5, first read perl5136delta, which describes differences between 5.13.5 and 5.13.6.</div>
+<div class="section">
+<h1>Core Enhancements</h1><div class="subsection">
+<h2>Single term prototype</h2> The &quot;+&quot; prototype is a special alternative to &quot;$&quot; that will act like &quot;\[@%]&quot; when given a literal array or hash variable, but will otherwise force scalar context on the argument.  This is useful for functions which should accept either a literal array or an array reference as the argument:<div class="spacer">
+</div>
+<br/>
+    sub smartpush (+@) {<br/>
+        my $aref = shift;<br/>
+        die &quot;Not an array or arrayref&quot; unless ref $aref eq 'ARRAY';<br/>
+        push @$aref, @_;<br/>
+    }<br/>
+<div class="spacer">
+</div>
+When using the &quot;+&quot; prototype, your function must check that the argument is of an acceptable type.</div>
+<div class="subsection">
+<h2>&quot;use re '/flags';&quot;</h2> The &quot;re&quot; pragma now has the ability to turn on regular expression flags till the end of the lexical scope:<div class="spacer">
+</div>
+<br/>
+    use re '/x';<br/>
+    &quot;foo&quot; =~ / (.+) /;  # /x implied<br/>
+<div class="spacer">
+</div>
+See &quot;'/flags' mode&quot; in re for details.</div>
+<div class="subsection">
+<h2>Statement labels can appear in more places</h2> Statement labels can now occur before any type of statement or declaration, such as &quot;package&quot;.</div>
+<div class="subsection">
+<h2>&quot;use feature &quot;unicode_strings&quot;&quot; now applies to more regex matching</h2> Another chunk of the &quot;The &quot;Unicode Bug&quot;&quot; in perlunicode is fixed in this release.  Now, regular expressions compiled within the scope of the &quot;unicode_strings&quot; feature (or under the &quot;u&quot; regex modifier (specifiable currently only with infix notation &quot;(?u:...)&quot; or via &quot;use re '/u'&quot;) will match the same whether or not the target string is encoded in utf8, with regard to &quot;[[:posix:]]&quot; character classes<div class="spacer">
+</div>
+Work is underway to add the case sensitive matching to the control of this feature, but was not complete in time for this dot release.</div>
+<div class="subsection">
+<h2>Array and hash container functions accept references</h2> All built-in functions that operate directly on array or hash containers now also accept hard references to arrays or hashes:<div class="spacer">
+</div>
+<br/>
+  |----------------------------+---------------------------|<br/>
+  | Traditional syntax         | Terse syntax              |<br/>
+  |----------------------------+---------------------------|<br/>
+  | push @$arrayref, @stuff    | push $arrayref, @stuff    |<br/>
+  | unshift @$arrayref, @stuff | unshift $arrayref, @stuff |<br/>
+  | pop @$arrayref             | pop $arrayref             |<br/>
+  | shift @$arrayref           | shift $arrayref           |<br/>
+  | splice @$arrayref, 0, 2    | splice $arrayref, 0, 2    |<br/>
+  | keys %$hashref             | keys $hashref             |<br/>
+  | keys @$arrayref            | keys $arrayref            |<br/>
+  | values %$hashref           | values $hashref           |<br/>
+  | values @$arrayref          | values $arrayref          |<br/>
+  | ($k,$v) = each %$hashref   | ($k,$v) = each $hashref   |<br/>
+  | ($k,$v) = each @$arrayref  | ($k,$v) = each $arrayref  |<br/>
+  |----------------------------+---------------------------|<br/>
+<div class="spacer">
+</div>
+This allows these built-in functions to act on long dereferencing chains or on the return value of subroutines without needing to wrap them in &quot;@{}&quot; or &quot;%{}&quot;:<div class="spacer">
+</div>
+<br/>
+  push @{$obj-&gt;tags}, $new_tag;  # old way<br/>
+  push $obj-&gt;tags,    $new_tag;  # new way<br/>
+<br/>
+  for ( keys %{$hoh-&gt;{genres}{artists}} ) {...} # old way <br/>
+  for ( keys $hoh-&gt;{genres}{artists}    ) {...} # new way<br/>
+<div class="spacer">
+</div>
+For &quot;push&quot;, &quot;unshift&quot; and &quot;splice&quot;, the reference will auto-vivify if it is not defined, just as if it were wrapped with &quot;@{}&quot;.<div class="spacer">
+</div>
+Calling &quot;keys&quot; or &quot;values&quot; directly on a reference gives a substantial performance improvement over explicit dereferencing.<div class="spacer">
+</div>
+For &quot;keys&quot;, &quot;values&quot;, &quot;each&quot;, when overloaded dereferencing is present, the overloaded dereference is used instead of dereferencing the underlying reftype.  Warnings are issued about assumptions made in the following three ambiguous cases:<div class="spacer">
+</div>
+<br/>
+  (a) If both %{} and @{} overloading exists, %{} is used<br/>
+  (b) If %{} overloading exists on a blessed arrayref, %{} is used<br/>
+  (c) If @{} overloading exists on a blessed hashref, @{} is used<br/>
+</div>
+<div class="subsection">
+<h2>y///r</h2> The &quot;/r&quot; flag, which was added to &quot;s///&quot; in 5.13.2, has been extended to the &quot;y///&quot; operator.<div class="spacer">
+</div>
+It causes it to perform the substitution on a <i>copy</i> of its operand, returning that copy instead of a character count.</div>
+<div class="subsection">
+<h2>New global variable &quot;${^GLOBAL_PHASE}&quot;</h2> A new global variable, &quot;${^GLOBAL_PHASE}&quot;, has been added to allow introspection of the current phase of the perl interpreter. It's explained in detail in &quot;${^GLOBAL_PHASE}&quot; in perlvar and &quot;BEGIN, UNITCHECK, CHECK, INIT and END&quot; in perlmod.</div>
+<div class="subsection">
+<h2>Unicode Version 6.0 is now supported (mostly)</h2> Perl comes with the Unicode 6.0 data base updated with Corrigendum #8 &lt;http://www.unicode.org/versions/corrigendum8.html&gt;, with one exception noted below. See &lt;http://unicode.org/versions/Unicode6.0.0&gt; for details on the new release.  Perl does not support any Unicode provisional properties, including the new ones for this release, but their database files are packaged with Perl.<div class="spacer">
+</div>
+Unicode 6.0 has chosen to use the name &quot;BELL&quot; for the character at U+1F514, which is a symbol that looks like a bell, and used in Japanese cell phones.  This conflicts with the long-standing Perl usage of having &quot;BELL&quot; mean the ASCII &quot;BEL&quot; character, U+0007.  In Perl 5.14, &quot;\N{BELL}&quot; will continue to mean U+0007, but its use will generate a deprecated warning message, unless such warnings are turned off.  The new name for U+0007 in Perl will be &quot;ALERT&quot;, which corresponds nicely with the existing shorthand sequence for it, &quot;\a&quot;.  &quot;\N{BEL}&quot; will mean U+0007, with no warning given.  The character at U+1F514 will not have a name in 5.14, but can be referred to by &quot;\N{U+1F514}&quot;.  The plan is that in Perl 5.16, &quot;\N{BELL}&quot; will refer to U+1F514, and so all code that uses &quot;\N{BELL}&quot; should convert by then to using &quot;\N{ALERT}&quot;, &quot;\N{BEL}&quot;, or &quot;\a&quot; instead.</div>
+<div class="subsection">
+<h2>Improved support for custom OPs</h2> Custom ops can now be registered with the new &quot;custom_op_register&quot; C function and the &quot;XOP&quot; structure. This will make it easier to add new properties of custom ops in the future. Two new properties have been added already, &quot;xop_class&quot; and &quot;xop_peep&quot;.<div class="spacer">
+</div>
+&quot;xop_class&quot; is one of the OA_*OP constants, and allows B and other introspection mechanisms to work with custom ops that aren't BASEOPs. &quot;xop_peep&quot; is a pointer to a function that will be called for ops of this type from &quot;Perl_rpeep&quot;.<div class="spacer">
+</div>
+See &quot;Custom Operators&quot; in perlguts and &quot;Custom Operators&quot; in perlapi for more detail.<div class="spacer">
+</div>
+The old &quot;PL_custom_op_names&quot;/&quot;PL_custom_op_descs&quot; interface is still supported but discouraged.</div>
+</div>
+<div class="section">
+<h1>Incompatible Changes</h1><div class="subsection">
+<h2>Dereferencing typeglobs</h2> If you assign a typeglob to a scalar variable:<div class="spacer">
+</div>
+<br/>
+    $glob = *foo;<br/>
+<div class="spacer">
+</div>
+the glob that is copied to $glob is marked with a special flag indicating that the glob is just a copy. This allows subsequent assignments to $glob to overwrite the glob. The original glob, however, is immutable.<div class="spacer">
+</div>
+Many Perl operators did not distinguish between these two types of globs. This would result in strange behaviour in edge cases: &quot;untie $scalar&quot; would do nothing if the last thing assigned to the scalar was a glob (because it treated it as &quot;untie *$scalar&quot;, which unties a handle). Assignment to a glob slot (e.g., &quot;(*$glob) = \@some_array&quot;) would simply assign &quot;\@some_array&quot; to $glob.<div class="spacer">
+</div>
+To fix this, the &quot;*{}&quot; operator (including the *foo and *$foo forms) has been modified to make a new immutable glob if its operand is a glob copy. Various operators that make a distinction between globs and scalars have been modified to treat only immutable globs as globs.<div class="spacer">
+</div>
+This causes an incompatible change in code that assigns a glob to the return value of &quot;*{}&quot; when that operator was passed a glob copy. Take the following code, for instance:<div class="spacer">
+</div>
+<br/>
+    $glob = *foo;<br/>
+    *$glob = *bar;<br/>
+<div class="spacer">
+</div>
+The *$glob on the second line returns a new immutable glob. That new glob is made an alias to *bar. Then it is discarded. So the second assignment has no effect.<div class="spacer">
+</div>
+It also means that &quot;tie $handle&quot; will now tie $handle as a scalar, even if it has had a glob assigned to it.<div class="spacer">
+</div>
+The upside to this incompatible change is that bugs [perl #77496] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=77496&gt;, [perl #77502] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=77502&gt;, [perl #77508] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=77508&gt;, [perl #77688] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=77688&gt;, and [perl #77812] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=77812&gt;, and maybe others, too, have been fixed.<div class="spacer">
+</div>
+See &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=77810&gt; for even more detail.</div>
+<div class="subsection">
+<h2>Clearing stashes</h2> Stash list assignment &quot;%foo:: = ()&quot; used to make the stash anonymous temporarily while it was being emptied. Consequently, any of its subroutines referenced elsewhere would become anonymous (showing up as &quot;(unknown)&quot; in &quot;caller&quot;). Now they retain their package names, such that &quot;caller&quot; will return the original sub name if there is still a reference to its typeglob, or &quot;foo::__ANON__&quot; otherwise [perl #79208] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=79208&gt;.</div>
+</div>
+<div class="section">
+<h1>Deprecations</h1><div class="subsection">
+<h2>&quot;\N{BELL}&quot; is deprecated</h2> This is because Unicode is using that name for a different character. See &quot;Unicode Version 6.0 is now supported (mostly)&quot; for more explanation.</div>
+</div>
+<div class="section">
+<h1>Performance Enhancements</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+When an object has many weak references to it, freeing that object can under some some circumstances take O(N^2) time to free (where N is the number of references). The number of circumstances has been reduced. [perl #75254] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=75254&gt;.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Modules and Pragmata</h1><div class="subsection">
+<h2>New Modules and Pragmata</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The following modules were added by the &quot;Unicode::Collate&quot; upgrade from 0.63 to 0.67. See below for details.<div style="height: 1.00em;">
+&#160;</div>
+&quot;Unicode::Collate::CJK::Big5&quot;<div style="height: 1.00em;">
+&#160;</div>
+&quot;Unicode::Collate::CJK::GB2312&quot;<div style="height: 1.00em;">
+&#160;</div>
+&quot;Unicode::Collate::CJK::JISX0208&quot;<div style="height: 1.00em;">
+&#160;</div>
+&quot;Unicode::Collate::CJK::Korean&quot;<div style="height: 1.00em;">
+&#160;</div>
+&quot;Unicode::Collate::CJK::Pinyin&quot;<div style="height: 1.00em;">
+&#160;</div>
+&quot;Unicode::Collate::CJK::Stroke&quot;</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Updated Modules and Pragmata</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Archive::Extract&quot; has been upgraded from 0.44 to 0.46<div style="height: 1.00em;">
+&#160;</div>
+Resolves an issue with NetBSD-current and its new unzip executable.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Archive::Tar&quot; has been upgraded from 1.68 to 1.72<div style="height: 1.00em;">
+&#160;</div>
+This adds the ptargrep utility for using regular expressions against the contents of files in a tar archive.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;B&quot; has been upgraded from 1.24 to 1.26.<div style="height: 1.00em;">
+&#160;</div>
+It no longer crashes when taking apart a &quot;y///&quot; containing characters outside the octet range or compiled in a &quot;use utf8&quot; scope.<div style="height: 1.00em;">
+&#160;</div>
+The size of the shared object has been reduced by about 40%, with no reduction in functionality.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;B::Deparse&quot; has been upgraded from 0.99 to 1.01.<div style="height: 1.00em;">
+&#160;</div>
+It fixes deparsing of &quot;our&quot; followed by a variable with funny characters (as permitted under the &quot;utf8&quot; pragma) [perl #33752] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=33752&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;CGI&quot; has been upgraded from 3.49 to 3.50<div style="height: 1.00em;">
+&#160;</div>
+This provides the following security fixes: the MIME boundary in multipart_init is now random and improvements to the handling of newlines embedded in header values.<div style="height: 1.00em;">
+&#160;</div>
+The documentation for <i>param_fetch()</i> has been corrected and clarified.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;CPAN&quot; has been upgraded from 1.94_61 to 1.94_62</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;CPANPLUS&quot; has been upgraded from 0.9007 to 0.9010<div style="height: 1.00em;">
+&#160;</div>
+Fixes for the SQLite source engine and resolving of issues with the testsuite when run under local::lib and/or cpanminus</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;CPANPLUS::Dist::Build&quot; has been upgraded from 0.48 to 0.50</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Data::Dumper&quot; has been upgraded from 2.129 to 2.130_01.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;DynaLoader&quot; has been upgraded from 1.10 to 1.11.<div style="height: 1.00em;">
+&#160;</div>
+It fixes a buffer overflow when passed a very long file name.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;ExtUtils::Constant&quot; has been upgraded from 0.22 to 0.23.<div style="height: 1.00em;">
+&#160;</div>
+The &quot;AUTOLOAD&quot; helper code generated by &quot;ExtUtils::Constant::ProxySubs&quot; can now &quot;croak&quot; for missing constants, or generate a complete &quot;AUTOLOAD&quot; subroutine in XS, allowing simplification of many modules that use it. (&quot;Fcntl&quot;, &quot;File::Glob&quot;, &quot;GDBM_File&quot;, &quot;I18N::Langinfo&quot;, &quot;POSIX&quot;, &quot;Socket&quot;)<div style="height: 1.00em;">
+&#160;</div>
+&quot;ExtUtils::Constant::ProxySubs&quot; can now optionally push the names of all constants onto the package's C{@EXPORT_OK}. This has been used to replace less space-efficient code in &quot;B&quot;, helping considerably shrink the size of its shared object.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Fcntl&quot; has been upgraded from 1.09 to 1.10.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;File::Fetch&quot; has been upgraded from 0.24 to 0.28<div style="height: 1.00em;">
+&#160;</div>
+&quot;HTTP::Lite&quot; is now supported for 'http' scheme.<div style="height: 1.00em;">
+&#160;</div>
+The &quot;fetch&quot; utility is supported on FreeBSD, NetBSD and Dragonfly BSD for the &quot;http&quot; and &quot;ftp&quot; schemes.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;File::Glob&quot; has been upgraded from 1.09 to 1.10.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;File::stat&quot; has been upgraded from 1.03 to 1.04.<div style="height: 1.00em;">
+&#160;</div>
+The &quot;-x&quot; and &quot;-X&quot; file test operators now work correctly under the root user.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;GDBM_File&quot; has been upgraded from 1.11 to 1.12.<div style="height: 1.00em;">
+&#160;</div>
+This fixes a memory leak when DBM filters are used.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Hash::Util&quot; has been upgraded from 0.09 to 0.10.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Hash::Util::FieldHash&quot; has been upgraded from 1.05 to 1.06.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;I18N::Langinfo&quot; has been upgraded from 0.06 to 0.07.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Locale::Maketext&quot; has been upgraded from 1.16 to 1.17.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Math::BigInt&quot; has been upgraded from 1.97 to 1.99_01.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Math::BigRat&quot; has been upgraded from 0.26 to 0.26_01</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Math::BigInt::FastCalc&quot; has been upgraded from 0.22 to 0.24_01.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;MIME::Base64&quot; has been upgraded from 3.09 to 3.10<div style="height: 1.00em;">
+&#160;</div>
+Includes new functions to calculate the length of encoded and decoded base64 strings.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;mro&quot; has been upgraded from 1.04 to 1.05.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;NDBM_File&quot; has been upgraded from 1.09 to 1.10.<div style="height: 1.00em;">
+&#160;</div>
+This fixes a memory leak when DBM filters are used.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;ODBM_File&quot; has been upgraded from 1.08 to 1.09.<div style="height: 1.00em;">
+&#160;</div>
+This fixes a memory leak when DBM filters are used.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Opcode&quot; has been upgraded from 1.16 to 1.17.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;parent&quot; has been upgraded from 0.223 to 0.224</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Pod::Simple&quot; has been upgraded from 3.14 to 3.15<div style="height: 1.00em;">
+&#160;</div>
+Includes various fixes to &quot;HTML&quot; and &quot;XHTML&quot; handling.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;POSIX&quot; has been upgraded from 1.21 to 1.22.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;re&quot; has been upgraded from 0.13 to 0.14, for the sake of the new &quot;use re &quot;/flags&quot;&quot; pragma.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Safe&quot; has been upgraded from 2.28 to 2.29.<div style="height: 1.00em;">
+&#160;</div>
+It adds &amp;version::vxs::VCMP to the default share.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;SDBM_File&quot; has been upgraded from 1.07 to 1.08.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;SelfLoader&quot; has been upgraded from 1.17 to 1.18.<div style="height: 1.00em;">
+&#160;</div>
+It now works in taint mode [perl #72062] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=72062&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Socket&quot; has been upgraded from 1.90 to 1.91.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Storable&quot; has been upgraded from 2.22 to 2.24<div style="height: 1.00em;">
+&#160;</div>
+Includes performance improvement for overloaded classes.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Sys::Hostname&quot; has been upgraded from 1.13 to 1.14.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Unicode::Collate&quot; has been upgraded from 0.63 to 0.67<div style="height: 1.00em;">
+&#160;</div>
+This release newly adds locales &quot;ja&quot; &quot;ko&quot; and &quot;zh&quot; and its variants ( &quot;zh__big5han&quot;, &quot;zh__gb2312han&quot;, &quot;zh__pinyin&quot;, &quot;zh__stroke&quot; ).<div style="height: 1.00em;">
+&#160;</div>
+Supported UCA_Version 22 for Unicode 6.0.0.<div style="height: 1.00em;">
+&#160;</div>
+The following modules have been added:<div style="height: 1.00em;">
+&#160;</div>
+&quot;Unicode::Collate::CJK::Big5&quot; for &quot;zh__big5han&quot; which makes tailoring of CJK Unified Ideographs in the order of CLDR's big5han ordering.<div style="height: 1.00em;">
+&#160;</div>
+&quot;Unicode::Collate::CJK::GB2312&quot; for &quot;zh__gb2312han&quot; which makes tailoring of CJK Unified Ideographs in the order of CLDR's gb2312han ordering.<div style="height: 1.00em;">
+&#160;</div>
+&quot;Unicode::Collate::CJK::JISX0208&quot; which makes tailoring of 6355 kanji (CJK Unified Ideographs) in the JIS X 0208 order.<div style="height: 1.00em;">
+&#160;</div>
+&quot;Unicode::Collate::CJK::Korean&quot; which makes tailoring of CJK Unified Ideographs in the order of CLDR's Korean ordering.<div style="height: 1.00em;">
+&#160;</div>
+&quot;Unicode::Collate::CJK::Pinyin&quot; for &quot;zh__pinyin&quot; which makes tailoring of CJK Unified Ideographs in the order of CLDR's pinyin ordering.<div style="height: 1.00em;">
+&#160;</div>
+&quot;Unicode::Collate::CJK::Stroke&quot; for &quot;zh__stroke&quot; which makes tailoring of CJK Unified Ideographs in the order of CLDR's stroke ordering.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Documentation</h1> perlvar reorders the variables and groups them by topic. Each variable introduced after Perl 5.000 notes the first version in which it is available. perlvar also has a new section for deprecated variables to note when they were removed.<div class="subsection">
+<h2>New Documentation</h2>  <i>perlpodstyle</i><div class="spacer">
+</div>
+New style guide for POD documentation, split mostly from the NOTES section of the pod2man man page.<div class="spacer">
+</div>
+( This was added to &quot;v5.13.6&quot; but was not documented with that release ).</div>
+<div class="subsection">
+<h2>Changes to Existing Documentation</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Array and hash slices in scalar context are now documented in perldata.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+perlform and perllocale have been corrected to state that &quot;use locale&quot; affects formats.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Diagnostics</h1><div class="subsection">
+<h2>New Diagnostics</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;Using !~ with %s doesn't make sense&quot;: This message was actually added in 5.13.2, but was omitted from perldelta. It now applies also to the &quot;y///&quot; operator, and has been documented.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Utility Changes</h1>  <i>ptargrep</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+ptargrep is a utility to apply pattern matching to the contents of files in a tar archive. It comes with &quot;Archive::Tar&quot;.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Testing</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The new <i>t/mro/isa_aliases.t</i> has been added, which tests that &quot;*Foo::ISA = *Bar::ISA&quot; works properly.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>t/mro/isarev.t</i> has been added, which tests that &quot;PL_isarev&quot; (accessible at the Perl level via &quot;mro::get_isarev&quot;) is updated properly.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>t/run/switchd-78586.t</i> has been added, which tests that [perl #78586] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=78586&gt; has been fixed (related to line numbers in the debugger).</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Platform Support</h1><div class="subsection">
+<h2>Platform-Specific Notes</h2><dl>
+<dt>
+Windows</dt>
+<dd>
+Directory handles are now properly cloned when threads are created. In perl 5.13.6, child threads simply stopped inheriting directory handles. In previous versions, threads would share handles, resulting in crashes.<div style="height: 1.00em;">
+&#160;</div>
+Support for building with Visual C++ 2010 is now underway, but is not yet complete. See  <i>README.win32</i> for more details.</dd>
+</dl>
+<dl>
+<dt>
+VMS</dt>
+<dd>
+Record-oriented files (record format variable or variable with fixed control) opened for write by the perlio layer will now be line buffered to prevent the introduction of spurious line breaks whenever the perlio buffer fills up.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Internal Changes</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;lex_start&quot; has been added to the API, but is considered experimental.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A new &quot;parse_block&quot; function has been added to the API [perl #78222] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=78222&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A new, experimental API has been added for accessing the internal structure that Perl uses for &quot;%^H&quot;. See the functions beginning with &quot;cophh_&quot; in perlapi.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A stash can now have a list of effective names in addition to its usual name. The first effective name can be accessed via the &quot;HvENAME&quot; macro, which is now the recommended name to use in MRO linearisations (&quot;HvNAME&quot; being a fallback if there is no &quot;HvENAME&quot;).<div style="height: 1.00em;">
+&#160;</div>
+These names are added and deleted via &quot;hv_ename_add&quot; and &quot;hv_ename_delete&quot;. These two functions are  <i>not</i> part of the API.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The way the parser handles labels has been cleaned up and refactored. As a result, the &quot;newFOROP()&quot; constructor function no longer takes a parameter stating what label is to go in the state op.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;newWHILEOP()&quot; and &quot;newFOROP()&quot; functions no longer accept a line number as a parameter.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A new &quot;parse_barestmt()&quot; function has been added, for parsing a statement without a label.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A new &quot;parse_label()&quot; function has been added, that parses a statement label, separate from statements.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;CvSTASH()&quot; macro can now only be used as an rvalue. &quot;CvSTASH_set()&quot; has been added to replace assignment to &quot;CvSTASH()&quot;. This is to ensure that backreferences are handled properly. These macros are not part of the API.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;op_scope()&quot; and &quot;op_lvalue()&quot; functions have been added to the API, but are considered experimental.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Selected Bug Fixes</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;parse_stmt&quot; C function added in earlier in the 5.13.x series has been fixed to work with statements ending with &quot;}&quot; [perl #78222] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=78222&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;parse_fullstmt&quot; C function added in 5.13.5 has been fixed to work when called while an expression is being parsed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Characters in the Latin-1 non-ASCII range (0x80 to 0xFF) used not to match themselves if the string happened to be UTF8-encoded internally, the regular expression was not, and the character in the regular expression was inside a repeated group (e.g., &quot;Encode::decode_utf8(&quot;\303\200&quot;) =~ /(\xc0)+/&quot;) [perl #78464] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=78464&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;(?d)&quot; regular expression construct now overrides a previous &quot;(?u)&quot; or &quot;use feature &quot;unicode_string&quot;&quot; [perl #78508] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=78508&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A memory leak in &quot;do &quot;file&quot;&quot;, introduced in perl 5.13.6, has been fixed [perl #78488] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=78488&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Various bugs related to typeglob dereferencing have been fixed. See &quot;Dereferencing typeglobs&quot;, above.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;SvPVbyte&quot; function available to XS modules now calls magic before downgrading the SV, to avoid warnings about wide characters [perl #72398] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=72398&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;=&quot; operator used to ignore magic (e.g., tie methods) on its right-hand side if the scalar happened to hold a typeglob. This could happen if a typeglob was the last thing returned from or assigned to a tied scalar [perl #77498] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=77498&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;sprintf&quot; was ignoring locales when called with constant arguments [perl #78632] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=78632&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A non-ASCII character in the Latin-1 range could match both a Posix class, such as &quot;[[:alnum:]]&quot;, and its inverse &quot;[[:^alnum:]]&quot;.  This is now fixed for regular expressions compiled under the &quot;u&quot; modifier. See &quot;&quot;use feature &quot;unicode_strings&quot;&quot; now applies to more regex matching&quot;. [perl #18281] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=18281&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Concatenating long strings under &quot;use encoding&quot; no longer causes perl to crash [perl #78674] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=78674&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Typeglob assignments would crash if the glob's stash no longer existed, so long as the glob assigned to was named 'ISA' or the glob on either side of the assignment contained a subroutine.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Calling &quot;-&gt;import&quot; on a class lacking an import method could corrupt the stack, resulting in strange behaviour. For instance,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  push @a, &quot;foo&quot;, $b = bar-&gt;import;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+would assign 'foo' to $b [perl #63790] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=63790&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Creating an alias to a package when that package had been detached from the symbol table would result in corrupted isa caches [perl #77358] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=77358&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;.=&quot; followed by &quot;&lt;&gt;&quot; or &quot;readline&quot; would leak memory if $/ contained characters beyond the octet range and the scalar assigned to happened to be encoded as UTF8 internally [perl #72246] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=72246&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;recv&quot; function could crash when called with the MSG_TRUNC flag [perl #75082] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=75082&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Evaluating a simple glob (like *a) was calling get-magic on the glob, even when its contents were not being used [perl #78580] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=78580&gt;.<div style="height: 1.00em;">
+&#160;</div>
+This bug was introduced in 5.13.2 and did not affect earlier perl versions.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Matching a Unicode character against an alternation containing characters that happened to match continuation bytes in the former's UTF8 representation (&quot;qq{\x{30ab}} =~ /\xab|\xa9/&quot;) would cause erroneous warnings [perl #70998] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=70998&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;s///r&quot; (added in 5.13.2) no longer leaks.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The trie optimisation was not taking empty groups into account, preventing 'foo' from matching &quot;/\A(?:(?:)foo|bar|zot)\z/&quot; [perl #78356] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=78356&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A pattern containing a &quot;+&quot; inside a lookahead would sometimes cause an incorrect match failure in a global match (e.g., &quot;/(?=(\S+))/g&quot;) [perl #68564] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=68564&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Iterating with &quot;foreach&quot; over an array returned by an lvalue sub now works [perl #23790] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=23790&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$@ is now localised during calls to &quot;binmode&quot; to prevent action at a distance [perl #78844] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=78844&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;PL_isarev&quot;, which is accessible to Perl via &quot;mro::get_isarev&quot; is now updated properly when packages are deleted or removed from the @ISA of other classes. This allows many packages to be created and deleted without causing a memory leak [perl #75176] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=75176&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;undef *Foo::&quot; and &quot;undef *Foo::ISA&quot; and &quot;delete $package::{ISA}&quot; used not to update the internal isa caches if the stash or @ISA array had a reference elsewhere. In fact, &quot;undef *Foo::ISA&quot; would stop a new @Foo::ISA array from updating caches.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+@ISA arrays can now be shared between classes via &quot;*Foo::ISA = \@Bar::ISA&quot; or &quot;*Foo::ISA = *Bar::ISA&quot; [perl #77238] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=77238&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The parser no longer hangs when encountering certain Unicode characters, such as U+387 [perl #74022] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=74022&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;formline&quot; no longer crashes when passed a tainted format picture. It also taints $^A now if its arguments are tainted [perl #79138] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=79138&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A signal handler called within a signal handler could cause leaks or double-frees. Now fixed. [perl #76248] &lt;http://rt.perl.org/rt3/Public/Bug/Display.html?id=76248&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When trying to report &quot;Use of uninitialized value $Foo::BAR&quot;, crashes could occur if the GLOB of the global variable causing the warning has been detached from its original stash by, for example &quot;delete $::{'Foo::'}&quot;. This has been fixed by disabling the reporting of variable names in the warning in those cases.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Obituary</h1> Randy Kobes, creator of the kobesearch alternative to search.cpan.org and contributor/maintainer to several core Perl toolchain modules, passed away on September 18, 2010 after a battle with lung cancer.  His contributions to the Perl community will be missed.</div>
+<div class="section">
+<h1>Acknowledgements</h1> Perl 5.13.7 represents approximately one month of development since Perl 5.13.6 and contains 73100 lines of changes across 518 files from 39 authors and committers:<div class="spacer">
+</div>
+Abhijit Menon-Sen, Abigail, Ben Morrow, Chas. J. Owens IV, Chris 'BinGOs' Williams, Craig A. Berry, David Golden, David Mitchell, Father Chrysostomos, Fingle Nark, Florian Ragwitz, George Greer, Grant McLean, H.Merijn Brand, Ian Goodacre, Jan Dubois, Jerry D. Hedden, Jesse Vincent, Karl Williamson, Lubomir Rintel, Marty Pauley, Moritz Lenz, Nicholas Clark, Nicolas Kaiser, Niko Tyni, Peter John Acklam, Rafael Garcia-Suarez, Shlomi Fish, Steffen Mueller, Steve Hay, Tatsuhiko Miyagawa, Tim Bunce, Todd Rinaldo, Tom Christiansen, Tom Hukins, Tony Cook, Yves Orton, Zefram and brian d foy<div class="spacer">
+</div>
+Many of the changes included in this version originated in the CPAN modules included in Perl's core. We're grateful to the entire CPAN community for helping Perl to flourish.</div>
+<div class="section">
+<h1>Reporting Bugs</h1> If you find what you think is a bug, you might check the articles recently posted to the comp.lang.perl.misc newsgroup and the perl bug database at http://rt.perl.org/perlbug/ .  There may also be information at http://www.perl.org/ , the Perl Home Page.<div class="spacer">
+</div>
+If you believe you have an unreported bug, please run the <b>perlbug</b> program included with your release.  Be sure to trim your bug down to a tiny but sufficient test case.  Your bug report, along with the output of &quot;perl -V&quot;, will be sent off to perlbug@perl.org to be analysed by the Perl porting team.<div class="spacer">
+</div>
+If the bug you are reporting has security implications, which make it inappropriate to send to a publicly archived mailing list, then please send it to perl5-security-report@perl.org. This points to a closed subscription unarchived mailing list, which includes all the core committers, who be able to help assess the impact of issues, figure out a resolution, and help co-ordinate the release of patches to mitigate or fix the problem across all platforms on which Perl is supported. Please only use this address for security issues in the Perl core, not for modules independently distributed on CPAN.</div>
+<div class="section">
+<h1>SEE ALSO</h1> The  <i>Changes</i> file for an explanation of how to view exhaustive details on what changed.<div class="spacer">
+</div>
+The <i>INSTALL</i> file for how to build Perl.<div class="spacer">
+</div>
+The <i>README</i> file for general stuff.<div class="spacer">
+</div>
+The <i>Artistic</i> and <i>Copying</i> files for copyright information.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Try::Tiny(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Try::Tiny(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Try::Tiny(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Try::Tiny - minimal try/catch with proper localization of $@</div>
+<div class="section">
+<h1>SYNOPSIS</h1> You can use Try::Tiny's &quot;try&quot; and &quot;catch&quot; to expect and handle exceptional conditions, avoiding quirks in Perl and common mistakes:<div class="spacer">
+</div>
+<br/>
+        # handle errors with a catch handler<br/>
+        try {<br/>
+                die &quot;foo&quot;;<br/>
+        } catch {<br/>
+                warn &quot;caught error: $_&quot;; # not $@<br/>
+        };<br/>
+<div class="spacer">
+</div>
+You can also use it like a stanalone &quot;eval&quot; to catch and ignore any error conditions.  Obviously, this is an extreme measure not to be undertaken lightly:<div class="spacer">
+</div>
+<br/>
+        # just silence errors<br/>
+        try {<br/>
+                die &quot;foo&quot;;<br/>
+        };<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This module provides bare bones &quot;try&quot;/&quot;catch&quot;/&quot;finally&quot; statements that are designed to minimize common mistakes with eval blocks, and NOTHING else.<div class="spacer">
+</div>
+This is unlike TryCatch which provides a nice syntax and avoids adding another call stack layer, and supports calling &quot;return&quot; from the try block to return from the parent subroutine. These extra features come at a cost of a few dependencies, namely Devel::Declare and Scope::Upper which are occasionally problematic, and the additional catch filtering uses Moose type constraints which may not be desirable either.<div class="spacer">
+</div>
+The main focus of this module is to provide simple and reliable error handling for those having a hard time installing TryCatch, but who still want to write correct &quot;eval&quot; blocks without 5 lines of boilerplate each time.<div class="spacer">
+</div>
+It's designed to work as correctly as possible in light of the various pathological edge cases (see BACKGROUND) and to be compatible with any style of error values (simple strings, references, objects, overloaded objects, etc).<div class="spacer">
+</div>
+If the try block dies, it returns the value of the last statement executed in the catch block, if there is one. Otherwise, it returns &quot;undef&quot; in scalar context or the empty list in list context. The following two examples both assign &quot;bar&quot; to $x.<div class="spacer">
+</div>
+<br/>
+        my $x = try { die &quot;foo&quot; } catch { &quot;bar&quot; };<br/>
+<br/>
+        my $x = eval { die &quot;foo&quot; } || &quot;bar&quot;;<br/>
+<div class="spacer">
+</div>
+You can add finally blocks making the following true.<div class="spacer">
+</div>
+<br/>
+        my $x;<br/>
+        try { die 'foo' } finally { $x = 'bar' };<br/>
+        try { die 'foo' } catch { warn &quot;Got a die: $_&quot; } finally { $x = 'bar' };<br/>
+<div class="spacer">
+</div>
+Finally blocks are always executed making them suitable for cleanup code which cannot be handled using local.  You can add as many finally blocks to a given try block as you like.</div>
+<div class="section">
+<h1>EXPORTS</h1> All functions are exported by default using Exporter.<div class="spacer">
+</div>
+If you need to rename the &quot;try&quot;, &quot;catch&quot; or &quot;finally&quot; keyword consider using Sub::Import to get Sub::Exporter's flexibility.<dl>
+<dt>
+try (&amp;;@)</dt>
+<dd>
+Takes one mandatory try subroutine, an optional catch subroutine &amp; finally subroutine.<div style="height: 1.00em;">
+&#160;</div>
+The mandatory subroutine is evaluated in the context of an &quot;eval&quot; block.<div style="height: 1.00em;">
+&#160;</div>
+If no error occurred the value from the first block is returned, preserving list/scalar context.<div style="height: 1.00em;">
+&#160;</div>
+If there was an error and the second subroutine was given it will be invoked with the error in $_ (localized) and as that block's first and only argument.<div style="height: 1.00em;">
+&#160;</div>
+$@ does <b>not</b> contain the error. Inside the &quot;catch&quot; block it has the same value it had before the &quot;try&quot; block was executed.<div style="height: 1.00em;">
+&#160;</div>
+Note that the error may be false, but if that happens the &quot;catch&quot; block will still be invoked.<div style="height: 1.00em;">
+&#160;</div>
+Once all execution is finished then the finally block if given will execute.</dd>
+</dl>
+<dl>
+<dt>
+catch (&amp;;$)</dt>
+<dd>
+Intended to be used in the second argument position of &quot;try&quot;.<div style="height: 1.00em;">
+&#160;</div>
+Returns a reference to the subroutine it was given but blessed as &quot;Try::Tiny::Catch&quot; which allows try to decode correctly what to do with this code reference.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        catch { ... }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Inside the catch block the caught error is stored in $_, while previous value of $@ is still available for use.  This value may or may not be meaningful depending on what happened before the &quot;try&quot;, but it might be a good idea to preserve it in an error stack.<div style="height: 1.00em;">
+&#160;</div>
+For code that captures $@ when throwing new errors (i.e. Class::Throwable), you'll need to do:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        local $@ = $_;<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+finally (&amp;;$)</dt>
+<dd>
+<br/>
+  try     { ... }<br/>
+  catch   { ... }<br/>
+  finally { ... };<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Or<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  try     { ... }<br/>
+  finally { ... };<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Or even<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  try     { ... }<br/>
+  finally { ... }<br/>
+  catch   { ... };<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Intended to be the second or third element of &quot;try&quot;. Finally blocks are always executed in the event of a successful &quot;try&quot; or if &quot;catch&quot; is run. This allows you to locate cleanup code which cannot be done via &quot;local()&quot; e.g. closing a file handle.<div style="height: 1.00em;">
+&#160;</div>
+When invoked, the finally block is passed the error that was caught.  If no error was caught, it is passed nothing.  (Note that the finally block does not localize $_ with the error, since unlike in a catch block, there is no way to know if &quot;$_ == undef&quot; implies that there were no errors.) In other words, the following code does just what you would expect:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  try {<br/>
+    die_sometimes();<br/>
+  } catch {<br/>
+    # ...code run in case of error<br/>
+  } finally {<br/>
+    if (@_) {<br/>
+      print &quot;The try block died with: @_\n&quot;;<br/>
+    } else {<br/>
+      print &quot;The try block ran without error.\n&quot;;<br/>
+    }<br/>
+  };<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<b>You must always do your own error handling in the finally block</b>. &quot;Try::Tiny&quot; will not do anything about handling possible errors coming from code located in these blocks.<div style="height: 1.00em;">
+&#160;</div>
+In the same way &quot;catch()&quot; blesses the code reference this subroutine does the same except it bless them as &quot;Try::Tiny::Finally&quot;.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>BACKGROUND</h1> There are a number of issues with &quot;eval&quot;.<div class="subsection">
+<h2>Clobbering $@</h2> When you run an eval block and it succeeds, $@ will be cleared, potentially clobbering an error that is currently being caught.<div class="spacer">
+</div>
+This causes action at a distance, clearing previous errors your caller may have not yet handled.<div class="spacer">
+</div>
+$@ must be properly localized before invoking &quot;eval&quot; in order to avoid this issue.<div class="spacer">
+</div>
+More specifically, $@ is clobbered at the beginning of the &quot;eval&quot;, which also makes it impossible to capture the previous error before you die (for instance when making exception objects with error stacks).<div class="spacer">
+</div>
+For this reason &quot;try&quot; will actually set $@ to its previous value (before the localization) in the beginning of the &quot;eval&quot; block.</div>
+<div class="subsection">
+<h2>Localizing $@ silently masks errors</h2> Inside an eval block &quot;die&quot; behaves sort of like:<div class="spacer">
+</div>
+<br/>
+        sub die {<br/>
+                $@ = $_[0];<br/>
+                return_undef_from_eval();<br/>
+        }<br/>
+<div class="spacer">
+</div>
+This means that if you were polite and localized $@ you can't die in that scope, or your error will be discarded (printing &quot;Something's wrong&quot; instead).<div class="spacer">
+</div>
+The workaround is very ugly:<div class="spacer">
+</div>
+<br/>
+        my $error = do {<br/>
+                local $@;<br/>
+                eval { ... };<br/>
+                $@;<br/>
+        };<br/>
+<br/>
+        ...<br/>
+        die $error;<br/>
+</div>
+<div class="subsection">
+<h2>$@ might not be a true value</h2> This code is wrong:<div class="spacer">
+</div>
+<br/>
+        if ( $@ ) {<br/>
+                ...<br/>
+        }<br/>
+<div class="spacer">
+</div>
+because due to the previous caveats it may have been unset.<div class="spacer">
+</div>
+$@ could also be an overloaded error object that evaluates to false, but that's asking for trouble anyway.<div class="spacer">
+</div>
+The classic failure mode is:<div class="spacer">
+</div>
+<br/>
+        sub Object::DESTROY {<br/>
+                eval { ... }<br/>
+        }<br/>
+<br/>
+        eval {<br/>
+                my $obj = Object-&gt;new;<br/>
+<br/>
+                die &quot;foo&quot;;<br/>
+        };<br/>
+<br/>
+        if ( $@ ) {<br/>
+<br/>
+        }<br/>
+<div class="spacer">
+</div>
+In this case since &quot;Object::DESTROY&quot; is not localizing $@ but still uses &quot;eval&quot;, it will set $@ to &quot;&quot;.<div class="spacer">
+</div>
+The destructor is called when the stack is unwound, after &quot;die&quot; sets $@ to &quot;foo at Foo.pm line 42\n&quot;, so by the time &quot;if ( $@ )&quot; is evaluated it has been cleared by &quot;eval&quot; in the destructor.<div class="spacer">
+</div>
+The workaround for this is even uglier than the previous ones. Even though we can't save the value of $@ from code that doesn't localize, we can at least be sure the eval was aborted due to an error:<div class="spacer">
+</div>
+<br/>
+        my $failed = not eval {<br/>
+                ...<br/>
+<br/>
+                return 1;<br/>
+        };<br/>
+<div class="spacer">
+</div>
+This is because an &quot;eval&quot; that caught a &quot;die&quot; will always return a false value.</div>
+</div>
+<div class="section">
+<h1>SHINY SYNTAX</h1> Using Perl 5.10 you can use &quot;Switch statements&quot; in perlsyn.<div class="spacer">
+</div>
+The &quot;catch&quot; block is invoked in a topicalizer context (like a &quot;given&quot; block), but note that you can't return a useful value from &quot;catch&quot; using the &quot;when&quot; blocks without an explicit &quot;return&quot;.<div class="spacer">
+</div>
+This is somewhat similar to Perl 6's &quot;CATCH&quot; blocks. You can use it to concisely match errors:<div class="spacer">
+</div>
+<br/>
+        try {<br/>
+                require Foo;<br/>
+        } catch {<br/>
+                when (/^Can't locate .*?\.pm in \@INC/) { } # ignore<br/>
+                default { die $_ }<br/>
+        };<br/>
+</div>
+<div class="section">
+<h1>CAVEATS</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+@_ is not available within the &quot;try&quot; block, so you need to copy your arglist. In case you want to work with argument values directly via @_ aliasing (i.e. allow &quot;$_[1] = &quot;foo&quot;&quot;), you need to pass @_ by reference:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        sub foo {<br/>
+                my ( $self, @args ) = @_;<br/>
+                try { $self-&gt;bar(@args) }<br/>
+        }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+or<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        sub bar_in_place {<br/>
+                my $self = shift;<br/>
+                my $args = \@_;<br/>
+                try { $_ = $self-&gt;bar($_) for @$args }<br/>
+        }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;return&quot; returns from the &quot;try&quot; block, not from the parent sub (note that this is also how &quot;eval&quot; works, but not how TryCatch works):<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  sub parent_sub {<br/>
+      try {<br/>
+          die;<br/>
+      }<br/>
+      catch {<br/>
+          return;<br/>
+      };<br/>
+<br/>
+      say &quot;this text WILL be displayed, even though an exception is thrown&quot;;<br/>
+  }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Instead, you should capture the return value:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  sub parent_sub {<br/>
+      my $success = try {<br/>
+          die;<br/>
+          1;<br/>
+      }<br/>
+      return unless $success;<br/>
+<br/>
+      say &quot;This text WILL NEVER appear!&quot;;<br/>
+  }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Note that if you have a catch block, it must return undef for this to work, since if a catch block exists, its return value is returned in place of undef when an exception is thrown.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;try&quot; introduces another caller stack frame. Sub::Uplevel is not used. Carp will not report this when using full stack traces, though, because %Carp::Internal is used. This lack of magic is considered a feature.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The value of $_ in the &quot;catch&quot; block is not guaranteed to be the value of the exception thrown ($@) in the &quot;try&quot; block.  There is no safe way to ensure this, since &quot;eval&quot; may be used unhygenically in destructors.  The only guarantee is that the &quot;catch&quot; will be called if an exception is thrown.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The return value of the &quot;catch&quot; block is not ignored, so if testing the result of the expression for truth on success, be sure to return a false value from the &quot;catch&quot; block:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        my $obj = try {<br/>
+                MightFail-&gt;new;<br/>
+        } catch {<br/>
+                ...<br/>
+<br/>
+                return; # avoid returning a true value;<br/>
+        };<br/>
+<br/>
+        return unless $obj;<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$SIG{__DIE__} is still in effect.<div style="height: 1.00em;">
+&#160;</div>
+Though it can be argued that $SIG{__DIE__} should be disabled inside of &quot;eval&quot; blocks, since it isn't people have grown to rely on it. Therefore in the interests of compatibility, &quot;try&quot; does not disable $SIG{__DIE__} for the scope of the error throwing code.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Lexical $_ may override the one set by &quot;catch&quot;.<div style="height: 1.00em;">
+&#160;</div>
+For example Perl 5.10's &quot;given&quot; form uses a lexical $_, creating some confusing behavior:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        given ($foo) {<br/>
+                when (...) {<br/>
+                        try {<br/>
+                                ...<br/>
+                        } catch {<br/>
+                                warn $_; # will print $foo, not the error<br/>
+                                warn $_[0]; # instead, get the error like this<br/>
+                        }<br/>
+                }<br/>
+        }<br/>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1><dl>
+<dt>
+TryCatch</dt>
+<dd>
+Much more feature complete, more convenient semantics, but at the cost of implementation complexity.</dd>
+</dl>
+<dl>
+<dt>
+autodie</dt>
+<dd>
+Automatic error throwing for builtin functions and more. Also designed to work well with &quot;given&quot;/&quot;when&quot;.</dd>
+</dl>
+<dl>
+<dt>
+Throwable</dt>
+<dd>
+A lightweight role for rolling your own exception classes.</dd>
+</dl>
+<dl>
+<dt>
+Error</dt>
+<dd>
+Exception object implementation with a &quot;try&quot; statement. Does not localize $@.</dd>
+</dl>
+<dl>
+<dt>
+Exception::Class::TryCatch</dt>
+<dd>
+Provides a &quot;catch&quot; statement, but properly calling &quot;eval&quot; is your responsibility.<div style="height: 1.00em;">
+&#160;</div>
+The &quot;try&quot; keyword pushes $@ onto an error stack, avoiding some of the issues with $@, but you still need to localize to prevent clobbering.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>LIGHTNING TALK</h1> I gave a lightning talk about this module, you can see the slides (Firefox only):<div class="spacer">
+</div>
+&lt;http://nothingmuch.woobling.org/talks/takahashi.xul?data=yapc_asia_2009/try_tiny.txt&gt;<div class="spacer">
+</div>
+Or read the source:<div class="spacer">
+</div>
+&lt;http://nothingmuch.woobling.org/talks/yapc_asia_2009/try_tiny.yml&gt;</div>
+<div class="section">
+<h1>VERSION CONTROL</h1> http://github.com/nothingmuch/try-tiny/ &lt;http://github.com/nothingmuch/try-tiny/&gt;</div>
+<div class="section">
+<h1>AUTHOR</h1> Yuval Kogman &lt;nothingmuch@woobling.org&gt;</div>
+<div class="section">
+<h1>COPYRIGHT</h1><br/>
+        Copyright (c) 2009 Yuval Kogman. All rights reserved.<br/>
+        This program is free software; you can redistribute<br/>
+        it and/or modify it under the terms of the MIT license.<br/>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-08-30</td>
+<td class="foot-os">
+perl v5.12.4</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

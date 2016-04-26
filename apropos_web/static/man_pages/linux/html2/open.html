@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+OPEN(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+OPEN(2)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+OPEN(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> open, creat - open and possibly create a file or device</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;sys/types.h&gt;</b> <b>#include &lt;sys/stat.h&gt;</b> <b>#include &lt;fcntl.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<b>int open(const char *</b><i>pathname</i><b>, int </b><i>flags</i><b>);</b><br/>
+<b>int open(const char *</b><i>pathname</i><b>, int </b><i>flags</i><b>, mode_t </b><i>mode</i><b>);</b><div class="spacer">
+</div>
+<br/>
+<b>int creat(const char *</b><i>pathname</i><b>, mode_t </b><i>mode</i><b>);</b><br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Given a <i>pathname</i> for a file, <b>open</b>() returns a file descriptor, a small, nonnegative integer for use in subsequent system calls (<b>read</b>(2), <b>write</b>(2), <b>lseek</b>(2), <b>fcntl</b>(2), etc.). The file descriptor returned by a successful call will be the lowest-numbered file descriptor not currently open for the process.<div class="spacer">
+</div>
+By default, the new file descriptor is set to remain open across an <b>execve</b>(2) (i.e., the <b>FD_CLOEXEC</b> file descriptor flag described in <b>fcntl</b>(2) is initially disabled; the <b>O_CLOEXEC</b> flag, described below, can be used to change this default). The file offset is set to the beginning of the file (see <b>lseek</b>(2)).<div class="spacer">
+</div>
+A call to <b>open</b>() creates a new <i>open file description</i>, an entry in the system-wide table of open files. This entry records the file offset and the file status flags (modifiable via the <b>fcntl</b>(2) <b>F_SETFL</b> operation). A file descriptor is a reference to one of these entries; this reference is unaffected if <i>pathname</i> is subsequently removed or modified to refer to a different file. The new open file description is initially not shared with any other process, but sharing may arise via <b>fork</b>(2).<div class="spacer">
+</div>
+The argument <i>flags</i> must include one of the following <i>access modes</i>: <b>O_RDONLY</b>, <b>O_WRONLY</b>, or <b>O_RDWR</b>. These request opening the file read-only, write-only, or read/write, respectively.<div style="height: 1.00em;">
+&#160;</div>
+In addition, zero or more file creation flags and file status flags can be bitwise-<i>or</i>'d in <i>flags</i>. The <i>file creation flags</i> are <b>O_CREAT</b>, <b>O_EXCL</b>, <b>O_NOCTTY</b>, and <b>O_TRUNC</b>. The <i>file status flags</i> are all of the remaining flags listed below. The distinction between these two groups of flags is that the file status flags can be retrieved and (in some cases) modified using <b>fcntl</b>(2). The full list of file creation flags and file status flags is as follows:<dl>
+<dt>
+<b>O_APPEND</b></dt>
+<dd>
+The file is opened in append mode. Before each <b>write</b>(2), the file offset is positioned at the end of the file, as if with <b>lseek</b>(2). <b>O_APPEND</b> may lead to corrupted files on NFS file systems if more than one process appends data to a file at once. This is because NFS does not support appending to a file, so the client kernel has to simulate it, which can't be done without a race condition.</dd>
+</dl>
+<dl>
+<dt>
+<b>O_ASYNC</b></dt>
+<dd>
+Enable signal-driven I/O: generate a signal (<b>SIGIO</b> by default, but this can be changed via <b>fcntl</b>(2)) when input or output becomes possible on this file descriptor. This feature is only available for terminals, pseudoterminals, sockets, and (since Linux 2.6) pipes and FIFOs. See <b>fcntl</b>(2) for further details.</dd>
+</dl>
+<dl>
+<dt>
+<b>O_CLOEXEC</b> (Since Linux 2.6.23)</dt>
+<dd>
+Enable the close-on-exec flag for the new file descriptor. Specifying this flag permits a program to avoid additional <b>fcntl</b>(2) <b>F_SETFD</b> operations to set the <b>FD_CLOEXEC</b> flag. Additionally, use of this flag is essential in some multithreaded programs since using a separate <b>fcntl</b>(2) <b>F_SETFD</b> operation to set the <b>FD_CLOEXEC</b> flag does not suffice to avoid race conditions where one thread opens a file descriptor at the same time as another thread does a <b>fork</b>(2) plus <b>execve</b>(2).</dd>
+</dl>
+<dl>
+<dt>
+<b>O_CREAT</b></dt>
+<dd>
+If the file does not exist it will be created. The owner (user ID) of the file is set to the effective user ID of the process. The group ownership (group ID) is set either to the effective group ID of the process or to the group ID of the parent directory (depending on file system type and mount options, and the mode of the parent directory, see the mount options <i>bsdgroups</i> and <i>sysvgroups</i> described in <b>mount</b>(8)).</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<div class="spacer">
+</div>
+<i>mode</i> specifies the permissions to use in case a new file is created. This argument must be supplied when <b>O_CREAT</b> is specified in <i>flags</i>; if <b>O_CREAT</b> is not specified, then <i>mode</i> is ignored. The effective permissions are modified by the process's <i>umask</i> in the usual way: The permissions of the created file are <i>(mode&#160;&amp;&#160;~umask)</i>. Note that this mode only applies to future accesses of the newly created file; the <b>open</b>() call that creates a read-only file may well return a read/write file descriptor.<div class="spacer">
+</div>
+The following symbolic constants are provided for <i>mode</i>:<dl>
+<dt>
+<b>S_IRWXU</b></dt>
+<dd>
+00700 user (file owner) has read, write and execute permission</dd>
+</dl>
+<dl>
+<dt>
+<b>S_IRUSR</b></dt>
+<dd>
+00400 user has read permission</dd>
+</dl>
+<dl>
+<dt>
+<b>S_IWUSR</b></dt>
+<dd>
+00200 user has write permission</dd>
+</dl>
+<dl>
+<dt>
+<b>S_IXUSR</b></dt>
+<dd>
+00100 user has execute permission</dd>
+</dl>
+<dl>
+<dt>
+<b>S_IRWXG</b></dt>
+<dd>
+00070 group has read, write and execute permission</dd>
+</dl>
+<dl>
+<dt>
+<b>S_IRGRP</b></dt>
+<dd>
+00040 group has read permission</dd>
+</dl>
+<dl>
+<dt>
+<b>S_IWGRP</b></dt>
+<dd>
+00020 group has write permission</dd>
+</dl>
+<dl>
+<dt>
+<b>S_IXGRP</b></dt>
+<dd>
+00010 group has execute permission</dd>
+</dl>
+<dl>
+<dt>
+<b>S_IRWXO</b></dt>
+<dd>
+00007 others have read, write and execute permission</dd>
+</dl>
+<dl>
+<dt>
+<b>S_IROTH</b></dt>
+<dd>
+00004 others have read permission</dd>
+</dl>
+<dl>
+<dt>
+<b>S_IWOTH</b></dt>
+<dd>
+00002 others have write permission</dd>
+</dl>
+<dl>
+<dt>
+<b>S_IXOTH</b></dt>
+<dd>
+00001 others have execute permission</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<b>O_DIRECT</b> (Since Linux 2.4.10)</dt>
+<dd>
+Try to minimize cache effects of the I/O to and from this file. In general this will degrade performance, but it is useful in special situations, such as when applications do their own caching. File I/O is done directly to/from user space buffers. The <b>O_DIRECT</b> flag on its own makes at an effort to transfer data synchronously, but does not give the guarantees of the <b>O_SYNC</b> that data and necessary metadata are transferred. To guarantee synchronous I/O the <b>O_SYNC</b> must be used in addition to <b>O_DIRECT</b>. See <b>NOTES</b> below for further discussion.<div style="height: 1.00em;">
+&#160;</div>
+A semantically similar (but deprecated) interface for block devices is described in <b>raw</b>(8).</dd>
+</dl>
+<dl>
+<dt>
+<b>O_DIRECTORY</b></dt>
+<dd>
+If <i>pathname</i> is not a directory, cause the open to fail. This flag is Linux-specific, and was added in kernel version 2.1.126, to avoid denial-of-service problems if <b>opendir</b>(3) is called on a FIFO or tape device, but should not be used outside of the implementation of <b>opendir</b>(3).</dd>
+</dl>
+<dl>
+<dt>
+<b>O_EXCL</b></dt>
+<dd>
+Ensure that this call creates the file: if this flag is specified in conjunction with <b>O_CREAT</b>, and <i>pathname</i> already exists, then <b>open</b>() will fail.<div style="height: 1.00em;">
+&#160;</div>
+When these two flags are specified, symbolic links are not followed: if <i>pathname</i> is a symbolic link, then <b>open</b>() fails regardless of where the symbolic link points to.<div style="height: 1.00em;">
+&#160;</div>
+In general, the behavior of <b>O_EXCL</b> is undefined if it is used without <b>O_CREAT</b>. There is one exception: on Linux 2.6 and later, <b>O_EXCL</b> can be used without <b>O_CREAT</b> if <i>pathname</i> refers to a block device. If the block device is in use by the system (e.g., mounted), <b>open</b>() fails with the error <b>EBUSY</b>.<div style="height: 1.00em;">
+&#160;</div>
+On NFS, <b>O_EXCL</b> is only supported when using NFSv3 or later on kernel 2.6 or later. In NFS environments where <b>O_EXCL</b> support is not provided, programs that rely on it for performing locking tasks will contain a race condition. Portable programs that want to perform atomic file locking using a lockfile, and need to avoid reliance on NFS support for <b>O_EXCL</b>, can create a unique file on the same file system (e.g., incorporating hostname and PID), and use <b>link</b>(2) to make a link to the lockfile. If <b>link</b>(2) returns 0, the lock is successful. Otherwise, use <b>stat</b>(2) on the unique file to check if its link count has increased to 2, in which case the lock is also successful.</dd>
+</dl>
+<dl>
+<dt>
+<b>O_LARGEFILE</b></dt>
+<dd>
+(LFS) Allow files whose sizes cannot be represented in an <i>off_t</i> (but can be represented in an <i>off64_t</i>) to be opened. The <b>_LARGEFILE64_SOURCE</b> macro must be defined (before including <i>any</i> header files) in order to obtain this definition. Setting the <b>_FILE_OFFSET_BITS</b> feature test macro to 64 (rather than using <b>O_LARGEFILE</b>) is the preferred method of accessing large files on 32-bit systems (see <b>feature_test_macros</b>(7)).</dd>
+</dl>
+<dl>
+<dt>
+<b>O_NOATIME</b> (Since Linux 2.6.8)</dt>
+<dd>
+Do not update the file last access time (st_atime in the inode) when the file is <b>read</b>(2). This flag is intended for use by indexing or backup programs, where its use can significantly reduce the amount of disk activity. This flag may not be effective on all file systems. One example is NFS, where the server maintains the access time.</dd>
+</dl>
+<dl>
+<dt>
+<b>O_NOCTTY</b></dt>
+<dd>
+If <i>pathname</i> refers to a terminal device&#8212;see <b>tty</b>(4)&#8212; it will not become the process's controlling terminal even if the process does not have one.</dd>
+</dl>
+<dl>
+<dt>
+<b>O_NOFOLLOW</b></dt>
+<dd>
+If <i>pathname</i> is a symbolic link, then the open fails. This is a FreeBSD extension, which was added to Linux in version 2.1.126. Symbolic links in earlier components of the pathname will still be followed.</dd>
+</dl>
+<dl>
+<dt>
+<b>O_NONBLOCK</b> or <b>O_NDELAY</b></dt>
+<dd>
+When possible, the file is opened in nonblocking mode. Neither the <b>open</b>() nor any subsequent operations on the file descriptor which is returned will cause the calling process to wait. For the handling of FIFOs (named pipes), see also <b>fifo</b>(7). For a discussion of the effect of <b>O_NONBLOCK</b> in conjunction with mandatory file locks and with file leases, see <b>fcntl</b>(2).</dd>
+</dl>
+<dl>
+<dt>
+<b>O_SYNC</b></dt>
+<dd>
+The file is opened for synchronous I/O. Any <b>write</b>(2)s on the resulting file descriptor will block the calling process until the data has been physically written to the underlying hardware. <i>But see NOTES below</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>O_TRUNC</b></dt>
+<dd>
+If the file already exists and is a regular file and the open mode allows writing (i.e., is <b>O_RDWR</b> or <b>O_WRONLY</b>) it will be truncated to length 0. If the file is a FIFO or terminal device file, the <b>O_TRUNC</b> flag is ignored. Otherwise the effect of <b>O_TRUNC</b> is unspecified.</dd>
+</dl>
+<div class="spacer">
+</div>
+Some of these optional flags can be altered using <b>fcntl</b>(2) after the file has been opened.<div style="height: 1.00em;">
+&#160;</div>
+<b>creat</b>() is equivalent to <b>open</b>() with <i>flags</i> equal to <b>O_CREAT|O_WRONLY|O_TRUNC</b>.</div>
+<div class="section">
+<h1>RETURN VALUE</h1> <b>open</b>() and <b>creat</b>() return the new file descriptor, or -1 if an error occurred (in which case, <i>errno</i> is set appropriately).</div>
+<div class="section">
+<h1>ERRORS</h1><dl>
+<dt>
+<b>EACCES</b></dt>
+<dd>
+The requested access to the file is not allowed, or search permission is denied for one of the directories in the path prefix of <i>pathname</i>, or the file did not exist yet and write access to the parent directory is not allowed. (See also <b>path_resolution</b>(7).)</dd>
+</dl>
+<dl>
+<dt>
+<b>EEXIST</b></dt>
+<dd>
+<i>pathname</i> already exists and <b>O_CREAT</b> and <b>O_EXCL</b> were used.</dd>
+</dl>
+<dl>
+<dt>
+<b>EFAULT</b></dt>
+<dd>
+<i>pathname</i> points outside your accessible address space.</dd>
+</dl>
+<dl>
+<dt>
+<b>EFBIG</b></dt>
+<dd>
+See <b>EOVERFLOW</b>.</dd>
+</dl>
+<dl>
+<dt>
+<b>EINTR</b></dt>
+<dd>
+While blocked waiting to complete an open of a slow device (e.g., a FIFO; see <b>fifo</b>(7)), the call was interrupted by a signal handler; see <b>signal</b>(7).</dd>
+</dl>
+<dl>
+<dt>
+<b>EISDIR</b></dt>
+<dd>
+<i>pathname</i> refers to a directory and the access requested involved writing (that is, <b>O_WRONLY</b> or <b>O_RDWR</b> is set).</dd>
+</dl>
+<dl>
+<dt>
+<b>ELOOP</b></dt>
+<dd>
+Too many symbolic links were encountered in resolving <i>pathname</i>, or  <b>O_NOFOLLOW</b> was specified but <i>pathname</i> was a symbolic link.</dd>
+</dl>
+<dl>
+<dt>
+<b>EMFILE</b></dt>
+<dd>
+The process already has the maximum number of files open.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENAMETOOLONG</b></dt>
+<dd>
+<i>pathname</i> was too long.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENFILE</b></dt>
+<dd>
+The system limit on the total number of open files has been reached.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENODEV</b></dt>
+<dd>
+<i>pathname</i> refers to a device special file and no corresponding device exists. (This is a Linux kernel bug; in this situation <b>ENXIO</b> must be returned.)</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOENT</b></dt>
+<dd>
+<b>O_CREAT</b> is not set and the named file does not exist. Or, a directory component in <i>pathname</i> does not exist or is a dangling symbolic link.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOMEM</b></dt>
+<dd>
+Insufficient kernel memory was available.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOSPC</b></dt>
+<dd>
+<i>pathname</i> was to be created but the device containing <i>pathname</i> has no room for the new file.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOTDIR</b></dt>
+<dd>
+A component used as a directory in <i>pathname</i> is not, in fact, a directory, or  <b>O_DIRECTORY</b> was specified and <i>pathname</i> was not a directory.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENXIO</b></dt>
+<dd>
+<b>O_NONBLOCK</b> | <b>O_WRONLY</b> is set, the named file is a FIFO and no process has the file open for reading. Or, the file is a device special file and no corresponding device exists.</dd>
+</dl>
+<dl>
+<dt>
+<b>EOVERFLOW</b></dt>
+<dd>
+<i>pathname</i> refers to a regular file that is too large to be opened. The usual scenario here is that an application compiled on a 32-bit platform without <i>-D_FILE_OFFSET_BITS=64</i> tried to open a file whose size exceeds <i>(2&lt;&lt;31)-1</i> bits; see also <b>O_LARGEFILE</b> above. This is the error specified by POSIX.1-2001; in kernels before 2.6.24, Linux gave the error <b>EFBIG</b> for this case.</dd>
+</dl>
+<dl>
+<dt>
+<b>EPERM</b></dt>
+<dd>
+The <b>O_NOATIME</b> flag was specified, but the effective user ID of the caller did not match the owner of the file and the caller was not privileged (<b>CAP_FOWNER</b>).</dd>
+</dl>
+<dl>
+<dt>
+<b>EROFS</b></dt>
+<dd>
+<i>pathname</i> refers to a file on a read-only file system and write access was requested.</dd>
+</dl>
+<dl>
+<dt>
+<b>ETXTBSY</b></dt>
+<dd>
+<i>pathname</i> refers to an executable image which is currently being executed and write access was requested.</dd>
+</dl>
+<dl>
+<dt>
+<b>EWOULDBLOCK</b></dt>
+<dd>
+The <b>O_NONBLOCK</b> flag was specified, and an incompatible lease was held on the file (see <b>fcntl</b>(2)).</dd>
+</dl>
+</div>
+<div class="section">
+<h1>CONFORMING TO</h1> SVr4, 4.3BSD, POSIX.1-2001. The <b>O_DIRECTORY</b>, <b>O_NOATIME</b>, and <b>O_NOFOLLOW</b> flags are Linux-specific, and one may need to define <b>_GNU_SOURCE</b> (before including <i>any</i> header files) to obtain their definitions.<div style="height: 1.00em;">
+&#160;</div>
+The <b>O_CLOEXEC</b> flag is not specified in POSIX.1-2001, but is specified in POSIX.1-2008.<div style="height: 1.00em;">
+&#160;</div>
+<b>O_DIRECT</b> is not specified in POSIX; one has to define <b>_GNU_SOURCE</b> (before including <i>any</i> header files) to get its definition.</div>
+<div class="section">
+<h1>NOTES</h1> Under Linux, the <b>O_NONBLOCK</b> flag indicates that one wants to open but does not necessarily have the intention to read or write. This is typically used to open devices in order to get a file descriptor for use with <b>ioctl</b>(2).<div style="height: 1.00em;">
+&#160;</div>
+Unlike the other values that can be specified in <i>flags</i>, the <i>access mode</i> values <b>O_RDONLY</b>, <b>O_WRONLY</b>, and <b>O_RDWR</b>, do not specify individual bits. Rather, they define the low order two bits of <i>flags</i>, and are defined respectively as 0, 1, and 2. In other words, the combination <b>O_RDONLY | O_WRONLY</b> is a logical error, and certainly does not have the same meaning as <b>O_RDWR</b>. Linux reserves the special, nonstandard access mode 3 (binary 11) in <i>flags</i> to mean: check for read and write permission on the file and return a descriptor that can't be used for reading or writing. This nonstandard access mode is used by some Linux drivers to return a descriptor that is only to be used for device-specific <b>ioctl</b>(2) operations.<div class="spacer">
+</div>
+The (undefined) effect of <b>O_RDONLY | O_TRUNC</b> varies among implementations. On many systems the file is actually truncated.<div class="spacer">
+</div>
+There are many infelicities in the protocol underlying NFS, affecting amongst others <b>O_SYNC</b> and <b>O_NDELAY</b>.<div style="height: 1.00em;">
+&#160;</div>
+POSIX provides for three different variants of synchronized I/O, corresponding to the flags <b>O_SYNC</b>, <b>O_DSYNC</b>, and <b>O_RSYNC</b>. Currently (2.6.31), Linux only implements <b>O_SYNC</b>, but glibc maps <b>O_DSYNC</b> and <b>O_RSYNC</b> to the same numerical value as <b>O_SYNC</b>. Most Linux file systems don't actually implement the POSIX <b>O_SYNC</b> semantics, which require all metadata updates of a write to be on disk on returning to userspace, but only the <b>O_DSYNC</b> semantics, which require only actual file data and metadata necessary to retrieve it to be on disk by the time the system call returns.<div style="height: 1.00em;">
+&#160;</div>
+Note that <b>open</b>() can open device special files, but <b>creat</b>() cannot create them; use <b>mknod</b>(2) instead.<div class="spacer">
+</div>
+On NFS file systems with UID mapping enabled, <b>open</b>() may return a file descriptor but, for example, <b>read</b>(2) requests are denied with  <b>EACCES</b>. This is because the client performs <b>open</b>() by checking the permissions, but UID mapping is performed by the server upon read and write requests.<div style="height: 1.00em;">
+&#160;</div>
+If the file is newly created, its <i>st_atime</i>, <i>st_ctime</i>, <i>st_mtime</i> fields (respectively, time of last access, time of last status change, and time of last modification; see <b>stat</b>(2)) are set to the current time, and so are the <i>st_ctime</i> and <i>st_mtime</i> fields of the parent directory. Otherwise, if the file is modified because of the <b>O_TRUNC</b> flag, its st_ctime and st_mtime fields are set to the current time.<div class="subsection">
+<h2>O_DIRECT</h2> The <b>O_DIRECT</b> flag may impose alignment restrictions on the length and address of userspace buffers and the file offset of I/Os. In Linux alignment restrictions vary by file system and kernel version and might be absent entirely. However there is currently no file system-independent interface for an application to discover these restrictions for a given file or file system. Some file systems provide their own interfaces for doing so, for example the <b>XFS_IOC_DIOINFO</b> operation in <b>xfsctl</b>(3).<div class="spacer">
+</div>
+Under Linux 2.4, transfer sizes, and the alignment of the user buffer and the file offset must all be multiples of the logical block size of the file system. Under Linux 2.6, alignment to 512-byte boundaries suffices.<div class="spacer">
+</div>
+The <b>O_DIRECT</b> flag was introduced in SGI IRIX, where it has alignment restrictions similar to those of Linux 2.4. IRIX has also a <b>fcntl</b>(2) call to query appropriate alignments, and sizes. FreeBSD 4.x introduced a flag of the same name, but without alignment restrictions.<div class="spacer">
+</div>
+<b>O_DIRECT</b> support was added under Linux in kernel version 2.4.10. Older Linux kernels simply ignore this flag. Some file systems may not implement the flag and <b>open</b>() will fail with <b>EINVAL</b> if it is used.<div class="spacer">
+</div>
+Applications should avoid mixing <b>O_DIRECT</b> and normal I/O to the same file, and especially to overlapping byte regions in the same file. Even when the file system correctly handles the coherency issues in this situation, overall I/O throughput is likely to be slower than using either mode alone. Likewise, applications should avoid mixing <b>mmap</b>(2) of files with direct I/O to the same files.<div class="spacer">
+</div>
+The behaviour of <b>O_DIRECT</b> with NFS will differ from local file systems. Older kernels, or kernels configured in certain ways, may not support this combination. The NFS protocol does not support passing the flag to the server, so <b>O_DIRECT</b> I/O will only bypass the page cache on the client; the server may still cache the I/O. The client asks the server to make the I/O synchronous to preserve the synchronous semantics of <b>O_DIRECT</b>. Some servers will perform poorly under these circumstances, especially if the I/O size is small. Some servers may also be configured to lie to clients about the I/O having reached stable storage; this will avoid the performance penalty at some risk to data integrity in the event of server power failure. The Linux NFS client places no alignment restrictions on <b>O_DIRECT</b> I/O.<div class="spacer">
+</div>
+In summary, <b>O_DIRECT</b> is a potentially powerful tool that should be used with caution. It is recommended that applications treat use of <b>O_DIRECT</b> as a performance option which is disabled by default.<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;">
+&quot;The thing that has always disturbed me about O_DIRECT is that the whole interface is just stupid, and was probably designed by a deranged monkey on some serious mind-controlling substances.&quot;&#8212;Linus</div>
+</div>
+</div>
+<div class="section">
+<h1>BUGS</h1> Currently, it is not possible to enable signal-driven I/O by specifying <b>O_ASYNC</b> when calling <b>open</b>(); use <b>fcntl</b>(2) to enable this flag.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>chmod</b>(2), <b>chown</b>(2), <b>close</b>(2), <b>dup</b>(2), <b>fcntl</b>(2), <b>link</b>(2), <b>lseek</b>(2), <b>mknod</b>(2), <b>mmap</b>(2), <b>mount</b>(2), <b>openat</b>(2), <b>read</b>(2), <b>socket</b>(2), <b>stat</b>(2), <b>umask</b>(2), <b>unlink</b>(2), <b>write</b>(2), <b>fopen</b>(3), <b>fifo</b>(7), <b>path_resolution</b>(7), <b>symlink</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-08</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

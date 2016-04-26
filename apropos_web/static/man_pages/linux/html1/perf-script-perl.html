@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PERF-SCRIPT-PERL(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERF-SCRIPT-PERL(1)</td>
+<td class="head-vol">
+perf Manual</td>
+<td class="head-rtitle">
+PERF-SCRIPT-PERL(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perf-script-perl - Process trace data with a Perl script</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+<i>perf script</i> [-s [Perl]:script[.pl] ]<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This perf script option is used to process perf script data using perf&#8217;s built-in Perl interpreter. It reads and processes the input file and displays the results of the trace analysis implemented in the given Perl script, if any.</div>
+<div class="section">
+<h1>STARTER SCRIPTS</h1> You can avoid reading the rest of this document by running  <i>perf script -g perl</i> in the same directory as an existing perf.data trace file. That will generate a starter script containing a handler for each of the event types in the trace file; it simply prints every available field for each event in the trace file.<div style="height: 1.00em;">
+&#160;</div>
+You can also look at the existing scripts in ~/libexec/perf-core/scripts/perl for typical examples showing how to do basic things like aggregate event data, print results, etc. Also, the check-perf-script.pl script, while not interesting for its results, attempts to exercise all of the main scripting features.</div>
+<div class="section">
+<h1>EVENT HANDLERS</h1> When perf script is invoked using a trace script, a user-defined  <i>handler function</i> is called for each event in the trace. If there&#8217;s no handler function defined for a given event type, the event is ignored (or passed to a <i>trace_handled</i> function, see below) and the next event is processed.<div style="height: 1.00em;">
+&#160;</div>
+Most of the event&#8217;s field values are passed as arguments to the handler function; some of the less common ones aren&#8217;t - those are available as calls back into the perf executable (see below).<div style="height: 1.00em;">
+&#160;</div>
+As an example, the following perf record command can be used to record all sched_wakeup events in the system:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+<br/>
+# perf record -a -e sched:sched_wakeup<br/>
+</div>
+<div style="height: 1.00em;">
+&#160;</div>
+Traces meant to be processed using a script should be recorded with the above option: -a to enable system-wide collection.<div style="height: 1.00em;">
+&#160;</div>
+The format file for the sched_wakep event defines the following fields (see /sys/kernel/debug/tracing/events/sched/sched_wakeup/format):<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+<div class="spacer">
+</div>
+<br/>
+.ft C<br/>
+ format:<br/>
+        field:unsigned short common_type;<br/>
+        field:unsigned char common_flags;<br/>
+        field:unsigned char common_preempt_count;<br/>
+        field:int common_pid;<div class="spacer">
+</div>
+<br/>
+        field:char comm[TASK_COMM_LEN];<br/>
+        field:pid_t pid;<br/>
+        field:int prio;<br/>
+        field:int success;<br/>
+        field:int target_cpu;<br/>
+.ft<div class="spacer">
+</div>
+<br/>
+</div>
+<div style="height: 1.00em;">
+&#160;</div>
+The handler function for this event would be defined as:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+<div class="spacer">
+</div>
+<br/>
+.ft C<br/>
+sub sched::sched_wakeup<br/>
+{<br/>
+   my ($event_name, $context, $common_cpu, $common_secs,<br/>
+       $common_nsecs, $common_pid, $common_comm,<br/>
+       $comm, $pid, $prio, $success, $target_cpu) = @_;<br/>
+}<br/>
+.ft<div class="spacer">
+</div>
+<br/>
+</div>
+<div style="height: 1.00em;">
+&#160;</div>
+The handler function takes the form subsystem::event_name.<div style="height: 1.00em;">
+&#160;</div>
+The $common_* arguments in the handler&#8217;s argument list are the set of arguments passed to all event handlers; some of the fields correspond to the common_* fields in the format file, but some are synthesized, and some of the common_* fields aren&#8217;t common enough to to be passed to every event as arguments but are available as library functions.<div style="height: 1.00em;">
+&#160;</div>
+Here&#8217;s a brief description of each of the invariant event args:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+<br/>
+$event_name                the name of the event as text<br/>
+$context                   an opaque 'cookie' used in calls back into perf<br/>
+$common_cpu                the cpu the event occurred on<br/>
+$common_secs               the secs portion of the event timestamp<br/>
+$common_nsecs              the nsecs portion of the event timestamp<br/>
+$common_pid                the pid of the current task<br/>
+$common_comm               the name of the current process<br/>
+</div>
+<div style="height: 1.00em;">
+&#160;</div>
+All of the remaining fields in the event&#8217;s format file have counterparts as handler function arguments of the same name, as can be seen in the example above.<div style="height: 1.00em;">
+&#160;</div>
+The above provides the basics needed to directly access every field of every event in a trace, which covers 90% of what you need to know to write a useful trace script. The sections below cover the rest.</div>
+<div class="section">
+<h1>SCRIPT LAYOUT</h1> Every perf script Perl script should start by setting up a Perl module search path and 'use&#8217;ing a few support modules (see module descriptions below):<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+<div class="spacer">
+</div>
+<br/>
+.ft C<br/>
+ use lib &quot;$ENV{'PERF_EXEC_PATH'}/scripts/perl/perf-script-Util/lib&quot;;<br/>
+ use lib &quot;./perf-script-Util/lib&quot;;<br/>
+ use Perf::Trace::Core;<br/>
+ use Perf::Trace::Context;<br/>
+ use Perf::Trace::Util;<br/>
+.ft<div class="spacer">
+</div>
+<br/>
+</div>
+<div style="height: 1.00em;">
+&#160;</div>
+The rest of the script can contain handler functions and support functions in any order.<div style="height: 1.00em;">
+&#160;</div>
+Aside from the event handler functions discussed above, every script can implement a set of optional functions:<div style="height: 1.00em;">
+&#160;</div>
+<b>trace_begin</b>, if defined, is called before any event is processed and gives scripts a chance to do setup tasks:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+<div class="spacer">
+</div>
+<br/>
+.ft C<br/>
+ sub trace_begin<br/>
+ {<br/>
+ }<br/>
+.ft<div class="spacer">
+</div>
+<br/>
+</div>
+<div style="height: 1.00em;">
+&#160;</div>
+<b>trace_end</b>, if defined, is called after all events have been processed and gives scripts a chance to do end-of-script tasks, such as display results:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+<div class="spacer">
+</div>
+<br/>
+.ft C<br/>
+sub trace_end<br/>
+{<br/>
+}<br/>
+.ft<div class="spacer">
+</div>
+<br/>
+</div>
+<div style="height: 1.00em;">
+&#160;</div>
+<b>trace_unhandled</b>, if defined, is called after for any event that doesn&#8217;t have a handler explicitly defined for it. The standard set of common arguments are passed into it:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+<div class="spacer">
+</div>
+<br/>
+.ft C<br/>
+sub trace_unhandled<br/>
+{<br/>
+    my ($event_name, $context, $common_cpu, $common_secs,<br/>
+        $common_nsecs, $common_pid, $common_comm) = @_;<br/>
+}<br/>
+.ft<div class="spacer">
+</div>
+<br/>
+</div>
+<div style="height: 1.00em;">
+&#160;</div>
+The remaining sections provide descriptions of each of the available built-in perf script Perl modules and their associated functions.</div>
+<div class="section">
+<h1>AVAILABLE MODULES AND FUNCTIONS</h1> The following sections describe the functions and variables available via the various Perf::Trace::* Perl modules. To use the functions and variables from the given module, add the corresponding  <i>use Perf::Trace::XXX</i> line to your perf script script.<div class="subsection">
+<h2>Perf::Trace::Core Module</h2> These functions provide some essential functions to user scripts.<div style="height: 1.00em;">
+&#160;</div>
+The <b>flag_str</b> and <b>symbol_str</b> functions provide human-readable strings for flag and symbolic fields. These correspond to the strings and values parsed from the <i>print fmt</i> fields of the event format files:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+<br/>
+flag_str($event_name, $field_name, $field_value) - returns the string represention corresponding to $field_value for the flag field $field_name of event $event_name<br/>
+symbol_str($event_name, $field_name, $field_value) - returns the string represention corresponding to $field_value for the symbolic field $field_name of event $event_name<br/>
+</div>
+</div>
+<div class="subsection">
+<h2>Perf::Trace::Context Module</h2> Some of the  <i>common</i> fields in the event format file aren&#8217;t all that common, but need to be made accessible to user scripts nonetheless.<div style="height: 1.00em;">
+&#160;</div>
+Perf::Trace::Context defines a set of functions that can be used to access this data in the context of the current event. Each of these functions expects a $context variable, which is the same as the $context variable passed into every event handler as the second argument.<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+<br/>
+common_pc($context) - returns common_preempt count for the current event<br/>
+common_flags($context) - returns common_flags for the current event<br/>
+common_lock_depth($context) - returns common_lock_depth for the current event<br/>
+</div>
+</div>
+<div class="subsection">
+<h2>Perf::Trace::Util Module</h2> Various utility functions for use with perf script:<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 4.00ex;">
+<br/>
+nsecs($secs, $nsecs) - returns total nsecs given secs/nsecs pair<br/>
+nsecs_secs($nsecs) - returns whole secs portion given nsecs<br/>
+nsecs_nsecs($nsecs) - returns nsecs remainder given nsecs<br/>
+nsecs_str($nsecs) - returns printable string in the form secs.nsecs<br/>
+avg($total, $n) - returns average given a sum and a total number of values<br/>
+</div>
+</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <b>perf-script</b>(1)</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+03/10/2016</td>
+<td class="foot-os">
+perf 3.2.76</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

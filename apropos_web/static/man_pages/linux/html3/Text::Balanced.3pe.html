@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Text::Balanced(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Text::Balanced(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+Text::Balanced(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Text::Balanced - Extract delimited text sequences from strings.</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ use Text::Balanced qw (<br/>
+                        extract_delimited<br/>
+                        extract_bracketed<br/>
+                        extract_quotelike<br/>
+                        extract_codeblock<br/>
+                        extract_variable<br/>
+                        extract_tagged<br/>
+                        extract_multiple<br/>
+                        gen_delimited_pat<br/>
+                        gen_extract_tagged<br/>
+                       );<br/>
+<br/>
+ # Extract the initial substring of $text that is delimited by<br/>
+ # two (unescaped) instances of the first character in $delim.<br/>
+<br/>
+        ($extracted, $remainder) = extract_delimited($text,$delim);<br/>
+<br/>
+<br/>
+ # Extract the initial substring of $text that is bracketed<br/>
+ # with a delimiter(s) specified by $delim (where the string<br/>
+ # in $delim contains one or more of '(){}[]&lt;&gt;').<br/>
+<br/>
+        ($extracted, $remainder) = extract_bracketed($text,$delim);<br/>
+<br/>
+<br/>
+ # Extract the initial substring of $text that is bounded by<br/>
+ # an XML tag.<br/>
+<br/>
+        ($extracted, $remainder) = extract_tagged($text);<br/>
+<br/>
+<br/>
+ # Extract the initial substring of $text that is bounded by<br/>
+ # a C&lt;BEGIN&gt;...C&lt;END&gt; pair. Don't allow nested C&lt;BEGIN&gt; tags<br/>
+<br/>
+        ($extracted, $remainder) =<br/>
+                extract_tagged($text,&quot;BEGIN&quot;,&quot;END&quot;,undef,{bad=&gt;[&quot;BEGIN&quot;]});<br/>
+<br/>
+<br/>
+ # Extract the initial substring of $text that represents a<br/>
+ # Perl &quot;quote or quote-like operation&quot;<br/>
+<br/>
+        ($extracted, $remainder) = extract_quotelike($text);<br/>
+<br/>
+<br/>
+ # Extract the initial substring of $text that represents a block<br/>
+ # of Perl code, bracketed by any of character(s) specified by $delim<br/>
+ # (where the string $delim contains one or more of '(){}[]&lt;&gt;').<br/>
+<br/>
+        ($extracted, $remainder) = extract_codeblock($text,$delim);<br/>
+<br/>
+<br/>
+ # Extract the initial substrings of $text that would be extracted by<br/>
+ # one or more sequential applications of the specified functions<br/>
+ # or regular expressions<br/>
+<br/>
+        @extracted = extract_multiple($text,<br/>
+                                      [ \&amp;extract_bracketed,<br/>
+                                        \&amp;extract_quotelike,<br/>
+                                        \&amp;some_other_extractor_sub,<br/>
+                                        qr/[xyz]*/,<br/>
+                                        'literal',<br/>
+                                      ]);<br/>
+<div class="spacer">
+</div>
+# Create a string representing an optimized pattern (a la Friedl) # that matches a substring delimited by any of the specified characters # (in this case: any type of quote or a slash)<div class="spacer">
+</div>
+<br/>
+        $patstring = gen_delimited_pat(q{'&quot;`/});<br/>
+<div class="spacer">
+</div>
+# Generate a reference to an anonymous sub that is just like extract_tagged # but pre-compiled and optimized for a specific pair of tags, and consequently # much faster (i.e. 3 times faster). It uses qr// for better performance on # repeated calls, so it only works under Perl 5.005 or later.<div class="spacer">
+</div>
+<br/>
+        $extract_head = gen_extract_tagged('&lt;HEAD&gt;','&lt;/HEAD&gt;');<br/>
+<br/>
+        ($extracted, $remainder) = $extract_head-&gt;($text);<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The various &quot;extract_...&quot; subroutines may be used to extract a delimited substring, possibly after skipping a specified prefix string. By default, that prefix is optional whitespace (&quot;/\s*/&quot;), but you can change it to whatever you wish (see below).<div class="spacer">
+</div>
+The substring to be extracted must appear at the current &quot;pos&quot; location of the string's variable (or at index zero, if no &quot;pos&quot; position is defined). In other words, the &quot;extract_...&quot; subroutines  <i>don't</i> extract the first occurrence of a substring anywhere in a string (like an unanchored regex would). Rather, they extract an occurrence of the substring appearing immediately at the current matching position in the string (like a &quot;\G&quot;-anchored regex would).<div class="subsection">
+<h2>General behaviour in list contexts</h2> In a list context, all the subroutines return a list, the first three elements of which are always:<dl>
+<dt>
+[0]</dt>
+<dd>
+The extracted string, including the specified delimiters. If the extraction fails &quot;undef&quot; is returned.</dd>
+</dl>
+<dl>
+<dt>
+[1]</dt>
+<dd>
+The remainder of the input string (i.e. the characters after the extracted string). On failure, the entire string is returned.</dd>
+</dl>
+<dl>
+<dt>
+[2]</dt>
+<dd>
+The skipped prefix (i.e. the characters before the extracted string). On failure, &quot;undef&quot; is returned.</dd>
+</dl>
+<div class="spacer">
+</div>
+Note that in a list context, the contents of the original input text (the first argument) are not modified in any way.<div class="spacer">
+</div>
+However, if the input text was passed in a variable, that variable's &quot;pos&quot; value is updated to point at the first character after the extracted text. That means that in a list context the various subroutines can be used much like regular expressions. For example:<div class="spacer">
+</div>
+<br/>
+        while ( $next = (extract_quotelike($text))[0] )<br/>
+        {<br/>
+                # process next quote-like (in $next)<br/>
+        }<br/>
+</div>
+<div class="subsection">
+<h2>General behaviour in scalar and void contexts</h2> In a scalar context, the extracted string is returned, having first been removed from the input text. Thus, the following code also processes each quote-like operation, but actually removes them from $text:<div class="spacer">
+</div>
+<br/>
+        while ( $next = extract_quotelike($text) )<br/>
+        {<br/>
+                # process next quote-like (in $next)<br/>
+        }<br/>
+<div class="spacer">
+</div>
+Note that if the input text is a read-only string (i.e. a literal), no attempt is made to remove the extracted text.<div class="spacer">
+</div>
+In a void context the behaviour of the extraction subroutines is exactly the same as in a scalar context, except (of course) that the extracted substring is not returned.</div>
+<div class="subsection">
+<h2>A note about prefixes</h2> Prefix patterns are matched without any trailing modifiers (&quot;/gimsox&quot; etc.) This can bite you if you're expecting a prefix specification like '.*?(?=&lt;H1&gt;)' to skip everything up to the first &lt;H1&gt; tag. Such a prefix pattern will only succeed if the &lt;H1&gt; tag is on the current line, since . normally doesn't match newlines.<div class="spacer">
+</div>
+To overcome this limitation, you need to turn on /s matching within the prefix pattern, using the &quot;(?s)&quot; directive: '(?s).*?(?=&lt;H1&gt;)'</div>
+<div class="subsection">
+<h2>&quot;extract_delimited&quot;</h2> The &quot;extract_delimited&quot; function formalizes the common idiom of extracting a single-character-delimited substring from the start of a string. For example, to extract a single-quote delimited string, the following code is typically used:<div class="spacer">
+</div>
+<br/>
+        ($remainder = $text) =~ s/\A('(\\.|[^'])*')//s;<br/>
+        $extracted = $1;<br/>
+<div class="spacer">
+</div>
+but with &quot;extract_delimited&quot; it can be simplified to:<div class="spacer">
+</div>
+<br/>
+        ($extracted,$remainder) = extract_delimited($text, &quot;'&quot;);<br/>
+<div class="spacer">
+</div>
+&quot;extract_delimited&quot; takes up to four scalars (the input text, the delimiters, a prefix pattern to be skipped, and any escape characters) and extracts the initial substring of the text that is appropriately delimited. If the delimiter string has multiple characters, the first one encountered in the text is taken to delimit the substring. The third argument specifies a prefix pattern that is to be skipped (but must be present!) before the substring is extracted. The final argument specifies the escape character to be used for each delimiter.<div class="spacer">
+</div>
+All arguments are optional. If the escape characters are not specified, every delimiter is escaped with a backslash (&quot;\&quot;). If the prefix is not specified, the pattern '\s*' - optional whitespace - is used. If the delimiter set is also not specified, the set &quot;/[&quot;'`]/&quot; is used. If the text to be processed is not specified either, $_ is used.<div class="spacer">
+</div>
+In list context, &quot;extract_delimited&quot; returns a array of three elements, the extracted substring ( <i>including the surrounding</i>  <i>delimiters</i>), the remainder of the text, and the skipped prefix (if any). If a suitable delimited substring is not found, the first element of the array is the empty string, the second is the complete original text, and the prefix returned in the third element is an empty string.<div class="spacer">
+</div>
+In a scalar context, just the extracted substring is returned. In a void context, the extracted substring (and any prefix) are simply removed from the beginning of the first argument.<div class="spacer">
+</div>
+Examples:<div class="spacer">
+</div>
+<br/>
+        # Remove a single-quoted substring from the very beginning of $text:<br/>
+<br/>
+                $substring = extract_delimited($text, &quot;'&quot;, '');<br/>
+<br/>
+        # Remove a single-quoted Pascalish substring (i.e. one in which<br/>
+        # doubling the quote character escapes it) from the very<br/>
+        # beginning of $text:<br/>
+<br/>
+                $substring = extract_delimited($text, &quot;'&quot;, '', &quot;'&quot;);<br/>
+<br/>
+        # Extract a single- or double- quoted substring from the<br/>
+        # beginning of $text, optionally after some whitespace<br/>
+        # (note the list context to protect $text from modification):<br/>
+<br/>
+                ($substring) = extract_delimited $text, q{&quot;'};<br/>
+<br/>
+        # Delete the substring delimited by the first '/' in $text:<br/>
+<br/>
+                $text = join '', (extract_delimited($text,'/','[^/]*')[2,1];<br/>
+<div class="spacer">
+</div>
+Note that this last example is <i>not</i> the same as deleting the first quote-like pattern. For instance, if $text contained the string:<div class="spacer">
+</div>
+<br/>
+        &quot;if ('./cmd' =~ m/$UNIXCMD/s) { $cmd = $1; }&quot;<br/>
+<div class="spacer">
+</div>
+then after the deletion it would contain:<div class="spacer">
+</div>
+<br/>
+        &quot;if ('.$UNIXCMD/s) { $cmd = $1; }&quot;<br/>
+<div class="spacer">
+</div>
+not:<div class="spacer">
+</div>
+<br/>
+        &quot;if ('./cmd' =~ ms) { $cmd = $1; }&quot;<br/>
+<div class="spacer">
+</div>
+See &quot;extract_quotelike&quot; for a (partial) solution to this problem.</div>
+<div class="subsection">
+<h2>&quot;extract_bracketed&quot;</h2> Like &quot;extract_delimited&quot;, the &quot;extract_bracketed&quot; function takes up to three optional scalar arguments: a string to extract from, a delimiter specifier, and a prefix pattern. As before, a missing prefix defaults to optional whitespace and a missing text defaults to $_. However, a missing delimiter specifier defaults to '{}()[]&lt;&gt;' (see below).<div class="spacer">
+</div>
+&quot;extract_bracketed&quot; extracts a balanced-bracket-delimited substring (using any one (or more) of the user-specified delimiter brackets: '(..)', '{..}', '[..]', or '&lt;..&gt;'). Optionally it will also respect quoted unbalanced brackets (see below).<div class="spacer">
+</div>
+A &quot;delimiter bracket&quot; is a bracket in list of delimiters passed as &quot;extract_bracketed&quot;'s second argument. Delimiter brackets are specified by giving either the left or right (or both!) versions of the required bracket(s). Note that the order in which two or more delimiter brackets are specified is not significant.<div class="spacer">
+</div>
+A &quot;balanced-bracket-delimited substring&quot; is a substring bounded by matched brackets, such that any other (left or right) delimiter bracket  <i>within</i> the substring is also matched by an opposite (right or left) delimiter bracket  <i>at the same level of nesting</i>. Any type of bracket not in the delimiter list is treated as an ordinary character.<div class="spacer">
+</div>
+In other words, each type of bracket specified as a delimiter must be balanced and correctly nested within the substring, and any other kind of (&quot;non-delimiter&quot;) bracket in the substring is ignored.<div class="spacer">
+</div>
+For example, given the string:<div class="spacer">
+</div>
+<br/>
+        $text = &quot;{ an '[irregularly :-(] {} parenthesized &gt;:-)' string }&quot;;<br/>
+<div class="spacer">
+</div>
+then a call to &quot;extract_bracketed&quot; in a list context:<div class="spacer">
+</div>
+<br/>
+        @result = extract_bracketed( $text, '{}' );<br/>
+<div class="spacer">
+</div>
+would return:<div class="spacer">
+</div>
+<br/>
+        ( &quot;{ an '[irregularly :-(] {} parenthesized &gt;:-)' string }&quot; , &quot;&quot; , &quot;&quot; )<br/>
+<div class="spacer">
+</div>
+since both sets of '{..}' brackets are properly nested and evenly balanced. (In a scalar context just the first element of the array would be returned. In a void context, $text would be replaced by an empty string.)<div class="spacer">
+</div>
+Likewise the call in:<div class="spacer">
+</div>
+<br/>
+        @result = extract_bracketed( $text, '{[' );<br/>
+<div class="spacer">
+</div>
+would return the same result, since all sets of both types of specified delimiter brackets are correctly nested and balanced.<div class="spacer">
+</div>
+However, the call in:<div class="spacer">
+</div>
+<br/>
+        @result = extract_bracketed( $text, '{([&lt;' );<br/>
+<div class="spacer">
+</div>
+would fail, returning:<div class="spacer">
+</div>
+<br/>
+        ( undef , &quot;{ an '[irregularly :-(] {} parenthesized &gt;:-)' string }&quot;  );<br/>
+<div class="spacer">
+</div>
+because the embedded pairs of '(..)'s and '[..]'s are &quot;cross-nested&quot; and the embedded '&gt;' is unbalanced. (In a scalar context, this call would return an empty string. In a void context, $text would be unchanged.)<div class="spacer">
+</div>
+Note that the embedded single-quotes in the string don't help in this case, since they have not been specified as acceptable delimiters and are therefore treated as non-delimiter characters (and ignored).<div class="spacer">
+</div>
+However, if a particular species of quote character is included in the delimiter specification, then that type of quote will be correctly handled. for example, if $text is:<div class="spacer">
+</div>
+<br/>
+        $text = '&lt;A HREF=&quot;&gt;&gt;&gt;&gt;&quot;&gt;link&lt;/A&gt;';<br/>
+<div class="spacer">
+</div>
+then<div class="spacer">
+</div>
+<br/>
+        @result = extract_bracketed( $text, '&lt;&quot;&gt;' );<br/>
+<div class="spacer">
+</div>
+returns:<div class="spacer">
+</div>
+<br/>
+        ( '&lt;A HREF=&quot;&gt;&gt;&gt;&gt;&quot;&gt;', 'link&lt;/A&gt;', &quot;&quot; )<br/>
+<div class="spacer">
+</div>
+as expected. Without the specification of &quot;&quot;&quot; as an embedded quoter:<div class="spacer">
+</div>
+<br/>
+        @result = extract_bracketed( $text, '&lt;&gt;' );<br/>
+<div class="spacer">
+</div>
+the result would be:<div class="spacer">
+</div>
+<br/>
+        ( '&lt;A HREF=&quot;&gt;', '&gt;&gt;&gt;&quot;&gt;link&lt;/A&gt;', &quot;&quot; )<br/>
+<div class="spacer">
+</div>
+In addition to the quote delimiters &quot;'&quot;, &quot;&quot;&quot;, and &quot;`&quot;, full Perl quote-like quoting (i.e. q{string}, qq{string}, etc) can be specified by including the letter 'q' as a delimiter. Hence:<div class="spacer">
+</div>
+<br/>
+        @result = extract_bracketed( $text, '&lt;q&gt;' );<br/>
+<div class="spacer">
+</div>
+would correctly match something like this:<div class="spacer">
+</div>
+<br/>
+        $text = '&lt;leftop: conj /and/ conj&gt;';<br/>
+<div class="spacer">
+</div>
+See also: &quot;extract_quotelike&quot; and &quot;extract_codeblock&quot;.</div>
+<div class="subsection">
+<h2>&quot;extract_variable&quot;</h2> &quot;extract_variable&quot; extracts any valid Perl variable or variable-involved expression, including scalars, arrays, hashes, array accesses, hash look-ups, method calls through objects, subroutine calls through subroutine references, etc.<div class="spacer">
+</div>
+The subroutine takes up to two optional arguments:<dl>
+<dt>
+1.</dt>
+<dd>
+A string to be processed ($_ if the string is omitted or &quot;undef&quot;)</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+A string specifying a pattern to be matched as a prefix (which is to be skipped). If omitted, optional whitespace is skipped.</dd>
+</dl>
+<div class="spacer">
+</div>
+On success in a list context, an array of 3 elements is returned. The elements are:<dl>
+<dt>
+[0]</dt>
+<dd>
+the extracted variable, or variablish expression</dd>
+</dl>
+<dl>
+<dt>
+[1]</dt>
+<dd>
+the remainder of the input text,</dd>
+</dl>
+<dl>
+<dt>
+[2]</dt>
+<dd>
+the prefix substring (if any),</dd>
+</dl>
+<div class="spacer">
+</div>
+On failure, all of these values (except the remaining text) are &quot;undef&quot;.<div class="spacer">
+</div>
+In a scalar context, &quot;extract_variable&quot; returns just the complete substring that matched a variablish expression. &quot;undef&quot; is returned on failure. In addition, the original input text has the returned substring (and any prefix) removed from it.<div class="spacer">
+</div>
+In a void context, the input text just has the matched substring (and any specified prefix) removed.</div>
+<div class="subsection">
+<h2>&quot;extract_tagged&quot;</h2> &quot;extract_tagged&quot; extracts and segments text between (balanced) specified tags.<div class="spacer">
+</div>
+The subroutine takes up to five optional arguments:<dl>
+<dt>
+1.</dt>
+<dd>
+A string to be processed ($_ if the string is omitted or &quot;undef&quot;)</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+A string specifying a pattern to be matched as the opening tag. If the pattern string is omitted (or &quot;undef&quot;) then a pattern that matches any standard XML tag is used.</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+A string specifying a pattern to be matched at the closing tag. If the pattern string is omitted (or &quot;undef&quot;) then the closing tag is constructed by inserting a &quot;/&quot; after any leading bracket characters in the actual opening tag that was matched ( <i>not</i> the pattern that matched the tag). For example, if the opening tag pattern is specified as '{{\w+}}' and actually matched the opening tag &quot;{{DATA}}&quot;, then the constructed closing tag would be &quot;{{/DATA}}&quot;.</dd>
+</dl>
+<dl>
+<dt>
+4.</dt>
+<dd>
+A string specifying a pattern to be matched as a prefix (which is to be skipped). If omitted, optional whitespace is skipped.</dd>
+</dl>
+<dl>
+<dt>
+5.</dt>
+<dd>
+A hash reference containing various parsing options (see below)</dd>
+</dl>
+<div class="spacer">
+</div>
+The various options that can be specified are:<dl>
+<dt>
+&quot;reject =&gt; $listref&quot;</dt>
+<dd>
+The list reference contains one or more strings specifying patterns that must  <i>not</i> appear within the tagged text.<div style="height: 1.00em;">
+&#160;</div>
+For example, to extract an HTML link (which should not contain nested links) use:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        extract_tagged($text, '&lt;A&gt;', '&lt;/A&gt;', undef, {reject =&gt; ['&lt;A&gt;']} );<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;ignore =&gt; $listref&quot;</dt>
+<dd>
+The list reference contains one or more strings specifying patterns that are  <i>not</i> be be treated as nested tags within the tagged text (even if they would match the start tag pattern).<div style="height: 1.00em;">
+&#160;</div>
+For example, to extract an arbitrary XML tag, but ignore &quot;empty&quot; elements:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        extract_tagged($text, undef, undef, undef, {ignore =&gt; ['&lt;[^&gt;]*/&gt;']} );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+(also see &quot;gen_delimited_pat&quot; below).</dd>
+</dl>
+<dl>
+<dt>
+&quot;fail =&gt; $str&quot;</dt>
+<dd>
+The &quot;fail&quot; option indicates the action to be taken if a matching end tag is not encountered (i.e. before the end of the string or some &quot;reject&quot; pattern matches). By default, a failure to match a closing tag causes &quot;extract_tagged&quot; to immediately fail.<div style="height: 1.00em;">
+&#160;</div>
+However, if the string value associated with &lt;reject&gt; is &quot;MAX&quot;, then &quot;extract_tagged&quot; returns the complete text up to the point of failure. If the string is &quot;PARA&quot;, &quot;extract_tagged&quot; returns only the first paragraph after the tag (up to the first line that is either empty or contains only whitespace characters). If the string is &quot;&quot;, the the default behaviour (i.e. failure) is reinstated.<div style="height: 1.00em;">
+&#160;</div>
+For example, suppose the start tag &quot;/para&quot; introduces a paragraph, which then continues until the next &quot;/endpara&quot; tag or until another &quot;/para&quot; tag is encountered:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        $text = &quot;/para line 1\n\nline 3\n/para line 4&quot;;<br/>
+<br/>
+        extract_tagged($text, '/para', '/endpara', undef,<br/>
+                                {reject =&gt; '/para', fail =&gt; MAX );<br/>
+<br/>
+        # EXTRACTED: &quot;/para line 1\n\nline 3\n&quot;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Suppose instead, that if no matching &quot;/endpara&quot; tag is found, the &quot;/para&quot; tag refers only to the immediately following paragraph:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        $text = &quot;/para line 1\n\nline 3\n/para line 4&quot;;<br/>
+<br/>
+        extract_tagged($text, '/para', '/endpara', undef,<br/>
+                        {reject =&gt; '/para', fail =&gt; MAX );<br/>
+<br/>
+        # EXTRACTED: &quot;/para line 1\n&quot;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Note that the specified &quot;fail&quot; behaviour applies to nested tags as well.</dd>
+</dl>
+<div class="spacer">
+</div>
+On success in a list context, an array of 6 elements is returned. The elements are:<dl>
+<dt>
+[0]</dt>
+<dd>
+the extracted tagged substring (including the outermost tags),</dd>
+</dl>
+<dl>
+<dt>
+[1]</dt>
+<dd>
+the remainder of the input text,</dd>
+</dl>
+<dl>
+<dt>
+[2]</dt>
+<dd>
+the prefix substring (if any),</dd>
+</dl>
+<dl>
+<dt>
+[3]</dt>
+<dd>
+the opening tag</dd>
+</dl>
+<dl>
+<dt>
+[4]</dt>
+<dd>
+the text between the opening and closing tags</dd>
+</dl>
+<dl>
+<dt>
+[5]</dt>
+<dd>
+the closing tag (or &quot;&quot; if no closing tag was found)</dd>
+</dl>
+<div class="spacer">
+</div>
+On failure, all of these values (except the remaining text) are &quot;undef&quot;.<div class="spacer">
+</div>
+In a scalar context, &quot;extract_tagged&quot; returns just the complete substring that matched a tagged text (including the start and end tags). &quot;undef&quot; is returned on failure. In addition, the original input text has the returned substring (and any prefix) removed from it.<div class="spacer">
+</div>
+In a void context, the input text just has the matched substring (and any specified prefix) removed.</div>
+<div class="subsection">
+<h2>&quot;gen_extract_tagged&quot;</h2> (Note: This subroutine is only available under Perl5.005)<div class="spacer">
+</div>
+&quot;gen_extract_tagged&quot; generates a new anonymous subroutine which extracts text between (balanced) specified tags. In other words, it generates a function identical in function to &quot;extract_tagged&quot;.<div class="spacer">
+</div>
+The difference between &quot;extract_tagged&quot; and the anonymous subroutines generated by &quot;gen_extract_tagged&quot;, is that those generated subroutines:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+do not have to reparse tag specification or parsing options every time they are called (whereas &quot;extract_tagged&quot; has to effectively rebuild its tag parser on every call);</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+make use of the new qr// construct to pre-compile the regexes they use (whereas &quot;extract_tagged&quot; uses standard string variable interpolation to create tag-matching patterns).</dd>
+</dl>
+<div class="spacer">
+</div>
+The subroutine takes up to four optional arguments (the same set as &quot;extract_tagged&quot; except for the string to be processed). It returns a reference to a subroutine which in turn takes a single argument (the text to be extracted from).<div class="spacer">
+</div>
+In other words, the implementation of &quot;extract_tagged&quot; is exactly equivalent to:<div class="spacer">
+</div>
+<br/>
+        sub extract_tagged<br/>
+        {<br/>
+                my $text = shift;<br/>
+                $extractor = gen_extract_tagged(@_);<br/>
+                return $extractor-&gt;($text);<br/>
+        }<br/>
+<div class="spacer">
+</div>
+(although &quot;extract_tagged&quot; is not currently implemented that way, in order to preserve pre-5.005 compatibility).<div class="spacer">
+</div>
+Using &quot;gen_extract_tagged&quot; to create extraction functions for specific tags is a good idea if those functions are going to be called more than once, since their performance is typically twice as good as the more general-purpose &quot;extract_tagged&quot;.</div>
+<div class="subsection">
+<h2>&quot;extract_quotelike&quot;</h2> &quot;extract_quotelike&quot; attempts to recognize, extract, and segment any one of the various Perl quotes and quotelike operators (see  <i>perlop</i>(3)) Nested backslashed delimiters, embedded balanced bracket delimiters (for the quotelike operators), and trailing modifiers are all caught. For example, in:<div class="spacer">
+</div>
+<br/>
+        extract_quotelike 'q # an octothorpe: \# (not the end of the q!) #'<br/>
+        <br/>
+        extract_quotelike '  &quot;You said, \&quot;Use sed\&quot;.&quot;  '<br/>
+<br/>
+        extract_quotelike ' s{([A-Z]{1,8}\.[A-Z]{3})} /\L$1\E/; '<br/>
+<br/>
+        extract_quotelike ' tr/\\\/\\\\/\\\//ds; '<br/>
+<div class="spacer">
+</div>
+the full Perl quotelike operations are all extracted correctly.<div class="spacer">
+</div>
+Note too that, when using the /x modifier on a regex, any comment containing the current pattern delimiter will cause the regex to be immediately terminated. In other words:<div class="spacer">
+</div>
+<br/>
+        'm /<br/>
+                (?i)            # CASE INSENSITIVE<br/>
+                [a-z_]          # LEADING ALPHABETIC/UNDERSCORE<br/>
+                [a-z0-9]*       # FOLLOWED BY ANY NUMBER OF ALPHANUMERICS<br/>
+           /x'<br/>
+<div class="spacer">
+</div>
+will be extracted as if it were:<div class="spacer">
+</div>
+<br/>
+        'm /<br/>
+                (?i)            # CASE INSENSITIVE<br/>
+                [a-z_]          # LEADING ALPHABETIC/'<br/>
+<div class="spacer">
+</div>
+This behaviour is identical to that of the actual compiler.<div class="spacer">
+</div>
+&quot;extract_quotelike&quot; takes two arguments: the text to be processed and a prefix to be matched at the very beginning of the text. If no prefix is specified, optional whitespace is the default. If no text is given, $_ is used.<div class="spacer">
+</div>
+In a list context, an array of 11 elements is returned. The elements are:<dl>
+<dt>
+[0]</dt>
+<dd>
+the extracted quotelike substring (including trailing modifiers),</dd>
+</dl>
+<dl>
+<dt>
+[1]</dt>
+<dd>
+the remainder of the input text,</dd>
+</dl>
+<dl>
+<dt>
+[2]</dt>
+<dd>
+the prefix substring (if any),</dd>
+</dl>
+<dl>
+<dt>
+[3]</dt>
+<dd>
+the name of the quotelike operator (if any),</dd>
+</dl>
+<dl>
+<dt>
+[4]</dt>
+<dd>
+the left delimiter of the first block of the operation,</dd>
+</dl>
+<dl>
+<dt>
+[5]</dt>
+<dd>
+the text of the first block of the operation (that is, the contents of a quote, the regex of a match or substitution or the target list of a translation),</dd>
+</dl>
+<dl>
+<dt>
+[6]</dt>
+<dd>
+the right delimiter of the first block of the operation,</dd>
+</dl>
+<dl>
+<dt>
+[7]</dt>
+<dd>
+the left delimiter of the second block of the operation (that is, if it is a &quot;s&quot;, &quot;tr&quot;, or &quot;y&quot;),</dd>
+</dl>
+<dl>
+<dt>
+[8]</dt>
+<dd>
+the text of the second block of the operation (that is, the replacement of a substitution or the translation list of a translation),</dd>
+</dl>
+<dl>
+<dt>
+[9]</dt>
+<dd>
+the right delimiter of the second block of the operation (if any),</dd>
+</dl>
+<dl>
+<dt>
+[10]</dt>
+<dd>
+the trailing modifiers on the operation (if any).</dd>
+</dl>
+<div class="spacer">
+</div>
+For each of the fields marked &quot;(if any)&quot; the default value on success is an empty string. On failure, all of these values (except the remaining text) are &quot;undef&quot;.<div class="spacer">
+</div>
+In a scalar context, &quot;extract_quotelike&quot; returns just the complete substring that matched a quotelike operation (or &quot;undef&quot; on failure). In a scalar or void context, the input text has the same substring (and any specified prefix) removed.<div class="spacer">
+</div>
+Examples:<div class="spacer">
+</div>
+<br/>
+        # Remove the first quotelike literal that appears in text<br/>
+<br/>
+                $quotelike = extract_quotelike($text,'.*?');<br/>
+<br/>
+        # Replace one or more leading whitespace-separated quotelike<br/>
+        # literals in $_ with &quot;&lt;QLL&gt;&quot;<br/>
+<br/>
+                do { $_ = join '&lt;QLL&gt;', (extract_quotelike)[2,1] } until $@;<br/>
+<br/>
+<br/>
+        # Isolate the search pattern in a quotelike operation from $text<br/>
+<br/>
+                ($op,$pat) = (extract_quotelike $text)[3,5];<br/>
+                if ($op =~ /[ms]/)<br/>
+                {<br/>
+                        print &quot;search pattern: $pat\n&quot;;<br/>
+                }<br/>
+                else<br/>
+                {<br/>
+                        print &quot;$op is not a pattern matching operation\n&quot;;<br/>
+                }<br/>
+</div>
+<div class="subsection">
+<h2>&quot;extract_quotelike&quot; and &quot;here documents&quot;</h2> &quot;extract_quotelike&quot; can successfully extract &quot;here documents&quot; from an input string, but with an important caveat in list contexts.<div class="spacer">
+</div>
+Unlike other types of quote-like literals, a here document is rarely a contiguous substring. For example, a typical piece of code using here document might look like this:<div class="spacer">
+</div>
+<br/>
+        &lt;&lt;'EOMSG' || die;<br/>
+        This is the message.<br/>
+        EOMSG<br/>
+        exit;<br/>
+<div class="spacer">
+</div>
+Given this as an input string in a scalar context, &quot;extract_quotelike&quot; would correctly return the string &quot;&lt;&lt;'EOMSG'\nThis is the message.\nEOMSG&quot;, leaving the string &quot; || die;\nexit;&quot; in the original variable. In other words, the two separate pieces of the here document are successfully extracted and concatenated.<div class="spacer">
+</div>
+In a list context, &quot;extract_quotelike&quot; would return the list<dl>
+<dt>
+[0]</dt>
+<dd>
+&quot;&lt;&lt;'EOMSG'\nThis is the message.\nEOMSG\n&quot; (i.e. the full extracted here document, including fore and aft delimiters),</dd>
+</dl>
+<dl>
+<dt>
+[1]</dt>
+<dd>
+&quot; || die;\nexit;&quot; (i.e. the remainder of the input text, concatenated),</dd>
+</dl>
+<dl>
+<dt>
+[2]</dt>
+<dd>
+&quot;&quot; (i.e. the prefix substring -- trivial in this case),</dd>
+</dl>
+<dl>
+<dt>
+[3]</dt>
+<dd>
+&quot;&lt;&lt;&quot; (i.e. the &quot;name&quot; of the quotelike operator)</dd>
+</dl>
+<dl>
+<dt>
+[4]</dt>
+<dd>
+&quot;'EOMSG'&quot; (i.e. the left delimiter of the here document, including any quotes),</dd>
+</dl>
+<dl>
+<dt>
+[5]</dt>
+<dd>
+&quot;This is the message.\n&quot; (i.e. the text of the here document),</dd>
+</dl>
+<dl>
+<dt>
+[6]</dt>
+<dd>
+&quot;EOMSG&quot; (i.e. the right delimiter of the here document),</dd>
+</dl>
+<dl>
+<dt>
+[7..10]</dt>
+<dd>
+&quot;&quot; (a here document has no second left delimiter, second text, second right delimiter, or trailing modifiers).</dd>
+</dl>
+<div class="spacer">
+</div>
+However, the matching position of the input variable would be set to &quot;exit;&quot; (i.e.  <i>after</i> the closing delimiter of the here document), which would cause the earlier &quot; || die;\nexit;&quot; to be skipped in any sequence of code fragment extractions.<div class="spacer">
+</div>
+To avoid this problem, when it encounters a here document whilst extracting from a modifiable string, &quot;extract_quotelike&quot; silently rearranges the string to an equivalent piece of Perl:<div class="spacer">
+</div>
+<br/>
+        &lt;&lt;'EOMSG'<br/>
+        This is the message.<br/>
+        EOMSG<br/>
+        || die;<br/>
+        exit;<br/>
+<div class="spacer">
+</div>
+in which the here document <i>is</i> contiguous. It still leaves the matching position after the here document, but now the rest of the line on which the here document starts is not skipped.<div class="spacer">
+</div>
+To prevent &lt;extract_quotelike&gt; from mucking about with the input in this way (this is the only case where a list-context &quot;extract_quotelike&quot; does so), you can pass the input variable as an interpolated literal:<div class="spacer">
+</div>
+<br/>
+        $quotelike = extract_quotelike(&quot;$var&quot;);<br/>
+</div>
+<div class="subsection">
+<h2>&quot;extract_codeblock&quot;</h2> &quot;extract_codeblock&quot; attempts to recognize and extract a balanced bracket delimited substring that may contain unbalanced brackets inside Perl quotes or quotelike operations. That is, &quot;extract_codeblock&quot; is like a combination of &quot;extract_bracketed&quot; and &quot;extract_quotelike&quot;.<div class="spacer">
+</div>
+&quot;extract_codeblock&quot; takes the same initial three parameters as &quot;extract_bracketed&quot;: a text to process, a set of delimiter brackets to look for, and a prefix to match first. It also takes an optional fourth parameter, which allows the outermost delimiter brackets to be specified separately (see below).<div class="spacer">
+</div>
+Omitting the first argument (input text) means process $_ instead. Omitting the second argument (delimiter brackets) indicates that only '{' is to be used. Omitting the third argument (prefix argument) implies optional whitespace at the start. Omitting the fourth argument (outermost delimiter brackets) indicates that the value of the second argument is to be used for the outermost delimiters.<div class="spacer">
+</div>
+Once the prefix an dthe outermost opening delimiter bracket have been recognized, code blocks are extracted by stepping through the input text and trying the following alternatives in sequence:<dl>
+<dt>
+1.</dt>
+<dd>
+Try and match a closing delimiter bracket. If the bracket was the same species as the last opening bracket, return the substring to that point. If the bracket was mismatched, return an error.</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+Try to match a quote or quotelike operator. If found, call &quot;extract_quotelike&quot; to eat it. If &quot;extract_quotelike&quot; fails, return the error it returned. Otherwise go back to step 1.</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+Try to match an opening delimiter bracket. If found, call &quot;extract_codeblock&quot; recursively to eat the embedded block. If the recursive call fails, return an error. Otherwise, go back to step 1.</dd>
+</dl>
+<dl>
+<dt>
+4.</dt>
+<dd>
+Unconditionally match a bareword or any other single character, and then go back to step 1.</dd>
+</dl>
+<div class="spacer">
+</div>
+Examples:<div class="spacer">
+</div>
+<br/>
+        # Find a while loop in the text<br/>
+<br/>
+                if ($text =~ s/.*?while\s*\{/{/)<br/>
+                {<br/>
+                        $loop = &quot;while &quot; . extract_codeblock($text);<br/>
+                }<br/>
+<br/>
+        # Remove the first round-bracketed list (which may include<br/>
+        # round- or curly-bracketed code blocks or quotelike operators)<br/>
+<br/>
+                extract_codeblock $text, &quot;(){}&quot;, '[^(]*';<br/>
+<div class="spacer">
+</div>
+The ability to specify a different outermost delimiter bracket is useful in some circumstances. For example, in the Parse::RecDescent module, parser actions which are to be performed only on a successful parse are specified using a &quot;&lt;defer:...&gt;&quot; directive. For example:<div class="spacer">
+</div>
+<br/>
+        sentence: subject verb object<br/>
+                        &lt;defer: {$::theVerb = $item{verb}} &gt;<br/>
+<div class="spacer">
+</div>
+Parse::RecDescent uses &quot;extract_codeblock($text, '{}&lt;&gt;')&quot; to extract the code within the &quot;&lt;defer:...&gt;&quot; directive, but there's a problem.<div class="spacer">
+</div>
+A deferred action like this:<div class="spacer">
+</div>
+<br/>
+                        &lt;defer: {if ($count&gt;10) {$count--}} &gt;<br/>
+<div class="spacer">
+</div>
+will be incorrectly parsed as:<div class="spacer">
+</div>
+<br/>
+                        &lt;defer: {if ($count&gt;<br/>
+<div class="spacer">
+</div>
+because the &quot;less than&quot; operator is interpreted as a closing delimiter.<div class="spacer">
+</div>
+But, by extracting the directive using &quot;extract_codeblock($text,&#160;'{}',&#160;undef,&#160;'&lt;&gt;')&quot; the '&gt;' character is only treated as a delimited at the outermost level of the code block, so the directive is parsed correctly.</div>
+<div class="subsection">
+<h2>&quot;extract_multiple&quot;</h2> The &quot;extract_multiple&quot; subroutine takes a string to be processed and a list of extractors (subroutines or regular expressions) to apply to that string.<div class="spacer">
+</div>
+In an array context &quot;extract_multiple&quot; returns an array of substrings of the original string, as extracted by the specified extractors. In a scalar context, &quot;extract_multiple&quot; returns the first substring successfully extracted from the original string. In both scalar and void contexts the original string has the first successfully extracted substring removed from it. In all contexts &quot;extract_multiple&quot; starts at the current &quot;pos&quot; of the string, and sets that &quot;pos&quot; appropriately after it matches.<div class="spacer">
+</div>
+Hence, the aim of of a call to &quot;extract_multiple&quot; in a list context is to split the processed string into as many non-overlapping fields as possible, by repeatedly applying each of the specified extractors to the remainder of the string. Thus &quot;extract_multiple&quot; is a generalized form of Perl's &quot;split&quot; subroutine.<div class="spacer">
+</div>
+The subroutine takes up to four optional arguments:<dl>
+<dt>
+1.</dt>
+<dd>
+A string to be processed ($_ if the string is omitted or &quot;undef&quot;)</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+A reference to a list of subroutine references and/or qr// objects and/or literal strings and/or hash references, specifying the extractors to be used to split the string. If this argument is omitted (or &quot;undef&quot;) the list:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        [<br/>
+                sub { extract_variable($_[0], '') },<br/>
+                sub { extract_quotelike($_[0],'') },<br/>
+                sub { extract_codeblock($_[0],'{}','') },<br/>
+        ]<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+is used.</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+An number specifying the maximum number of fields to return. If this argument is omitted (or &quot;undef&quot;), split continues as long as possible.<div style="height: 1.00em;">
+&#160;</div>
+If the third argument is <i>N</i>, then extraction continues until <i>N</i> fields have been successfully extracted, or until the string has been completely processed.<div style="height: 1.00em;">
+&#160;</div>
+Note that in scalar and void contexts the value of this argument is automatically reset to 1 (under &quot;-w&quot;, a warning is issued if the argument has to be reset).</dd>
+</dl>
+<dl>
+<dt>
+4.</dt>
+<dd>
+A value indicating whether unmatched substrings (see below) within the text should be skipped or returned as fields. If the value is true, such substrings are skipped. Otherwise, they are returned.</dd>
+</dl>
+<div class="spacer">
+</div>
+The extraction process works by applying each extractor in sequence to the text string.<div class="spacer">
+</div>
+If the extractor is a subroutine it is called in a list context and is expected to return a list of a single element, namely the extracted text. It may optionally also return two further arguments: a string representing the text left after extraction (like $' for a pattern match), and a string representing any prefix skipped before the extraction (like $` in a pattern match). Note that this is designed to facilitate the use of other Text::Balanced subroutines with &quot;extract_multiple&quot;. Note too that the value returned by an extractor subroutine need not bear any relationship to the corresponding substring of the original text (see examples below).<div class="spacer">
+</div>
+If the extractor is a precompiled regular expression or a string, it is matched against the text in a scalar context with a leading '\G' and the gc modifiers enabled. The extracted value is either $1 if that variable is defined after the match, or else the complete match (i.e. $&amp;).<div class="spacer">
+</div>
+If the extractor is a hash reference, it must contain exactly one element. The value of that element is one of the above extractor types (subroutine reference, regular expression, or string). The key of that element is the name of a class into which the successful return value of the extractor will be blessed.<div class="spacer">
+</div>
+If an extractor returns a defined value, that value is immediately treated as the next extracted field and pushed onto the list of fields. If the extractor was specified in a hash reference, the field is also blessed into the appropriate class,<div class="spacer">
+</div>
+If the extractor fails to match (in the case of a regex extractor), or returns an empty list or an undefined value (in the case of a subroutine extractor), it is assumed to have failed to extract. If none of the extractor subroutines succeeds, then one character is extracted from the start of the text and the extraction subroutines reapplied. Characters which are thus removed are accumulated and eventually become the next field (unless the fourth argument is true, in which case they are discarded).<div class="spacer">
+</div>
+For example, the following extracts substrings that are valid Perl variables:<div class="spacer">
+</div>
+<br/>
+        @fields = extract_multiple($text,<br/>
+                                   [ sub { extract_variable($_[0]) } ],<br/>
+                                   undef, 1);<br/>
+<div class="spacer">
+</div>
+This example separates a text into fields which are quote delimited, curly bracketed, and anything else. The delimited and bracketed parts are also blessed to identify them (the &quot;anything else&quot; is unblessed):<div class="spacer">
+</div>
+<br/>
+        @fields = extract_multiple($text,<br/>
+                   [<br/>
+                        { Delim =&gt; sub { extract_delimited($_[0],q{'&quot;}) } },<br/>
+                        { Brack =&gt; sub { extract_bracketed($_[0],'{}') } },<br/>
+                   ]);<br/>
+<div class="spacer">
+</div>
+This call extracts the next single substring that is a valid Perl quotelike operator (and removes it from $text):<div class="spacer">
+</div>
+<br/>
+        $quotelike = extract_multiple($text,<br/>
+                                      [<br/>
+                                        sub { extract_quotelike($_[0]) },<br/>
+                                      ], undef, 1);<br/>
+<div class="spacer">
+</div>
+Finally, here is yet another way to do comma-separated value parsing:<div class="spacer">
+</div>
+<br/>
+        @fields = extract_multiple($csv_text,<br/>
+                                  [<br/>
+                                        sub { extract_delimited($_[0],q{'&quot;}) },<br/>
+                                        qr/([^,]+)(.*)/,<br/>
+                                  ],<br/>
+                                  undef,1);<br/>
+<div class="spacer">
+</div>
+The list in the second argument means:  <i>&quot;Try and extract a ' or &quot; delimited string, otherwise extract anything up to a comma...&quot;</i>. The undef third argument means:  <i>&quot;...as many times as possible...&quot;</i>, and the true value in the fourth argument means  <i>&quot;...discarding anything else that appears (i.e. the commas)&quot;</i>.<div class="spacer">
+</div>
+If you wanted the commas preserved as separate fields (i.e. like split does if your split pattern has capturing parentheses), you would just make the last parameter undefined (or remove it).</div>
+<div class="subsection">
+<h2>&quot;gen_delimited_pat&quot;</h2> The &quot;gen_delimited_pat&quot; subroutine takes a single (string) argument and<br/>
+   &gt; builds a Friedl-style optimized regex that matches a string delimited by any one of the characters in the single argument. For example:<div class="spacer">
+</div>
+<br/>
+        gen_delimited_pat(q{'&quot;})<br/>
+<div class="spacer">
+</div>
+returns the regex:<div class="spacer">
+</div>
+<br/>
+        (?:\&quot;(?:\\\&quot;|(?!\&quot;).)*\&quot;|\'(?:\\\'|(?!\').)*\')<br/>
+<div class="spacer">
+</div>
+Note that the specified delimiters are automatically quotemeta'd.<div class="spacer">
+</div>
+A typical use of &quot;gen_delimited_pat&quot; would be to build special purpose tags for &quot;extract_tagged&quot;. For example, to properly ignore &quot;empty&quot; XML elements (which might contain quoted strings):<div class="spacer">
+</div>
+<br/>
+        my $empty_tag = '&lt;(' . gen_delimited_pat(q{'&quot;}) . '|.)+/&gt;';<br/>
+<br/>
+        extract_tagged($text, undef, undef, undef, {ignore =&gt; [$empty_tag]} );<br/>
+<div class="spacer">
+</div>
+&quot;gen_delimited_pat&quot; may also be called with an optional second argument, which specifies the &quot;escape&quot; character(s) to be used for each delimiter. For example to match a Pascal-style string (where ' is the delimiter and '' is a literal ' within the string):<div class="spacer">
+</div>
+<br/>
+        gen_delimited_pat(q{'},q{'});<br/>
+<div class="spacer">
+</div>
+Different escape characters can be specified for different delimiters. For example, to specify that '/' is the escape for single quotes and '%' is the escape for double quotes:<div class="spacer">
+</div>
+<br/>
+        gen_delimited_pat(q{'&quot;},q{/%});<br/>
+<div class="spacer">
+</div>
+If more delimiters than escape chars are specified, the last escape char is used for the remaining delimiters. If no escape char is specified for a given specified delimiter, '\' is used.</div>
+<div class="subsection">
+<h2>&quot;delimited_pat&quot;</h2> Note that &quot;gen_delimited_pat&quot; was previously called &quot;delimited_pat&quot;. That name may still be used, but is now deprecated.</div>
+</div>
+<div class="section">
+<h1>DIAGNOSTICS</h1> In a list context, all the functions return &quot;(undef,$original_text)&quot; on failure. In a scalar context, failure is indicated by returning &quot;undef&quot; (in this case the input text is not modified in any way).<div class="spacer">
+</div>
+In addition, on failure in <i>any</i> context, the $@ variable is set. Accessing &quot;$@-&gt;{error}&quot; returns one of the error diagnostics listed below. Accessing &quot;$@-&gt;{pos}&quot; returns the offset into the original string at which the error was detected (although not necessarily where it occurred!) Printing $@ directly produces the error message, with the offset appended. On success, the $@ variable is guaranteed to be &quot;undef&quot;.<div class="spacer">
+</div>
+The available diagnostics are:<dl>
+<dt>
+&quot;Did not find a suitable bracket: &quot;%s&quot;&quot;</dt>
+<dd>
+The delimiter provided to &quot;extract_bracketed&quot; was not one of '()[]&lt;&gt;{}'.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Did not find prefix: /%s/&quot;</dt>
+<dd>
+A non-optional prefix was specified but wasn't found at the start of the text.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Did not find opening bracket after prefix: &quot;%s&quot;&quot;</dt>
+<dd>
+&quot;extract_bracketed&quot; or &quot;extract_codeblock&quot; was expecting a particular kind of bracket at the start of the text, and didn't find it.</dd>
+</dl>
+<dl>
+<dt>
+&quot;No quotelike operator found after prefix: &quot;%s&quot;&quot;</dt>
+<dd>
+&quot;extract_quotelike&quot; didn't find one of the quotelike operators &quot;q&quot;, &quot;qq&quot;, &quot;qw&quot;, &quot;qx&quot;, &quot;s&quot;, &quot;tr&quot; or &quot;y&quot; at the start of the substring it was extracting.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Unmatched closing bracket: &quot;%c&quot;&quot;</dt>
+<dd>
+&quot;extract_bracketed&quot;, &quot;extract_quotelike&quot; or &quot;extract_codeblock&quot; encountered a closing bracket where none was expected.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Unmatched opening bracket(s): &quot;%s&quot;&quot;</dt>
+<dd>
+&quot;extract_bracketed&quot;, &quot;extract_quotelike&quot; or &quot;extract_codeblock&quot; ran out of characters in the text before closing one or more levels of nested brackets.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Unmatched embedded quote (%s)&quot;</dt>
+<dd>
+&quot;extract_bracketed&quot; attempted to match an embedded quoted substring, but failed to find a closing quote to match it.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Did not find closing delimiter to match '%s'&quot;</dt>
+<dd>
+&quot;extract_quotelike&quot; was unable to find a closing delimiter to match the one that opened the quote-like operation.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Mismatched closing bracket: expected &quot;%c&quot; but found &quot;%s&quot;&quot;</dt>
+<dd>
+&quot;extract_bracketed&quot;, &quot;extract_quotelike&quot; or &quot;extract_codeblock&quot; found a valid bracket delimiter, but it was the wrong species. This usually indicates a nesting error, but may indicate incorrect quoting or escaping.</dd>
+</dl>
+<dl>
+<dt>
+&quot;No block delimiter found after quotelike &quot;%s&quot;&quot;</dt>
+<dd>
+&quot;extract_quotelike&quot; or &quot;extract_codeblock&quot; found one of the quotelike operators &quot;q&quot;, &quot;qq&quot;, &quot;qw&quot;, &quot;qx&quot;, &quot;s&quot;, &quot;tr&quot; or &quot;y&quot; without a suitable block after it.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Did not find leading dereferencer&quot;</dt>
+<dd>
+&quot;extract_variable&quot; was expecting one of '$', '@', or '%' at the start of a variable, but didn't find any of them.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Bad identifier after dereferencer&quot;</dt>
+<dd>
+&quot;extract_variable&quot; found a '$', '@', or '%' indicating a variable, but that character was not followed by a legal Perl identifier.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Did not find expected opening bracket at %s&quot;</dt>
+<dd>
+&quot;extract_codeblock&quot; failed to find any of the outermost opening brackets that were specified.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Improperly nested codeblock at %s&quot;</dt>
+<dd>
+A nested code block was found that started with a delimiter that was specified as being only to be used as an outermost bracket.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Missing second block for quotelike &quot;%s&quot;&quot;</dt>
+<dd>
+&quot;extract_codeblock&quot; or &quot;extract_quotelike&quot; found one of the quotelike operators &quot;s&quot;, &quot;tr&quot; or &quot;y&quot; followed by only one block.</dd>
+</dl>
+<dl>
+<dt>
+&quot;No match found for opening bracket&quot;</dt>
+<dd>
+&quot;extract_codeblock&quot; failed to find a closing bracket to match the outermost opening bracket.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Did not find opening tag: /%s/&quot;</dt>
+<dd>
+&quot;extract_tagged&quot; did not find a suitable opening tag (after any specified prefix was removed).</dd>
+</dl>
+<dl>
+<dt>
+&quot;Unable to construct closing tag to match: /%s/&quot;</dt>
+<dd>
+&quot;extract_tagged&quot; matched the specified opening tag and tried to modify the matched text to produce a matching closing tag (because none was specified). It failed to generate the closing tag, almost certainly because the opening tag did not start with a bracket of some kind.</dd>
+</dl>
+<dl>
+<dt>
+&quot;Found invalid nested tag: %s&quot;</dt>
+<dd>
+&quot;extract_tagged&quot; found a nested tag that appeared in the &quot;reject&quot; list (and the failure mode was not &quot;MAX&quot; or &quot;PARA&quot;).</dd>
+</dl>
+<dl>
+<dt>
+&quot;Found unbalanced nested tag: %s&quot;</dt>
+<dd>
+&quot;extract_tagged&quot; found a nested opening tag that was not matched by a corresponding nested closing tag (and the failure mode was not &quot;MAX&quot; or &quot;PARA&quot;).</dd>
+</dl>
+<dl>
+<dt>
+&quot;Did not find closing tag&quot;</dt>
+<dd>
+&quot;extract_tagged&quot; reached the end of the text without finding a closing tag to match the original opening tag (and the failure mode was not &quot;MAX&quot; or &quot;PARA&quot;).</dd>
+</dl>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Damian Conway (damian@conway.org)</div>
+<div class="section">
+<h1>BUGS AND IRRITATIONS</h1> There are undoubtedly serious bugs lurking somewhere in this code, if only because parts of it give the impression of understanding a great deal more about Perl than they really do.<div class="spacer">
+</div>
+Bug reports and other feedback are most welcome.</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright 1997 - 2001 Damian Conway. All Rights Reserved.<div class="spacer">
+</div>
+Some (minor) parts copyright 2009 Adam Kennedy.<div class="spacer">
+</div>
+This module is free software. It may be used, redistributed and/or modified under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2010-12-30</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

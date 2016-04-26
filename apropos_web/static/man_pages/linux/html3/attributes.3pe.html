@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+attributes(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+attributes(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+attributes(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> attributes - get/set subroutine or variable attributes</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  sub foo : method ;<br/>
+  my ($x,@y,%z) : Bent = 1;<br/>
+  my $s = sub : method { ... };<br/>
+<br/>
+  use attributes ();    # optional, to get subroutine declarations<br/>
+  my @attrlist = attributes::get(\&amp;foo);<br/>
+<br/>
+  use attributes 'get'; # import the attributes::get subroutine<br/>
+  my @attrlist = get \&amp;foo;<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Subroutine declarations and definitions may optionally have attribute lists associated with them.  (Variable &quot;my&quot; declarations also may, but see the warning below.)  Perl handles these declarations by passing some information about the call site and the thing being declared along with the attribute list to this module.  In particular, the first example above is equivalent to the following:<div class="spacer">
+</div>
+<br/>
+    use attributes __PACKAGE__, \&amp;foo, 'method';<br/>
+<div class="spacer">
+</div>
+The second example in the synopsis does something equivalent to this:<div class="spacer">
+</div>
+<br/>
+    use attributes ();<br/>
+    my ($x,@y,%z);<br/>
+    attributes::-&gt;import(__PACKAGE__, \$x, 'Bent');<br/>
+    attributes::-&gt;import(__PACKAGE__, \@y, 'Bent');<br/>
+    attributes::-&gt;import(__PACKAGE__, \%z, 'Bent');<br/>
+    ($x,@y,%z) = 1;<br/>
+<div class="spacer">
+</div>
+Yes, that's a lot of expansion.<div class="spacer">
+</div>
+<b>WARNING</b>: attribute declarations for variables are still evolving. The semantics and interfaces of such declarations could change in future versions.  They are present for purposes of experimentation with what the semantics ought to be.  Do not rely on the current implementation of this feature.<div class="spacer">
+</div>
+There are only a few attributes currently handled by Perl itself (or directly by this module, depending on how you look at it.)  However, package-specific attributes are allowed by an extension mechanism. (See &quot;Package-specific Attribute Handling&quot; below.)<div class="spacer">
+</div>
+The setting of subroutine attributes happens at compile time. Variable attributes in &quot;our&quot; declarations are also applied at compile time. However, &quot;my&quot; variables get their attributes applied at run-time. This means that you have to  <i>reach</i> the run-time component of the &quot;my&quot; before those attributes will get applied.  For example:<div class="spacer">
+</div>
+<br/>
+    my $x : Bent = 42 if 0;<br/>
+<div class="spacer">
+</div>
+will neither assign 42 to $x <i>nor</i> will it apply the &quot;Bent&quot; attribute to the variable.<div class="spacer">
+</div>
+An attempt to set an unrecognized attribute is a fatal error.  (The error is trappable, but it still stops the compilation within that &quot;eval&quot;.)  Setting an attribute with a name that's all lowercase letters that's not a built-in attribute (such as &quot;foo&quot;) will result in a warning with  <b>-w</b> or &quot;use warnings 'reserved'&quot;.<div class="subsection">
+<h2>What &quot;import&quot; does</h2> In the description it is mentioned that<div class="spacer">
+</div>
+<br/>
+  sub foo : method;<br/>
+<div class="spacer">
+</div>
+is equivalent to<div class="spacer">
+</div>
+<br/>
+  use attributes __PACKAGE__, \&amp;foo, 'method';<br/>
+<div class="spacer">
+</div>
+As you might know this calls the &quot;import&quot; function of &quot;attributes&quot; at compile time with these parameters: 'attributes', the caller's package name, the reference to the code and 'method'.<div class="spacer">
+</div>
+<br/>
+  attributes-&gt;import( __PACKAGE__, \&amp;foo, 'method' );<br/>
+<div class="spacer">
+</div>
+So you want to know what &quot;import&quot; actually does?<div class="spacer">
+</div>
+First of all &quot;import&quot; gets the type of the third parameter ('CODE' in this case). &quot;attributes.pm&quot; checks if there is a subroutine called &quot;MODIFY_&lt;reftype&gt;_ATTRIBUTES&quot; in the caller's namespace (here: 'main'). In this case a subroutine &quot;MODIFY_CODE_ATTRIBUTES&quot; is required. Then this method is called to check if you have used a &quot;bad attribute&quot;. The subroutine call in this example would look like<div class="spacer">
+</div>
+<br/>
+  MODIFY_CODE_ATTRIBUTES( 'main', \&amp;foo, 'method' );<br/>
+<div class="spacer">
+</div>
+&quot;MODIFY_&lt;reftype&gt;_ATTRIBUTES&quot; has to return a list of all &quot;bad attributes&quot;. If there are any bad attributes &quot;import&quot; croaks.<div class="spacer">
+</div>
+(See &quot;Package-specific Attribute Handling&quot; below.)</div>
+<div class="subsection">
+<h2>Built-in Attributes</h2> The following are the built-in attributes for subroutines:<dl>
+<dt>
+lvalue</dt>
+<dd>
+Indicates that the referenced subroutine is a valid lvalue and can be assigned to. The subroutine must return a modifiable value such as a scalar variable, as described in perlsub.</dd>
+</dl>
+<dl>
+<dt>
+method</dt>
+<dd>
+Indicates that the referenced subroutine is a method. A subroutine so marked will not trigger the &quot;Ambiguous call resolved as CORE::%s&quot; warning.</dd>
+</dl>
+<dl>
+<dt>
+locked</dt>
+<dd>
+The &quot;locked&quot; attribute has no effect in 5.10.0 and later. It was used as part of the now-removed &quot;Perl 5.005 threads&quot;.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Available Subroutines</h2> The following subroutines are available for general use once this module has been loaded:<dl>
+<dt>
+get</dt>
+<dd>
+This routine expects a single parameter--a reference to a subroutine or variable.  It returns a list of attributes, which may be empty.  If passed invalid arguments, it uses  <i>die()</i> (via Carp::croak) to raise a fatal exception.  If it can find an appropriate package name for a class method lookup, it will include the results from a &quot;FETCH_ <i>type</i>_ATTRIBUTES&quot; call in its return list, as described in &quot;Package-specific Attribute Handling&quot; below. Otherwise, only built-in attributes will be returned.</dd>
+</dl>
+<dl>
+<dt>
+reftype</dt>
+<dd>
+This routine expects a single parameter--a reference to a subroutine or variable.  It returns the built-in type of the referenced variable, ignoring any package into which it might have been blessed. This can be useful for determining the  <i>type</i> value which forms part of the method names described in &quot;Package-specific Attribute Handling&quot; below.</dd>
+</dl>
+<div class="spacer">
+</div>
+Note that these routines are <i>not</i> exported by default.</div>
+<div class="subsection">
+<h2>Package-specific Attribute Handling</h2>  <b>WARNING</b>: the mechanisms described here are still experimental.  Do not rely on the current implementation.  In particular, there is no provision for applying package attributes to 'cloned' copies of subroutines used as closures.  (See &quot;Making References&quot; in perlref for information on closures.) Package-specific attribute handling may change incompatibly in a future release.<div class="spacer">
+</div>
+When an attribute list is present in a declaration, a check is made to see whether an attribute 'modify' handler is present in the appropriate package (or its @ISA inheritance tree).  Similarly, when &quot;attributes::get&quot; is called on a valid reference, a check is made for an appropriate attribute 'fetch' handler.  See &quot;EXAMPLES&quot; to see how the &quot;appropriate package&quot; determination works.<div class="spacer">
+</div>
+The handler names are based on the underlying type of the variable being declared or of the reference passed.  Because these attributes are associated with subroutine or variable declarations, this deliberately ignores any possibility of being blessed into some package.  Thus, a subroutine declaration uses &quot;CODE&quot; as its  <i>type</i>, and even a blessed hash reference uses &quot;HASH&quot; as its  <i>type</i>.<div class="spacer">
+</div>
+The class methods invoked for modifying and fetching are these:<dl>
+<dt>
+FETCH_<i>type</i>_ATTRIBUTES</dt>
+<dd>
+This method is called with two arguments:  the relevant package name, and a reference to a variable or subroutine for which package-defined attributes are desired.  The expected return value is a list of associated attributes.  This list may be empty.</dd>
+</dl>
+<dl>
+<dt>
+MODIFY_<i>type</i>_ATTRIBUTES</dt>
+<dd>
+This method is called with two fixed arguments, followed by the list of attributes from the relevant declaration.  The two fixed arguments are the relevant package name and a reference to the declared subroutine or variable.  The expected return value is a list of attributes which were not recognized by this handler.  Note that this allows for a derived class to delegate a call to its base class, and then only examine the attributes which the base class didn't already handle for it.<div style="height: 1.00em;">
+&#160;</div>
+The call to this method is currently made <i>during</i> the processing of the declaration.  In particular, this means that a subroutine reference will probably be for an undefined subroutine, even if this declaration is actually part of the definition.</dd>
+</dl>
+<div class="spacer">
+</div>
+Calling &quot;attributes::get()&quot; from within the scope of a null package declaration &quot;package ;&quot; for an unblessed variable reference will not provide any starting package name for the 'fetch' method lookup. Thus, this circumstance will not result in a method call for package-defined attributes.  A named subroutine knows to which symbol table entry it belongs (or originally belonged), and it will use the corresponding package. An anonymous subroutine knows the package name into which it was compiled (unless it was also compiled with a null package declaration), and so it will use that package name.</div>
+<div class="subsection">
+<h2>Syntax of Attribute Lists</h2> An attribute list is a sequence of attribute specifications, separated by whitespace or a colon (with optional whitespace). Each attribute specification is a simple name, optionally followed by a parenthesised parameter list. If such a parameter list is present, it is scanned past as for the rules for the &quot;q()&quot; operator.  (See &quot;Quote and Quote-like Operators&quot; in perlop.) The parameter list is passed as it was found, however, and not as per &quot;q()&quot;.<div class="spacer">
+</div>
+Some examples of syntactically valid attribute lists:<div class="spacer">
+</div>
+<br/>
+    switch(10,foo(7,3))  :  expensive<br/>
+    Ugly('\(&quot;) :Bad<br/>
+    _5x5<br/>
+    lvalue method<br/>
+<div class="spacer">
+</div>
+Some examples of syntactically invalid attribute lists (with annotation):<div class="spacer">
+</div>
+<br/>
+    switch(10,foo()             # ()-string not balanced<br/>
+    Ugly('(')                   # ()-string not balanced<br/>
+    5x5                         # &quot;5x5&quot; not a valid identifier<br/>
+    Y2::north                   # &quot;Y2::north&quot; not a simple identifier<br/>
+    foo + bar                   # &quot;+&quot; neither a colon nor whitespace<br/>
+</div>
+</div>
+<div class="section">
+<h1>EXPORTS</h1><div class="subsection">
+<h2>Default exports</h2> None.</div>
+<div class="subsection">
+<h2>Available exports</h2> The routines &quot;get&quot; and &quot;reftype&quot; are exportable.</div>
+<div class="subsection">
+<h2>Export tags defined</h2> The &quot;:ALL&quot; tag will get all of the above exports.</div>
+</div>
+<div class="section">
+<h1>EXAMPLES</h1> Here are some samples of syntactically valid declarations, with annotation as to how they resolve internally into &quot;use attributes&quot; invocations by perl.  These examples are primarily useful to see how the &quot;appropriate package&quot; is found for the possible method lookups for package-defined attributes.<dl>
+<dt>
+1.</dt>
+<dd>
+Code:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    package Canine;<br/>
+    package Dog;<br/>
+    my Canine $spot : Watchful ;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Effect:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    use attributes ();<br/>
+    attributes::-&gt;import(Canine =&gt; \$spot, &quot;Watchful&quot;);<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+Code:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    package Felis;<br/>
+    my $cat : Nervous;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Effect:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    use attributes ();<br/>
+    attributes::-&gt;import(Felis =&gt; \$cat, &quot;Nervous&quot;);<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+Code:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    package X;<br/>
+    sub foo : lvalue ;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Effect:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    use attributes X =&gt; \&amp;foo, &quot;lvalue&quot;;<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+4.</dt>
+<dd>
+Code:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    package X;<br/>
+    sub Y::x : lvalue { 1 }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Effect:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    use attributes Y =&gt; \&amp;Y::x, &quot;lvalue&quot;;<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+5.</dt>
+<dd>
+Code:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    package X;<br/>
+    sub foo { 1 }<br/>
+<br/>
+    package Y;<br/>
+    BEGIN { *bar = \&amp;X::foo; }<br/>
+<br/>
+    package Z;<br/>
+    sub Y::bar : lvalue ;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Effect:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    use attributes X =&gt; \&amp;X::foo, &quot;lvalue&quot;;<br/>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+This last example is purely for purposes of completeness.  You should not be trying to mess with the attributes of something in a package that's not your own.</div>
+<div class="section">
+<h1>MORE EXAMPLES</h1><dl>
+<dt>
+1.</dt>
+<dd>
+<br/>
+    sub MODIFY_CODE_ATTRIBUTES {<br/>
+       my ($class,$code,@attrs) = @_;<br/>
+<br/>
+       my $allowed = 'MyAttribute';<br/>
+       my @bad = grep { $_ ne $allowed } @attrs;<br/>
+<br/>
+       return @bad;<br/>
+    }<br/>
+<br/>
+    sub foo : MyAttribute {<br/>
+       print &quot;foo\n&quot;;<br/>
+    }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This example runs. At compile time &quot;MODIFY_CODE_ATTRIBUTES&quot; is called. In that subroutine, we check if any attribute is disallowed and we return a list of these &quot;bad attributes&quot;.<div style="height: 1.00em;">
+&#160;</div>
+As we return an empty list, everything is fine.</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+<br/>
+  sub MODIFY_CODE_ATTRIBUTES {<br/>
+     my ($class,$code,@attrs) = @_;<br/>
+<br/>
+     my $allowed = 'MyAttribute';<br/>
+     my @bad = grep{ $_ ne $allowed }@attrs;<br/>
+<br/>
+     return @bad;<br/>
+  }<br/>
+<br/>
+  sub foo : MyAttribute Test {<br/>
+     print &quot;foo\n&quot;;<br/>
+  }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This example is aborted at compile time as we use the attribute &quot;Test&quot; which isn't allowed. &quot;MODIFY_CODE_ATTRIBUTES&quot; returns a list that contains a single element ('Test').</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> &quot;Private Variables via  <i>my()</i>&quot; in perlsub and &quot;Subroutine Attributes&quot; in perlsub for details on the basic declarations; &quot;use&quot; in perlfunc for details on the normal invocation mechanism.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

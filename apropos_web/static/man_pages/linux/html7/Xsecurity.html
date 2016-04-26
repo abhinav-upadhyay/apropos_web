@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+XSECURITY(7)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+XSECURITY(7)</td>
+<td class="head-vol">
+Miscellaneous Information Manual</td>
+<td class="head-rtitle">
+XSECURITY(7)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Xsecurity - X display access control</div>
+<div class="section">
+<h1>SYNOPSIS</h1> X provides mechanism for implementing many access control systems. The sample implementation includes five mechanisms:<div style="height: 0.00em;">
+&#160;</div>
+<br/>
+    Host Access	Simple host-based access control.<br/>
+    MIT-MAGIC-COOKIE-1	Shared plain-text &quot;cookies&quot;.<br/>
+    XDM-AUTHORIZATION-1	Secure DES based private-keys.<br/>
+    SUN-DES-1	Based on Sun's secure rpc system.<br/>
+    Server Interpreted	Server-dependent methods of access control<br/>
+Not all of these are available in all builds or implementations.</div>
+<div class="section">
+<h1>ACCESS SYSTEM DESCRIPTIONS</h1><dl>
+<dt>
+Host Access</dt>
+<dd>
+Any client on a host in the host access control list is allowed access to the X server.  This system can work reasonably well in an environment where everyone trusts everyone, or when only a single person can log in to a given machine, and is easy to use when the list of hosts used is small. This system does not work well when multiple people can log in to a single machine and mutual trust does not exist. The list of allowed hosts is stored in the X server and can be changed with the  <i>xhost</i> command.   The list is stored in the server by network address, not host names, so is not automatically updated if a host changes address while the server is running. When using the more secure mechanisms listed below, the host list is normally configured to be the empty list, so that only authorized programs can connect to the display.   See the GRANTING ACCESS section of the  <i>Xserver</i> man page for details on how this list is initialized at server startup.</dd>
+</dl>
+<dl>
+<dt>
+MIT-MAGIC-COOKIE-1</dt>
+<dd>
+When using MIT-MAGIC-COOKIE-1, the client sends a 128 bit &quot;cookie&quot; along with the connection setup information. If the cookie presented by the client matches one that the X server has, the connection is allowed access. The cookie is chosen so that it is hard to guess;  <i>xdm</i> generates such cookies automatically when this form of access control is used. The user's copy of the cookie is usually stored in the  <i>.Xauthority</i> file in the home directory, although the environment variable  <b>XAUTHORITY</b> can be used to specify an alternate location.  <i>Xdm</i> automatically passes a cookie to the server for each new login session, and stores the cookie in the user file at login.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+The cookie is transmitted on the network without encryption, so there is nothing to prevent a network snooper from obtaining the data and using it to gain access to the X server.  This system is useful in an environment where many users are running applications on the same machine and want to avoid interference from each other, with the caveat that this control is only as good as the access control to the physical network. In environments where network-level snooping is difficult, this system can work reasonably well.</dd>
+</dl>
+<dl>
+<dt>
+XDM-AUTHORIZATION-1</dt>
+<dd>
+Sites who compile with DES support can use a DES-based access control mechanism called XDM-AUTHORIZATION-1. It is similar in usage to MIT-MAGIC-COOKIE-1 in that a key is stored in the  <i>.Xauthority</i> file and is shared with the X server. However, this key consists of two parts - a 56 bit DES encryption key and 64 bits of random data used as the authenticator.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+When connecting to the X server, the application generates 192 bits of data by combining the current time in seconds (since 00:00 1/1/1970 GMT) along with 48 bits of &quot;identifier&quot;.  For TCP/IPv4 connections, the identifier is the address plus port number; for local connections it is the process ID and 32 bits to form a unique id (in case multiple connections to the same server are made from a single process).  This 192 bit packet is then encrypted using the DES key and sent to the X server, which is able to verify if the requestor is authorized to connect by decrypting with the same DES key and validating the authenticator and additional data. This system is useful in many environments where host-based access control is inappropriate and where network security cannot be ensured.</dd>
+</dl>
+<dl>
+<dt>
+SUN-DES-1</dt>
+<dd>
+Recent versions of SunOS (and some other systems) have included a secure public key remote procedure call system.  This system is based on the notion of a network principal; a user name and NIS domain pair. Using this system, the X server can securely discover the actual user name of the requesting process.  It involves encrypting data with the X server's public key, and so the identity of the user who started the X server is needed for this; this identity is stored in the  <i>.Xauthority</i> file.  By extending the semantics of &quot;host address&quot; to include this notion of network principal, this form of access control is very easy to use.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+To allow access by a new user, use <i>xhost</i>.  For example,<br/>
+    xhost keith@ ruth@mit.edu<br/>
+adds &quot;keith&quot; from the NIS domain of the local machine, and &quot;ruth&quot; in the &quot;mit.edu&quot; NIS domain.  For keith or ruth to successfully connect to the display, they must add the principal who started the server to their  <i>.Xauthority</i> file.  For example:<br/>
+    xauth add expo.lcs.mit.edu:0 SUN-DES-1 unix.expo.lcs.mit.edu@our.domain.edu<br/>
+This system only works on machines which support Secure RPC, and only for users which have set up the appropriate public/private key pairs on their system.  See the Secure RPC documentation for details. To access the display from a remote host, you may have to do a  <i>keylogin</i> on the remote host first.</dd>
+</dl>
+<dl>
+<dt>
+Server Interpreted</dt>
+<dd>
+The Server Interpreted method provides two strings to the X server for entry in the access control list.  The first string represents the type of entry, and the second string contains the value of the entry.  These strings are interpreted by the server and different implementations and builds may support different types of entries.  The types supported in the sample implementation are defined in the SERVER INTERPRETED ACCESS TYPES section below.   Entries of this type can be manipulated via  <i>xhost</i>.  For example to add a Server Interpreted entry of type localuser with a value of root, the command is  <b>xhost +si:localuser:root</b>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>THE AUTHORIZATION FILE</h1> Except for Host Access control and Server Interpreted Access Control, each of these systems uses data stored in the  <i>.Xauthority</i> file to generate the correct authorization information to pass along to the X server at connection setup.  MIT-MAGIC-COOKIE-1 and XDM-AUTHORIZATION-1 store secret data in the file; so anyone who can read the file can gain access to the X server.  SUN-DES-1 stores only the identity of the principal who started the server (unix. <i>hostname</i>@<i>domain</i> when the server is started by <i>xdm</i>), and so it is not useful to anyone not authorized to connect to the server.<div class="spacer">
+</div>
+Each entry in the <i>.Xauthority</i> file matches a certain connection family (TCP/IP, DECnet or local connections) and X display name (hostname plus display number).  This allows multiple authorization entries for different displays to share the same data file.  A special connection family (FamilyWild, value 65535) causes an entry to match every display, allowing the entry to be used for all connections.  Each entry additionally contains the authorization name and whatever private authorization data is needed by that authorization type to generate the correct information at connection setup time.<div class="spacer">
+</div>
+The <i>xauth</i> program manipulates the <i>.Xauthority</i> file format. It understands the semantics of the connection families and address formats, displaying them in an easy to understand format.  It also understands that SUN-DES-1 uses string values for the authorization data, and displays them appropriately.<div class="spacer">
+</div>
+The X server (when running on a workstation) reads authorization information from a file name passed on the command line with the  <i>-auth</i> option (see the  <i>Xserver</i> manual page).  The authorization entries in the file are used to control access to the server.  In each of the authorization schemes listed above, the data needed by the server to initialize an authorization scheme is identical to the data needed by the client to generate the appropriate authorization information, so the same file can be used by both processes.  This is especially useful when  <i>xinit</i> is used.<dl>
+<dt>
+MIT-MAGIC-COOKIE-1</dt>
+<dd>
+This system uses 128 bits of data shared between the user and the X server. Any collection of bits can be used.   <i>Xdm</i> generates these keys using a cryptographically secure pseudo random number generator, and so the key to the next session cannot be computed from the current session key.</dd>
+</dl>
+<dl>
+<dt>
+XDM-AUTHORIZATION-1</dt>
+<dd>
+This system uses two pieces of information.  First, 64 bits of random data, second a 56 bit DES encryption key (again, random data) stored in 8 bytes, the last byte of which is ignored.   <i>Xdm</i> generates these keys using the same random number generator as is used for MIT-MAGIC-COOKIE-1.</dd>
+</dl>
+<dl>
+<dt>
+SUN-DES-1</dt>
+<dd>
+This system needs a string representation of the principal which identifies the associated X server. This information is used to encrypt the client's authority information when it is sent to the X server. When  <i>xdm</i> starts the X server, it uses the root principal for the machine on which it is running (unix. <i>hostname</i>@<i>domain</i>, e.g., &quot;unix.expire.lcs.mit.edu@our.domain.edu&quot;).  Putting the correct principal name in the  <i>.Xauthority</i> file causes Xlib to generate the appropriate authorization information using the secure RPC library.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SERVER INTERPRETED ACCESS TYPES</h1> The sample implementation includes several Server Interpreted mechanisms:<div style="height: 0.00em;">
+&#160;</div>
+<br/>
+    IPv6	IPv6 literal addresses<br/>
+    hostname	Network host name<br/>
+    localuser	Local connection user id<br/>
+    localgroup	Local connection group id<br/>
+<dl>
+<dt>
+IPv6</dt>
+<dd>
+A literal IPv6 address as defined in IETF RFC 3513.   This allows adding IPv6 addresses when the X server supports IPv6, but the xhost client was compiled without IPv6 support.</dd>
+</dl>
+<dl>
+<dt>
+hostname</dt>
+<dd>
+The value must be a hostname as defined in IETF RFC 2396. Due to Mobile IP and dynamic DNS, the name service is consulted at connection authentication time, unlike the traditional host access control list which only contains numeric addresses and does not automatically update when a host's address changes.  Note that this definition of hostname does not allow use of literal IP addresses.</dd>
+</dl>
+<dl>
+<dt>
+localuser &amp; localgroup</dt>
+<dd>
+On systems which can determine in a secure fashion the credentials of a client process, the &quot;localuser&quot; and &quot;localgroup&quot; authentication methods provide access based on those credentials.  The format of the values provided is platform specific.  For POSIX &amp; UNIX platforms, if the value starts with the character '#', the rest of the string is treated as a decimal uid or gid, otherwise the string is defined as a user name or group name.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+If your system supports this method and you use it, be warned that some programs that proxy connections and are setuid or setgid may get authenticated as the uid or gid of the proxy process.  For instance, some versions of ssh will be authenticated as the user root, no matter what user is running the ssh client, so on systems with such software, adding access for localuser:root may allow wider access than intended to the X display.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>FILES</h1> .Xauthority</div>
+<div class="section">
+<h1>SEE ALSO</h1> X(7), xdm(1), xauth(1), xhost(1), xinit(1), Xserver(1)</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+xorg-docs 1.6</td>
+<td class="foot-os">
+X Version 11</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

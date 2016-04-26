@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Moose::Manual::BestPractices(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Moose::Manual::BestPractices(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Moose::Manual::BestPractices(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Moose::Manual::BestPractices - Get the most out of Moose</div>
+<div class="section">
+<h1>VERSION</h1> version 2.0401</div>
+<div class="section">
+<h1>RECOMMENDATIONS</h1> Moose has a lot of features, and there's definitely more than one way to do it. However, we think that picking a subset of these features and using them consistently makes everyone's life easier.<div class="spacer">
+</div>
+Of course, as with any list of &quot;best practices&quot;, these are really just opinions. Feel free to ignore us.<div class="subsection">
+<h2>&quot;namespace::autoclean&quot; and immutabilize</h2> We recommend that you remove the Moose sugar and end your Moose class definitions by making your class immutable.<div class="spacer">
+</div>
+<br/>
+  package Person;<br/>
+<br/>
+  use Moose;<br/>
+  use namespace::autoclean;<br/>
+<br/>
+  # extends, roles, attributes, etc.<br/>
+<br/>
+  # methods<br/>
+<br/>
+  __PACKAGE__-&gt;meta-&gt;make_immutable;<br/>
+<br/>
+  1;<br/>
+<div class="spacer">
+</div>
+The &quot;use namespace::autoclean&quot; bit is simply good code hygiene, as it removes imported symbols from your class's namespace at the end of your package's compile cycle, including Moose keywords.  Once the class has been built, these keywords are not needed. (This is preferred to placing &quot;no Moose&quot; at the end of your package).<div class="spacer">
+</div>
+The &quot;make_immutable&quot; call allows Moose to speed up a lot of things, most notably object construction. The trade-off is that you can no longer change the class definition.</div>
+<div class="subsection">
+<h2>Never override &quot;new&quot;</h2> Overriding &quot;new&quot; is a very bad practice. Instead, you should use a &quot;BUILD&quot; or &quot;BUILDARGS&quot; methods to do the same thing. When you override &quot;new&quot;, Moose can no longer inline a constructor when your class is immutabilized.<div class="spacer">
+</div>
+There are two good reasons to override &quot;new&quot;. One, you are writing a MooseX extension that provides its own Moose::Object subclass  <i>and</i> a subclass of Moose::Meta::Method::Constructor to inline the constructor. Two, you are subclassing a non-Moose parent.<div class="spacer">
+</div>
+If you know how to do that, you know when to ignore this best practice ;)</div>
+<div class="subsection">
+<h2>Always call the original/parent &quot;BUILDARGS&quot;</h2> If you &quot;override&quot; the &quot;BUILDARGS&quot; method in your class, make sure to play nice and call &quot;super()&quot; to handle cases you're not checking for explicitly.<div class="spacer">
+</div>
+The default &quot;BUILDARGS&quot; method in Moose::Object handles both a list and hashref of named parameters correctly, and also checks for a  <i>non-hashref</i> single argument.</div>
+<div class="subsection">
+<h2>Provide defaults whenever possible, otherwise use &quot;required&quot;</h2> When your class provides defaults, this makes constructing new objects simpler. If you cannot provide a default, consider making the attribute &quot;required&quot;.<div class="spacer">
+</div>
+If you don't do either, an attribute can simply be left unset, increasing the complexity of your object, because it has more possible states that you or the user of your class must account for.</div>
+<div class="subsection">
+<h2>Use &quot;builder&quot; instead of &quot;default&quot; most of the time</h2> Builders can be inherited, they have explicit names, and they're just plain cleaner.<div class="spacer">
+</div>
+However, <i>do</i> use a default when the default is a non-reference,  <i>or</i> when the default is simply an empty reference of some sort.<div class="spacer">
+</div>
+Also, keep your builder methods private.</div>
+<div class="subsection">
+<h2>Be &quot;lazy&quot;</h2> Lazy is good, and often solves initialization ordering problems. It's also good for deferring work that may never have to be done. Make your attributes &quot;lazy&quot; unless they're &quot;required&quot; or have trivial defaults.</div>
+<div class="subsection">
+<h2>Consider keeping clearers and predicates private</h2> Does everyone  <i>really</i> need to be able to clear an attribute? Probably not. Don't expose this functionality outside your class by default.<div class="spacer">
+</div>
+Predicates are less problematic, but there's no reason to make your public API bigger than it has to be.</div>
+<div class="subsection">
+<h2>Default to read-only, and consider keeping writers private</h2> Making attributes mutable just means more complexity to account for in your program. The alternative to mutable state is to encourage users of your class to simply make new objects as needed.<div class="spacer">
+</div>
+If you <i>must</i> make an attribute read-write, consider making the writer a separate private method. Narrower APIs are easy to maintain, and mutable state is trouble.<div class="spacer">
+</div>
+In order to declare such attributes, provide a private &quot;writer&quot; parameter:<div class="spacer">
+</div>
+<br/>
+    has pizza =&gt; (<br/>
+        is     =&gt; 'ro',<br/>
+        isa    =&gt; 'Pizza',<br/>
+        writer =&gt; '_pizza',<br/>
+    );<br/>
+</div>
+<div class="subsection">
+<h2>Think twice before changing an attribute's type in a subclass</h2> Down this path lies great confusion. If the attribute is an object itself, at least make sure that it has the same interface as the type of object in the parent class.</div>
+<div class="subsection">
+<h2>Don't use the &quot;initializer&quot; feature</h2> Don't know what we're talking about? That's fine.</div>
+<div class="subsection">
+<h2>Use Moose::Meta::Attribute::Native traits instead of &quot;auto_deref&quot;</h2> The &quot;auto_deref&quot; feature is a bit troublesome. Directly exposing a complex attribute is ugly. Instead, consider using Moose::Meta::Attribute::Native traits to define an API that only exposes the necessary pieces of functionality.</div>
+<div class="subsection">
+<h2>Always call &quot;inner&quot; in the most specific subclass</h2> When using &quot;augment&quot; and &quot;inner&quot;, we recommend that you call &quot;inner&quot; in the most specific subclass of your hierarchy. This makes it possible to subclass further and extend the hierarchy without changing the parents.</div>
+<div class="subsection">
+<h2>Namespace your types</h2> Use some sort of namespacing convention for type names. We recommend something like &quot;MyApp::Type::Foo&quot;. We also recommend considering MooseX::Types.</div>
+<div class="subsection">
+<h2>Do not coerce Moose built-ins directly</h2> If you define a coercion for a Moose built-in like &quot;ArrayRef&quot;, this will affect every application in the Perl interpreter that uses this type.<div class="spacer">
+</div>
+<br/>
+    # very naughty!<br/>
+    coerce 'ArrayRef'<br/>
+        =&gt; from Str<br/>
+        =&gt; via { [ split /,/ ] };<br/>
+<div class="spacer">
+</div>
+Instead, create a subtype and coerce that:<div class="spacer">
+</div>
+<br/>
+    subtype 'My::ArrayRef' =&gt; as 'ArrayRef';<br/>
+<br/>
+    coerce 'My::ArrayRef'<br/>
+        =&gt; from 'Str'<br/>
+        =&gt; via { [ split /,/ ] };<br/>
+</div>
+<div class="subsection">
+<h2>Do not coerce class names directly</h2> Just as with Moose built-in types, a class type is global for the entire interpreter. If you add a coercion for that class name, it can have magical side effects elsewhere:<div class="spacer">
+</div>
+<br/>
+    # also very naughty!<br/>
+    coerce 'HTTP::Headers'<br/>
+        =&gt; from 'HashRef'<br/>
+        =&gt; via { HTTP::Headers-&gt;new( %{$_} ) };<br/>
+<div class="spacer">
+</div>
+Instead, we can create an &quot;empty&quot; subtype for the coercion:<div class="spacer">
+</div>
+<br/>
+    subtype 'My::HTTP::Headers' =&gt; as class_type('HTTP::Headers');<br/>
+<br/>
+    coerce 'My::HTTP::Headers'<br/>
+        =&gt; from 'HashRef'<br/>
+        =&gt; via { HTTP::Headers-&gt;new( %{$_} ) };<br/>
+</div>
+<div class="subsection">
+<h2>Use coercion instead of unions</h2> Consider using a type coercion instead of a type union. This was covered in Moose::Manual::Types.</div>
+<div class="subsection">
+<h2>Define all your types in one module</h2> Define all your types and coercions in one module. This was also covered in Moose::Manual::Types.</div>
+</div>
+<div class="section">
+<h1>BENEFITS OF BEST PRACTICES</h1> Following these practices has a number of benefits.<div class="spacer">
+</div>
+It helps ensure that your code will play nice with others, making it more reusable and easier to extend.<div class="spacer">
+</div>
+Following an accepted set of idioms will make maintenance easier, especially when someone else has to maintain your code. It will also make it easier to get support from other Moose users, since your code will be easier to digest quickly.<div class="spacer">
+</div>
+Some of these practices are designed to help Moose do the right thing, especially when it comes to immutabilization. This means your code will be faster when immutabilized.<div class="spacer">
+</div>
+Many of these practices also help get the most out of meta programming. If you used an overridden &quot;new&quot; to do type coercion by hand, rather than defining a real coercion, there is no introspectable metadata. This sort of thing is particularly problematic for MooseX extensions which rely on introspection to do the right thing.</div>
+<div class="section">
+<h1>AUTHOR</h1> Moose is maintained by the Moose Cabal, along with the help of many contributors. See &quot;CABAL&quot; in Moose and &quot;CONTRIBUTORS&quot; in Moose for details.</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> This software is copyright (c) 2011 by Infinity Interactive, Inc..<div class="spacer">
+</div>
+This is free software; you can redistribute it and/or modify it under the same terms as the Perl 5 programming language system itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-11-17</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

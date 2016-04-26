@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+SPU_CREATE(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SPU_CREATE(2)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+SPU_CREATE(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> spu_create - create a new spu context</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;sys/types.h&gt;</b> <b>#include &lt;sys/spu.h&gt;</b><div class="spacer">
+</div>
+<br/>
+<b>int spu_create(const char *</b><i>pathname</i><b>, int </b><i>flags</i><b>, mode_t </b><i>mode</i><b>);</b><br/>
+<b>int spu_create(const char *</b><i>pathname</i><b>, int </b><i>flags</i><b>, mode_t </b><i>mode</i><b>,</b><br/>
+<b>               int </b><i>neighbor_fd</i><b>);</b><br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The <b>spu_create</b>() system call is used on PowerPC machines that implement the Cell Broadband Engine Architecture in order to access Synergistic Processor Units (SPUs). It creates a new logical context for an SPU in <i>pathname</i> and returns a file descriptor associated with it. <i>pathname</i> must refer to a nonexistent directory in the mount point of the SPU file system (<b>spufs</b>). If <b>spu_create</b>() is successful, a directory is created at <i>pathname</i> and it is populated with the files described in <b>spufs</b>(7).<div style="height: 1.00em;">
+&#160;</div>
+When a context is created, the returned file descriptor can only be passed to <b>spu_run</b>(2), used as the <i>dirfd</i> argument to the <b>*at</b> family of system calls (e.g., <b>openat</b>(2)), or closed; other operations are not defined. A logical SPU context is destroyed (along with all files created within the context's <i>pathname</i> directory) once the last reference to the context has gone; this usually occurs when the file descriptor returned by <b>spu_create</b>() is closed.<div style="height: 1.00em;">
+&#160;</div>
+The <i>flags</i> argument can be zero or any bitwise OR-ed combination of the following constants:<dl>
+<dt>
+<b>SPU_CREATE_EVENTS_ENABLED</b></dt>
+<dd>
+Rather than using signals for reporting DMA errors, use the <i>event</i> argument to <b>spu_run</b>(2).</dd>
+</dl>
+<dl>
+<dt>
+<b>SPU_CREATE_GANG</b></dt>
+<dd>
+Create an SPU gang instead of a context. (A gang is a group of SPU contexts that are functionally related to each other and which share common scheduling parameters&#8212;priority and policy. In the future, gang scheduling may be implemented causing the group to be switched in and out as a single unit.)<div style="height: 1.00em;">
+&#160;</div>
+A new directory will be created at the location specified by the <i>pathname</i> argument. This gang may be used to hold other SPU contexts, by providing a pathname that is within the gang directory to further calls to <b>spu_create</b>().</dd>
+</dl>
+<dl>
+<dt>
+<b>SPU_CREATE_NOSCHED</b></dt>
+<dd>
+Create a context that is not affected by the SPU scheduler. Once the context is run, it will not be scheduled out until it is destroyed by the creating process.<div style="height: 1.00em;">
+&#160;</div>
+Because the context cannot be removed from the SPU, some functionality is disabled for <b>SPU_CREATE_NOSCHED</b> contexts. Only a subset of the files will be available in this context directory in <b>spufs</b>. Additionally, <b>SPU_CREATE_NOSCHED</b> contexts cannot dump a core file when crashing.<div style="height: 1.00em;">
+&#160;</div>
+Creating <b>SPU_CREATE_NOSCHED</b> contexts requires the <b>CAP_SYS_NICE</b> capability.</dd>
+</dl>
+<dl>
+<dt>
+<b>SPU_CREATE_ISOLATE</b></dt>
+<dd>
+Create an isolated SPU context. Isolated contexts are protected from some PPE (PowerPC Processing Element) operations, such as access to the SPU local store and the NPC register.<div style="height: 1.00em;">
+&#160;</div>
+Creating <b>SPU_CREATE_ISOLATE</b> contexts also requires the <b>SPU_CREATE_NOSCHED</b> flag.</dd>
+</dl>
+<dl>
+<dt>
+<b>SPU_CREATE_AFFINITY_SPU</b></dt>
+<dd>
+Create a context with affinity to another SPU context. This affinity information is used within the SPU scheduling algorithm. Using this flag requires that a file descriptor referring to the other SPU context be passed in the <i>neighbor_fd</i> argument.</dd>
+</dl>
+<dl>
+<dt>
+<b>SPU_CREATE_AFFINITY_MEM</b></dt>
+<dd>
+Create a context with affinity to system memory. This affinity information is used within the SPU scheduling algorithm.</dd>
+</dl>
+<div class="spacer">
+</div>
+The <i>mode</i> argument (minus any bits set in the process's <b>umask</b>(2)) specifies the permissions used for creating the new directory in <b>spufs</b>. See <b>stat</b>(2) for a full list of the possible <i>mode</i> values.</div>
+<div class="section">
+<h1>RETURN VALUE</h1> On success, <b>spu_create</b>() returns a new file descriptor. On error, -1 is returned, and <i>errno</i> is set to one of the error codes listed below.</div>
+<div class="section">
+<h1>ERRORS</h1><dl>
+<dt>
+<b>EACCES</b></dt>
+<dd>
+The current user does not have write access to the <b>spufs</b>(7) mount point.</dd>
+</dl>
+<dl>
+<dt>
+<b>EEXIST</b></dt>
+<dd>
+An SPU context already exists at the given path name.</dd>
+</dl>
+<dl>
+<dt>
+<b>EFAULT</b></dt>
+<dd>
+<i>pathname</i> is not a valid string pointer in the calling process's address space.</dd>
+</dl>
+<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+<i>pathname</i> is not a directory in the <b>spufs</b>(7) mount point, or invalid flags have been provided.</dd>
+</dl>
+<dl>
+<dt>
+<b>ELOOP</b></dt>
+<dd>
+Too many symbolic links were found while resolving <i>pathname</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>EMFILE</b></dt>
+<dd>
+The process has reached its maximum open files limit.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENAMETOOLONG</b></dt>
+<dd>
+<i>pathname</i> is too long.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENFILE</b></dt>
+<dd>
+The system has reached the global open files limit.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENODEV</b></dt>
+<dd>
+An isolated context was requested, but the hardware does not support SPU isolation.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOENT</b></dt>
+<dd>
+Part of <i>pathname</i> could not be resolved.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOMEM</b></dt>
+<dd>
+The kernel could not allocate all resources required.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOSPC</b></dt>
+<dd>
+There are not enough SPU resources available to create a new context or the user-specific limit for the number of SPU contexts has been reached.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOSYS</b></dt>
+<dd>
+The functionality is not provided by the current system, because either the hardware does not provide SPUs or the spufs module is not loaded.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOTDIR</b></dt>
+<dd>
+A part of <i>pathname</i> is not a directory.</dd>
+</dl>
+<dl>
+<dt>
+<b>EPERM</b></dt>
+<dd>
+The <i>SPU_CREATE_NOSCHED</i> flag has been given, but the user does not have the <b>CAP_SYS_NICE</b> capability.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>FILES</h1> <i>pathname</i> must point to a location beneath the mount point of <b>spufs</b>. By convention, it gets mounted in <i>/spu</i>.</div>
+<div class="section">
+<h1>VERSIONS</h1> The <b>spu_create</b>() system call was added to Linux in kernel 2.6.16.</div>
+<div class="section">
+<h1>CONFORMING TO</h1> This call is Linux-specific and only implemented on the PowerPC architecture. Programs using this system call are not portable.</div>
+<div class="section">
+<h1>NOTES</h1> Glibc does not provide a wrapper for this system call; call it using <b>syscall</b>(2). Note however, that <b>spu_create</b>() is meant to be used from libraries that implement a more abstract interface to SPUs, not to be used from regular applications. See <i>http://www.bsc.es/projects/deepcomputing/linuxoncell/</i> for the recommended libraries.</div>
+<div class="section">
+<h1>EXAMPLE</h1> See <b>spu_run</b>(2) for an example of the use of <b>spu_create</b>()</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>close</b>(2), <b>spu_run</b>(2), <b>capabilities</b>(7), <b>spufs</b>(7)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2007-12-20</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

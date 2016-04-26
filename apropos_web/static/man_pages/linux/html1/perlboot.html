@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PERLBOOT(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERLBOOT(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+PERLBOOT(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perlboot - Beginner's Object-Oriented Tutorial</div>
+<div class="section">
+<h1>DESCRIPTION</h1> If you're not familiar with objects from other languages, some of the other Perl object documentation may be a little daunting, such as perlobj, a basic reference in using objects, and perltoot, which introduces readers to the peculiarities of Perl's object system in a tutorial way.<div class="spacer">
+</div>
+So, let's take a different approach, presuming no prior object experience. It helps if you know about subroutines (perlsub), references (perlref et. seq.), and packages (perlmod), so become familiar with those first if you haven't already.<div class="subsection">
+<h2>If we could talk to the animals...</h2> Let's let the animals talk for a moment:<div class="spacer">
+</div>
+<br/>
+    sub Cow::speak {<br/>
+      print &quot;a Cow goes moooo!\n&quot;;<br/>
+    }<br/>
+    sub Horse::speak {<br/>
+      print &quot;a Horse goes neigh!\n&quot;;<br/>
+    }<br/>
+    sub Sheep::speak {<br/>
+      print &quot;a Sheep goes baaaah!\n&quot;;<br/>
+    }<br/>
+<br/>
+    Cow::speak;<br/>
+    Horse::speak;<br/>
+    Sheep::speak;<br/>
+<div class="spacer">
+</div>
+This results in:<div class="spacer">
+</div>
+<br/>
+    a Cow goes moooo!<br/>
+    a Horse goes neigh!<br/>
+    a Sheep goes baaaah!<br/>
+<div class="spacer">
+</div>
+Nothing spectacular here.  Simple subroutines, albeit from separate packages, and called using the full package name.  So let's create an entire pasture:<div class="spacer">
+</div>
+<br/>
+    # Cow::speak, Horse::speak, Sheep::speak as before<br/>
+    @pasture = qw(Cow Cow Horse Sheep Sheep);<br/>
+    foreach $animal (@pasture) {<br/>
+      &amp;{$animal.&quot;::speak&quot;};<br/>
+    }<br/>
+<div class="spacer">
+</div>
+This results in:<div class="spacer">
+</div>
+<br/>
+    a Cow goes moooo!<br/>
+    a Cow goes moooo!<br/>
+    a Horse goes neigh!<br/>
+    a Sheep goes baaaah!<br/>
+    a Sheep goes baaaah!<br/>
+<div class="spacer">
+</div>
+Wow.  That symbolic coderef de-referencing there is pretty nasty. We're counting on &quot;no strict refs&quot; mode, certainly not recommended for larger programs.  And why was that necessary?  Because the name of the package seems to be inseparable from the name of the subroutine we want to invoke within that package.<div class="spacer">
+</div>
+Or is it?</div>
+<div class="subsection">
+<h2>Introducing the method invocation arrow</h2> For now, let's say that &quot;Class-&gt;method&quot; invokes subroutine &quot;method&quot; in package &quot;Class&quot;.  (Here, &quot;Class&quot; is used in its &quot;category&quot; meaning, not its &quot;scholastic&quot; meaning.) That's not completely accurate, but we'll do this one step at a time.  Now let's use it like so:<div class="spacer">
+</div>
+<br/>
+    # Cow::speak, Horse::speak, Sheep::speak as before<br/>
+    Cow-&gt;speak;<br/>
+    Horse-&gt;speak;<br/>
+    Sheep-&gt;speak;<br/>
+<div class="spacer">
+</div>
+And once again, this results in:<div class="spacer">
+</div>
+<br/>
+    a Cow goes moooo!<br/>
+    a Horse goes neigh!<br/>
+    a Sheep goes baaaah!<br/>
+<div class="spacer">
+</div>
+That's not fun yet.  Same number of characters, all constant, no variables.  But yet, the parts are separable now.  Watch:<div class="spacer">
+</div>
+<br/>
+    $a = &quot;Cow&quot;;<br/>
+    $a-&gt;speak; # invokes Cow-&gt;speak<br/>
+<div class="spacer">
+</div>
+Ahh!  Now that the package name has been parted from the subroutine name, we can use a variable package name.  And this time, we've got something that works even when &quot;use strict refs&quot; is enabled.</div>
+<div class="subsection">
+<h2>Invoking a barnyard</h2> Let's take that new arrow invocation and put it back in the barnyard example:<div class="spacer">
+</div>
+<br/>
+    sub Cow::speak {<br/>
+      print &quot;a Cow goes moooo!\n&quot;;<br/>
+    }<br/>
+    sub Horse::speak {<br/>
+      print &quot;a Horse goes neigh!\n&quot;;<br/>
+    }<br/>
+    sub Sheep::speak {<br/>
+      print &quot;a Sheep goes baaaah!\n&quot;;<br/>
+    }<br/>
+<br/>
+    @pasture = qw(Cow Cow Horse Sheep Sheep);<br/>
+    foreach $animal (@pasture) {<br/>
+      $animal-&gt;speak;<br/>
+    }<br/>
+<div class="spacer">
+</div>
+There!  Now we have the animals all talking, and safely at that, without the use of symbolic coderefs.<div class="spacer">
+</div>
+But look at all that common code.  Each of the &quot;speak&quot; routines has a similar structure: a &quot;print&quot; operator and a string that contains common text, except for two of the words.  It'd be nice if we could factor out the commonality, in case we decide later to change it all to &quot;says&quot; instead of &quot;goes&quot;.<div class="spacer">
+</div>
+And we actually have a way of doing that without much fuss, but we have to hear a bit more about what the method invocation arrow is actually doing for us.</div>
+<div class="subsection">
+<h2>The extra parameter of method invocation</h2> The invocation of:<div class="spacer">
+</div>
+<br/>
+    Class-&gt;method(@args)<br/>
+<div class="spacer">
+</div>
+attempts to invoke subroutine &quot;Class::method&quot; as:<div class="spacer">
+</div>
+<br/>
+    Class::method(&quot;Class&quot;, @args);<br/>
+<div class="spacer">
+</div>
+(If the subroutine can't be found, &quot;inheritance&quot; kicks in, but we'll get to that later.)  This means that we get the class name as the first parameter (the only parameter, if no arguments are given).  So we can rewrite the &quot;Sheep&quot; speaking subroutine as:<div class="spacer">
+</div>
+<br/>
+    sub Sheep::speak {<br/>
+      my $class = shift;<br/>
+      print &quot;a $class goes baaaah!\n&quot;;<br/>
+    }<br/>
+<div class="spacer">
+</div>
+And the other two animals come out similarly:<div class="spacer">
+</div>
+<br/>
+    sub Cow::speak {<br/>
+      my $class = shift;<br/>
+      print &quot;a $class goes moooo!\n&quot;;<br/>
+    }<br/>
+    sub Horse::speak {<br/>
+      my $class = shift;<br/>
+      print &quot;a $class goes neigh!\n&quot;;<br/>
+    }<br/>
+<div class="spacer">
+</div>
+In each case, $class will get the value appropriate for that subroutine.  But once again, we have a lot of similar structure.  Can we factor that out even further?  Yes, by calling another method in the same class.</div>
+<div class="subsection">
+<h2>Calling a second method to simplify things</h2> Let's call out from &quot;speak&quot; to a helper method called &quot;sound&quot;. This method provides the constant text for the sound itself.<div class="spacer">
+</div>
+<br/>
+    { package Cow;<br/>
+      sub sound { &quot;moooo&quot; }<br/>
+      sub speak {<br/>
+        my $class = shift;<br/>
+        print &quot;a $class goes &quot;, $class-&gt;sound, &quot;!\n&quot;;<br/>
+      }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Now, when we call &quot;Cow-&gt;speak&quot;, we get a $class of &quot;Cow&quot; in &quot;speak&quot;.  This in turn selects the &quot;Cow-&gt;sound&quot; method, which returns &quot;moooo&quot;.  But how different would this be for the &quot;Horse&quot;?<div class="spacer">
+</div>
+<br/>
+    { package Horse;<br/>
+      sub sound { &quot;neigh&quot; }<br/>
+      sub speak {<br/>
+        my $class = shift;<br/>
+        print &quot;a $class goes &quot;, $class-&gt;sound, &quot;!\n&quot;;<br/>
+      }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Only the name of the package and the specific sound change.  So can we somehow share the definition for &quot;speak&quot; between the Cow and the Horse?  Yes, with inheritance!</div>
+<div class="subsection">
+<h2>Inheriting the windpipes</h2> We'll define a common subroutine package called &quot;Animal&quot;, with the definition for &quot;speak&quot;:<div class="spacer">
+</div>
+<br/>
+    { package Animal;<br/>
+      sub speak {<br/>
+      my $class = shift;<br/>
+      print &quot;a $class goes &quot;, $class-&gt;sound, &quot;!\n&quot;;<br/>
+      }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Then, for each animal, we say it &quot;inherits&quot; from &quot;Animal&quot;, along with the animal-specific sound:<div class="spacer">
+</div>
+<br/>
+    { package Cow;<br/>
+      @ISA = qw(Animal);<br/>
+      sub sound { &quot;moooo&quot; }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Note the added @ISA array (pronounced &quot;is a&quot;).  We'll get to that in a minute.<div class="spacer">
+</div>
+But what happens when we invoke &quot;Cow-&gt;speak&quot; now?<div class="spacer">
+</div>
+First, Perl constructs the argument list.  In this case, it's just &quot;Cow&quot;.  Then Perl looks for &quot;Cow::speak&quot;.  But that's not there, so Perl checks for the inheritance array @Cow::ISA.  It's there, and contains the single name &quot;Animal&quot;.<div class="spacer">
+</div>
+Perl next checks for &quot;speak&quot; inside &quot;Animal&quot; instead, as in &quot;Animal::speak&quot;.  And that's found, so Perl invokes that subroutine with the already frozen argument list.<div class="spacer">
+</div>
+Inside the &quot;Animal::speak&quot; subroutine, $class becomes &quot;Cow&quot; (the first argument).  So when we get to the step of invoking &quot;$class-&gt;sound&quot;, it'll be looking for &quot;Cow-&gt;sound&quot;, which gets it on the first try without looking at @ISA.  Success!</div>
+<div class="subsection">
+<h2>A few notes about @ISA</h2> This magical @ISA variable has declared that &quot;Cow&quot; &quot;is a&quot; &quot;Animal&quot;. Note that it's an array, not a simple single value, because on rare occasions, it makes sense to have more than one parent class searched for the missing methods.<div class="spacer">
+</div>
+If &quot;Animal&quot; also had an @ISA, then we'd check there too.  The search is recursive, depth-first, left-to-right in each @ISA by default (see mro for alternatives).  Typically, each @ISA has only one element (multiple elements means multiple inheritance and multiple headaches), so we get a nice tree of inheritance.<div class="spacer">
+</div>
+When we turn on &quot;use strict&quot;, we'll get complaints on @ISA, since it's not a variable containing an explicit package name, nor is it a lexical (&quot;my&quot;) variable.  We can't make it a lexical variable though (it has to belong to the package to be found by the inheritance mechanism), so there's a couple of straightforward ways to handle that.<div class="spacer">
+</div>
+The easiest is to just spell the package name out:<div class="spacer">
+</div>
+<br/>
+    @Cow::ISA = qw(Animal);<br/>
+<div class="spacer">
+</div>
+Or declare it as a package global variable:<div class="spacer">
+</div>
+<br/>
+    package Cow;<br/>
+    our @ISA = qw(Animal);<br/>
+<div class="spacer">
+</div>
+Or allow it as an implicitly named package variable:<div class="spacer">
+</div>
+<br/>
+    package Cow;<br/>
+    use vars qw(@ISA);<br/>
+    @ISA = qw(Animal);<br/>
+<div class="spacer">
+</div>
+If the &quot;Animal&quot; class comes from another (object-oriented) module, then just employ &quot;use base&quot; to specify that &quot;Animal&quot; should serve as the basis for the &quot;Cow&quot; class:<div class="spacer">
+</div>
+<br/>
+    package Cow;<br/>
+    use base qw(Animal);<br/>
+<div class="spacer">
+</div>
+Now that's pretty darn simple!</div>
+<div class="subsection">
+<h2>Overriding the methods</h2> Let's add a mouse, which can barely be heard:<div class="spacer">
+</div>
+<br/>
+    # Animal package from before<br/>
+    { package Mouse;<br/>
+      @ISA = qw(Animal);<br/>
+      sub sound { &quot;squeak&quot; }<br/>
+      sub speak {<br/>
+        my $class = shift;<br/>
+        print &quot;a $class goes &quot;, $class-&gt;sound, &quot;!\n&quot;;<br/>
+        print &quot;[but you can barely hear it!]\n&quot;;<br/>
+      }<br/>
+    }<br/>
+<br/>
+    Mouse-&gt;speak;<br/>
+<div class="spacer">
+</div>
+which results in:<div class="spacer">
+</div>
+<br/>
+    a Mouse goes squeak!<br/>
+    [but you can barely hear it!]<br/>
+<div class="spacer">
+</div>
+Here, &quot;Mouse&quot; has its own speaking routine, so &quot;Mouse-&gt;speak&quot; doesn't immediately invoke &quot;Animal-&gt;speak&quot;. This is known as &quot;overriding&quot;. In fact, we don't even need to say that a &quot;Mouse&quot; is an &quot;Animal&quot; at all, because all of the methods needed for &quot;speak&quot; are completely defined for &quot;Mouse&quot;; this is known as &quot;duck typing&quot;: &quot;If it walks like a duck and quacks like a duck, I would call it a duck&quot; (James Whitcomb). However, it would probably be beneficial to allow a closer examination to conclude that a &quot;Mouse&quot; is indeed an &quot;Animal&quot;, so it is actually better to define &quot;Mouse&quot; with &quot;Animal&quot; as its base (that is, it is better to &quot;derive &quot;Mouse&quot; from &quot;Animal&quot;&quot;).<div class="spacer">
+</div>
+Moreover, this duplication of code could become a maintenance headache (though code-reuse is not actually a good reason for inheritance; good design practices dictate that a derived class should be usable wherever its base class is usable, which might not be the outcome if code-reuse is the sole criterion for inheritance. Just remember that a &quot;Mouse&quot; should always act like an &quot;Animal&quot;).<div class="spacer">
+</div>
+So, let's make &quot;Mouse&quot; an &quot;Animal&quot;!<div class="spacer">
+</div>
+The obvious solution is to invoke &quot;Animal::speak&quot; directly:<div class="spacer">
+</div>
+<br/>
+    # Animal package from before<br/>
+    { package Mouse;<br/>
+      @ISA = qw(Animal);<br/>
+      sub sound { &quot;squeak&quot; }<br/>
+      sub speak {<br/>
+        my $class = shift;<br/>
+        Animal::speak($class);<br/>
+        print &quot;[but you can barely hear it!]\n&quot;;<br/>
+      }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Note that we're using &quot;Animal::speak&quot;. If we were to invoke &quot;Animal-&gt;speak&quot; instead, the first parameter to &quot;Animal::speak&quot; would automatically be &quot;Animal&quot; rather than &quot;Mouse&quot;, so that the call to &quot;$class-&gt;sound&quot; in &quot;Animal::speak&quot; would become &quot;Animal-&gt;sound&quot; rather than &quot;Mouse-&gt;sound&quot;.<div class="spacer">
+</div>
+Also, without the method arrow &quot;-&gt;&quot;, it becomes necessary to specify the first parameter to &quot;Animal::speak&quot; ourselves, which is why $class is explicitly passed: &quot;Animal::speak($class)&quot;.<div class="spacer">
+</div>
+However, invoking &quot;Animal::speak&quot; directly is a mess: Firstly, it assumes that the &quot;speak&quot; method is a member of the &quot;Animal&quot; class; what if &quot;Animal&quot; actually inherits &quot;speak&quot; from its own base? Because we are no longer using &quot;-&gt;&quot; to access &quot;speak&quot;, the special method look up mechanism wouldn't be used, so &quot;speak&quot; wouldn't even be found!<div class="spacer">
+</div>
+The second problem is more subtle: &quot;Animal&quot; is now hardwired into the subroutine selection. Let's assume that &quot;Animal::speak&quot; does exist. What happens when, at a later time, someone expands the class hierarchy by having &quot;Mouse&quot; inherit from &quot;Mus&quot; instead of &quot;Animal&quot;. Unless the invocation of &quot;Animal::speak&quot; is also changed to an invocation of &quot;Mus::speak&quot;, centuries worth of taxonomical classification could be obliterated!<div class="spacer">
+</div>
+What we have here is a fragile or leaky abstraction; it is the beginning of a maintenance nightmare. What we need is the ability to search for the right method wih as few assumptions as possible.</div>
+<div class="subsection">
+<h2>Starting the search from a different place</h2> A  <i>better</i> solution is to tell Perl where in the inheritance chain to begin searching for &quot;speak&quot;. This can be achieved with a modified version of the method arrow &quot;-&gt;&quot;:<div class="spacer">
+</div>
+<br/>
+    ClassName-&gt;FirstPlaceToLook::method<br/>
+<div class="spacer">
+</div>
+So, the improved &quot;Mouse&quot; class is:<div class="spacer">
+</div>
+<br/>
+    # same Animal as before<br/>
+    { package Mouse;<br/>
+      # same @ISA, &amp;sound as before<br/>
+      sub speak {<br/>
+        my $class = shift;<br/>
+        $class-&gt;Animal::speak;<br/>
+        print &quot;[but you can barely hear it!]\n&quot;;<br/>
+      }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Using this syntax, we start with &quot;Animal&quot; to find &quot;speak&quot;, and then use all of &quot;Animal&quot;'s inheritance chain if it is not found immediately. As usual, the first parameter to &quot;speak&quot; would be $class, so we no longer need to pass $class explicitly to &quot;speak&quot;.<div class="spacer">
+</div>
+But what about the second problem? We're still hardwiring &quot;Animal&quot; into the method lookup.</div>
+<div class="subsection">
+<h2>The SUPER way of doing things</h2> If &quot;Animal&quot; is replaced with the special placeholder &quot;SUPER&quot; in that invocation, then the contents of &quot;Mouse&quot;'s @ISA are used for the search, beginning with $ISA[0]. So, all of the problems can be fixed as follows:<div class="spacer">
+</div>
+<br/>
+    # same Animal as before<br/>
+    { package Mouse;<br/>
+      # same @ISA, &amp;sound as before<br/>
+      sub speak {<br/>
+        my $class = shift;<br/>
+        $class-&gt;SUPER::speak;<br/>
+        print &quot;[but you can barely hear it!]\n&quot;;<br/>
+      }<br/>
+    }<br/>
+<div class="spacer">
+</div>
+In general, &quot;SUPER::speak&quot; means look in the current package's @ISA for a class that implements &quot;speak&quot;, and invoke the first one found. The placeholder is called &quot;SUPER&quot;, because many other languages refer to base classes as &quot; <i>super</i>classes&quot;, and Perl likes to be eclectic.<div class="spacer">
+</div>
+Note that a call such as<div class="spacer">
+</div>
+<br/>
+    $class-&gt;SUPER::method;<br/>
+<div class="spacer">
+</div>
+does <i>not</i> look in the @ISA of $class unless $class happens to be the current package.</div>
+<div class="subsection">
+<h2>Let's review...</h2> So far, we've seen the method arrow syntax:<div class="spacer">
+</div>
+<br/>
+  Class-&gt;method(@args);<br/>
+<div class="spacer">
+</div>
+or the equivalent:<div class="spacer">
+</div>
+<br/>
+  $a = &quot;Class&quot;;<br/>
+  $a-&gt;method(@args);<br/>
+<div class="spacer">
+</div>
+which constructs an argument list of:<div class="spacer">
+</div>
+<br/>
+  (&quot;Class&quot;, @args)<br/>
+<div class="spacer">
+</div>
+and attempts to invoke:<div class="spacer">
+</div>
+<br/>
+  Class::method(&quot;Class&quot;, @args);<br/>
+<div class="spacer">
+</div>
+However, if &quot;Class::method&quot; is not found, then @Class::ISA is examined (recursively) to locate a class (a package) that does indeed contain &quot;method&quot;, and that subroutine is invoked instead.<div class="spacer">
+</div>
+Using this simple syntax, we have class methods, (multiple) inheritance, overriding, and extending. Using just what we've seen so far, we've been able to factor out common code (though that's never a good reason for inheritance!), and provide a nice way to reuse implementations with variations.<div class="spacer">
+</div>
+Now, what about data?</div>
+<div class="subsection">
+<h2>A horse is a horse, of course of course, or is it?</h2> Let's start with the code for the &quot;Animal&quot; class and the &quot;Horse&quot; class:<div class="spacer">
+</div>
+<br/>
+  { package Animal;<br/>
+    sub speak {<br/>
+      my $class = shift;<br/>
+      print &quot;a $class goes &quot;, $class-&gt;sound, &quot;!\n&quot;;<br/>
+    }<br/>
+  }<br/>
+  { package Horse;<br/>
+    @ISA = qw(Animal);<br/>
+    sub sound { &quot;neigh&quot; }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+This lets us invoke &quot;Horse-&gt;speak&quot; to ripple upward to &quot;Animal::speak&quot;, calling back to &quot;Horse::sound&quot; to get the specific sound, and the output of:<div class="spacer">
+</div>
+<br/>
+  a Horse goes neigh!<br/>
+<div class="spacer">
+</div>
+But all of our Horse objects would have to be absolutely identical. If we add a subroutine, all horses automatically share it. That's great for making horses the same, but how do we capture the distinctions of an individual horse?  For example, suppose we want to give our first horse a name. There's got to be a way to keep its name separate from the other horses.<div class="spacer">
+</div>
+That is to say, we want particular instances of &quot;Horse&quot; to have different names.<div class="spacer">
+</div>
+In Perl, any reference can be an &quot;instance&quot;, so let's start with the simplest reference that can hold a horse's name: a scalar reference.<div class="spacer">
+</div>
+<br/>
+  my $name = &quot;Mr. Ed&quot;;<br/>
+  my $horse = \$name;<br/>
+<div class="spacer">
+</div>
+So, now $horse is a reference to what will be the instance-specific data (the name). The final step is to turn this reference into a real instance of a &quot;Horse&quot; by using the special operator &quot;bless&quot;:<div class="spacer">
+</div>
+<br/>
+  bless $horse, Horse;<br/>
+<div class="spacer">
+</div>
+This operator stores information about the package named &quot;Horse&quot; into the thing pointed at by the reference.  At this point, we say $horse is an instance of &quot;Horse&quot;.  That is, it's a specific horse.  The reference is otherwise unchanged, and can still be used with traditional dereferencing operators.</div>
+<div class="subsection">
+<h2>Invoking an instance method</h2> The method arrow can be used on instances, as well as classes (the names of packages). So, let's get the sound that $horse makes:<div class="spacer">
+</div>
+<br/>
+  my $noise = $horse-&gt;sound(&quot;some&quot;, &quot;unnecessary&quot;, &quot;args&quot;);<br/>
+<div class="spacer">
+</div>
+To invoke &quot;sound&quot;, Perl first notes that $horse is a blessed reference (and thus an instance).  It then constructs an argument list, as per usual.<div class="spacer">
+</div>
+Now for the fun part: Perl takes the class in which the instance was blessed, in this case &quot;Horse&quot;, and uses that class to locate the subroutine. In this case, &quot;Horse::sound&quot; is found directly (without using inheritance). In the end, it is as though our initial line were written as follows:<div class="spacer">
+</div>
+<br/>
+  my $noise = Horse::sound($horse, &quot;some&quot;, &quot;unnecessary&quot;, &quot;args&quot;);<br/>
+<div class="spacer">
+</div>
+Note that the first parameter here is still the instance, not the name of the class as before.  We'll get &quot;neigh&quot; as the return value, and that'll end up as the $noise variable above.<div class="spacer">
+</div>
+If Horse::sound had not been found, we'd be wandering up the @Horse::ISA array, trying to find the method in one of the superclasses. The only difference between a class method and an instance method is whether the first parameter is an instance (a blessed reference) or a class name (a string).</div>
+<div class="subsection">
+<h2>Accessing the instance data</h2> Because we get the instance as the first parameter, we can now access the instance-specific data.  In this case, let's add a way to get at the name:<div class="spacer">
+</div>
+<br/>
+  { package Horse;<br/>
+    @ISA = qw(Animal);<br/>
+    sub sound { &quot;neigh&quot; }<br/>
+    sub name {<br/>
+      my $self = shift;<br/>
+      $$self;<br/>
+    }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+Inside &quot;Horse::name&quot;, the @_ array contains:<div class="spacer">
+</div>
+<br/>
+    ($horse, &quot;some&quot;, &quot;unnecessary&quot;, &quot;args&quot;)<br/>
+<div class="spacer">
+</div>
+so the &quot;shift&quot; stores $horse into $self. Then, $self gets de-referenced with $$self as normal, yielding &quot;Mr. Ed&quot;.<div class="spacer">
+</div>
+It's traditional to &quot;shift&quot; the first parameter into a variable named $self for instance methods and into a variable named $class for class methods.<div class="spacer">
+</div>
+Then, the following line:<div class="spacer">
+</div>
+<br/>
+  print $horse-&gt;name, &quot; says &quot;, $horse-&gt;sound, &quot;\n&quot;;<br/>
+<div class="spacer">
+</div>
+outputs:<div class="spacer">
+</div>
+<br/>
+  Mr. Ed says neigh.<br/>
+</div>
+<div class="subsection">
+<h2>How to build a horse</h2> Of course, if we constructed all of our horses by hand, we'd most likely make mistakes from time to time.  We're also violating one of the properties of object-oriented programming, in that the &quot;inside guts&quot; of a Horse are visible.  That's good if you're a veterinarian, but not if you just like to own horses.  So, let's have the Horse class handle the details inside a class method:<div class="spacer">
+</div>
+<br/>
+  { package Horse;<br/>
+    @ISA = qw(Animal);<br/>
+    sub sound { &quot;neigh&quot; }<br/>
+    sub name {<br/>
+      my $self = shift;     # instance method, so use $self<br/>
+      $$self;<br/>
+    }<br/>
+    sub named {<br/>
+      my $class = shift;    # class method, so use $class<br/>
+      my $name = shift;<br/>
+      bless \$name, $class;<br/>
+    }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+Now with the new &quot;named&quot; method, we can build a horse as follows:<div class="spacer">
+</div>
+<br/>
+  my $horse = Horse-&gt;named(&quot;Mr. Ed&quot;);<br/>
+<div class="spacer">
+</div>
+Notice we're back to a class method, so the two arguments to &quot;Horse::named&quot; are &quot;Horse&quot; and &quot;Mr. Ed&quot;.  The &quot;bless&quot; operator not only blesses &quot;\$name&quot;, it also returns that reference.<div class="spacer">
+</div>
+This &quot;Horse::named&quot; method is called a &quot;constructor&quot;.<div class="spacer">
+</div>
+We've called the constructor &quot;named&quot; here, so that it quickly denotes the constructor's argument as the name for this particular &quot;Horse&quot;. You can use different constructors with different names for different ways of &quot;giving birth&quot; to the object (like maybe recording its pedigree or date of birth).  However, you'll find that most people coming to Perl from more limited languages use a single constructor named &quot;new&quot;, with various ways of interpreting the arguments to &quot;new&quot;.  Either style is fine, as long as you document your particular way of giving birth to an object.  (And you  <i>were</i> going to do that, right?)</div>
+<div class="subsection">
+<h2>Inheriting the constructor</h2> But was there anything specific to &quot;Horse&quot; in that method?  No.  Therefore, it's also the same recipe for building anything else that inherited from &quot;Animal&quot;, so let's put &quot;name&quot; and &quot;named&quot; there:<div class="spacer">
+</div>
+<br/>
+  { package Animal;<br/>
+    sub speak {<br/>
+      my $class = shift;<br/>
+      print &quot;a $class goes &quot;, $class-&gt;sound, &quot;!\n&quot;;<br/>
+    }<br/>
+    sub name {<br/>
+      my $self = shift;<br/>
+      $$self;<br/>
+    }<br/>
+    sub named {<br/>
+      my $class = shift;<br/>
+      my $name = shift;<br/>
+      bless \$name, $class;<br/>
+    }<br/>
+  }<br/>
+  { package Horse;<br/>
+    @ISA = qw(Animal);<br/>
+    sub sound { &quot;neigh&quot; }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+Ahh, but what happens if we invoke &quot;speak&quot; on an instance?<div class="spacer">
+</div>
+<br/>
+  my $horse = Horse-&gt;named(&quot;Mr. Ed&quot;);<br/>
+  $horse-&gt;speak;<br/>
+<div class="spacer">
+</div>
+We get a debugging value:<div class="spacer">
+</div>
+<br/>
+  a Horse=SCALAR(0xaca42ac) goes neigh!<br/>
+<div class="spacer">
+</div>
+Why?  Because the &quot;Animal::speak&quot; routine is expecting a classname as its first parameter, not an instance.  When the instance is passed in, we'll end up using a blessed scalar reference as a string, and that shows up as we saw it just now.</div>
+<div class="subsection">
+<h2>Making a method work with either classes or instances</h2> All we need is for a method to detect if it is being called on a class or called on an instance.  The most straightforward way is with the &quot;ref&quot; operator.  This returns a string (the classname) when used on a blessed reference, and an empty string when used on a string (like a classname).  Let's modify the &quot;name&quot; method first to notice the change:<div class="spacer">
+</div>
+<br/>
+  sub name {<br/>
+    my $either = shift;<br/>
+    ref $either ? $$either : &quot;Any $either&quot;;<br/>
+  }<br/>
+<div class="spacer">
+</div>
+Here, the &quot;?:&quot; operator comes in handy to select either the dereference or a derived string.  Now we can use this with either an instance or a class.  Note that I've changed the first parameter holder to $either to show that this is intended:<div class="spacer">
+</div>
+<br/>
+  my $horse = Horse-&gt;named(&quot;Mr. Ed&quot;);<br/>
+  print Horse-&gt;name, &quot;\n&quot;; # prints &quot;Any Horse\n&quot;<br/>
+  print $horse-&gt;name, &quot;\n&quot;; # prints &quot;Mr Ed.\n&quot;<br/>
+<div class="spacer">
+</div>
+and now we'll fix &quot;speak&quot; to use this:<div class="spacer">
+</div>
+<br/>
+  sub speak {<br/>
+    my $either = shift;<br/>
+    print $either-&gt;name, &quot; goes &quot;, $either-&gt;sound, &quot;\n&quot;;<br/>
+  }<br/>
+<div class="spacer">
+</div>
+And since &quot;sound&quot; already worked with either a class or an instance, we're done!</div>
+<div class="subsection">
+<h2>Adding parameters to a method</h2> Let's train our animals to eat:<div class="spacer">
+</div>
+<br/>
+  { package Animal;<br/>
+    sub named {<br/>
+      my $class = shift;<br/>
+      my $name = shift;<br/>
+      bless \$name, $class;<br/>
+    }<br/>
+    sub name {<br/>
+      my $either = shift;<br/>
+      ref $either ? $$either : &quot;Any $either&quot;;<br/>
+    }<br/>
+    sub speak {<br/>
+      my $either = shift;<br/>
+      print $either-&gt;name, &quot; goes &quot;, $either-&gt;sound, &quot;\n&quot;;<br/>
+    }<br/>
+    sub eat {<br/>
+      my $either = shift;<br/>
+      my $food = shift;<br/>
+      print $either-&gt;name, &quot; eats $food.\n&quot;;<br/>
+    }<br/>
+  }<br/>
+  { package Horse;<br/>
+    @ISA = qw(Animal);<br/>
+    sub sound { &quot;neigh&quot; }<br/>
+  }<br/>
+  { package Sheep;<br/>
+    @ISA = qw(Animal);<br/>
+    sub sound { &quot;baaaah&quot; }<br/>
+  }<br/>
+<div class="spacer">
+</div>
+And now try it out:<div class="spacer">
+</div>
+<br/>
+  my $horse = Horse-&gt;named(&quot;Mr. Ed&quot;);<br/>
+  $horse-&gt;eat(&quot;hay&quot;);<br/>
+  Sheep-&gt;eat(&quot;grass&quot;);<br/>
+<div class="spacer">
+</div>
+which prints:<div class="spacer">
+</div>
+<br/>
+  Mr. Ed eats hay.<br/>
+  Any Sheep eats grass.<br/>
+<div class="spacer">
+</div>
+An instance method with parameters gets invoked with the instance, and then the list of parameters.  So that first invocation is like:<div class="spacer">
+</div>
+<br/>
+  Animal::eat($horse, &quot;hay&quot;);<br/>
+</div>
+<div class="subsection">
+<h2>More interesting instances</h2> What if an instance needs more data?  Most interesting instances are made of many items, each of which can in turn be a reference or even another object.  The easiest way to store these is often in a hash. The keys of the hash serve as the names of parts of the object (often called &quot;instance variables&quot; or &quot;member variables&quot;), and the corresponding values are, well, the values.<div class="spacer">
+</div>
+But how do we turn the horse into a hash?  Recall that an object was any blessed reference.  We can just as easily make it a blessed hash reference as a blessed scalar reference, as long as everything that looks at the reference is changed accordingly.<div class="spacer">
+</div>
+Let's make a sheep that has a name and a color:<div class="spacer">
+</div>
+<br/>
+  my $bad = bless { Name =&gt; &quot;Evil&quot;, Color =&gt; &quot;black&quot; }, Sheep;<br/>
+<div class="spacer">
+</div>
+so &quot;$bad-&gt;{Name}&quot; has &quot;Evil&quot;, and &quot;$bad-&gt;{Color}&quot; has &quot;black&quot;.  But we want to make &quot;$bad-&gt;name&quot; access the name, and that's now messed up because it's expecting a scalar reference.  Not to worry, because that's pretty easy to fix up.<div class="spacer">
+</div>
+One solution is to override &quot;Animal::name&quot; and &quot;Animal::named&quot; by defining them anew in &quot;Sheep&quot;, but then any methods added later to &quot;Animal&quot; might still mess up, and we'd have to override all of those too. Therefore, it's never a good idea to define the data layout in a way that's different from the data layout of the base classes. In fact, it's a good idea to use blessed hash references in all cases. Also, this is why it's important to have constructors do the low-level work. So, let's redefine &quot;Animal&quot;:<div class="spacer">
+</div>
+<br/>
+  ## in Animal<br/>
+  sub name {<br/>
+    my $either = shift;<br/>
+    ref $either ? $either-&gt;{Name} : &quot;Any $either&quot;;<br/>
+  }<br/>
+  sub named {<br/>
+    my $class = shift;<br/>
+    my $name = shift;<br/>
+    my $self = { Name =&gt; $name };<br/>
+    bless $self, $class;<br/>
+  }<br/>
+<div class="spacer">
+</div>
+Of course, we still need to override &quot;named&quot; in order to handle constructing a &quot;Sheep&quot; with a certain color:<div class="spacer">
+</div>
+<br/>
+  ## in Sheep<br/>
+  sub named {<br/>
+    my ($class, $name) = @_;<br/>
+    my $self = $class-&gt;SUPER::named(@_);<br/>
+    $$self{Color} = $class-&gt;default_color;<br/>
+    $self<br/>
+  }<br/>
+<div class="spacer">
+</div>
+(Note that @_ contains the parameters to &quot;named&quot;.)<div class="spacer">
+</div>
+What's this &quot;default_color&quot;?  Well, if &quot;named&quot; has only the name, we still need to set a color, so we'll have a class-specific default color. For a sheep, we might define it as white:<div class="spacer">
+</div>
+<br/>
+  ## in Sheep<br/>
+  sub default_color { &quot;white&quot; }<br/>
+<div class="spacer">
+</div>
+Now:<div class="spacer">
+</div>
+<br/>
+  my $sheep = Sheep-&gt;named(&quot;Bad&quot;);<br/>
+  print $sheep-&gt;{Color}, &quot;\n&quot;;<br/>
+<div class="spacer">
+</div>
+outputs:<div class="spacer">
+</div>
+<br/>
+  white<br/>
+<div class="spacer">
+</div>
+Now, there's nothing particularly specific to &quot;Sheep&quot; when it comes to color, so let's remove &quot;Sheep::named&quot; and implement &quot;Animal::named&quot; to handle color instead:<div class="spacer">
+</div>
+<br/>
+  ## in Animal<br/>
+  sub named {<br/>
+    my ($class, $name) = @_;<br/>
+    my $self = { Name =&gt; $name, Color =&gt; $class-&gt;default_color };<br/>
+    bless $self, $class;<br/>
+  }<br/>
+<div class="spacer">
+</div>
+And then to keep from having to define &quot;default_color&quot; for each additional class, we'll define a method that serves as the &quot;default default&quot; directly in &quot;Animal&quot;:<div class="spacer">
+</div>
+<br/>
+  ## in Animal<br/>
+  sub default_color { &quot;brown&quot; }<br/>
+<div class="spacer">
+</div>
+Of course, because &quot;name&quot; and &quot;named&quot; were the only methods that referenced the &quot;structure&quot; of the object, the rest of the methods can remain the same, so &quot;speak&quot; still works as before.</div>
+<div class="subsection">
+<h2>A horse of a different color</h2> But having all our horses be brown would be boring.  So let's add a method or two to get and set the color.<div class="spacer">
+</div>
+<br/>
+  ## in Animal<br/>
+  sub color {<br/>
+    $_[0]-&gt;{Color}<br/>
+  }<br/>
+  sub set_color {<br/>
+    $_[0]-&gt;{Color} = $_[1];<br/>
+  }<br/>
+<div class="spacer">
+</div>
+Note the alternate way of accessing the arguments: $_[0] is used in-place, rather than with a &quot;shift&quot;.  (This saves us a bit of time for something that may be invoked frequently.)  And now we can fix that color for Mr. Ed:<div class="spacer">
+</div>
+<br/>
+  my $horse = Horse-&gt;named(&quot;Mr. Ed&quot;);<br/>
+  $horse-&gt;set_color(&quot;black-and-white&quot;);<br/>
+  print $horse-&gt;name, &quot; is colored &quot;, $horse-&gt;color, &quot;\n&quot;;<br/>
+<div class="spacer">
+</div>
+which results in:<div class="spacer">
+</div>
+<br/>
+  Mr. Ed is colored black-and-white<br/>
+</div>
+<div class="subsection">
+<h2>Summary</h2> So, now we have class methods, constructors, instance methods, instance data, and even accessors. But that's still just the beginning of what Perl has to offer. We haven't even begun to talk about accessors that double as getters and setters, destructors, indirect object notation, overloading, &quot;isa&quot; and &quot;can&quot; tests, the &quot;UNIVERSAL&quot; class, and so on. That's for the rest of the Perl documentation to cover. Hopefully, this gets you started, though.</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> For more information, see perlobj (for all the gritty details about Perl objects, now that you've seen the basics), perltoot (the tutorial for those who already know objects), perltooc (dealing with class data), perlbot (for some more tricks), and books such as Damian Conway's excellent  <i>Object Oriented Perl</i>.<div class="spacer">
+</div>
+Some modules which might prove interesting are Class::Accessor, Class::Class, Class::Contract, Class::Data::Inheritable, Class::MethodMaker and Tie::SecureHash</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright (c) 1999, 2000 by Randal L. Schwartz and Stonehenge Consulting Services, Inc.<div class="spacer">
+</div>
+Copyright (c) 2009 by Michael F. Witten.<div class="spacer">
+</div>
+Permission is hereby granted to distribute this document intact with the Perl distribution, and in accordance with the licenses of the Perl distribution; derived documents must include this copyright notice intact.<div class="spacer">
+</div>
+Portions of this text have been derived from Perl Training materials originally appearing in the  <i>Packages, References, Objects, and</i>  <i>Modules</i> course taught by instructors for Stonehenge Consulting Services, Inc. and used with permission.<div class="spacer">
+</div>
+Portions of this text have been derived from materials originally appearing in  <i>Linux Magazine</i> and used with permission.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

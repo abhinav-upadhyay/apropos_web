@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Appender::DBI(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Appender::DBI(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Appender::DBI(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Log::Log4perl::Appender::DBI - implements appending to a DB</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    my $config = q{<br/>
+     log4j.category = WARN, DBAppndr<br/>
+     log4j.appender.DBAppndr             = Log::Log4perl::Appender::DBI<br/>
+     log4j.appender.DBAppndr.datasource  = DBI:CSV:f_dir=t/tmp<br/>
+     log4j.appender.DBAppndr.username    = bobjones<br/>
+     log4j.appender.DBAppndr.password    = 12345<br/>
+     log4j.appender.DBAppndr.sql         = \<br/>
+        insert into log4perltest           \<br/>
+        (loglevel, custid, category, message, ipaddr) \<br/>
+        values (?,?,?,?,?)<br/>
+     log4j.appender.DBAppndr.params.1 = %p    <br/>
+                                   #2 is custid from the log() call<br/>
+     log4j.appender.DBAppndr.params.3 = %c<br/>
+                                   #4 is the message from log()<br/>
+                                   #5 is ipaddr from log()<br/>
+         <br/>
+     <br/>
+     log4j.appender.DBAppndr.usePreparedStmt = 1<br/>
+      #--or--<br/>
+     log4j.appender.DBAppndr.bufferSize = 2<br/>
+     <br/>
+     #just pass through the array of message items in the log statement <br/>
+     log4j.appender.DBAppndr.layout    = Log::Log4perl::Layout::NoopLayout<br/>
+     log4j.appender.DBAppndr.warp_message = 0<br/>
+    };<br/>
+     <br/>
+    $logger-&gt;warn( $custid, 'big problem!!', $ip_addr );<br/>
+</div>
+<div class="section">
+<h1>CAVEAT</h1> This is a very young module and there are a lot of variations in setups with different databases and connection methods, so make sure you test thoroughly!  Any feedback is welcome!</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This is a specialized Log::Dispatch object customized to work with log4perl and its abilities, originally based on Log::Dispatch::DBI by Tatsuhiko Miyagawa but with heavy modifications.<div class="spacer">
+</div>
+It is an attempted compromise between what Log::Dispatch::DBI was doing and what log4j's JDBCAppender does.  Note the log4j docs say the JDBCAppender &quot;is very likely to be completely replaced in the future.&quot;<div class="spacer">
+</div>
+The simplest usage is this:<div class="spacer">
+</div>
+<br/>
+    log4j.category = WARN, DBAppndr<br/>
+    log4j.appender.DBAppndr            = Log::Log4perl::Appender::DBI<br/>
+    log4j.appender.DBAppndr.datasource = DBI:CSV:f_dir=t/tmp<br/>
+    log4j.appender.DBAppndr.username   = bobjones<br/>
+    log4j.appender.DBAppndr.password   = 12345<br/>
+    log4j.appender.DBAppndr.sql        = \<br/>
+       INSERT INTO logtbl                \<br/>
+          (loglevel, message)            \<br/>
+          VALUES ('%c','%m')<br/>
+    <br/>
+    log4j.appender.DBAppndr.layout    = Log::Log4perl::Layout::PatternLayout<br/>
+<br/>
+<br/>
+    $logger-&gt;fatal('fatal message');<br/>
+    $logger-&gt;warn('warning message');<br/>
+<br/>
+    ===============================<br/>
+    |FATAL|fatal message          |<br/>
+    |WARN |warning message        |<br/>
+    ===============================<br/>
+<div class="spacer">
+</div>
+But the downsides to that usage are:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+You'd better be darn sure there are not quotes in your log message, or your insert could have unforseen consequences!  This is a very insecure way to handle database inserts, using place holders and bind values is much better, keep reading. (Note that the log4j docs warn &quot;Be careful of quotes in your messages!&quot;)  <b>*</b>.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+It's not terribly high-performance, a statement is created and executed for each log call.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The only run-time parameter you get is the %m message, in reality you probably want to log specific data in specific table columns.</dd>
+</dl>
+<div class="spacer">
+</div>
+So let's try using placeholders, and tell the logger to create a prepared statement handle at the beginning and just reuse it (just like Log::Dispatch::DBI does)<div class="spacer">
+</div>
+<br/>
+    log4j.appender.DBAppndr.sql = \<br/>
+       INSERT INTO logtbl \<br/>
+          (custid, loglevel, message) \<br/>
+          VALUES (?,?,?)<br/>
+<br/>
+    #---------------------------------------------------<br/>
+    #now the bind values:<br/>
+                                  #1 is the custid<br/>
+    log4j.appender.DBAppndr.params.2 = %p    <br/>
+                                  #3 is the message<br/>
+    #---------------------------------------------------<br/>
+<br/>
+    log4j.appender.DBAppndr.layout    = Log::Log4perl::Layout::NoopLayout<br/>
+    log4j.appender.DBAppndr.warp_message = 0<br/>
+    <br/>
+    log4j.appender.DBAppndr.usePreparedStmt = 1<br/>
+    <br/>
+    <br/>
+    $logger-&gt;warn( 1234, 'warning message' );<br/>
+<div class="spacer">
+</div>
+Now see how we're using the '?' placeholders in our statement?  This means we don't have to worry about messages that look like<div class="spacer">
+</div>
+<br/>
+    invalid input: 1234';drop table custid;<br/>
+<div class="spacer">
+</div>
+fubaring our database!<div class="spacer">
+</div>
+Normally a list of things in the logging statement gets concatenated into a single string, but setting &quot;warp_message&quot; to 0 and using the NoopLayout means that in<div class="spacer">
+</div>
+<br/>
+    $logger-&gt;warn( 1234, 'warning message', 'bgates' );<br/>
+<div class="spacer">
+</div>
+the individual list values will still be available for the DBI appender later on.  (If &quot;warp_message&quot; is not set to 0, the default behavior is to join the list elements into a single string.   If PatternLayout or SimpleLayout are used, their attempt to &quot;render()&quot; your layout will result in something like &quot;ARRAY(0x841d8dc)&quot; in your logs.  More information on &quot;warp_message&quot; is in Log::Log4perl::Appender.)<div class="spacer">
+</div>
+In your insert SQL you can mix up '?' placeholders with conversion specifiers (%c, %p, etc) as you see fit--the logger will match the question marks to params you've defined in the config file and populate the rest with values from your list.  If there are more '?' placeholders than there are values in your message, it will use undef for the rest.  For instance,<div class="spacer">
+</div>
+<br/>
+        log4j.appender.DBAppndr.sql =                 \<br/>
+           insert into log4perltest                   \<br/>
+           (loglevel, message, datestr, subpoena_id)\<br/>
+           values (?,?,?,?)<br/>
+        log4j.appender.DBAppndr.params.1 = %p<br/>
+        log4j.appender.DBAppndr.params.3 = %d<br/>
+<br/>
+        log4j.appender.DBAppndr.warp_message=0<br/>
+<br/>
+<br/>
+        $logger-&gt;info('arrest him!', $subpoena_id);<br/>
+<div class="spacer">
+</div>
+results in the first '?' placholder being bound to %p, the second to &quot;arrest him!&quot;, the third to the date from &quot;%d&quot;, and the fourth to your $subpoenaid.  If you forget the $subpoena_id and just log<div class="spacer">
+</div>
+<br/>
+        $logger-&gt;info('arrest him!');<br/>
+<div class="spacer">
+</div>
+then you just get undef in the fourth column.<div class="spacer">
+</div>
+If the logger statement is also being handled by other non-DBI appenders, they will just join the list into a string, joined with $Log::Log4perl::JOIN_MSG_ARRAY_CHAR (default is an empty string).<div class="spacer">
+</div>
+And see the &quot;usePreparedStmt&quot;?  That creates a statement handle when the logger object is created and just reuses it.  That, however, may be problematic for long-running processes like webservers, in which case you can use this parameter instead<div class="spacer">
+</div>
+<br/>
+    log4j.appender.DBAppndr.bufferSize=2<br/>
+<div class="spacer">
+</div>
+This copies log4j's JDBCAppender's behavior, it saves up that many log statements and writes them all out at once.  If your INSERT statement uses only ? placeholders and no %x conversion specifiers it should be quite efficient because the logger can re-use the same statement handle for the inserts.<div class="spacer">
+</div>
+If the program ends while the buffer is only partly full, the DESTROY block should flush the remaining statements, if the DESTROY block runs of course.<div class="spacer">
+</div>
+* <i>As I was writing this, Danko Mannhaupt was coming out with his</i>  <i>improved log4j JDBCAppender (http://www.mannhaupt.com/danko/projects/)</i>  <i>which overcomes many of the drawbacks of the original JDBCAppender.</i></div>
+<div class="section">
+<h1>DESCRIPTION 2</h1> Or another way to say the same thing:<div class="spacer">
+</div>
+The idea is that if you're logging to a database table, you probably want specific parts of your log information in certain columns.  To this end, you pass an list to the log statement, like<div class="spacer">
+</div>
+<br/>
+    $logger-&gt;warn('big problem!!',$userid,$subpoena_nr,$ip_addr);<br/>
+<div class="spacer">
+</div>
+and the array members drop into the positions defined by the placeholders in your SQL statement. You can also define information in the config file like<div class="spacer">
+</div>
+<br/>
+    log4j.appender.DBAppndr.params.2 = %p<br/>
+<div class="spacer">
+</div>
+in which case those numbered placeholders will be filled in with the specified values, and the rest of the placeholders will be filled in with the values from your log statement's array.</div>
+<div class="section">
+<h1>MISC PARAMETERS</h1><dl>
+<dt>
+usePreparedStmt</dt>
+<dd>
+See above.</dd>
+</dl>
+<dl>
+<dt>
+warp_message</dt>
+<dd>
+see Log::Log4perl::Appender</dd>
+</dl>
+<dl>
+<dt>
+max_col_size</dt>
+<dd>
+If you're used to just throwing debugging messages like huge stacktraces into your logger, some databases (Sybase's DBD!!) may suprise you by choking on data size limitations.  Normally, the data would just be truncated to fit in the column, but Sybases's DBD it turns out maxes out at 255 characters.  Use this parameter in such a situation to truncate long messages before they get to the INSERT statement.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>CHANGING DBH CONNECTIONS (POOLING)</h1> If you want to get your dbh from some place in particular, like maybe a pool, subclass and override  <i>_init()</i> and/or <i>create_statement()</i>, for instance<div class="spacer">
+</div>
+<br/>
+    sub _init {<br/>
+        ; #no-op, no pooling at this level<br/>
+    }<br/>
+    sub create_statement {<br/>
+        my ($self, $stmt) = @_;<br/>
+    <br/>
+        $stmt || croak &quot;Log4perl: sql not set in &quot;.__PACKAGE__;<br/>
+    <br/>
+        return My::Connections-&gt;getConnection-&gt;prepare($stmt) <br/>
+            || croak &quot;Log4perl: DBI-&gt;prepare failed $DBI::errstr\n$stmt&quot;;<br/>
+    }<br/>
+</div>
+<div class="section">
+<h1>LIFE OF CONNECTIONS</h1> If you're using &quot;log4j.appender.DBAppndr.usePreparedStmt&quot; this module creates an sth when it starts and keeps it for the life of the program.  For long-running processes (e.g. mod_perl), connections might go stale, but if &quot;Log::Log4perl::Appender::DBI&quot; tries to write a message and figures out that the DB connection is no longer working (using DBI's ping method), it will reconnect.<div class="spacer">
+</div>
+The reconnection process can be controlled by two parameters, &quot;reconnect_attempts&quot; and &quot;reconnect_sleep&quot;. &quot;reconnect_attempts&quot; specifies the number of reconnections attempts the DBI appender performs until it gives up and dies. &quot;reconnect_sleep&quot; is the time between reconnection attempts, measured in seconds. &quot;reconnect_attempts&quot; defaults to 1,  &quot;reconnect_sleep&quot; to 0.<div class="spacer">
+</div>
+Alternatively, use &quot;Apache::DBI&quot; or &quot;Apache::DBI::Cache&quot; and read CHANGING DB CONNECTIONS above.<div class="spacer">
+</div>
+Note that &quot;Log::Log4perl::Appender::DBI&quot; holds one connection open for every appender, which might be too many.</div>
+<div class="section">
+<h1>SEE ALSO</h1> Log::Dispatch::DBI<div class="spacer">
+</div>
+Log::Log4perl::JavaMap::JDBCAppender</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> Copyright 2002-2009 by Mike Schilli &lt;m@perlmeister.com&gt; and Kevin Goess &lt;cpan@goess.org&gt;.<div class="spacer">
+</div>
+This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2010-06-17</td>
+<td class="foot-os">
+perl v5.10.1</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

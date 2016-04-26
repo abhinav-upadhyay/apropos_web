@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Config::Model::Backend::Augeas(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Config::Model::Backend::Augeas(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Config::Model::Backend::Augeas(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Config::Model::Backend::Augeas - Read and write config data through Augeas</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  # model specification with augeas backend<br/>
+  {<br/>
+   config_class_name =&gt; 'OpenSsh::Sshd',<br/>
+<br/>
+   # try Augeas and fall-back with custom method<br/>
+   read_config  =&gt; [ { backend =&gt; 'augeas' , <br/>
+                       file =&gt; '/etc/ssh/sshd_config',<br/>
+                       # declare &quot;seq&quot; Augeas elements <br/>
+                       sequential_lens =&gt; [/AcceptEnv AllowGroups [etc]/],<br/>
+                     },<br/>
+                     { backend =&gt; 'custom' , # dir hardcoded in custom class<br/>
+                       class =&gt; 'Config::Model::Sshd' <br/>
+                     }<br/>
+                   ],<br/>
+   # write_config will be written using read_config specifications<br/>
+<br/>
+<br/>
+   element =&gt; ...<br/>
+  }<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This class provides a way to load or store configuration data through Config::Augeas. This way, the structure and commments of the original configuration file will preserved.<div class="spacer">
+</div>
+To use Augeas as a backend, you must specify the following &quot;read_config&quot; parameters:<dl>
+<dt>
+backend</dt>
+<dd>
+Use &quot;augeas&quot; (or &quot;Augeas&quot;)in this case.</dd>
+</dl>
+<dl>
+<dt>
+save</dt>
+<dd>
+Either &quot;backup&quot; or &quot;newfile&quot;. See &quot;Constructor&quot; in Config::Augeas for details.</dd>
+</dl>
+<dl>
+<dt>
+file</dt>
+<dd>
+Name of the configuration file.</dd>
+</dl>
+<dl>
+<dt>
+sequential_lens</dt>
+<dd>
+This one is tricky. Set to one when new Augeas list or hash node must be created for each new list or hash element. See &quot;Sequential lens&quot; for details.</dd>
+</dl>
+<div class="spacer">
+</div>
+For instance:<div class="spacer">
+</div>
+<br/>
+   read_config  =&gt; [ { backend =&gt; 'augeas' , <br/>
+                       save   =&gt; 'backup',<br/>
+                       file =&gt; '/etc/ssh/sshd_config',<br/>
+                       # declare &quot;seq&quot; Augeas elements <br/>
+                       sequential_lens =&gt; [/AcceptEnv AllowGroups/],<br/>
+                     },<br/>
+                   ],<br/>
+<div class="subsection">
+<h2>Sequential lens</h2> Some configuration files feature data that must be written as list or as hash. Depending on the syntax, Augeas list or hash lenses can be written so that new &quot;container&quot; nodes are required for each new element.<div class="spacer">
+</div>
+For instance, &quot;HostKey&quot; lines can be repeated several times in &quot;sshd_config&quot;. Since Augeas must keep track of these several lines, Augeas tree will be written like:<div class="spacer">
+</div>
+<br/>
+ /files/etc/ssh/sshd_config/HostKey[1]<br/>
+ /files/etc/ssh/sshd_config/HostKey[2]<br/>
+ /files/etc/ssh/sshd_config/HostKey[3]<br/>
+<div class="spacer">
+</div>
+and not:<div class="spacer">
+</div>
+<br/>
+ /files/etc/ssh/sshd_config/HostKey/1<br/>
+ /files/etc/ssh/sshd_config/HostKey/2<br/>
+ /files/etc/ssh/sshd_config/HostKey/3<br/>
+<div class="spacer">
+</div>
+The &quot;HostKey&quot; node is created several times. A new hostkey must be added with the following syntax:<div class="spacer">
+</div>
+<br/>
+ /files/etc/ssh/sshd_config/HostKey[4]<br/>
+<div class="spacer">
+</div>
+and not:<div class="spacer">
+</div>
+<br/>
+ /files/etc/ssh/sshd_config/HostKey/4<br/>
+<div class="spacer">
+</div>
+So the &quot;HostKey&quot; lens is sequential.<div class="spacer">
+</div>
+The situation is more complex when syntax allow repeated values on several lines. Like:<div class="spacer">
+</div>
+<br/>
+ AcceptEnv LC_PAPER LC_NAME LC_ADDRESS<br/>
+ AcceptEnv LC_IDENTIFICATION LC_ALL<br/>
+<div class="spacer">
+</div>
+Augeas will have this tree:<div class="spacer">
+</div>
+<br/>
+ /files/etc/ssh/sshd_config/AcceptEnv[1]/1<br/>
+ /files/etc/ssh/sshd_config/AcceptEnv[1]/2<br/>
+ /files/etc/ssh/sshd_config/AcceptEnv[1]/3<br/>
+ /files/etc/ssh/sshd_config/AcceptEnv[2]/4<br/>
+ /files/etc/ssh/sshd_config/AcceptEnv[2]/5<br/>
+<div class="spacer">
+</div>
+Note that the first index between squarekeeps track of how are grouped the &quot;AcceptEnv&quot; data, but the  <i>real</i> list index is after the slash.<div class="spacer">
+</div>
+Augeas does not require new elements to create &quot;AcceptEnv[3]&quot;. A new element can be added as :<div class="spacer">
+</div>
+<br/>
+ /files/etc/ssh/sshd_config/AcceptEnv[2]/6<br/>
+<div class="spacer">
+</div>
+So this lens is not sequential.<div class="spacer">
+</div>
+The same kind of trouble occurs with hash elements. Some hashes tree are like:<div class="spacer">
+</div>
+<br/>
+ /files/etc/foo/my_hash/my_key1<br/>
+ /files/etc/foo/my_hash/my_key2<br/>
+<div class="spacer">
+</div>
+Others are like:<div class="spacer">
+</div>
+<br/>
+ /files/etc/foo/my_hash[1]/my_key1<br/>
+ /files/etc/foo/my_hash[2]/my_key2<br/>
+<div class="spacer">
+</div>
+Note that a list-like index is used with the hash key.<div class="spacer">
+</div>
+This also depends on the syntax of the configuration file. For instance, &quot;Subsystem&quot; in &quot;sshd_config&quot; can be :<div class="spacer">
+</div>
+<br/>
+ Subsystem   sftp /usr/lib/openssh/sftp-server<br/>
+ Subsystem   fooftp /usr/lib/openssh/fooftp-server<br/>
+ Subsystem   barftp /usr/lib/openssh/barftp-server<br/>
+<div class="spacer">
+</div>
+This (unvalid) sshd configuration is represented by:<div class="spacer">
+</div>
+<br/>
+ /files/etc/ssh/sshd_config/Subsystem[1]/sftp<br/>
+ /files/etc/ssh/sshd_config/Subsystem[2]/fooftp<br/>
+ /files/etc/ssh/sshd_config/Subsystem[3]/barftp<br/>
+<div class="spacer">
+</div>
+Any new Subsystem must be added with:<div class="spacer">
+</div>
+<br/>
+ /files/etc/ssh/sshd_config/Subsystem[4]/bazftp<br/>
+<div class="spacer">
+</div>
+In this case, the hash is also sequential.<div class="spacer">
+</div>
+For these examples, the augeas backend declaration must feature:<div class="spacer">
+</div>
+<br/>
+ sequential_lens =&gt; [qw/HostKey Subsystem/],<br/>
+</div>
+<div class="subsection">
+<h2>Augeas backend limitation</h2> The structure and element names of the Config::Model tree must match the structure defined in Augeas lenses. I.e. the order of the element declared in Config::Model must match the order required by Augeas lenses.<div class="spacer">
+</div>
+Sometimes, the structure of a file loaded by Augeas starts directly with a list of items. For instance &quot;/etc/hosts&quot; structure starts with a list of lines that specify hosts and IP addresses. The &quot;set_in&quot; parameter specifies an element name in Config::Model root class that will hold the configuration data retrieved by Augeas.</div>
+</div>
+<div class="section">
+<h1>Log and trace</h1> This module use Log::Log4perl to log debug and info trace with &quot;Data::Read&quot; and &quot;Data::Write&quot; categories.</div>
+<div class="section">
+<h1>CAVEATS</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Augeas &quot;#comment&quot; nodes are ignored</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+http://augeas.net/ : Augeas project page</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Config::Model</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Augeas mailing list: http://augeas.net/developers.html</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Config::Model mailing list : http://sourceforge.net/mail/?group_id=155650</dd>
+</dl>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Dominique Dumont, &lt;ddumont at cpan dot org@&lt;gt&gt;</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright (C) 2008-2010 by Dominique Dumont</div>
+<div class="section">
+<h1>LICENSE</h1> This library is free software; you can redistribute it and/or modify it under the LGPL terms.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-10-18</td>
+<td class="foot-os">
+perl v5.12.4</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

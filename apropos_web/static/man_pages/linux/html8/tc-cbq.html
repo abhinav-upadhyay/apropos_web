@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+CBQ(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+CBQ(8)</td>
+<td class="head-vol">
+Linux</td>
+<td class="head-rtitle">
+CBQ(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> CBQ - Class Based Queueing</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>tc qdisc ... dev</b> dev <b>( parent</b> classid <b>| root) [ handle</b> major: <b>] cbq [ allot</b> bytes <b>] avpkt</b> bytes <b>bandwidth</b> rate <b>[ cell</b> bytes <b>] [ ewma</b> log <b>] [ mpu</b> bytes <b>]</b><div style="height: 1.00em;">
+&#160;</div>
+<b>tc class ... dev</b> dev <b>parent</b> major:[minor] <b>[ classid</b> major:minor <b>] cbq allot</b> bytes <b>[ bandwidth</b> rate <b>] [ rate</b> rate <b>] prio</b> priority <b>[ weight</b> weight <b>] [ minburst</b> packets <b>] [ maxburst</b> packets <b>] [ ewma</b> log <b>] [ cell</b> bytes <b>] avpkt</b> bytes <b>[ mpu</b> bytes <b>] [ bounded isolated ] [ split</b> handle <b>&amp; defmap</b> defmap <b>] [ estimator</b> interval timeconstant <b>]</b><div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Class Based Queueing is a classful qdisc that implements a rich linksharing hierarchy of classes.  It contains shaping elements as well as prioritizing capabilities.  Shaping is performed using link idle time calculations based on the timing of dequeue events and underlying link bandwidth.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>SHAPING ALGORITHM</h1> When shaping a 10mbit/s connection to 1mbit/s, the link will be idle 90% of the time. If it isn't, it needs to be throttled so that it IS idle 90% of the time.<div style="height: 1.00em;">
+&#160;</div>
+During operations, the effective idletime is measured using an exponential weighted moving average (EWMA), which considers recent packets to be exponentially more important than past ones. The Unix loadaverage is calculated in the same way.<div style="height: 1.00em;">
+&#160;</div>
+The calculated idle time is subtracted from the EWMA measured one, the resulting number is called 'avgidle'. A perfectly loaded link has an avgidle of zero: packets arrive exactly at the calculated interval.<div style="height: 1.00em;">
+&#160;</div>
+An overloaded link has a negative avgidle and if it gets too negative, CBQ throttles and is then 'overlimit'.<div style="height: 1.00em;">
+&#160;</div>
+Conversely, an idle link might amass a huge avgidle, which would then allow infinite bandwidths after a few hours of silence. To prevent this, avgidle is capped at <b>maxidle.</b><div style="height: 1.00em;">
+&#160;</div>
+If overlimit, in theory, the CBQ could throttle itself for exactly the amount of time that was calculated to pass between packets, and then pass one packet, and throttle again. Due to timer resolution constraints, this may not be feasible, see the <b>minburst</b> parameter below.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>CLASSIFICATION</h1> Within the one CBQ instance many classes may exist. Each of these classes contains another qdisc, by default <b>tc-pfifo</b>(8).<div style="height: 1.00em;">
+&#160;</div>
+When enqueueing a packet, CBQ starts at the root and uses various methods to determine which class should receive the data.<div style="height: 1.00em;">
+&#160;</div>
+In the absence of uncommon configuration options, the process is rather easy. At each node we look for an instruction, and then go to the class the instruction refers us to. If the class found is a barren leaf-node (without children), we enqueue the packet there. If it is not yet a leaf node, we do the whole thing over again starting from that node.<div style="height: 1.00em;">
+&#160;</div>
+The following actions are performed, in order at each node we visit, until one sends us to another node, or terminates the process.<dl>
+<dt>
+(i)</dt>
+<dd>
+Consult filters attached to the class. If sent to a leafnode, we are done. Otherwise, restart.</dd>
+</dl>
+<dl>
+<dt>
+(ii)</dt>
+<dd>
+Consult the defmap for the priority assigned to this packet, which depends on the TOS bits. Check if the referral is leafless, otherwise restart.</dd>
+</dl>
+<dl>
+<dt>
+(iii)</dt>
+<dd>
+Ask the defmap for instructions for the 'best effort' priority. Check the answer for leafness, otherwise restart.</dd>
+</dl>
+<dl>
+<dt>
+(iv)</dt>
+<dd>
+If none of the above returned with an instruction, enqueue at this node.</dd>
+</dl>
+<div class="spacer">
+</div>
+This algorithm makes sure that a packet always ends up somewhere, even while you are busy building your configuration.<div style="height: 1.00em;">
+&#160;</div>
+For more details, see <b>tc-cbq-details(8).</b><div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>LINK SHARING ALGORITHM</h1> When dequeuing for sending to the network device, CBQ decides which of its classes will be allowed to send. It does so with a Weighted Round Robin process in which each class with packets gets a chance to send in turn. The WRR process starts by asking the highest priority classes (lowest numerically - highest semantically) for packets, and will continue to do so until they have no more data to offer, in which case the process repeats for lower priorities.<div style="height: 1.00em;">
+&#160;</div>
+Classes by default borrow bandwidth from their siblings. A class can be prevented from doing so by declaring it 'bounded'. A class can also indicate its unwillingness to lend out bandwidth by being 'isolated'.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>QDISC</h1> The root of a CBQ qdisc class tree has the following parameters:<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+parent major:minor | root</dt>
+<dd>
+This mandatory parameter determines the place of the CBQ instance, either at the <b>root</b> of an interface or within an existing class.</dd>
+</dl>
+<dl>
+<dt>
+handle major:</dt>
+<dd>
+Like all other qdiscs, the CBQ can be assigned a handle. Should consist only of a major number, followed by a colon. Optional, but very useful if classes will be generated within this qdisc.</dd>
+</dl>
+<dl>
+<dt>
+allot bytes</dt>
+<dd>
+This allotment is the 'chunkiness' of link sharing and is used for determining packet transmission time tables. The qdisc allot differs slightly from the class allot discussed below. Optional. Defaults to a reasonable value, related to avpkt.</dd>
+</dl>
+<dl>
+<dt>
+avpkt bytes</dt>
+<dd>
+The average size of a packet is needed for calculating maxidle, and is also used for making sure 'allot' has a safe value. Mandatory.</dd>
+</dl>
+<dl>
+<dt>
+bandwidth rate</dt>
+<dd>
+To determine the idle time, CBQ must know the bandwidth of your underlying physical interface, or parent qdisc. This is a vital parameter, more about it later. Mandatory.</dd>
+</dl>
+<dl>
+<dt>
+cell</dt>
+<dd>
+The cell size determines he granularity of packet transmission time calculations. Has a sensible default.</dd>
+</dl>
+<dl>
+<dt>
+mpu</dt>
+<dd>
+A zero sized packet may still take time to transmit. This value is the lower cap for packet transmission time calculations - packets smaller than this value are still deemed to have this size. Defaults to zero.</dd>
+</dl>
+<dl>
+<dt>
+ewma log</dt>
+<dd>
+When CBQ needs to measure the average idle time, it does so using an Exponentially Weighted Moving Average which smoothes out measurements into a moving average. The EWMA LOG determines how much smoothing occurs. Lower values imply greater sensitivity. Must be between 0 and 31. Defaults to 5.</dd>
+</dl>
+<div class="spacer">
+</div>
+A CBQ qdisc does not shape out of its own accord. It only needs to know certain parameters about the underlying link. Actual shaping is done in classes.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>CLASSES</h1> Classes have a host of parameters to configure their operation.<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+parent major:minor</dt>
+<dd>
+Place of this class within the hierarchy. If attached directly to a qdisc and not to another class, minor can be omitted. Mandatory.</dd>
+</dl>
+<dl>
+<dt>
+classid major:minor</dt>
+<dd>
+Like qdiscs, classes can be named. The major number must be equal to the major number of the qdisc to which it belongs. Optional, but needed if this class is going to have children.</dd>
+</dl>
+<dl>
+<dt>
+weight weight</dt>
+<dd>
+When dequeuing to the interface, classes are tried for traffic in a round-robin fashion. Classes with a higher configured qdisc will generally have more traffic to offer during each round, so it makes sense to allow it to dequeue more traffic. All weights under a class are normalized, so only the ratios matter. Defaults to the configured rate, unless the priority of this class is maximal, in which case it is set to 1.</dd>
+</dl>
+<dl>
+<dt>
+allot bytes</dt>
+<dd>
+Allot specifies how many bytes a qdisc can dequeue during each round of the process. This parameter is weighted using the renormalized class weight described above. Silently capped at a minimum of 3/2 avpkt. Mandatory.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+prio priority</dt>
+<dd>
+In the round-robin process, classes with the lowest priority field are tried for packets first. Mandatory.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+avpkt</dt>
+<dd>
+See the QDISC section.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+rate rate</dt>
+<dd>
+Maximum rate this class and all its children combined can send at. Mandatory.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+bandwidth rate</dt>
+<dd>
+This is different from the bandwidth specified when creating a CBQ disc! Only used to determine maxidle and offtime, which are only calculated when specifying maxburst or minburst. Mandatory if specifying maxburst or minburst.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+maxburst</dt>
+<dd>
+This number of packets is used to calculate maxidle so that when avgidle is at maxidle, this number of average packets can be burst before avgidle drops to 0. Set it higher to be more tolerant of bursts. You can't set maxidle directly, only via this parameter.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+minburst</dt>
+<dd>
+As mentioned before, CBQ needs to throttle in case of overlimit. The ideal solution is to do so for exactly the calculated idle time, and pass 1 packet. However, Unix kernels generally have a hard time scheduling events shorter than 10ms, so it is better to throttle for a longer period, and then pass minburst packets in one go, and then sleep minburst times longer.<div style="height: 1.00em;">
+&#160;</div>
+The time to wait is called the offtime. Higher values of minburst lead to more accurate shaping in the long term, but to bigger bursts at millisecond timescales. Optional.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+minidle</dt>
+<dd>
+If avgidle is below 0, we are overlimits and need to wait until avgidle will be big enough to send one packet. To prevent a sudden burst from shutting down the link for a prolonged period of time, avgidle is reset to minidle if it gets too low.<div style="height: 1.00em;">
+&#160;</div>
+Minidle is specified in negative microseconds, so 10 means that avgidle is capped at -10us. Optional.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+bounded</dt>
+<dd>
+Signifies that this class will not borrow bandwidth from its siblings.</dd>
+</dl>
+<dl>
+<dt>
+isolated</dt>
+<dd>
+Means that this class will not borrow bandwidth to its siblings<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+split major:minor &amp; defmap bitmap[/bitmap]</dt>
+<dd>
+If consulting filters attached to a class did not give a verdict, CBQ can also classify based on the packet's priority. There are 16 priorities available, numbered from 0 to 15.<div style="height: 1.00em;">
+&#160;</div>
+The defmap specifies which priorities this class wants to receive, specified as a bitmap. The Least Significant Bit corresponds to priority zero. The <b>split</b> parameter tells CBQ at which class the decision must be made, which should be a (grand)parent of the class you are adding.<div style="height: 1.00em;">
+&#160;</div>
+As an example, 'tc class add ... classid 10:1 cbq .. split 10:0 defmap c0' configures class 10:0 to send packets with priorities 6 and 7 to 10:1.<div style="height: 1.00em;">
+&#160;</div>
+The complimentary configuration would then be: 'tc class add ... classid 10:2 cbq ... split 10:0 defmap 3f' Which would send all packets 0, 1, 2, 3, 4 and 5 to 10:1.</dd>
+</dl>
+<dl>
+<dt>
+estimator interval timeconstant</dt>
+<dd>
+CBQ can measure how much bandwidth each class is using, which tc filters can use to classify packets with. In order to determine the bandwidth it uses a very simple estimator that measures once every <b>interval</b> microseconds how much traffic has passed. This again is a EWMA, for which the time constant can be specified, also in microseconds. The <b>time constant</b> corresponds to the sluggishness of the measurement or, conversely, to the sensitivity of the average to short bursts. Higher values mean less sensitivity.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1>BUGS</h1> The actual bandwidth of the underlying link may not be known, for example in the case of PPoE or PPTP connections which in fact may send over a pipe, instead of over a physical device. CBQ is quite resilient to major errors in the configured bandwidth, probably a the cost of coarser shaping.<div style="height: 1.00em;">
+&#160;</div>
+Default kernels rely on coarse timing information for making decisions. These may make shaping precise in the long term, but inaccurate on second long scales.<div style="height: 1.00em;">
+&#160;</div>
+See <b>tc-cbq-details(8)</b> for hints on how to improve this.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>SOURCES</h1><dl>
+<dt>
+o</dt>
+<dd>
+Sally Floyd and Van Jacobson, &quot;Link-sharing and Resource Management Models for Packet Networks&quot;, IEEE/ACM Transactions on Networking, Vol.3, No.4, 1995<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+o</dt>
+<dd>
+Sally Floyd, &quot;Notes on CBQ and Guaranteed Service&quot;, 1995<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+o</dt>
+<dd>
+Sally Floyd, &quot;Notes on Class-Based Queueing: Setting Parameters&quot;, 1996<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+o</dt>
+<dd>
+Sally Floyd and Michael Speer, &quot;Experimental Results for Class-Based Queueing&quot;, 1998, not published.<div style="height: 1.00em;">
+&#160;</div>
+<div style="height: 1.00em;">
+&#160;</div>
+<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>tc</b>(8)<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Alexey N. Kuznetsov, &lt;kuznet@ms2.inr.ac.ru&gt;. This manpage maintained by bert hubert &lt;ahu@ds9a.nl&gt;<div style="height: 1.00em;">
+&#160;</div>
+<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+16 December 2001</td>
+<td class="foot-os">
+iproute2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

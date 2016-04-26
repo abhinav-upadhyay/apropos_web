@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+EXECVE(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+EXECVE(2)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+EXECVE(2)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> execve - execute program</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;unistd.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int execve(const char *</b><i>filename</i><b>, char *const </b><i>argv</i><b>[], </b><div style="height: 0.00em;">
+&#160;</div>
+<b>           char *const </b><i>envp</i><b>[]);</b></div>
+<div class="section">
+<h1>DESCRIPTION</h1> <b>execve</b>() executes the program pointed to by  <i>filename</i>.  <i>filename</i> must be either a binary executable, or a script starting with a line of the form:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+<b>#!</b> <i>interpreter </i>[optional-arg]<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+For details of the latter case, see &quot;Interpreter scripts&quot; below.<div style="height: 1.00em;">
+&#160;</div>
+<i>argv</i> is an array of argument strings passed to the new program. By convention, the first of these strings should contain the filename associated with the file being executed.  <i>envp</i> is an array of strings, conventionally of the form  <b>key=value</b>, which are passed as environment to the new program. Both  <i>argv</i> and <i>envp</i> must be terminated by a NULL pointer. The argument vector and environment can be accessed by the called program's main function, when it is defined as:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+int main(int argc, char *argv[], char *envp[])<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<b>execve</b>() does not return on success, and the text, data, bss, and stack of the calling process are overwritten by that of the program loaded.<div style="height: 1.00em;">
+&#160;</div>
+If the current program is being ptraced, a <b>SIGTRAP</b> is sent to it after a successful <b>execve</b>().<div style="height: 1.00em;">
+&#160;</div>
+If the set-user-ID bit is set on the program file pointed to by  <i>filename</i>, and the underlying file system is not mounted <i>nosuid</i> (the <b>MS_NOSUID</b> flag for <b>mount</b>(2)), and the calling process is not being ptraced, then the effective user ID of the calling process is changed to that of the owner of the program file. Similarly, when the set-group-ID bit of the program file is set the effective group ID of the calling process is set to the group of the program file.<div style="height: 1.00em;">
+&#160;</div>
+The effective user ID of the process is copied to the saved set-user-ID; similarly, the effective group ID is copied to the saved set-group-ID. This copying takes place after any effective ID changes that occur because of the set-user-ID and set-group-ID permission bits.<div style="height: 1.00em;">
+&#160;</div>
+If the executable is an a.out dynamically linked binary executable containing shared-library stubs, the Linux dynamic linker <b>ld.so</b>(8) is called at the start of execution to bring needed shared libraries into memory and link the executable with them.<div style="height: 1.00em;">
+&#160;</div>
+If the executable is a dynamically linked ELF executable, the interpreter named in the PT_INTERP segment is used to load the needed shared libraries. This interpreter is typically  <i>/lib/ld-linux.so.1</i> for binaries linked with the Linux libc 5, or  <i>/lib/ld-linux.so.2</i> for binaries linked with the glibc 2.<div style="height: 1.00em;">
+&#160;</div>
+All process attributes are preserved during an <b>execve</b>(), except the following:<dl>
+<dt>
+*</dt>
+<dd>
+The dispositions of any signals that are being caught are reset to the default (<b>signal</b>(7)).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+Any alternate signal stack is not preserved (<b>sigaltstack</b>(2)).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+Memory mappings are not preserved (<b>mmap</b>(2)).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+Attached System V shared memory segments are detached (<b>shmat</b>(2)).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+POSIX shared memory regions are unmapped (<b>shm_open</b>(3)).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+Open POSIX message queue descriptors are closed (<b>mq_overview</b>(7)).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+Any open POSIX named semaphores are closed (<b>sem_overview</b>(7)).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+POSIX timers are not preserved (<b>timer_create</b>(2)).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+Any open directory streams are closed (<b>opendir</b>(3)).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+Memory locks are not preserved (<b>mlock</b>(2), <b>mlockall</b>(2)).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+Exit handlers are not preserved (<b>atexit</b>(3), <b>on_exit</b>(3)).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+The floating-point environment is reset to the default (see <b>fenv</b>(3)).</dd>
+</dl>
+<div class="spacer">
+</div>
+The process attributes in the preceding list are all specified in POSIX.1-2001. The following Linux-specific process attributes are also not preserved during an <b>execve</b>():<dl>
+<dt>
+*</dt>
+<dd>
+The <b>prctl</b>(2) <b>PR_SET_DUMPABLE</b> flag is set, unless a set-user-ID or set-group ID program is being executed, in which case it is cleared.</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+The <b>prctl</b>(2) <b>PR_SET_KEEPCAPS</b> flag is cleared.</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+The process name, as set by <b>prctl</b>(2) <b>PR_SET_NAME</b> (and displayed by <i>ps&#160;-o comm</i>), is reset to the name of the new executable file.</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+The termination signal is reset to <b>SIGCHLD</b> (see <b>clone</b>(2)).</dd>
+</dl>
+<div class="spacer">
+</div>
+Note the following further points:<dl>
+<dt>
+*</dt>
+<dd>
+All threads other than the calling thread are destroyed during an <b>execve</b>(). Mutexes, condition variables, and other pthreads objects are not preserved.</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+The equivalent of <i>setlocale(LC_ALL, &quot;C&quot;)</i> is executed at program start-up.</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+POSIX.1-2001 specifies that the dispositions of any signals that are ignored or set to the default are left unchanged. POSIX.1-2001 specifies one exception: if <b>SIGCHLD</b> is being ignored, then an implementation may leave the disposition unchanged or reset it to the default; Linux does the former.</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+Any outstanding asynchronous I/O operations are canceled (<b>aio_read</b>(3), <b>aio_write</b>(3)).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+For the handling of capabilities during <b>execve</b>(), see <b>capabilities</b>(7).</dd>
+</dl>
+<dl>
+<dt>
+*</dt>
+<dd>
+By default, file descriptors remain open across an <b>execve</b>(). File descriptors that are marked close-on-exec are closed; see the description of <b>FD_CLOEXEC</b> in <b>fcntl</b>(2). (If a file descriptor is closed, this will cause the release of all record locks obtained on the underlying file by this process. See <b>fcntl</b>(2) for details.) POSIX.1-2001 says that if file descriptors 0, 1, and 2 would otherwise be closed after a successful <b>execve</b>(), and the process would gain privilege because the set-user_ID or set-group_ID permission bit was set on the executed file, then the system may open an unspecified file for each of these file descriptors. As a general principle, no portable program, whether privileged or not, can assume that these three file descriptors will remain closed across an <b>execve</b>().</dd>
+</dl>
+<div class="subsection">
+<h2>Interpreter scripts</h2> An interpreter script is a text file that has execute permission enabled and whose first line is of the form:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+<b>#!</b> <i>interpreter </i>[optional-arg]<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The <i>interpreter</i> must be a valid pathname for an executable which is not itself a script. If the <i>filename</i> argument of <b>execve</b>() specifies an interpreter script, then <i>interpreter</i> will be invoked with the following arguments:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+<i>interpreter</i> [optional-arg] <i>filename</i> arg...<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+where <i>arg...</i> is the series of words pointed to by the <i>argv</i> argument of <b>execve</b>().<div style="height: 1.00em;">
+&#160;</div>
+For portable use, <i>optional-arg</i> should either be absent, or be specified as a single word (i.e., it should not contain white space); see NOTES below.</div>
+<div class="subsection">
+<h2>Limits on size of arguments and environment</h2> Most UNIX implementations impose some limit on the total size of the command-line argument (<i>argv</i>) and environment (<i>envp</i>) strings that may be passed to a new program. POSIX.1 allows an implementation to advertise this limit using the <b>ARG_MAX</b> constant (either defined in <i>&lt;limits.h&gt;</i> or available at run time using the call <i>sysconf(_SC_ARG_MAX)</i>).<div style="height: 1.00em;">
+&#160;</div>
+On Linux prior to kernel 2.6.23, the memory used to store the environment and argument strings was limited to 32 pages (defined by the kernel constant <b>MAX_ARG_PAGES</b>). On architectures with a 4-kB page size, this yields a maximum size of 128 kB.<div style="height: 1.00em;">
+&#160;</div>
+On kernel 2.6.23 and later, most architectures support a size limit derived from the soft <b>RLIMIT_STACK</b> resource limit (see <b>getrlimit</b>(2)) that is in force at the time of the <b>execve</b>() call. (Architectures with no memory management unit are excepted: they maintain the limit that was in effect before kernel 2.6.23.) This change allows programs to have a much larger argument and/or environment list. For these architectures, the total size is limited to 1/4 of the allowed stack size. (Imposing the 1/4-limit ensures that the new program always has some stack space.) Since Linux 2.6.25, the kernel places a floor of 32 pages on this size limit, so that, even when <b>RLIMIT_STACK</b> is set very low, applications are guaranteed to have at least as much argument and environment space as was provided by Linux 2.6.23 and earlier. (This guarantee was not provided in Linux 2.6.23 and 2.6.24.) Additionally, the limit per string is 32 pages (the kernel constant <b>MAX_ARG_STRLEN</b>), and the maximum number of strings is 0x7FFFFFFF.</div>
+</div>
+<div class="section">
+<h1>RETURN VALUE</h1> On success, <b>execve</b>() does not return, on error -1 is returned, and <i>errno</i> is set appropriately.</div>
+<div class="section">
+<h1>ERRORS</h1><dl>
+<dt>
+<b>E2BIG</b></dt>
+<dd>
+The total number of bytes in the environment (<i>envp</i>) and argument list (<i>argv</i>) is too large.</dd>
+</dl>
+<dl>
+<dt>
+<b>EACCES</b></dt>
+<dd>
+Search permission is denied on a component of the path prefix of <i>filename</i> or the name of a script interpreter. (See also <b>path_resolution</b>(7).)</dd>
+</dl>
+<dl>
+<dt>
+<b>EACCES</b></dt>
+<dd>
+The file or a script interpreter is not a regular file.</dd>
+</dl>
+<dl>
+<dt>
+<b>EACCES</b></dt>
+<dd>
+Execute permission is denied for the file or a script or ELF interpreter.</dd>
+</dl>
+<dl>
+<dt>
+<b>EACCES</b></dt>
+<dd>
+The file system is mounted <i>noexec</i>.</dd>
+</dl>
+<dl>
+<dt>
+<b>EFAULT</b></dt>
+<dd>
+<i>filename</i> points outside your accessible address space.</dd>
+</dl>
+<dl>
+<dt>
+<b>EINVAL</b></dt>
+<dd>
+An ELF executable had more than one PT_INTERP segment (i.e., tried to name more than one interpreter).</dd>
+</dl>
+<dl>
+<dt>
+<b>EIO</b></dt>
+<dd>
+An I/O error occurred.</dd>
+</dl>
+<dl>
+<dt>
+<b>EISDIR</b></dt>
+<dd>
+An ELF interpreter was a directory.</dd>
+</dl>
+<dl>
+<dt>
+<b>ELIBBAD</b></dt>
+<dd>
+An ELF interpreter was not in a recognized format.</dd>
+</dl>
+<dl>
+<dt>
+<b>ELOOP</b></dt>
+<dd>
+Too many symbolic links were encountered in resolving <i>filename</i> or the name of a script or ELF interpreter.</dd>
+</dl>
+<dl>
+<dt>
+<b>EMFILE</b></dt>
+<dd>
+The process has the maximum number of files open.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENAMETOOLONG</b></dt>
+<dd>
+<i>filename</i> is too long.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENFILE</b></dt>
+<dd>
+The system limit on the total number of open files has been reached.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOENT</b></dt>
+<dd>
+The file <i>filename</i> or a script or ELF interpreter does not exist, or a shared library needed for file or interpreter cannot be found.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOEXEC</b></dt>
+<dd>
+An executable is not in a recognized format, is for the wrong architecture, or has some other format error that means it cannot be executed.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOMEM</b></dt>
+<dd>
+Insufficient kernel memory was available.</dd>
+</dl>
+<dl>
+<dt>
+<b>ENOTDIR</b></dt>
+<dd>
+A component of the path prefix of <i>filename</i> or a script or ELF interpreter is not a directory.</dd>
+</dl>
+<dl>
+<dt>
+<b>EPERM</b></dt>
+<dd>
+The file system is mounted <i>nosuid</i>, the user is not the superuser, and the file has the set-user-ID or set-group-ID bit set.</dd>
+</dl>
+<dl>
+<dt>
+<b>EPERM</b></dt>
+<dd>
+The process is being traced, the user is not the superuser and the file has the set-user-ID or set-group-ID bit set.</dd>
+</dl>
+<dl>
+<dt>
+<b>ETXTBSY</b></dt>
+<dd>
+Executable was open for writing by one or more processes.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>CONFORMING TO</h1> SVr4, 4.3BSD, POSIX.1-2001. POSIX.1-2001 does not document the #!  behavior but is otherwise compatible.</div>
+<div class="section">
+<h1>NOTES</h1> Set-user-ID and set-group-ID processes can not be <b>ptrace</b>(2)d.<div style="height: 1.00em;">
+&#160;</div>
+Linux ignores the set-user-ID and set-group-ID bits on scripts.<div style="height: 1.00em;">
+&#160;</div>
+The result of mounting a file system <i>nosuid</i> varies across Linux kernel versions: some will refuse execution of set-user-ID and set-group-ID executables when this would give the user powers she did not have already (and return <b>EPERM</b>), some will just ignore the set-user-ID and set-group-ID bits and <b>exec</b>() successfully.<div style="height: 1.00em;">
+&#160;</div>
+A maximum line length of 127 characters is allowed for the first line in a #! executable shell script.<div style="height: 1.00em;">
+&#160;</div>
+The semantics of the <i>optional-arg</i> argument of an interpreter script vary across implementations. On Linux, the entire string following the <i>interpreter</i> name is passed as a single argument to the interpreter, and this string can include white space. However, behavior differs on some other systems. Some systems use the first white space to terminate <i>optional-arg</i>. On some systems, an interpreter script can have multiple arguments, and white spaces in <i>optional-arg</i> are used to delimit the arguments.<div style="height: 1.00em;">
+&#160;</div>
+On Linux, <i>argv</i> can be specified as NULL, which has the same effect as specifying this argument as a pointer to a list containing a single NULL pointer. <b>Do not take advantage of this misfeature!</b> It is nonstandard and nonportable: on most other UNIX systems doing this will result in an error (<b>EFAULT</b>).<div style="height: 1.00em;">
+&#160;</div>
+POSIX.1-2001 says that values returned by <b>sysconf</b>(3) should be invariant over the lifetime of a process. However, since Linux 2.6.23, if the <b>RLIMIT_STACK</b> resource limit changes, then the value reported by <b>_SC_ARG_MAX</b> will also change, to reflect the fact that the limit on space for holding command-line arguments and environment variables has changed.<div class="subsection">
+<h2>Historical</h2> With UNIX V6 the argument list of an <b>exec</b>() call was ended by 0, while the argument list of <i>main</i> was ended by -1. Thus, this argument list was not directly usable in a further <b>exec</b>() call. Since UNIX V7 both are NULL.</div>
+</div>
+<div class="section">
+<h1>EXAMPLE</h1> The following program is designed to be execed by the second program below. It just echoes its command-line one per line.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+/* myecho.c */<div class="spacer">
+</div>
+<br/>
+#include &lt;stdio.h&gt;<br/>
+#include &lt;stdlib.h&gt;<div class="spacer">
+</div>
+<br/>
+int<br/>
+main(int argc, char *argv[])<br/>
+{<br/>
+    int j;<div class="spacer">
+</div>
+<br/>
+    for (j = 0; j &lt; argc; j++)<br/>
+        printf(&quot;argv[%d]: %s\n&quot;, j, argv[j]);<div class="spacer">
+</div>
+<br/>
+    exit(EXIT_SUCCESS);<br/>
+}<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This program can be used to exec the program named in its command-line argument:<br/>
+<div class="spacer">
+</div>
+<br/>
+/* execve.c */<div class="spacer">
+</div>
+<br/>
+#include &lt;stdio.h&gt;<br/>
+#include &lt;stdlib.h&gt;<br/>
+#include &lt;unistd.h&gt;<div class="spacer">
+</div>
+<br/>
+int<br/>
+main(int argc, char *argv[])<br/>
+{<br/>
+    char *newargv[] = { NULL, &quot;hello&quot;, &quot;world&quot;, NULL };<br/>
+    char *newenviron[] = { NULL };<div class="spacer">
+</div>
+<br/>
+    if (argc != 2) {<br/>
+	fprintf(stderr, &quot;Usage: %s &lt;file-to-exec&gt;\n&quot;, argv[0]);<br/>
+	exit(EXIT_FAILURE);<br/>
+    }<div class="spacer">
+</div>
+<br/>
+    newargv[0] = argv[1];<div class="spacer">
+</div>
+<br/>
+    execve(argv[1], newargv, newenviron);<br/>
+    perror(&quot;execve&quot;);   /* execve() only returns on error */<br/>
+    exit(EXIT_FAILURE);<br/>
+}<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+We can use the second program to exec the first as follows:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+$<b> cc myecho.c -o myecho</b><br/>
+$<b> cc execve.c -o execve</b><br/>
+$<b> ./execve ./myecho</b><br/>
+argv[0]: ./myecho<br/>
+argv[1]: hello<br/>
+argv[2]: world<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+We can also use these programs to demonstrate the use of a script interpreter. To do this we create a script whose &quot;interpreter&quot; is our <i>myecho</i> program:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+$<b> cat &gt; script.sh</b> <b>#! ./myecho script-arg</b> <b>^D</b><br/>
+$<b> chmod +x script.sh</b><br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+We can then use our program to exec the script:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+$<b> ./execve ./script.sh</b><br/>
+argv[0]: ./myecho<br/>
+argv[1]: script-arg<br/>
+argv[2]: ./script.sh<br/>
+argv[3]: hello<br/>
+argv[4]: world<br/>
+<br/>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>chmod</b>(2), <b>fork</b>(2), <b>ptrace</b>(2), <b>execl</b>(3), <b>fexecve</b>(3), <b>getopt</b>(3), <b>credentials</b>(7), <b>environ</b>(7), <b>path_resolution</b>(7), <b>ld.so</b>(8)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-14</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

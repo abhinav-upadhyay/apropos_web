@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PCREPATTERN(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PCREPATTERN(3)</td>
+<td class="head-vol">
+Library Functions Manual</td>
+<td class="head-rtitle">
+PCREPATTERN(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> PCRE - Perl-compatible regular expressions</div>
+<div class="section">
+<h1>PCRE REGULAR EXPRESSION DETAILS</h1> The syntax and semantics of the regular expressions that are supported by PCRE are described in detail below. There is a quick-reference syntax summary in the  <b>pcresyntax</b> page. PCRE tries to match Perl syntax and semantics as closely as it can. PCRE also supports some alternative regular expression syntax (which does not conflict with the Perl syntax) in order to provide some compatibility with regular expressions in Python, .NET, and Oniguruma.<div class="spacer">
+</div>
+Perl's regular expressions are described in its own documentation, and regular expressions in general are covered in a number of books, some of which have copious examples. Jeffrey Friedl's &quot;Mastering Regular Expressions&quot;, published by O'Reilly, covers regular expressions in great detail. This description of PCRE's regular expressions is intended as reference material.<div class="spacer">
+</div>
+The original operation of PCRE was on strings of one-byte characters. However, there is now also support for UTF-8 strings in the original library, and a second library that supports 16-bit and UTF-16 character strings. To use these features, PCRE must be built to include appropriate support. When using UTF strings you must either call the compiling function with the PCRE_UTF8 or PCRE_UTF16 option, or the pattern must start with one of these special sequences:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*UTF8)<br/>
+  (*UTF16)<div style="height: 1.00em;">
+&#160;</div>
+Starting a pattern with such a sequence is equivalent to setting the relevant option. This feature is not Perl-compatible. How setting a UTF mode affects pattern matching is mentioned in several places below. There is also a summary of features in the  <b>pcreunicode</b> page.<div class="spacer">
+</div>
+Another special sequence that may appear at the start of a pattern or in combination with (*UTF8) or (*UTF16) is:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*UCP)<div style="height: 1.00em;">
+&#160;</div>
+This has the same effect as setting the PCRE_UCP option: it causes sequences such as \d and \w to use Unicode properties to determine character types, instead of recognizing only characters with codes less than 128 via a lookup table.<div class="spacer">
+</div>
+If a pattern starts with (*NO_START_OPT), it has the same effect as setting the PCRE_NO_START_OPTIMIZE option either at compile or matching time. There are also some more of these special sequences that are concerned with the handling of newlines; they are described below.<div class="spacer">
+</div>
+The remainder of this document discusses the patterns that are supported by PCRE when one its main matching functions,  <b>pcre_exec()</b> (8-bit) or  <b>pcre16_exec()</b> (16-bit), is used. PCRE also has alternative matching functions,  <b>pcre_dfa_exec()</b> and <b>pcre16_dfa_exec()</b>, which match using a different algorithm that is not Perl-compatible. Some of the features discussed below are not available when DFA matching is used. The advantages and disadvantages of the alternative functions, and how they differ from the normal functions, are discussed in the  <b>pcrematching</b> page.</div>
+<div class="section">
+<h1>NEWLINE CONVENTIONS</h1> PCRE supports five different conventions for indicating line breaks in strings: a single CR (carriage return) character, a single LF (linefeed) character, the two-character sequence CRLF, any of the three preceding, or any Unicode newline sequence. The  <b>pcreapi</b> page has further discussion about newlines, and shows how to set the newline convention in the  <i>options</i> arguments for the compiling and matching functions.<div class="spacer">
+</div>
+It is also possible to specify a newline convention by starting a pattern string with one of the following five sequences:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*CR)        carriage return<br/>
+  (*LF)        linefeed<br/>
+  (*CRLF)      carriage return, followed by linefeed<br/>
+  (*ANYCRLF)   any of the three above<br/>
+  (*ANY)       all Unicode newline sequences<div style="height: 1.00em;">
+&#160;</div>
+These override the default and the options given to the compiling function. For example, on a Unix system where LF is the default newline sequence, the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*CR)a.b<div style="height: 1.00em;">
+&#160;</div>
+changes the convention to CR. That pattern matches &quot;a\nb&quot; because LF is no longer a newline. Note that these special settings, which are not Perl-compatible, are recognized only at the very start of a pattern, and that they must be in upper case. If more than one of them is present, the last one is used.<div class="spacer">
+</div>
+The newline convention affects the interpretation of the dot metacharacter when PCRE_DOTALL is not set, and also the behaviour of \N. However, it does not affect what the \R escape sequence matches. By default, this is any Unicode newline sequence, for Perl compatibility. However, this can be changed; see the description of \R in the section entitled &quot;Newline sequences&quot; below. A change of \R setting can be combined with a change of newline convention.</div>
+<div class="section">
+<h1>CHARACTERS AND METACHARACTERS</h1> A regular expression is a pattern that is matched against a subject string from left to right. Most characters stand for themselves in a pattern, and match the corresponding characters in the subject. As a trivial example, the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  The quick brown fox<div style="height: 1.00em;">
+&#160;</div>
+matches a portion of a subject string that is identical to itself. When caseless matching is specified (the PCRE_CASELESS option), letters are matched independently of case. In a UTF mode, PCRE always understands the concept of case for characters whose values are less than 128, so caseless matching is always possible. For characters with higher values, the concept of case is supported if PCRE is compiled with Unicode property support, but not otherwise. If you want to use caseless matching for characters 128 and above, you must ensure that PCRE is compiled with Unicode property support as well as with UTF support.<div class="spacer">
+</div>
+The power of regular expressions comes from the ability to include alternatives and repetitions in the pattern. These are encoded in the pattern by the use of  <i>metacharacters</i>, which do not stand for themselves but instead are interpreted in some special way.<div class="spacer">
+</div>
+There are two different sets of metacharacters: those that are recognized anywhere in the pattern except within square brackets, and those that are recognized within square brackets. Outside square brackets, the metacharacters are as follows:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \      general escape character with several uses<br/>
+  ^      assert start of string (or line, in multiline mode)<br/>
+  $      assert end of string (or line, in multiline mode)<br/>
+  .      match any character except newline (by default)<br/>
+  [      start character class definition<br/>
+  |      start of alternative branch<br/>
+  (      start subpattern<br/>
+  )      end subpattern<br/>
+  ?      extends the meaning of (<br/>
+         also 0 or 1 quantifier<br/>
+         also quantifier minimizer<br/>
+  *      0 or more quantifier<br/>
+  +      1 or more quantifier<br/>
+         also &quot;possessive quantifier&quot;<br/>
+  {      start min/max quantifier<div style="height: 1.00em;">
+&#160;</div>
+Part of a pattern that is in square brackets is called a &quot;character class&quot;. In a character class the only metacharacters are:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \      general escape character<br/>
+  ^      negate the class, but only if the first character<br/>
+  -      indicates character range<br/>
+  [      POSIX character class (only if followed by POSIX<br/>
+           syntax)<br/>
+  ]      terminates the character class<div style="height: 1.00em;">
+&#160;</div>
+The following sections describe the use of each of the metacharacters.</div>
+<div class="section">
+<h1>BACKSLASH</h1> The backslash character has several uses. Firstly, if it is followed by a character that is not a number or a letter, it takes away any special meaning that character may have. This use of backslash as an escape character applies both inside and outside character classes.<div class="spacer">
+</div>
+For example, if you want to match a * character, you write \* in the pattern. This escaping action applies whether or not the following character would otherwise be interpreted as a metacharacter, so it is always safe to precede a non-alphanumeric with backslash to specify that it stands for itself. In particular, if you want to match a backslash, you write \\.<div class="spacer">
+</div>
+In a UTF mode, only ASCII numbers and letters have any special meaning after a backslash. All other characters (in particular, those whose codepoints are greater than 127) are treated as literals.<div class="spacer">
+</div>
+If a pattern is compiled with the PCRE_EXTENDED option, white space in the pattern (other than in a character class) and characters between a # outside a character class and the next newline are ignored. An escaping backslash can be used to include a white space or # character as part of the pattern.<div class="spacer">
+</div>
+If you want to remove the special meaning from a sequence of characters, you can do so by putting them between \Q and \E. This is different from Perl in that $ and @ are handled as literals in \Q...\E sequences in PCRE, whereas in Perl, $ and @ cause variable interpolation. Note the following examples:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  Pattern            PCRE matches   Perl matches<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \Qabc$xyz\E        abc$xyz        abc followed by the<br/>
+                                      contents of $xyz<br/>
+  \Qabc\$xyz\E       abc\$xyz       abc\$xyz<br/>
+  \Qabc\E\$\Qxyz\E   abc$xyz        abc$xyz<div style="height: 1.00em;">
+&#160;</div>
+The \Q...\E sequence is recognized both inside and outside character classes. An isolated \E that is not preceded by \Q is ignored. If \Q is not followed by \E later in the pattern, the literal interpretation continues to the end of the pattern (that is, \E is assumed at the end). If the isolated \Q is inside a character class, this causes an error, because the character class is not terminated.<div class="subsection">
+<h2>Non-printing characters</h2> A second use of backslash provides a way of encoding non-printing characters in patterns in a visible manner. There is no restriction on the appearance of non-printing characters, apart from the binary zero that terminates a pattern, but when a pattern is being prepared by text editing, it is often easier to use one of the following escape sequences than the binary character it represents:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \a        alarm, that is, the BEL character (hex 07)<br/>
+  \cx       &quot;control-x&quot;, where x is any ASCII character<br/>
+  \e        escape (hex 1B)<br/>
+  \f        form feed (hex 0C)<br/>
+  \n        linefeed (hex 0A)<br/>
+  \r        carriage return (hex 0D)<br/>
+  \t        tab (hex 09)<br/>
+  \ddd      character with octal code ddd, or back reference<br/>
+  \xhh      character with hex code hh<br/>
+  \x{hhh..} character with hex code hhh.. (non-JavaScript mode)<br/>
+  \uhhhh    character with hex code hhhh (JavaScript mode only)<div style="height: 1.00em;">
+&#160;</div>
+The precise effect of \cx is as follows: if x is a lower case letter, it is converted to upper case. Then bit 6 of the character (hex 40) is inverted. Thus \cz becomes hex 1A (z is 7A), but \c{ becomes hex 3B ({ is 7B), while \c; becomes hex 7B (; is 3B). If the byte following \c has a value greater than 127, a compile-time error occurs. This locks out non-ASCII characters in all modes. (When PCRE is compiled in EBCDIC mode, all byte values are valid. A lower case letter is converted to upper case, and then the 0xc0 bits are flipped.)<div class="spacer">
+</div>
+By default, after \x, from zero to two hexadecimal digits are read (letters can be in upper or lower case). Any number of hexadecimal digits may appear between \x{ and }, but the character code is constrained as follows:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  8-bit non-UTF mode    less than 0x100<br/>
+  8-bit UTF-8 mode      less than 0x10ffff and a valid codepoint<br/>
+  16-bit non-UTF mode   less than 0x10000<br/>
+  16-bit UTF-16 mode    less than 0x10ffff and a valid codepoint<div style="height: 1.00em;">
+&#160;</div>
+Invalid Unicode codepoints are the range 0xd800 to 0xdfff (the so-called &quot;surrogate&quot; codepoints).<div class="spacer">
+</div>
+If characters other than hexadecimal digits appear between \x{ and }, or if there is no terminating }, this form of escape is not recognized. Instead, the initial \x will be interpreted as a basic hexadecimal escape, with no following digits, giving a character whose value is zero.<div class="spacer">
+</div>
+If the PCRE_JAVASCRIPT_COMPAT option is set, the interpretation of \x is as just described only when it is followed by two hexadecimal digits. Otherwise, it matches a literal &quot;x&quot; character. In JavaScript mode, support for code points greater than 256 is provided by \u, which must be followed by four hexadecimal digits; otherwise it matches a literal &quot;u&quot; character. Character codes specified by \u in JavaScript mode are constrained in the same was as those specified by \x in non-JavaScript mode.<div class="spacer">
+</div>
+Characters whose value is less than 256 can be defined by either of the two syntaxes for \x (or by \u in JavaScript mode). There is no difference in the way they are handled. For example, \xdc is exactly the same as \x{dc} (or \u00dc in JavaScript mode).<div class="spacer">
+</div>
+After \0 up to two further octal digits are read. If there are fewer than two digits, just those that are present are used. Thus the sequence \0\x\07 specifies two binary zeros followed by a BEL character (code value 7). Make sure you supply two digits after the initial zero if the pattern character that follows is itself an octal digit.<div class="spacer">
+</div>
+The handling of a backslash followed by a digit other than 0 is complicated. Outside a character class, PCRE reads it and any following digits as a decimal number. If the number is less than 10, or if there have been at least that many previous capturing left parentheses in the expression, the entire sequence is taken as a  <i>back reference</i>. A description of how this works is given later, following the discussion of parenthesized subpatterns.<div class="spacer">
+</div>
+Inside a character class, or if the decimal number is greater than 9 and there have not been that many capturing subpatterns, PCRE re-reads up to three octal digits following the backslash, and uses them to generate a data character. Any subsequent digits stand for themselves. The value of the character is constrained in the same way as characters specified in hexadecimal. For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \040   is another way of writing a space<br/>
+  \40    is the same, provided there are fewer than 40<br/>
+            previous capturing subpatterns<br/>
+  \7     is always a back reference<br/>
+  \11    might be a back reference, or another way of<br/>
+            writing a tab<br/>
+  \011   is always a tab<br/>
+  \0113  is a tab followed by the character &quot;3&quot;<br/>
+  \113   might be a back reference, otherwise the<br/>
+            character with octal code 113<br/>
+  \377   might be a back reference, otherwise<br/>
+            the value 255 (decimal)<br/>
+  \81    is either a back reference, or a binary zero<br/>
+            followed by the two characters &quot;8&quot; and &quot;1&quot;<div style="height: 1.00em;">
+&#160;</div>
+Note that octal values of 100 or greater must not be introduced by a leading zero, because no more than three octal digits are ever read.<div class="spacer">
+</div>
+All the sequences that define a single character value can be used both inside and outside character classes. In addition, inside a character class, \b is interpreted as the backspace character (hex 08).<div class="spacer">
+</div>
+\N is not allowed in a character class. \B, \R, and \X are not special inside a character class. Like other unrecognized escape sequences, they are treated as the literal characters &quot;B&quot;, &quot;R&quot;, and &quot;X&quot; by default, but cause an error if the PCRE_EXTRA option is set. Outside a character class, these sequences have different meanings.</div>
+<div class="subsection">
+<h2>Unsupported escape sequences</h2> In Perl, the sequences \l, \L, \u, and \U are recognized by its string handler and used to modify the case of following characters. By default, PCRE does not support these escape sequences. However, if the PCRE_JAVASCRIPT_COMPAT option is set, \U matches a &quot;U&quot; character, and \u can be used to define a character by code point, as described in the previous section.</div>
+<div class="subsection">
+<h2>Absolute and relative back references</h2> The sequence \g followed by an unsigned or a negative number, optionally enclosed in braces, is an absolute or relative back reference. A named back reference can be coded as \g{name}. Back references are discussed later, following the discussion of parenthesized subpatterns.</div>
+<div class="subsection">
+<h2>Absolute and relative subroutine calls</h2> For compatibility with Oniguruma, the non-Perl syntax \g followed by a name or a number enclosed either in angle brackets or single quotes, is an alternative syntax for referencing a subpattern as a &quot;subroutine&quot;. Details are discussed later. Note that \g{...} (Perl syntax) and \g&lt;...&gt; (Oniguruma syntax) are  <i>not</i> synonymous. The former is a back reference; the latter is a subroutine call.</div>
+<div class="subsection">
+<h2>Generic character types</h2> Another use of backslash is for specifying generic character types:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \d     any decimal digit<br/>
+  \D     any character that is not a decimal digit<br/>
+  \h     any horizontal white space character<br/>
+  \H     any character that is not a horizontal white space character<br/>
+  \s     any white space character<br/>
+  \S     any character that is not a white space character<br/>
+  \v     any vertical white space character<br/>
+  \V     any character that is not a vertical white space character<br/>
+  \w     any &quot;word&quot; character<br/>
+  \W     any &quot;non-word&quot; character<div style="height: 1.00em;">
+&#160;</div>
+There is also the single sequence \N, which matches a non-newline character. This is the same as the &quot;.&quot; metacharacter when PCRE_DOTALL is not set. Perl also uses \N to match characters by name; PCRE does not support this.<div class="spacer">
+</div>
+Each pair of lower and upper case escape sequences partitions the complete set of characters into two disjoint sets. Any given character matches one, and only one, of each pair. The sequences can appear both inside and outside character classes. They each match one character of the appropriate type. If the current matching point is at the end of the subject string, all of them fail, because there is no character to match.<div class="spacer">
+</div>
+For compatibility with Perl, \s does not match the VT character (code 11). This makes it different from the the POSIX &quot;space&quot; class. The \s characters are HT (9), LF (10), FF (12), CR (13), and space (32). If &quot;use locale;&quot; is included in a Perl script, \s may match the VT character. In PCRE, it never does.<div class="spacer">
+</div>
+A &quot;word&quot; character is an underscore or any character that is a letter or digit. By default, the definition of letters and digits is controlled by PCRE's low-valued character tables, and may vary if locale-specific matching is taking place (see &quot;Locale support&quot; in the  <b>pcreapi</b> page). For example, in a French locale such as &quot;fr_FR&quot; in Unix-like systems, or &quot;french&quot; in Windows, some character codes greater than 128 are used for accented letters, and these are then matched by \w. The use of locales with Unicode is discouraged.<div class="spacer">
+</div>
+By default, in a UTF mode, characters with values greater than 128 never match \d, \s, or \w, and always match \D, \S, and \W. These sequences retain their original meanings from before UTF support was available, mainly for efficiency reasons. However, if PCRE is compiled with Unicode property support, and the PCRE_UCP option is set, the behaviour is changed so that Unicode properties are used to determine character types, as follows:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \d  any character that \p{Nd} matches (decimal digit)<br/>
+  \s  any character that \p{Z} matches, plus HT, LF, FF, CR<br/>
+  \w  any character that \p{L} or \p{N} matches, plus underscore<div style="height: 1.00em;">
+&#160;</div>
+The upper case escapes match the inverse sets of characters. Note that \d matches only decimal digits, whereas \w matches any Unicode digit, as well as any Unicode letter, and underscore. Note also that PCRE_UCP affects \b, and \B because they are defined in terms of \w and \W. Matching these sequences is noticeably slower when PCRE_UCP is set.<div class="spacer">
+</div>
+The sequences \h, \H, \v, and \V are features that were added to Perl at release 5.10. In contrast to the other sequences, which match only ASCII characters by default, these always match certain high-valued codepoints, whether or not PCRE_UCP is set. The horizontal space characters are:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  U+0009     Horizontal tab<br/>
+  U+0020     Space<br/>
+  U+00A0     Non-break space<br/>
+  U+1680     Ogham space mark<br/>
+  U+180E     Mongolian vowel separator<br/>
+  U+2000     En quad<br/>
+  U+2001     Em quad<br/>
+  U+2002     En space<br/>
+  U+2003     Em space<br/>
+  U+2004     Three-per-em space<br/>
+  U+2005     Four-per-em space<br/>
+  U+2006     Six-per-em space<br/>
+  U+2007     Figure space<br/>
+  U+2008     Punctuation space<br/>
+  U+2009     Thin space<br/>
+  U+200A     Hair space<br/>
+  U+202F     Narrow no-break space<br/>
+  U+205F     Medium mathematical space<br/>
+  U+3000     Ideographic space<div style="height: 1.00em;">
+&#160;</div>
+The vertical space characters are:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  U+000A     Linefeed<br/>
+  U+000B     Vertical tab<br/>
+  U+000C     Form feed<br/>
+  U+000D     Carriage return<br/>
+  U+0085     Next line<br/>
+  U+2028     Line separator<br/>
+  U+2029     Paragraph separator<div style="height: 1.00em;">
+&#160;</div>
+In 8-bit, non-UTF-8 mode, only the characters with codepoints less than 256 are relevant.</div>
+<div class="subsection">
+<h2>Newline sequences</h2> Outside a character class, by default, the escape sequence \R matches any Unicode newline sequence. In 8-bit non-UTF-8 mode \R is equivalent to the following:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&gt;\r\n|\n|\x0b|\f|\r|\x85)<div style="height: 1.00em;">
+&#160;</div>
+This is an example of an &quot;atomic group&quot;, details of which are given below. This particular group matches either the two-character sequence CR followed by LF, or one of the single characters LF (linefeed, U+000A), VT (vertical tab, U+000B), FF (form feed, U+000C), CR (carriage return, U+000D), or NEL (next line, U+0085). The two-character sequence is treated as a single unit that cannot be split.<div class="spacer">
+</div>
+In other modes, two additional characters whose codepoints are greater than 255 are added: LS (line separator, U+2028) and PS (paragraph separator, U+2029). Unicode character property support is not needed for these characters to be recognized.<div class="spacer">
+</div>
+It is possible to restrict \R to match only CR, LF, or CRLF (instead of the complete set of Unicode line endings) by setting the option PCRE_BSR_ANYCRLF either at compile time or when the pattern is matched. (BSR is an abbrevation for &quot;backslash R&quot;.) This can be made the default when PCRE is built; if this is the case, the other behaviour can be requested via the PCRE_BSR_UNICODE option. It is also possible to specify these settings by starting a pattern string with one of the following sequences:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*BSR_ANYCRLF)   CR, LF, or CRLF only<br/>
+  (*BSR_UNICODE)   any Unicode newline sequence<div style="height: 1.00em;">
+&#160;</div>
+These override the default and the options given to the compiling function, but they can themselves be overridden by options given to a matching function. Note that these special settings, which are not Perl-compatible, are recognized only at the very start of a pattern, and that they must be in upper case. If more than one of them is present, the last one is used. They can be combined with a change of newline convention; for example, a pattern can start with:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*ANY)(*BSR_ANYCRLF)<div style="height: 1.00em;">
+&#160;</div>
+They can also be combined with the (*UTF8), (*UTF16), or (*UCP) special sequences. Inside a character class, \R is treated as an unrecognized escape sequence, and so matches the letter &quot;R&quot; by default, but causes an error if PCRE_EXTRA is set.</div>
+<div class="subsection">
+<h2>Unicode character properties</h2> When PCRE is built with Unicode character property support, three additional escape sequences that match characters with specific properties are available. When in 8-bit non-UTF-8 mode, these sequences are of course limited to testing characters whose codepoints are less than 256, but they do work in this mode. The extra escape sequences are:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \p{<i>xx</i>}   a character with the <i>xx</i> property<br/>
+  \P{<i>xx</i>}   a character without the <i>xx</i> property<br/>
+  \X       an extended Unicode sequence<div style="height: 1.00em;">
+&#160;</div>
+The property names represented by <i>xx</i> above are limited to the Unicode script names, the general category properties, &quot;Any&quot;, which matches any character (including newline), and some special PCRE properties (described in the next section). Other Perl properties such as &quot;InMusicalSymbols&quot; are not currently supported by PCRE. Note that \P{Any} does not match any characters, so always causes a match failure.<div class="spacer">
+</div>
+Sets of Unicode characters are defined as belonging to certain scripts. A character from one of these sets can be matched using a script name. For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \p{Greek}<br/>
+  \P{Han}<div style="height: 1.00em;">
+&#160;</div>
+Those that are not part of an identified script are lumped together as &quot;Common&quot;. The current list of scripts is:<div class="spacer">
+</div>
+Arabic, Armenian, Avestan, Balinese, Bamum, Batak, Bengali, Bopomofo, Brahmi, Braille, Buginese, Buhid, Canadian_Aboriginal, Carian, Chakma, Cham, Cherokee, Common, Coptic, Cuneiform, Cypriot, Cyrillic, Deseret, Devanagari, Egyptian_Hieroglyphs, Ethiopic, Georgian, Glagolitic, Gothic, Greek, Gujarati, Gurmukhi, Han, Hangul, Hanunoo, Hebrew, Hiragana, Imperial_Aramaic, Inherited, Inscriptional_Pahlavi, Inscriptional_Parthian, Javanese, Kaithi, Kannada, Katakana, Kayah_Li, Kharoshthi, Khmer, Lao, Latin, Lepcha, Limbu, Linear_B, Lisu, Lycian, Lydian, Malayalam, Mandaic, Meetei_Mayek, Meroitic_Cursive, Meroitic_Hieroglyphs, Miao, Mongolian, Myanmar, New_Tai_Lue, Nko, Ogham, Old_Italic, Old_Persian, Old_South_Arabian, Old_Turkic, Ol_Chiki, Oriya, Osmanya, Phags_Pa, Phoenician, Rejang, Runic, Samaritan, Saurashtra, Sharada, Shavian, Sinhala, Sora_Sompeng, Sundanese, Syloti_Nagri, Syriac, Tagalog, Tagbanwa, Tai_Le, Tai_Tham, Tai_Viet, Takri, Tamil, Telugu, Thaana, Thai, Tibetan, Tifinagh, Ugaritic, Vai, Yi.<div class="spacer">
+</div>
+Each character has exactly one Unicode general category property, specified by a two-letter abbreviation. For compatibility with Perl, negation can be specified by including a circumflex between the opening brace and the property name. For example, \p{^Lu} is the same as \P{Lu}.<div class="spacer">
+</div>
+If only one letter is specified with \p or \P, it includes all the general category properties that start with that letter. In this case, in the absence of negation, the curly brackets in the escape sequence are optional; these two examples have the same effect:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \p{L}<br/>
+  \pL<div style="height: 1.00em;">
+&#160;</div>
+The following general category property codes are supported:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  C     Other<br/>
+  Cc    Control<br/>
+  Cf    Format<br/>
+  Cn    Unassigned<br/>
+  Co    Private use<br/>
+  Cs    Surrogate<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  L     Letter<br/>
+  Ll    Lower case letter<br/>
+  Lm    Modifier letter<br/>
+  Lo    Other letter<br/>
+  Lt    Title case letter<br/>
+  Lu    Upper case letter<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  M     Mark<br/>
+  Mc    Spacing mark<br/>
+  Me    Enclosing mark<br/>
+  Mn    Non-spacing mark<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  N     Number<br/>
+  Nd    Decimal number<br/>
+  Nl    Letter number<br/>
+  No    Other number<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  P     Punctuation<br/>
+  Pc    Connector punctuation<br/>
+  Pd    Dash punctuation<br/>
+  Pe    Close punctuation<br/>
+  Pf    Final punctuation<br/>
+  Pi    Initial punctuation<br/>
+  Po    Other punctuation<br/>
+  Ps    Open punctuation<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  S     Symbol<br/>
+  Sc    Currency symbol<br/>
+  Sk    Modifier symbol<br/>
+  Sm    Mathematical symbol<br/>
+  So    Other symbol<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  Z     Separator<br/>
+  Zl    Line separator<br/>
+  Zp    Paragraph separator<br/>
+  Zs    Space separator<div style="height: 1.00em;">
+&#160;</div>
+The special property L&amp; is also supported: it matches a character that has the Lu, Ll, or Lt property, in other words, a letter that is not classified as a modifier or &quot;other&quot;.<div class="spacer">
+</div>
+The Cs (Surrogate) property applies only to characters in the range U+D800 to U+DFFF. Such characters are not valid in Unicode strings and so cannot be tested by PCRE, unless UTF validity checking has been turned off (see the discussion of PCRE_NO_UTF8_CHECK and PCRE_NO_UTF16_CHECK in the  <b>pcreapi</b> page). Perl does not support the Cs property.<div class="spacer">
+</div>
+The long synonyms for property names that Perl supports (such as \p{Letter}) are not supported by PCRE, nor is it permitted to prefix any of these properties with &quot;Is&quot;.<div class="spacer">
+</div>
+No character that is in the Unicode table has the Cn (unassigned) property. Instead, this property is assumed for any code point that is not in the Unicode table.<div class="spacer">
+</div>
+Specifying caseless matching does not affect these escape sequences. For example, \p{Lu} always matches only upper case letters.<div class="spacer">
+</div>
+The \X escape matches any number of Unicode characters that form an extended Unicode sequence. \X is equivalent to<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&gt;\PM\pM*)<div style="height: 1.00em;">
+&#160;</div>
+That is, it matches a character without the &quot;mark&quot; property, followed by zero or more characters with the &quot;mark&quot; property, and treats the sequence as an atomic group (see below). Characters with the &quot;mark&quot; property are typically accents that affect the preceding character. None of them have codepoints less than 256, so in 8-bit non-UTF-8 mode \X matches any one character.<div class="spacer">
+</div>
+Note that recent versions of Perl have changed \X to match what Unicode calls an &quot;extended grapheme cluster&quot;, which has a more complicated definition.<div class="spacer">
+</div>
+Matching characters by Unicode property is not fast, because PCRE has to search a structure that contains data for over fifteen thousand characters. That is why the traditional escape sequences such as \d and \w do not use Unicode properties in PCRE by default, though you can make them do so by setting the PCRE_UCP option or by starting the pattern with (*UCP).</div>
+<div class="subsection">
+<h2>PCRE's additional properties</h2> As well as the standard Unicode properties described in the previous section, PCRE supports four more that make it possible to convert traditional escape sequences such as \w and \s and POSIX character classes to use Unicode properties. PCRE uses these non-standard, non-Perl properties internally when PCRE_UCP is set. They are:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  Xan   Any alphanumeric character<br/>
+  Xps   Any POSIX space character<br/>
+  Xsp   Any Perl space character<br/>
+  Xwd   Any Perl &quot;word&quot; character<div style="height: 1.00em;">
+&#160;</div>
+Xan matches characters that have either the L (letter) or the N (number) property. Xps matches the characters tab, linefeed, vertical tab, form feed, or carriage return, and any other character that has the Z (separator) property. Xsp is the same as Xps, except that vertical tab is excluded. Xwd matches the same characters as Xan, plus underscore.</div>
+<div class="subsection">
+<h2>Resetting the match start</h2> The escape sequence \K causes any previously matched characters not to be included in the final matched sequence. For example, the pattern:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  foo\Kbar<div style="height: 1.00em;">
+&#160;</div>
+matches &quot;foobar&quot;, but reports that it has matched &quot;bar&quot;. This feature is similar to a lookbehind assertion (described below). However, in this case, the part of the subject before the real match does not have to be of fixed length, as lookbehind assertions do. The use of \K does not interfere with the setting of captured substrings. For example, when the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (foo)\Kbar<div style="height: 1.00em;">
+&#160;</div>
+matches &quot;foobar&quot;, the first substring is still set to &quot;foo&quot;.<div class="spacer">
+</div>
+Perl documents that the use of \K within assertions is &quot;not well defined&quot;. In PCRE, \K is acted upon when it occurs inside positive assertions, but is ignored in negative assertions.</div>
+<div class="subsection">
+<h2>Simple assertions</h2> The final use of backslash is for certain simple assertions. An assertion specifies a condition that has to be met at a particular point in a match, without consuming any characters from the subject string. The use of subpatterns for more complicated assertions is described below. The backslashed assertions are:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \b     matches at a word boundary<br/>
+  \B     matches when not at a word boundary<br/>
+  \A     matches at the start of the subject<br/>
+  \Z     matches at the end of the subject<br/>
+          also matches before a newline at the end of the subject<br/>
+  \z     matches only at the end of the subject<br/>
+  \G     matches at the first matching position in the subject<div style="height: 1.00em;">
+&#160;</div>
+Inside a character class, \b has a different meaning; it matches the backspace character. If any other of these assertions appears in a character class, by default it matches the corresponding literal character (for example, \B matches the letter B). However, if the PCRE_EXTRA option is set, an &quot;invalid escape sequence&quot; error is generated instead.<div class="spacer">
+</div>
+A word boundary is a position in the subject string where the current character and the previous character do not both match \w or \W (i.e. one matches \w and the other matches \W), or the start or end of the string if the first or last character matches \w, respectively. In a UTF mode, the meanings of \w and \W can be changed by setting the PCRE_UCP option. When this is done, it also affects \b and \B. Neither PCRE nor Perl has a separate &quot;start of word&quot; or &quot;end of word&quot; metasequence. However, whatever follows \b normally determines which it is. For example, the fragment \ba matches &quot;a&quot; at the start of a word.<div class="spacer">
+</div>
+The \A, \Z, and \z assertions differ from the traditional circumflex and dollar (described in the next section) in that they only ever match at the very start and end of the subject string, whatever options are set. Thus, they are independent of multiline mode. These three assertions are not affected by the PCRE_NOTBOL or PCRE_NOTEOL options, which affect only the behaviour of the circumflex and dollar metacharacters. However, if the  <i>startoffset</i> argument of  <b>pcre_exec()</b> is non-zero, indicating that matching is to start at a point other than the beginning of the subject, \A can never match. The difference between \Z and \z is that \Z matches before a newline at the end of the string as well as at the very end, whereas \z matches only at the end.<div class="spacer">
+</div>
+The \G assertion is true only when the current matching position is at the start point of the match, as specified by the  <i>startoffset</i> argument of  <b>pcre_exec()</b>. It differs from \A when the value of <i>startoffset</i> is non-zero. By calling  <b>pcre_exec()</b> multiple times with appropriate arguments, you can mimic Perl's /g option, and it is in this kind of implementation where \G can be useful.<div class="spacer">
+</div>
+Note, however, that PCRE's interpretation of \G, as the start of the current match, is subtly different from Perl's, which defines it as the end of the previous match. In Perl, these can be different when the previously matched string was empty. Because PCRE does just one match at a time, it cannot reproduce this behaviour.<div class="spacer">
+</div>
+If all the alternatives of a pattern begin with \G, the expression is anchored to the starting match position, and the &quot;anchored&quot; flag is set in the compiled regular expression.</div>
+</div>
+<div class="section">
+<h1>CIRCUMFLEX AND DOLLAR</h1> Outside a character class, in the default matching mode, the circumflex character is an assertion that is true only if the current matching point is at the start of the subject string. If the  <i>startoffset</i> argument of  <b>pcre_exec()</b> is non-zero, circumflex can never match if the PCRE_MULTILINE option is unset. Inside a character class, circumflex has an entirely different meaning (see below).<div class="spacer">
+</div>
+Circumflex need not be the first character of the pattern if a number of alternatives are involved, but it should be the first thing in each alternative in which it appears if the pattern is ever to match that branch. If all possible alternatives start with a circumflex, that is, if the pattern is constrained to match only at the start of the subject, it is said to be an &quot;anchored&quot; pattern. (There are also other constructs that can cause a pattern to be anchored.)<div class="spacer">
+</div>
+A dollar character is an assertion that is true only if the current matching point is at the end of the subject string, or immediately before a newline at the end of the string (by default). Dollar need not be the last character of the pattern if a number of alternatives are involved, but it should be the last item in any branch in which it appears. Dollar has no special meaning in a character class.<div class="spacer">
+</div>
+The meaning of dollar can be changed so that it matches only at the very end of the string, by setting the PCRE_DOLLAR_ENDONLY option at compile time. This does not affect the \Z assertion.<div class="spacer">
+</div>
+The meanings of the circumflex and dollar characters are changed if the PCRE_MULTILINE option is set. When this is the case, a circumflex matches immediately after internal newlines as well as at the start of the subject string. It does not match after a newline that ends the string. A dollar matches before any newlines in the string, as well as at the very end, when PCRE_MULTILINE is set. When newline is specified as the two-character sequence CRLF, isolated CR and LF characters do not indicate newlines.<div class="spacer">
+</div>
+For example, the pattern /^abc$/ matches the subject string &quot;def\nabc&quot; (where \n represents a newline) in multiline mode, but not otherwise. Consequently, patterns that are anchored in single line mode because all branches start with ^ are not anchored in multiline mode, and a match for circumflex is possible when the  <i>startoffset</i> argument of <b>pcre_exec()</b> is non-zero. The PCRE_DOLLAR_ENDONLY option is ignored if PCRE_MULTILINE is set.<div class="spacer">
+</div>
+Note that the sequences \A, \Z, and \z can be used to match the start and end of the subject in both modes, and if all branches of a pattern start with \A it is always anchored, whether or not PCRE_MULTILINE is set.</div>
+<div class="section">
+<h1>FULL STOP (PERIOD, DOT) AND \N</h1> Outside a character class, a dot in the pattern matches any one character in the subject string except (by default) a character that signifies the end of a line.<div class="spacer">
+</div>
+When a line ending is defined as a single character, dot never matches that character; when the two-character sequence CRLF is used, dot does not match CR if it is immediately followed by LF, but otherwise it matches all characters (including isolated CRs and LFs). When any Unicode line endings are being recognized, dot does not match CR or LF or any of the other line ending characters.<div class="spacer">
+</div>
+The behaviour of dot with regard to newlines can be changed. If the PCRE_DOTALL option is set, a dot matches any one character, without exception. If the two-character sequence CRLF is present in the subject string, it takes two dots to match it.<div class="spacer">
+</div>
+The handling of dot is entirely independent of the handling of circumflex and dollar, the only relationship being that they both involve newlines. Dot has no special meaning in a character class.<div class="spacer">
+</div>
+The escape sequence \N behaves like a dot, except that it is not affected by the PCRE_DOTALL option. In other words, it matches any character except one that signifies the end of a line. Perl also uses \N to match characters by name; PCRE does not support this.</div>
+<div class="section">
+<h1>MATCHING A SINGLE DATA UNIT</h1> Outside a character class, the escape sequence \C matches any one data unit, whether or not a UTF mode is set. In the 8-bit library, one data unit is one byte; in the 16-bit library it is a 16-bit unit. Unlike a dot, \C always matches line-ending characters. The feature is provided in Perl in order to match individual bytes in UTF-8 mode, but it is unclear how it can usefully be used. Because \C breaks up characters into individual data units, matching one unit with \C in a UTF mode means that the rest of the string may start with a malformed UTF character. This has undefined results, because PCRE assumes that it is dealing with valid UTF strings (and by default it checks this at the start of processing unless the PCRE_NO_UTF8_CHECK or PCRE_NO_UTF16_CHECK option is used).<div class="spacer">
+</div>
+PCRE does not allow \C to appear in lookbehind assertions (described below) in a UTF mode, because this would make it impossible to calculate the length of the lookbehind.<div class="spacer">
+</div>
+In general, the \C escape sequence is best avoided. However, one way of using it that avoids the problem of malformed UTF characters is to use a lookahead to check the length of the next character, as in this pattern, which could be used with a UTF-8 string (ignore white space and line breaks):<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?| (?=[\x00-\x7f])(\C) |<br/>
+      (?=[\x80-\x{7ff}])(\C)(\C) |<br/>
+      (?=[\x{800}-\x{ffff}])(\C)(\C)(\C) |<br/>
+      (?=[\x{10000}-\x{1fffff}])(\C)(\C)(\C)(\C))<div style="height: 1.00em;">
+&#160;</div>
+A group that starts with (?| resets the capturing parentheses numbers in each alternative (see &quot;Duplicate Subpattern Numbers&quot; below). The assertions at the start of each branch check the next UTF-8 character for values whose encoding uses 1, 2, 3, or 4 bytes, respectively. The character's individual bytes are then captured by the appropriate number of groups.</div>
+<div class="section">
+<h1>SQUARE BRACKETS AND CHARACTER CLASSES</h1> An opening square bracket introduces a character class, terminated by a closing square bracket. A closing square bracket on its own is not special by default. However, if the PCRE_JAVASCRIPT_COMPAT option is set, a lone closing square bracket causes a compile-time error. If a closing square bracket is required as a member of the class, it should be the first data character in the class (after an initial circumflex, if present) or escaped with a backslash.<div class="spacer">
+</div>
+A character class matches a single character in the subject. In a UTF mode, the character may be more than one data unit long. A matched character must be in the set of characters defined by the class, unless the first character in the class definition is a circumflex, in which case the subject character must not be in the set defined by the class. If a circumflex is actually required as a member of the class, ensure it is not the first character, or escape it with a backslash.<div class="spacer">
+</div>
+For example, the character class [aeiou] matches any lower case vowel, while [^aeiou] matches any character that is not a lower case vowel. Note that a circumflex is just a convenient notation for specifying the characters that are in the class by enumerating those that are not. A class that starts with a circumflex is not an assertion; it still consumes a character from the subject string, and therefore it fails if the current pointer is at the end of the string.<div class="spacer">
+</div>
+In UTF-8 (UTF-16) mode, characters with values greater than 255 (0xffff) can be included in a class as a literal string of data units, or by using the \x{ escaping mechanism.<div class="spacer">
+</div>
+When caseless matching is set, any letters in a class represent both their upper case and lower case versions, so for example, a caseless [aeiou] matches &quot;A&quot; as well as &quot;a&quot;, and a caseless [^aeiou] does not match &quot;A&quot;, whereas a caseful version would. In a UTF mode, PCRE always understands the concept of case for characters whose values are less than 128, so caseless matching is always possible. For characters with higher values, the concept of case is supported if PCRE is compiled with Unicode property support, but not otherwise. If you want to use caseless matching in a UTF mode for characters 128 and above, you must ensure that PCRE is compiled with Unicode property support as well as with UTF support.<div class="spacer">
+</div>
+Characters that might indicate line breaks are never treated in any special way when matching character classes, whatever line-ending sequence is in use, and whatever setting of the PCRE_DOTALL and PCRE_MULTILINE options is used. A class such as [^a] always matches one of these characters.<div class="spacer">
+</div>
+The minus (hyphen) character can be used to specify a range of characters in a character class. For example, [d-m] matches any letter between d and m, inclusive. If a minus character is required in a class, it must be escaped with a backslash or appear in a position where it cannot be interpreted as indicating a range, typically as the first or last character in the class.<div class="spacer">
+</div>
+It is not possible to have the literal character &quot;]&quot; as the end character of a range. A pattern such as [W-]46] is interpreted as a class of two characters (&quot;W&quot; and &quot;-&quot;) followed by a literal string &quot;46]&quot;, so it would match &quot;W46]&quot; or &quot;-46]&quot;. However, if the &quot;]&quot; is escaped with a backslash it is interpreted as the end of range, so [W-\]46] is interpreted as a class containing a range followed by two other characters. The octal or hexadecimal representation of &quot;]&quot; can also be used to end a range.<div class="spacer">
+</div>
+Ranges operate in the collating sequence of character values. They can also be used for characters specified numerically, for example [\000-\037]. Ranges can include any characters that are valid for the current mode.<div class="spacer">
+</div>
+If a range that includes letters is used when caseless matching is set, it matches the letters in either case. For example, [W-c] is equivalent to [][\\^_`wxyzabc], matched caselessly, and in a non-UTF mode, if character tables for a French locale are in use, [\xc8-\xcb] matches accented E characters in both cases. In UTF modes, PCRE supports the concept of case for characters with values greater than 128 only when it is compiled with Unicode property support.<div class="spacer">
+</div>
+The character escape sequences \d, \D, \h, \H, \p, \P, \s, \S, \v, \V, \w, and \W may appear in a character class, and add the characters that they match to the class. For example, [\dABCDEF] matches any hexadecimal digit. In UTF modes, the PCRE_UCP option affects the meanings of \d, \s, \w and their upper case partners, just as it does when they appear outside a character class, as described in the section entitled &quot;Generic character types&quot; above. The escape sequence \b has a different meaning inside a character class; it matches the backspace character. The sequences \B, \N, \R, and \X are not special inside a character class. Like any other unrecognized escape sequences, they are treated as the literal characters &quot;B&quot;, &quot;N&quot;, &quot;R&quot;, and &quot;X&quot; by default, but cause an error if the PCRE_EXTRA option is set.<div class="spacer">
+</div>
+A circumflex can conveniently be used with the upper case character types to specify a more restricted set of characters than the matching lower case type. For example, the class [^\W_] matches any letter or digit, but not underscore, whereas [\w] includes underscore. A positive character class should be read as &quot;something OR something OR ...&quot; and a negative class as &quot;NOT something AND NOT something AND NOT ...&quot;.<div class="spacer">
+</div>
+The only metacharacters that are recognized in character classes are backslash, hyphen (only where it can be interpreted as specifying a range), circumflex (only at the start), opening square bracket (only when it can be interpreted as introducing a POSIX class name - see the next section), and the terminating closing square bracket. However, escaping other non-alphanumeric characters does no harm.</div>
+<div class="section">
+<h1>POSIX CHARACTER CLASSES</h1> Perl supports the POSIX notation for character classes. This uses names enclosed by [: and :] within the enclosing square brackets. PCRE also supports this notation. For example,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  [01[:alpha:]%]<div style="height: 1.00em;">
+&#160;</div>
+matches &quot;0&quot;, &quot;1&quot;, any alphabetic character, or &quot;%&quot;. The supported class names are:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  alnum    letters and digits<br/>
+  alpha    letters<br/>
+  ascii    character codes 0 - 127<br/>
+  blank    space or tab only<br/>
+  cntrl    control characters<br/>
+  digit    decimal digits (same as \d)<br/>
+  graph    printing characters, excluding space<br/>
+  lower    lower case letters<br/>
+  print    printing characters, including space<br/>
+  punct    printing characters, excluding letters and digits and space<br/>
+  space    white space (not quite the same as \s)<br/>
+  upper    upper case letters<br/>
+  word     &quot;word&quot; characters (same as \w)<br/>
+  xdigit   hexadecimal digits<div style="height: 1.00em;">
+&#160;</div>
+The &quot;space&quot; characters are HT (9), LF (10), VT (11), FF (12), CR (13), and space (32). Notice that this list includes the VT character (code 11). This makes &quot;space&quot; different to \s, which does not include VT (for Perl compatibility).<div class="spacer">
+</div>
+The name &quot;word&quot; is a Perl extension, and &quot;blank&quot; is a GNU extension from Perl 5.8. Another Perl extension is negation, which is indicated by a ^ character after the colon. For example,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  [12[:^digit:]]<div style="height: 1.00em;">
+&#160;</div>
+matches &quot;1&quot;, &quot;2&quot;, or any non-digit. PCRE (and Perl) also recognize the POSIX syntax [.ch.] and [=ch=] where &quot;ch&quot; is a &quot;collating element&quot;, but these are not supported, and an error is given if they are encountered.<div class="spacer">
+</div>
+By default, in UTF modes, characters with values greater than 128 do not match any of the POSIX character classes. However, if the PCRE_UCP option is passed to  <b>pcre_compile()</b>, some of the classes are changed so that Unicode character properties are used. This is achieved by replacing the POSIX classes by other sequences, as follows:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  [:alnum:]  becomes  \p{Xan}<br/>
+  [:alpha:]  becomes  \p{L}<br/>
+  [:blank:]  becomes  \h<br/>
+  [:digit:]  becomes  \p{Nd}<br/>
+  [:lower:]  becomes  \p{Ll}<br/>
+  [:space:]  becomes  \p{Xps}<br/>
+  [:upper:]  becomes  \p{Lu}<br/>
+  [:word:]   becomes  \p{Xwd}<div style="height: 1.00em;">
+&#160;</div>
+Negated versions, such as [:^alpha:] use \P instead of \p. The other POSIX classes are unchanged, and match only characters with code points less than 128.</div>
+<div class="section">
+<h1>VERTICAL BAR</h1> Vertical bar characters are used to separate alternative patterns. For example, the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  gilbert|sullivan<div style="height: 1.00em;">
+&#160;</div>
+matches either &quot;gilbert&quot; or &quot;sullivan&quot;. Any number of alternatives may appear, and an empty alternative is permitted (matching the empty string). The matching process tries each alternative in turn, from left to right, and the first one that succeeds is used. If the alternatives are within a subpattern (defined below), &quot;succeeds&quot; means matching the rest of the main pattern as well as the alternative in the subpattern.</div>
+<div class="section">
+<h1>INTERNAL OPTION SETTING</h1> The settings of the PCRE_CASELESS, PCRE_MULTILINE, PCRE_DOTALL, and PCRE_EXTENDED options (which are Perl-compatible) can be changed from within the pattern by a sequence of Perl option letters enclosed between &quot;(?&quot; and &quot;)&quot;. The option letters are<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  i  for PCRE_CASELESS<br/>
+  m  for PCRE_MULTILINE<br/>
+  s  for PCRE_DOTALL<br/>
+  x  for PCRE_EXTENDED<div style="height: 1.00em;">
+&#160;</div>
+For example, (?im) sets caseless, multiline matching. It is also possible to unset these options by preceding the letter with a hyphen, and a combined setting and unsetting such as (?im-sx), which sets PCRE_CASELESS and PCRE_MULTILINE while unsetting PCRE_DOTALL and PCRE_EXTENDED, is also permitted. If a letter appears both before and after the hyphen, the option is unset.<div class="spacer">
+</div>
+The PCRE-specific options PCRE_DUPNAMES, PCRE_UNGREEDY, and PCRE_EXTRA can be changed in the same way as the Perl-compatible options by using the characters J, U and X respectively.<div class="spacer">
+</div>
+When one of these option changes occurs at top level (that is, not inside subpattern parentheses), the change applies to the remainder of the pattern that follows. If the change is placed right at the start of a pattern, PCRE extracts it into the global options (and it will therefore show up in data extracted by the  <b>pcre_fullinfo()</b> function).<div class="spacer">
+</div>
+An option change within a subpattern (see below for a description of subpatterns) affects only that part of the subpattern that follows it, so<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (a(?i)b)c<div style="height: 1.00em;">
+&#160;</div>
+matches abc and aBc and no other strings (assuming PCRE_CASELESS is not used). By this means, options can be made to have different settings in different parts of the pattern. Any changes made in one alternative do carry on into subsequent branches within the same subpattern. For example,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (a(?i)b|c)<div style="height: 1.00em;">
+&#160;</div>
+matches &quot;ab&quot;, &quot;aB&quot;, &quot;c&quot;, and &quot;C&quot;, even though when matching &quot;C&quot; the first branch is abandoned before the option setting. This is because the effects of option settings happen at compile time. There would be some very weird behaviour otherwise.<div class="spacer">
+</div>
+<b>Note:</b> There are other PCRE-specific options that can be set by the application when the compiling or matching functions are called. In some cases the pattern can contain special leading sequences such as (*CRLF) to override what the application has set or what has been defaulted. Details are given in the section entitled &quot;Newline sequences&quot; above. There are also the (*UTF8), (*UTF16), and (*UCP) leading sequences that can be used to set UTF and Unicode property modes; they are equivalent to setting the PCRE_UTF8, PCRE_UTF16, and the PCRE_UCP options, respectively.</div>
+<div class="section">
+<h1>SUBPATTERNS</h1> Subpatterns are delimited by parentheses (round brackets), which can be nested. Turning part of a pattern into a subpattern does two things:<div style="height: 1.00em;">
+&#160;</div>
+1. It localizes a set of alternatives. For example, the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  cat(aract|erpillar|)<div style="height: 1.00em;">
+&#160;</div>
+matches &quot;cataract&quot;, &quot;caterpillar&quot;, or &quot;cat&quot;. Without the parentheses, it would match &quot;cataract&quot;, &quot;erpillar&quot; or an empty string.<div style="height: 1.00em;">
+&#160;</div>
+2. It sets up the subpattern as a capturing subpattern. This means that, when the whole pattern matches, that portion of the subject string that matched the subpattern is passed back to the caller via the  <i>ovector</i> argument of the matching function. (This applies only to the traditional matching functions; the DFA matching functions do not support capturing.)<div class="spacer">
+</div>
+Opening parentheses are counted from left to right (starting from 1) to obtain numbers for the capturing subpatterns. For example, if the string &quot;the red king&quot; is matched against the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  the ((red|white) (king|queen))<div style="height: 1.00em;">
+&#160;</div>
+the captured substrings are &quot;red king&quot;, &quot;red&quot;, and &quot;king&quot;, and are numbered 1, 2, and 3, respectively.<div class="spacer">
+</div>
+The fact that plain parentheses fulfil two functions is not always helpful. There are often times when a grouping subpattern is required without a capturing requirement. If an opening parenthesis is followed by a question mark and a colon, the subpattern does not do any capturing, and is not counted when computing the number of any subsequent capturing subpatterns. For example, if the string &quot;the white queen&quot; is matched against the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  the ((?:red|white) (king|queen))<div style="height: 1.00em;">
+&#160;</div>
+the captured substrings are &quot;white queen&quot; and &quot;queen&quot;, and are numbered 1 and 2. The maximum number of capturing subpatterns is 65535.<div class="spacer">
+</div>
+As a convenient shorthand, if any option settings are required at the start of a non-capturing subpattern, the option letters may appear between the &quot;?&quot; and the &quot;:&quot;. Thus the two patterns<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?i:saturday|sunday)<br/>
+  (?:(?i)saturday|sunday)<div style="height: 1.00em;">
+&#160;</div>
+match exactly the same set of strings. Because alternative branches are tried from left to right, and options are not reset until the end of the subpattern is reached, an option setting in one branch does affect subsequent branches, so the above patterns match &quot;SUNDAY&quot; as well as &quot;Saturday&quot;.</div>
+<div class="section">
+<h1>DUPLICATE SUBPATTERN NUMBERS</h1> Perl 5.10 introduced a feature whereby each alternative in a subpattern uses the same numbers for its capturing parentheses. Such a subpattern starts with (?| and is itself a non-capturing subpattern. For example, consider this pattern:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?|(Sat)ur|(Sun))day<div style="height: 1.00em;">
+&#160;</div>
+Because the two alternatives are inside a (?| group, both sets of capturing parentheses are numbered one. Thus, when the pattern matches, you can look at captured substring number one, whichever alternative matched. This construct is useful when you want to capture part, but not all, of one of a number of alternatives. Inside a (?| group, parentheses are numbered as usual, but the number is reset at the start of each branch. The numbers of any capturing parentheses that follow the subpattern start after the highest number used in any branch. The following example is taken from the Perl documentation. The numbers underneath show in which buffer the captured content will be stored.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  # before  ---------------branch-reset----------- after<br/>
+  / ( a )  (?| x ( y ) z | (p (q) r) | (t) u (v) ) ( z ) /x<br/>
+  # 1            2         2  3        2     3     4<div style="height: 1.00em;">
+&#160;</div>
+A back reference to a numbered subpattern uses the most recent value that is set for that number by any subpattern. The following pattern matches &quot;abcabc&quot; or &quot;defdef&quot;:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  /(?|(abc)|(def))\1/<div style="height: 1.00em;">
+&#160;</div>
+In contrast, a subroutine call to a numbered subpattern always refers to the first one in the pattern with the given number. The following pattern matches &quot;abcabc&quot; or &quot;defabc&quot;:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  /(?|(abc)|(def))(?1)/<div style="height: 1.00em;">
+&#160;</div>
+If a condition test for a subpattern's having matched refers to a non-unique number, the test is true if any of the subpatterns of that number have matched.<div class="spacer">
+</div>
+An alternative approach to using this &quot;branch reset&quot; feature is to use duplicate named subpatterns, as described in the next section.</div>
+<div class="section">
+<h1>NAMED SUBPATTERNS</h1> Identifying capturing parentheses by number is simple, but it can be very hard to keep track of the numbers in complicated regular expressions. Furthermore, if an expression is modified, the numbers may change. To help with this difficulty, PCRE supports the naming of subpatterns. This feature was not added to Perl until release 5.10. Python had the feature earlier, and PCRE introduced it at release 4.0, using the Python syntax. PCRE now supports both the Perl and the Python syntax. Perl allows identically numbered subpatterns to have different names, but PCRE does not.<div class="spacer">
+</div>
+In PCRE, a subpattern can be named in one of three ways: (?&lt;name&gt;...) or (?'name'...) as in Perl, or (?P&lt;name&gt;...) as in Python. References to capturing parentheses from other parts of the pattern, such as back references, recursion, and conditions, can be made by name as well as by number.<div class="spacer">
+</div>
+Names consist of up to 32 alphanumeric characters and underscores. Named capturing parentheses are still allocated numbers as well as names, exactly as if the names were not present. The PCRE API provides function calls for extracting the name-to-number translation table from a compiled pattern. There is also a convenience function for extracting a captured substring by name.<div class="spacer">
+</div>
+By default, a name must be unique within a pattern, but it is possible to relax this constraint by setting the PCRE_DUPNAMES option at compile time. (Duplicate names are also always permitted for subpatterns with the same number, set up as described in the previous section.) Duplicate names can be useful for patterns where only one instance of the named parentheses can match. Suppose you want to match the name of a weekday, either as a 3-letter abbreviation or as the full name, and in both cases you want to extract the abbreviation. This pattern (ignoring the line breaks) does the job:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;DN&gt;Mon|Fri|Sun)(?:day)?|<br/>
+  (?&lt;DN&gt;Tue)(?:sday)?|<br/>
+  (?&lt;DN&gt;Wed)(?:nesday)?|<br/>
+  (?&lt;DN&gt;Thu)(?:rsday)?|<br/>
+  (?&lt;DN&gt;Sat)(?:urday)?<div style="height: 1.00em;">
+&#160;</div>
+There are five capturing substrings, but only one is ever set after a match. (An alternative way of solving this problem is to use a &quot;branch reset&quot; subpattern, as described in the previous section.)<div class="spacer">
+</div>
+The convenience function for extracting the data by name returns the substring for the first (and in this example, the only) subpattern of that name that matched. This saves searching to find which numbered subpattern it was.<div class="spacer">
+</div>
+If you make a back reference to a non-unique named subpattern from elsewhere in the pattern, the one that corresponds to the first occurrence of the name is used. In the absence of duplicate numbers (see the previous section) this is the one with the lowest number. If you use a named reference in a condition test (see the section about conditions below), either to check whether a subpattern has matched, or to check for recursion, all subpatterns with the same name are tested. If the condition is true for any one of them, the overall condition is true. This is the same behaviour as testing by number. For further details of the interfaces for handling named subpatterns, see the  <b>pcreapi</b> documentation.<div class="spacer">
+</div>
+<b>Warning:</b> You cannot use different names to distinguish between two subpatterns with the same number because PCRE uses only the numbers when matching. For this reason, an error is given at compile time if different names are given to subpatterns with the same number. However, you can give the same name to subpatterns with the same number, even when PCRE_DUPNAMES is not set.</div>
+<div class="section">
+<h1>REPETITION</h1> Repetition is specified by quantifiers, which can follow any of the following items:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  a literal data character<br/>
+  the dot metacharacter<br/>
+  the \C escape sequence<br/>
+  the \X escape sequence<br/>
+  the \R escape sequence<br/>
+  an escape such as \d or \pL that matches a single character<br/>
+  a character class<br/>
+  a back reference (see next section)<br/>
+  a parenthesized subpattern (including assertions)<br/>
+  a subroutine call to a subpattern (recursive or otherwise)<div style="height: 1.00em;">
+&#160;</div>
+The general repetition quantifier specifies a minimum and maximum number of permitted matches, by giving the two numbers in curly brackets (braces), separated by a comma. The numbers must be less than 65536, and the first must be less than or equal to the second. For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  z{2,4}<div style="height: 1.00em;">
+&#160;</div>
+matches &quot;zz&quot;, &quot;zzz&quot;, or &quot;zzzz&quot;. A closing brace on its own is not a special character. If the second number is omitted, but the comma is present, there is no upper limit; if the second number and the comma are both omitted, the quantifier specifies an exact number of required matches. Thus<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  [aeiou]{3,}<div style="height: 1.00em;">
+&#160;</div>
+matches at least 3 successive vowels, but may match many more, while<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \d{8}<div style="height: 1.00em;">
+&#160;</div>
+matches exactly 8 digits. An opening curly bracket that appears in a position where a quantifier is not allowed, or one that does not match the syntax of a quantifier, is taken as a literal character. For example, {,6} is not a quantifier, but a literal string of four characters.<div class="spacer">
+</div>
+In UTF modes, quantifiers apply to characters rather than to individual data units. Thus, for example, \x{100}{2} matches two characters, each of which is represented by a two-byte sequence in a UTF-8 string. Similarly, \X{3} matches three Unicode extended sequences, each of which may be several data units long (and they may be of different lengths).<div class="spacer">
+</div>
+The quantifier {0} is permitted, causing the expression to behave as if the previous item and the quantifier were not present. This may be useful for subpatterns that are referenced as subroutines from elsewhere in the pattern (but see also the section entitled &quot;Defining subpatterns for use by reference only&quot; below). Items other than subpatterns that have a {0} quantifier are omitted from the compiled pattern.<div class="spacer">
+</div>
+For convenience, the three most common quantifiers have single-character abbreviations:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  *    is equivalent to {0,}<br/>
+  +    is equivalent to {1,}<br/>
+  ?    is equivalent to {0,1}<div style="height: 1.00em;">
+&#160;</div>
+It is possible to construct infinite loops by following a subpattern that can match no characters with a quantifier that has no upper limit, for example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (a?)*<div style="height: 1.00em;">
+&#160;</div>
+Earlier versions of Perl and PCRE used to give an error at compile time for such patterns. However, because there are cases where this can be useful, such patterns are now accepted, but if any repetition of the subpattern does in fact match no characters, the loop is forcibly broken.<div class="spacer">
+</div>
+By default, the quantifiers are &quot;greedy&quot;, that is, they match as much as possible (up to the maximum number of permitted times), without causing the rest of the pattern to fail. The classic example of where this gives problems is in trying to match comments in C programs. These appear between /* and */ and within the comment, individual * and / characters may appear. An attempt to match C comments by applying the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  /\*.*\*/<div style="height: 1.00em;">
+&#160;</div>
+to the string<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  /* first comment */  not comment  /* second comment */<div style="height: 1.00em;">
+&#160;</div>
+fails, because it matches the entire string owing to the greediness of the .* item.<div class="spacer">
+</div>
+However, if a quantifier is followed by a question mark, it ceases to be greedy, and instead matches the minimum number of times possible, so the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  /\*.*?\*/<div style="height: 1.00em;">
+&#160;</div>
+does the right thing with the C comments. The meaning of the various quantifiers is not otherwise changed, just the preferred number of matches. Do not confuse this use of question mark with its use as a quantifier in its own right. Because it has two uses, it can sometimes appear doubled, as in<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \d??\d<div style="height: 1.00em;">
+&#160;</div>
+which matches one digit by preference, but can match two if that is the only way the rest of the pattern matches.<div class="spacer">
+</div>
+If the PCRE_UNGREEDY option is set (an option that is not available in Perl), the quantifiers are not greedy by default, but individual ones can be made greedy by following them with a question mark. In other words, it inverts the default behaviour.<div class="spacer">
+</div>
+When a parenthesized subpattern is quantified with a minimum repeat count that is greater than 1 or with a limited maximum, more memory is required for the compiled pattern, in proportion to the size of the minimum or maximum.<div class="spacer">
+</div>
+If a pattern starts with .* or .{0,} and the PCRE_DOTALL option (equivalent to Perl's /s) is set, thus allowing the dot to match newlines, the pattern is implicitly anchored, because whatever follows will be tried against every character position in the subject string, so there is no point in retrying the overall match at any position after the first. PCRE normally treats such a pattern as though it were preceded by \A.<div class="spacer">
+</div>
+In cases where it is known that the subject string contains no newlines, it is worth setting PCRE_DOTALL in order to obtain this optimization, or alternatively using ^ to indicate anchoring explicitly.<div class="spacer">
+</div>
+However, there is one situation where the optimization cannot be used. When .* is inside capturing parentheses that are the subject of a back reference elsewhere in the pattern, a match at the start may fail where a later one succeeds. Consider, for example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (.*)abc\1<div style="height: 1.00em;">
+&#160;</div>
+If the subject is &quot;xyz123abc123&quot; the match point is the fourth character. For this reason, such a pattern is not implicitly anchored.<div class="spacer">
+</div>
+When a capturing subpattern is repeated, the value captured is the substring that matched the final iteration. For example, after<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (tweedle[dume]{3}\s*)+<div style="height: 1.00em;">
+&#160;</div>
+has matched &quot;tweedledum tweedledee&quot; the value of the captured substring is &quot;tweedledee&quot;. However, if there are nested capturing subpatterns, the corresponding captured values may have been set in previous iterations. For example, after<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  /(a|(b))+/<div style="height: 1.00em;">
+&#160;</div>
+matches &quot;aba&quot; the value of the second captured substring is &quot;b&quot;.</div>
+<div class="section">
+<h1>ATOMIC GROUPING AND POSSESSIVE QUANTIFIERS</h1> With both maximizing (&quot;greedy&quot;) and minimizing (&quot;ungreedy&quot; or &quot;lazy&quot;) repetition, failure of what follows normally causes the repeated item to be re-evaluated to see if a different number of repeats allows the rest of the pattern to match. Sometimes it is useful to prevent this, either to change the nature of the match, or to cause it fail earlier than it otherwise might, when the author of the pattern knows there is no point in carrying on.<div class="spacer">
+</div>
+Consider, for example, the pattern \d+foo when applied to the subject line<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  123456bar<div style="height: 1.00em;">
+&#160;</div>
+After matching all 6 digits and then failing to match &quot;foo&quot;, the normal action of the matcher is to try again with only 5 digits matching the \d+ item, and then with 4, and so on, before ultimately failing. &quot;Atomic grouping&quot; (a term taken from Jeffrey Friedl's book) provides the means for specifying that once a subpattern has matched, it is not to be re-evaluated in this way.<div class="spacer">
+</div>
+If we use atomic grouping for the previous example, the matcher gives up immediately on failing to match &quot;foo&quot; the first time. The notation is a kind of special parenthesis, starting with (?&gt; as in this example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&gt;\d+)foo<div style="height: 1.00em;">
+&#160;</div>
+This kind of parenthesis &quot;locks up&quot; the  part of the pattern it contains once it has matched, and a failure further into the pattern is prevented from backtracking into it. Backtracking past it to previous items, however, works as normal.<div class="spacer">
+</div>
+An alternative description is that a subpattern of this type matches the string of characters that an identical standalone pattern would match, if anchored at the current point in the subject string.<div class="spacer">
+</div>
+Atomic grouping subpatterns are not capturing subpatterns. Simple cases such as the above example can be thought of as a maximizing repeat that must swallow everything it can. So, while both \d+ and \d+? are prepared to adjust the number of digits they match in order to make the rest of the pattern match, (?&gt;\d+) can only match an entire sequence of digits.<div class="spacer">
+</div>
+Atomic groups in general can of course contain arbitrarily complicated subpatterns, and can be nested. However, when the subpattern for an atomic group is just a single repeated item, as in the example above, a simpler notation, called a &quot;possessive quantifier&quot; can be used. This consists of an additional + character following a quantifier. Using this notation, the previous example can be rewritten as<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \d++foo<div style="height: 1.00em;">
+&#160;</div>
+Note that a possessive quantifier can be used with an entire group, for example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (abc|xyz){2,3}+<div style="height: 1.00em;">
+&#160;</div>
+Possessive quantifiers are always greedy; the setting of the PCRE_UNGREEDY option is ignored. They are a convenient notation for the simpler forms of atomic group. However, there is no difference in the meaning of a possessive quantifier and the equivalent atomic group, though there may be a performance difference; possessive quantifiers should be slightly faster.<div class="spacer">
+</div>
+The possessive quantifier syntax is an extension to the Perl 5.8 syntax. Jeffrey Friedl originated the idea (and the name) in the first edition of his book. Mike McCloskey liked it, so implemented it when he built Sun's Java package, and PCRE copied it from there. It ultimately found its way into Perl at release 5.10.<div class="spacer">
+</div>
+PCRE has an optimization that automatically &quot;possessifies&quot; certain simple pattern constructs. For example, the sequence A+B is treated as A++B because there is no point in backtracking into a sequence of A's when B must follow.<div class="spacer">
+</div>
+When a pattern contains an unlimited repeat inside a subpattern that can itself be repeated an unlimited number of times, the use of an atomic group is the only way to avoid some failing matches taking a very long time indeed. The pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (\D+|&lt;\d+&gt;)*[!?]<div style="height: 1.00em;">
+&#160;</div>
+matches an unlimited number of substrings that either consist of non-digits, or digits enclosed in &lt;&gt;, followed by either ! or ?. When it matches, it runs quickly. However, if it is applied to<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa<div style="height: 1.00em;">
+&#160;</div>
+it takes a long time before reporting failure. This is because the string can be divided between the internal \D+ repeat and the external * repeat in a large number of ways, and all have to be tried. (The example uses [!?] rather than a single character at the end, because both PCRE and Perl have an optimization that allows for fast failure when a single character is used. They remember the last single character that is required for a match, and fail early if it is not present in the string.) If the pattern is changed so that it uses an atomic group, like this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ((?&gt;\D+)|&lt;\d+&gt;)*[!?]<div style="height: 1.00em;">
+&#160;</div>
+sequences of non-digits cannot be broken, and failure happens quickly.</div>
+<div class="section">
+<h1>BACK REFERENCES</h1> Outside a character class, a backslash followed by a digit greater than 0 (and possibly further digits) is a back reference to a capturing subpattern earlier (that is, to its left) in the pattern, provided there have been that many previous capturing left parentheses.<div class="spacer">
+</div>
+However, if the decimal number following the backslash is less than 10, it is always taken as a back reference, and causes an error only if there are not that many capturing left parentheses in the entire pattern. In other words, the parentheses that are referenced need not be to the left of the reference for numbers less than 10. A &quot;forward back reference&quot; of this type can make sense when a repetition is involved and the subpattern to the right has participated in an earlier iteration.<div class="spacer">
+</div>
+It is not possible to have a numerical &quot;forward back reference&quot; to a subpattern whose number is 10 or more using this syntax because a sequence such as \50 is interpreted as a character defined in octal. See the subsection entitled &quot;Non-printing characters&quot; above for further details of the handling of digits following a backslash. There is no such problem when named parentheses are used. A back reference to any subpattern is possible using named parentheses (see below).<div class="spacer">
+</div>
+Another way of avoiding the ambiguity inherent in the use of digits following a backslash is to use the \g escape sequence. This escape must be followed by an unsigned number or a negative number, optionally enclosed in braces. These examples are all identical:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (ring), \1<br/>
+  (ring), \g1<br/>
+  (ring), \g{1}<div style="height: 1.00em;">
+&#160;</div>
+An unsigned number specifies an absolute reference without the ambiguity that is present in the older syntax. It is also useful when literal digits follow the reference. A negative number is a relative reference. Consider this example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (abc(def)ghi)\g{-1}<div style="height: 1.00em;">
+&#160;</div>
+The sequence \g{-1} is a reference to the most recently started capturing subpattern before \g, that is, is it equivalent to \2 in this example. Similarly, \g{-2} would be equivalent to \1. The use of relative references can be helpful in long patterns, and also in patterns that are created by joining together fragments that contain references within themselves.<div class="spacer">
+</div>
+A back reference matches whatever actually matched the capturing subpattern in the current subject string, rather than anything matching the subpattern itself (see &quot;Subpatterns as subroutines&quot; below for a way of doing that). So the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (sens|respons)e and \1ibility<div style="height: 1.00em;">
+&#160;</div>
+matches &quot;sense and sensibility&quot; and &quot;response and responsibility&quot;, but not &quot;sense and responsibility&quot;. If caseful matching is in force at the time of the back reference, the case of letters is relevant. For example,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ((?i)rah)\s+\1<div style="height: 1.00em;">
+&#160;</div>
+matches &quot;rah rah&quot; and &quot;RAH RAH&quot;, but not &quot;RAH rah&quot;, even though the original capturing subpattern is matched caselessly.<div class="spacer">
+</div>
+There are several different ways of writing back references to named subpatterns. The .NET syntax \k{name} and the Perl syntax \k&lt;name&gt; or \k'name' are supported, as is the Python syntax (?P=name). Perl 5.10's unified back reference syntax, in which \g can be used for both numeric and named references, is also supported. We could rewrite the above example in any of the following ways:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;p1&gt;(?i)rah)\s+\k&lt;p1&gt;<br/>
+  (?'p1'(?i)rah)\s+\k{p1}<br/>
+  (?P&lt;p1&gt;(?i)rah)\s+(?P=p1)<br/>
+  (?&lt;p1&gt;(?i)rah)\s+\g{p1}<div style="height: 1.00em;">
+&#160;</div>
+A subpattern that is referenced by name may appear in the pattern before or after the reference.<div class="spacer">
+</div>
+There may be more than one back reference to the same subpattern. If a subpattern has not actually been used in a particular match, any back references to it always fail by default. For example, the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (a|(bc))\2<div style="height: 1.00em;">
+&#160;</div>
+always fails if it starts to match &quot;a&quot; rather than &quot;bc&quot;. However, if the PCRE_JAVASCRIPT_COMPAT option is set at compile time, a back reference to an unset value matches an empty string.<div class="spacer">
+</div>
+Because there may be many capturing parentheses in a pattern, all digits following a backslash are taken as part of a potential back reference number. If the pattern continues with a digit character, some delimiter must be used to terminate the back reference. If the PCRE_EXTENDED option is set, this can be white space. Otherwise, the \g{ syntax or an empty comment (see &quot;Comments&quot; below) can be used.<div class="subsection">
+<h2>Recursive back references</h2> A back reference that occurs inside the parentheses to which it refers fails when the subpattern is first used, so, for example, (a\1) never matches. However, such references can be useful inside repeated subpatterns. For example, the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (a|b\1)+<div style="height: 1.00em;">
+&#160;</div>
+matches any number of &quot;a&quot;s and also &quot;aba&quot;, &quot;ababbaa&quot; etc. At each iteration of the subpattern, the back reference matches the character string corresponding to the previous iteration. In order for this to work, the pattern must be such that the first iteration does not need to match the back reference. This can be done using alternation, as in the example above, or by a quantifier with a minimum of zero.<div class="spacer">
+</div>
+Back references of this type cause the group that they reference to be treated as an atomic group. Once the whole group has been matched, a subsequent matching failure cannot cause backtracking into the middle of the group.</div>
+</div>
+<div class="section">
+<h1>ASSERTIONS</h1> An assertion is a test on the characters following or preceding the current matching point that does not actually consume any characters. The simple assertions coded as \b, \B, \A, \G, \Z, \z, ^ and $ are described above.<div class="spacer">
+</div>
+More complicated assertions are coded as subpatterns. There are two kinds: those that look ahead of the current position in the subject string, and those that look behind it. An assertion subpattern is matched in the normal way, except that it does not cause the current matching position to be changed.<div class="spacer">
+</div>
+Assertion subpatterns are not capturing subpatterns. If such an assertion contains capturing subpatterns within it, these are counted for the purposes of numbering the capturing subpatterns in the whole pattern. However, substring capturing is carried out only for positive assertions, because it does not make sense for negative assertions.<div class="spacer">
+</div>
+For compatibility with Perl, assertion subpatterns may be repeated; though it makes no sense to assert the same thing several times, the side effect of capturing parentheses may occasionally be useful. In practice, there only three cases:<div style="height: 1.00em;">
+&#160;</div>
+(1) If the quantifier is {0}, the assertion is never obeyed during matching. However, it may contain internal capturing parenthesized groups that are called from elsewhere via the subroutine mechanism.<div style="height: 1.00em;">
+&#160;</div>
+(2) If quantifier is {0,n} where n is greater than zero, it is treated as if it were {0,1}. At run time, the rest of the pattern match is tried with and without the assertion, the order depending on the greediness of the quantifier.<div style="height: 1.00em;">
+&#160;</div>
+(3) If the minimum repetition is greater than zero, the quantifier is ignored. The assertion is obeyed just once when encountered during matching.<div class="subsection">
+<h2>Lookahead assertions</h2> Lookahead assertions start with (?= for positive assertions and (?! for negative assertions. For example,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \w+(?=;)<div style="height: 1.00em;">
+&#160;</div>
+matches a word followed by a semicolon, but does not include the semicolon in the match, and<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  foo(?!bar)<div style="height: 1.00em;">
+&#160;</div>
+matches any occurrence of &quot;foo&quot; that is not followed by &quot;bar&quot;. Note that the apparently similar pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?!foo)bar<div style="height: 1.00em;">
+&#160;</div>
+does not find an occurrence of &quot;bar&quot; that is preceded by something other than &quot;foo&quot;; it finds any occurrence of &quot;bar&quot; whatsoever, because the assertion (?!foo) is always true when the next three characters are &quot;bar&quot;. A lookbehind assertion is needed to achieve the other effect.<div class="spacer">
+</div>
+If you want to force a matching failure at some point in a pattern, the most convenient way to do it is with (?!) because an empty string always matches, so an assertion that requires there not to be an empty string must always fail. The backtracking control verb (*FAIL) or (*F) is a synonym for (?!).</div>
+<div class="subsection">
+<h2>Lookbehind assertions</h2> Lookbehind assertions start with (?&lt;= for positive assertions and (?&lt;! for negative assertions. For example,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;!foo)bar<div style="height: 1.00em;">
+&#160;</div>
+does find an occurrence of &quot;bar&quot; that is not preceded by &quot;foo&quot;. The contents of a lookbehind assertion are restricted such that all the strings it matches must have a fixed length. However, if there are several top-level alternatives, they do not all have to have the same fixed length. Thus<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;=bullock|donkey)<div style="height: 1.00em;">
+&#160;</div>
+is permitted, but<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;!dogs?|cats?)<div style="height: 1.00em;">
+&#160;</div>
+causes an error at compile time. Branches that match different length strings are permitted only at the top level of a lookbehind assertion. This is an extension compared with Perl, which requires all branches to match the same length of string. An assertion such as<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;=ab(c|de))<div style="height: 1.00em;">
+&#160;</div>
+is not permitted, because its single top-level branch can match two different lengths, but it is acceptable to PCRE if rewritten to use two top-level branches:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;=abc|abde)<div style="height: 1.00em;">
+&#160;</div>
+In some cases, the escape sequence \K (see above) can be used instead of a lookbehind assertion to get round the fixed-length restriction.<div class="spacer">
+</div>
+The implementation of lookbehind assertions is, for each alternative, to temporarily move the current position back by the fixed length and then try to match. If there are insufficient characters before the current position, the assertion fails.<div class="spacer">
+</div>
+In a UTF mode, PCRE does not allow the \C escape (which matches a single data unit even in a UTF mode) to appear in lookbehind assertions, because it makes it impossible to calculate the length of the lookbehind. The \X and \R escapes, which can match different numbers of data units, are also not permitted.<div class="spacer">
+</div>
+&quot;Subroutine&quot; calls (see below) such as (?2) or (?&amp;X) are permitted in lookbehinds, as long as the subpattern matches a fixed-length string. Recursion, however, is not supported.<div class="spacer">
+</div>
+Possessive quantifiers can be used in conjunction with lookbehind assertions to specify efficient matching of fixed-length strings at the end of subject strings. Consider a simple pattern such as<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  abcd$<div style="height: 1.00em;">
+&#160;</div>
+when applied to a long string that does not match. Because matching proceeds from left to right, PCRE will look for each &quot;a&quot; in the subject and then see if what follows matches the rest of the pattern. If the pattern is specified as<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ^.*abcd$<div style="height: 1.00em;">
+&#160;</div>
+the initial .* matches the entire string at first, but when this fails (because there is no following &quot;a&quot;), it backtracks to match all but the last character, then all but the last two characters, and so on. Once again the search for &quot;a&quot; covers the entire string, from right to left, so we are no better off. However, if the pattern is written as<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ^.*+(?&lt;=abcd)<div style="height: 1.00em;">
+&#160;</div>
+there can be no backtracking for the .*+ item; it can match only the entire string. The subsequent lookbehind assertion does a single test on the last four characters. If it fails, the match fails immediately. For long strings, this approach makes a significant difference to the processing time.</div>
+<div class="subsection">
+<h2>Using multiple assertions</h2> Several assertions (of any sort) may occur in succession. For example,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;=\d{3})(?&lt;!999)foo<div style="height: 1.00em;">
+&#160;</div>
+matches &quot;foo&quot; preceded by three digits that are not &quot;999&quot;. Notice that each of the assertions is applied independently at the same point in the subject string. First there is a check that the previous three characters are all digits, and then there is a check that the same three characters are not &quot;999&quot;. This pattern does  <i>not</i> match &quot;foo&quot; preceded by six characters, the first of which are digits and the last three of which are not &quot;999&quot;. For example, it doesn't match &quot;123abcfoo&quot;. A pattern to do that is<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;=\d{3}...)(?&lt;!999)foo<div style="height: 1.00em;">
+&#160;</div>
+This time the first assertion looks at the preceding six characters, checking that the first three are digits, and then the second assertion checks that the preceding three characters are not &quot;999&quot;.<div class="spacer">
+</div>
+Assertions can be nested in any combination. For example,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;=(?&lt;!foo)bar)baz<div style="height: 1.00em;">
+&#160;</div>
+matches an occurrence of &quot;baz&quot; that is preceded by &quot;bar&quot; which in turn is not preceded by &quot;foo&quot;, while<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;=\d{3}(?!999)...)foo<div style="height: 1.00em;">
+&#160;</div>
+is another pattern that matches &quot;foo&quot; preceded by three digits and any three characters that are not &quot;999&quot;.</div>
+</div>
+<div class="section">
+<h1>CONDITIONAL SUBPATTERNS</h1> It is possible to cause the matching process to obey a subpattern conditionally or to choose between two alternative subpatterns, depending on the result of an assertion, or whether a specific capturing subpattern has already been matched. The two possible forms of conditional subpattern are:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?(condition)yes-pattern)<br/>
+  (?(condition)yes-pattern|no-pattern)<div style="height: 1.00em;">
+&#160;</div>
+If the condition is satisfied, the yes-pattern is used; otherwise the no-pattern (if present) is used. If there are more than two alternatives in the subpattern, a compile-time error occurs. Each of the two alternatives may itself contain nested subpatterns of any form, including conditional subpatterns; the restriction to two alternatives applies only at the level of the condition. This pattern fragment is an example where the alternatives are complex:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?(1) (A|B|C) | (D | (?(2)E|F) | E) )<div style="height: 1.00em;">
+&#160;</div>
+<div class="spacer">
+</div>
+There are four kinds of condition: references to subpatterns, references to recursion, a pseudo-condition called DEFINE, and assertions.<div class="subsection">
+<h2>Checking for a used subpattern by number</h2> If the text between the parentheses consists of a sequence of digits, the condition is true if a capturing subpattern of that number has previously matched. If there is more than one capturing subpattern with the same number (see the earlier section about duplicate subpattern numbers), the condition is true if any of them have matched. An alternative notation is to precede the digits with a plus or minus sign. In this case, the subpattern number is relative rather than absolute. The most recently opened parentheses can be referenced by (?(-1), the next most recent by (?(-2), and so on. Inside loops it can also make sense to refer to subsequent groups. The next parentheses to be opened can be referenced as (?(+1), and so on. (The value zero in any of these forms is not used; it provokes a compile-time error.)<div class="spacer">
+</div>
+Consider the following pattern, which contains non-significant white space to make it more readable (assume the PCRE_EXTENDED option) and to divide it into three parts for ease of discussion:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ( \( )?    [^()]+    (?(1) \) )<div style="height: 1.00em;">
+&#160;</div>
+The first part matches an optional opening parenthesis, and if that character is present, sets it as the first captured substring. The second part matches one or more characters that are not parentheses. The third part is a conditional subpattern that tests whether or not the first set of parentheses matched. If they did, that is, if subject started with an opening parenthesis, the condition is true, and so the yes-pattern is executed and a closing parenthesis is required. Otherwise, since no-pattern is not present, the subpattern matches nothing. In other words, this pattern matches a sequence of non-parentheses, optionally enclosed in parentheses.<div class="spacer">
+</div>
+If you were embedding this pattern in a larger one, you could use a relative reference:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ...other stuff... ( \( )?    [^()]+    (?(-1) \) ) ...<div style="height: 1.00em;">
+&#160;</div>
+This makes the fragment independent of the parentheses in the larger pattern.</div>
+<div class="subsection">
+<h2>Checking for a used subpattern by name</h2> Perl uses the syntax (?(&lt;name&gt;)...) or (?('name')...) to test for a used subpattern by name. For compatibility with earlier versions of PCRE, which had this facility before Perl, the syntax (?(name)...) is also recognized. However, there is a possible ambiguity with this syntax, because subpattern names may consist entirely of digits. PCRE looks first for a named subpattern; if it cannot find one and the name consists entirely of digits, PCRE looks for a subpattern of that number, which must be greater than zero. Using subpattern names that consist entirely of digits is not recommended.<div class="spacer">
+</div>
+Rewriting the above example to use a named subpattern gives this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;OPEN&gt; \( )?    [^()]+    (?(&lt;OPEN&gt;) \) )<div style="height: 1.00em;">
+&#160;</div>
+If the name used in a condition of this kind is a duplicate, the test is applied to all subpatterns of the same name, and is true if any one of them has matched.</div>
+<div class="subsection">
+<h2>Checking for pattern recursion</h2> If the condition is the string (R), and there is no subpattern with the name R, the condition is true if a recursive call to the whole pattern or any subpattern has been made. If digits or a name preceded by ampersand follow the letter R, for example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?(R3)...) or (?(R&amp;name)...)<div style="height: 1.00em;">
+&#160;</div>
+the condition is true if the most recent recursion is into a subpattern whose number or name is given. This condition does not check the entire recursion stack. If the name used in a condition of this kind is a duplicate, the test is applied to all subpatterns of the same name, and is true if any one of them is the most recent recursion.<div class="spacer">
+</div>
+At &quot;top level&quot;, all these recursion test conditions are false. The syntax for recursive patterns is described below.</div>
+<div class="subsection">
+<h2>Defining subpatterns for use by reference only</h2> If the condition is the string (DEFINE), and there is no subpattern with the name DEFINE, the condition is always false. In this case, there may be only one alternative in the subpattern. It is always skipped if control reaches this point in the pattern; the idea of DEFINE is that it can be used to define subroutines that can be referenced from elsewhere. (The use of subroutines is described below.) For example, a pattern to match an IPv4 address such as &quot;192.168.23.245&quot; could be written like this (ignore white space and line breaks):<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?(DEFINE) (?&lt;byte&gt; 2[0-4]\d | 25[0-5] | 1\d\d | [1-9]?\d) )<br/>
+  \b (?&amp;byte) (\.(?&amp;byte)){3} \b<div style="height: 1.00em;">
+&#160;</div>
+The first part of the pattern is a DEFINE group inside which a another group named &quot;byte&quot; is defined. This matches an individual component of an IPv4 address (a number less than 256). When matching takes place, this part of the pattern is skipped because DEFINE acts like a false condition. The rest of the pattern uses references to the named group to match the four dot-separated components of an IPv4 address, insisting on a word boundary at each end.</div>
+<div class="subsection">
+<h2>Assertion conditions</h2> If the condition is not in any of the above formats, it must be an assertion. This may be a positive or negative lookahead or lookbehind assertion. Consider this pattern, again containing non-significant white space, and with the two alternatives on the second line:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?(?=[^a-z]*[a-z])<br/>
+  \d{2}-[a-z]{3}-\d{2}  |  \d{2}-\d{2}-\d{2} )<div style="height: 1.00em;">
+&#160;</div>
+The condition is a positive lookahead assertion that matches an optional sequence of non-letters followed by a letter. In other words, it tests for the presence of at least one letter in the subject. If a letter is found, the subject is matched against the first alternative; otherwise it is matched against the second. This pattern matches strings in one of the two forms dd-aaa-dd or dd-dd-dd, where aaa are letters and dd are digits.</div>
+</div>
+<div class="section">
+<h1>COMMENTS</h1> There are two ways of including comments in patterns that are processed by PCRE. In both cases, the start of the comment must not be in a character class, nor in the middle of any other sequence of related characters such as (?: or a subpattern name or number. The characters that make up a comment play no part in the pattern matching.<div class="spacer">
+</div>
+The sequence (?# marks the start of a comment that continues up to the next closing parenthesis. Nested parentheses are not permitted. If the PCRE_EXTENDED option is set, an unescaped # character also introduces a comment, which in this case continues to immediately after the next newline character or character sequence in the pattern. Which characters are interpreted as newlines is controlled by the options passed to a compiling function or by a special sequence at the start of the pattern, as described in the section entitled &quot;Newline conventions&quot; above. Note that the end of this type of comment is a literal newline sequence in the pattern; escape sequences that happen to represent a newline do not count. For example, consider this pattern when PCRE_EXTENDED is set, and the default newline convention is in force:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  abc #comment \n still comment<div style="height: 1.00em;">
+&#160;</div>
+On encountering the # character, <b>pcre_compile()</b> skips along, looking for a newline in the pattern. The sequence \n is still literal at this stage, so it does not terminate the comment. Only an actual character with the code value 0x0a (the default newline) does so.</div>
+<div class="section">
+<h1>RECURSIVE PATTERNS</h1> Consider the problem of matching a string in parentheses, allowing for unlimited nested parentheses. Without the use of recursion, the best that can be done is to use a pattern that matches up to some fixed depth of nesting. It is not possible to handle an arbitrary nesting depth.<div class="spacer">
+</div>
+For some time, Perl has provided a facility that allows regular expressions to recurse (amongst other things). It does this by interpolating Perl code in the expression at run time, and the code can refer to the expression itself. A Perl pattern using code interpolation to solve the parentheses problem can be created like this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $re = qr{\( (?: (?&gt;[^()]+) | (?p{$re}) )* \)}x;<div style="height: 1.00em;">
+&#160;</div>
+The (?p{...}) item interpolates Perl code at run time, and in this case refers recursively to the pattern in which it appears.<div class="spacer">
+</div>
+Obviously, PCRE cannot support the interpolation of Perl code. Instead, it supports special syntax for recursion of the entire pattern, and also for individual subpattern recursion. After its introduction in PCRE and Python, this kind of recursion was subsequently introduced into Perl at release 5.10.<div class="spacer">
+</div>
+A special item that consists of (? followed by a number greater than zero and a closing parenthesis is a recursive subroutine call of the subpattern of the given number, provided that it occurs inside that subpattern. (If not, it is a non-recursive subroutine call, which is described in the next section.) The special item (?R) or (?0) is a recursive call of the entire regular expression.<div class="spacer">
+</div>
+This PCRE pattern solves the nested parentheses problem (assume the PCRE_EXTENDED option is set so that white space is ignored):<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  \( ( [^()]++ | (?R) )* \)<div style="height: 1.00em;">
+&#160;</div>
+First it matches an opening parenthesis. Then it matches any number of substrings which can either be a sequence of non-parentheses, or a recursive match of the pattern itself (that is, a correctly parenthesized substring). Finally there is a closing parenthesis. Note the use of a possessive quantifier to avoid backtracking into sequences of non-parentheses.<div class="spacer">
+</div>
+If this were part of a larger pattern, you would not want to recurse the entire pattern, so instead you could use this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ( \( ( [^()]++ | (?1) )* \) )<div style="height: 1.00em;">
+&#160;</div>
+We have put the pattern into parentheses, and caused the recursion to refer to them instead of the whole pattern.<div class="spacer">
+</div>
+In a larger pattern, keeping track of parenthesis numbers can be tricky. This is made easier by the use of relative references. Instead of (?1) in the pattern above you can write (?-2) to refer to the second most recently opened parentheses preceding the recursion. In other words, a negative number counts capturing parentheses leftwards from the point at which it is encountered.<div class="spacer">
+</div>
+It is also possible to refer to subsequently opened parentheses, by writing references such as (?+2). However, these cannot be recursive because the reference is not inside the parentheses that are referenced. They are always non-recursive subroutine calls, as described in the next section.<div class="spacer">
+</div>
+An alternative approach is to use named parentheses instead. The Perl syntax for this is (?&amp;name); PCRE's earlier syntax (?P&gt;name) is also supported. We could rewrite the above example as follows:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;pn&gt; \( ( [^()]++ | (?&amp;pn) )* \) )<div style="height: 1.00em;">
+&#160;</div>
+If there is more than one subpattern with the same name, the earliest one is used.<div class="spacer">
+</div>
+This particular example pattern that we have been looking at contains nested unlimited repeats, and so the use of a possessive quantifier for matching strings of non-parentheses is important when applying the pattern to strings that do not match. For example, when this pattern is applied to<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa()<div style="height: 1.00em;">
+&#160;</div>
+it yields &quot;no match&quot; quickly. However, if a possessive quantifier is not used, the match runs for a very long time indeed because there are so many different ways the + and * repeats can carve up the subject, and all have to be tested before failure can be reported.<div class="spacer">
+</div>
+At the end of a match, the values of capturing parentheses are those from the outermost level. If you want to obtain intermediate values, a callout function can be used (see below and the  <b>pcrecallout</b> documentation). If the pattern above is matched against<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (ab(cd)ef)<div style="height: 1.00em;">
+&#160;</div>
+the value for the inner capturing parentheses (numbered 2) is &quot;ef&quot;, which is the last value taken on at the top level. If a capturing subpattern is not matched at the top level, its final captured value is unset, even if it was (temporarily) set at a deeper level during the matching process.<div class="spacer">
+</div>
+If there are more than 15 capturing parentheses in a pattern, PCRE has to obtain extra memory to store data during a recursion, which it does by using  <b>pcre_malloc</b>, freeing it via <b>pcre_free</b> afterwards. If no memory can be obtained, the match fails with the PCRE_ERROR_NOMEMORY error.<div class="spacer">
+</div>
+Do not confuse the (?R) item with the condition (R), which tests for recursion. Consider this pattern, which matches text in angle brackets, allowing for arbitrary nesting. Only digits are allowed in nested brackets (that is, when recursing), whereas any characters are permitted at the outer level.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  &lt; (?: (?(R) \d++  | [^&lt;&gt;]*+) | (?R)) * &gt;<div style="height: 1.00em;">
+&#160;</div>
+In this pattern, (?(R) is the start of a conditional subpattern, with two different alternatives for the recursive and non-recursive cases. The (?R) item is the actual recursive call.<div class="subsection">
+<h2>Differences in recursion processing between PCRE and Perl</h2> Recursion processing in PCRE differs from Perl in two important ways. In PCRE (like Python, but unlike Perl), a recursive subpattern call is always treated as an atomic group. That is, once it has matched some of the subject string, it is never re-entered, even if it contains untried alternatives and there is a subsequent matching failure. This can be illustrated by the following pattern, which purports to match a palindromic string that contains an odd number of characters (for example, &quot;a&quot;, &quot;aba&quot;, &quot;abcba&quot;, &quot;abcdcba&quot;):<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ^(.|(.)(?1)\2)$<div style="height: 1.00em;">
+&#160;</div>
+The idea is that it either matches a single character, or two identical characters surrounding a sub-palindrome. In Perl, this pattern works; in PCRE it does not if the pattern is longer than three characters. Consider the subject string &quot;abcba&quot;:<div class="spacer">
+</div>
+At the top level, the first character is matched, but as it is not at the end of the string, the first alternative fails; the second alternative is taken and the recursion kicks in. The recursive call to subpattern 1 successfully matches the next character (&quot;b&quot;). (Note that the beginning and end of line tests are not part of the recursion).<div class="spacer">
+</div>
+Back at the top level, the next character (&quot;c&quot;) is compared with what subpattern 2 matched, which was &quot;a&quot;. This fails. Because the recursion is treated as an atomic group, there are now no backtracking points, and so the entire match fails. (Perl is able, at this point, to re-enter the recursion and try the second alternative.) However, if the pattern is written with the alternatives in the other order, things are different:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ^((.)(?1)\2|.)$<div style="height: 1.00em;">
+&#160;</div>
+This time, the recursing alternative is tried first, and continues to recurse until it runs out of characters, at which point the recursion fails. But this time we do have another alternative to try at the higher level. That is the big difference: in the previous case the remaining alternative is at a deeper recursion level, which PCRE cannot use.<div class="spacer">
+</div>
+To change the pattern so that it matches all palindromic strings, not just those with an odd number of characters, it is tempting to change the pattern to this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ^((.)(?1)\2|.?)$<div style="height: 1.00em;">
+&#160;</div>
+Again, this works in Perl, but not in PCRE, and for the same reason. When a deeper recursion has matched a single character, it cannot be entered again in order to match an empty string. The solution is to separate the two cases, and write out the odd and even cases as alternatives at the higher level:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ^(?:((.)(?1)\2|)|((.)(?3)\4|.))<div style="height: 1.00em;">
+&#160;</div>
+If you want to match typical palindromic phrases, the pattern has to ignore all non-word characters, which can be done like this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ^\W*+(?:((.)\W*+(?1)\W*+\2|)|((.)\W*+(?3)\W*+\4|\W*+.\W*+))\W*+$<div style="height: 1.00em;">
+&#160;</div>
+If run with the PCRE_CASELESS option, this pattern matches phrases such as &quot;A man, a plan, a canal: Panama!&quot; and it works well in both PCRE and Perl. Note the use of the possessive quantifier *+ to avoid backtracking into sequences of non-word characters. Without this, PCRE takes a great deal longer (ten times or more) to match typical phrases, and Perl takes so long that you think it has gone into a loop.<div class="spacer">
+</div>
+<b>WARNING</b>: The palindrome-matching patterns above work only if the subject string does not start with a palindrome that is shorter than the entire string. For example, although &quot;abcba&quot; is correctly matched, if the subject is &quot;ababa&quot;, PCRE finds the palindrome &quot;aba&quot; at the start, then fails at top level because the end of the string does not follow. Once again, it cannot jump back into the recursion to try other alternatives, so the entire match fails.<div class="spacer">
+</div>
+The second way in which PCRE and Perl differ in their recursion processing is in the handling of captured values. In Perl, when a subpattern is called recursively or as a subpattern (see the next section), it has no access to any values that were captured outside the recursion, whereas in PCRE these values can be referenced. Consider this pattern:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ^(.)(\1|a(?2))<div style="height: 1.00em;">
+&#160;</div>
+In PCRE, this pattern matches &quot;bab&quot;. The first capturing parentheses match &quot;b&quot;, then in the second group, when the back reference \1 fails to match &quot;b&quot;, the second alternative matches &quot;a&quot; and then recurses. In the recursion, \1 does now match &quot;b&quot; and so the whole match succeeds. In Perl, the pattern fails to match because inside the recursive call \1 cannot access the externally set value.</div>
+</div>
+<div class="section">
+<h1>SUBPATTERNS AS SUBROUTINES</h1> If the syntax for a recursive subpattern call (either by number or by name) is used outside the parentheses to which it refers, it operates like a subroutine in a programming language. The called subpattern may be defined before or after the reference. A numbered reference can be absolute or relative, as in these examples:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (...(absolute)...)...(?2)...<br/>
+  (...(relative)...)...(?-1)...<br/>
+  (...(?+1)...(relative)...<div style="height: 1.00em;">
+&#160;</div>
+An earlier example pointed out that the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (sens|respons)e and \1ibility<div style="height: 1.00em;">
+&#160;</div>
+matches &quot;sense and sensibility&quot; and &quot;response and responsibility&quot;, but not &quot;sense and responsibility&quot;. If instead the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (sens|respons)e and (?1)ibility<div style="height: 1.00em;">
+&#160;</div>
+is used, it does match &quot;sense and responsibility&quot; as well as the other two strings. Another example is given in the discussion of DEFINE above.<div class="spacer">
+</div>
+All subroutine calls, whether recursive or not, are always treated as atomic groups. That is, once a subroutine has matched some of the subject string, it is never re-entered, even if it contains untried alternatives and there is a subsequent matching failure. Any capturing parentheses that are set during the subroutine call revert to their previous values afterwards.<div class="spacer">
+</div>
+Processing options such as case-independence are fixed when a subpattern is defined, so if it is used as a subroutine, such options cannot be changed for different calls. For example, consider this pattern:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (abc)(?i:(?-1))<div style="height: 1.00em;">
+&#160;</div>
+It matches &quot;abcabc&quot;. It does not match &quot;abcABC&quot; because the change of processing option does not affect the called subpattern.</div>
+<div class="section">
+<h1>ONIGURUMA SUBROUTINE SYNTAX</h1> For compatibility with Oniguruma, the non-Perl syntax \g followed by a name or a number enclosed either in angle brackets or single quotes, is an alternative syntax for referencing a subpattern as a subroutine, possibly recursively. Here are two of the examples used above, rewritten using this syntax:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?&lt;pn&gt; \( ( (?&gt;[^()]+) | \g&lt;pn&gt; )* \) )<br/>
+  (sens|respons)e and \g'1'ibility<div style="height: 1.00em;">
+&#160;</div>
+PCRE supports an extension to Oniguruma: if a number is preceded by a plus or a minus sign it is taken as a relative reference. For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (abc)(?i:\g&lt;-1&gt;)<div style="height: 1.00em;">
+&#160;</div>
+Note that \g{...} (Perl syntax) and \g&lt;...&gt; (Oniguruma syntax) are <i>not</i> synonymous. The former is a back reference; the latter is a subroutine call.</div>
+<div class="section">
+<h1>CALLOUTS</h1> Perl has a feature whereby using the sequence (?{...}) causes arbitrary Perl code to be obeyed in the middle of matching a regular expression. This makes it possible, amongst other things, to extract different substrings that match the same pair of parentheses when there is a repetition.<div class="spacer">
+</div>
+PCRE provides a similar feature, but of course it cannot obey arbitrary Perl code. The feature is called &quot;callout&quot;. The caller of PCRE provides an external function by putting its entry point in the global variable  <i>pcre_callout</i> (8-bit library) or  <i>pcre16_callout</i> (16-bit library). By default, this variable contains NULL, which disables all calling out.<div class="spacer">
+</div>
+Within a regular expression, (?C) indicates the points at which the external function is to be called. If you want to identify different callout points, you can put a number less than 256 after the letter C. The default value is zero. For example, this pattern has two callout points:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (?C1)abc(?C2)def<div style="height: 1.00em;">
+&#160;</div>
+If the PCRE_AUTO_CALLOUT flag is passed to a compiling function, callouts are automatically installed before each item in the pattern. They are all numbered 255.<div class="spacer">
+</div>
+During matching, when PCRE reaches a callout point, the external function is called. It is provided with the number of the callout, the position in the pattern, and, optionally, one item of data originally supplied by the caller of the matching function. The callout function may cause matching to proceed, to backtrack, or to fail altogether. A complete description of the interface to the callout function is given in the  <b>pcrecallout</b> documentation.</div>
+<div class="section">
+<h1>BACKTRACKING CONTROL</h1> Perl 5.10 introduced a number of &quot;Special Backtracking Control Verbs&quot;, which are described in the Perl documentation as &quot;experimental and subject to change or removal in a future version of Perl&quot;. It goes on to say: &quot;Their usage in production code should be noted to avoid problems during upgrades.&quot; The same remarks apply to the PCRE features described in this section.<div class="spacer">
+</div>
+Since these verbs are specifically related to backtracking, most of them can be used only when the pattern is to be matched using one of the traditional matching functions, which use a backtracking algorithm. With the exception of (*FAIL), which behaves like a failing negative assertion, they cause an error if encountered by a DFA matching function.<div class="spacer">
+</div>
+If any of these verbs are used in an assertion or in a subpattern that is called as a subroutine (whether or not recursively), their effect is confined to that subpattern; it does not extend to the surrounding pattern, with one exception: the name from a *(MARK), (*PRUNE), or (*THEN) that is encountered in a successful positive assertion  <i>is</i> passed back when a match succeeds (compare capturing parentheses in assertions). Note that such subpatterns are processed as anchored at the point where they are tested. Note also that Perl's treatment of subroutines and assertions is different in some cases.<div class="spacer">
+</div>
+The new verbs make use of what was previously invalid syntax: an opening parenthesis followed by an asterisk. They are generally of the form (*VERB) or (*VERB:NAME). Some may take either form, with differing behaviour, depending on whether or not an argument is present. A name is any sequence of characters that does not include a closing parenthesis. The maximum length of name is 255 in the 8-bit library and 65535 in the 16-bit library. If the name is empty, that is, if the closing parenthesis immediately follows the colon, the effect is as if the colon were not there. Any number of these verbs may occur in a pattern.<div class="subsection">
+<h2>Optimizations that affect backtracking verbs</h2> PCRE contains some optimizations that are used to speed up matching by running some checks at the start of each match attempt. For example, it may know the minimum length of matching subject, or that a particular character must be present. When one of these optimizations suppresses the running of a match, any included backtracking verbs will not, of course, be processed. You can suppress the start-of-match optimizations by setting the PCRE_NO_START_OPTIMIZE option when calling  <b>pcre_compile()</b> or <b>pcre_exec()</b>, or by starting the pattern with (*NO_START_OPT). There is more discussion of this option in the section entitled &quot;Option bits for  <b>pcre_exec()</b>&quot; in the  <b>pcreapi</b> documentation.<div class="spacer">
+</div>
+Experiments with Perl suggest that it too has similar optimizations, sometimes leading to anomalous results.</div>
+<div class="subsection">
+<h2>Verbs that act immediately</h2> The following verbs act as soon as they are encountered. They may not be followed by a name.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   (*ACCEPT)<div style="height: 1.00em;">
+&#160;</div>
+This verb causes the match to end successfully, skipping the remainder of the pattern. However, when it is inside a subpattern that is called as a subroutine, only that subpattern is ended successfully. Matching then continues at the outer level. If (*ACCEPT) is inside capturing parentheses, the data so far is captured. For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  A((?:A|B(*ACCEPT)|C)D)<div style="height: 1.00em;">
+&#160;</div>
+This matches &quot;AB&quot;, &quot;AAD&quot;, or &quot;ACD&quot;; when it matches &quot;AB&quot;, &quot;B&quot; is captured by the outer parentheses.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*FAIL) or (*F)<div style="height: 1.00em;">
+&#160;</div>
+This verb causes a matching failure, forcing backtracking to occur. It is equivalent to (?!) but easier to read. The Perl documentation notes that it is probably useful only when combined with (?{}) or (??{}). Those are, of course, Perl features that are not present in PCRE. The nearest equivalent is the callout feature, as for example in this pattern:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  a+(?C)(*FAIL)<div style="height: 1.00em;">
+&#160;</div>
+A match with the string &quot;aaaa&quot; always fails, but the callout is taken before each backtrack happens (in this example, 10 times).</div>
+<div class="subsection">
+<h2>Recording which path was taken</h2> There is one verb whose main purpose is to track how a match was arrived at, though it also has a secondary use in conjunction with advancing the match starting point (see (*SKIP) below).<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*MARK:NAME) or (*:NAME)<div style="height: 1.00em;">
+&#160;</div>
+A name is always required with this verb. There may be as many instances of (*MARK) as you like in a pattern, and their names do not have to be unique.<div class="spacer">
+</div>
+When a match succeeds, the name of the last-encountered (*MARK) on the matching path is passed back to the caller as described in the section entitled &quot;Extra data for  <b>pcre_exec()</b>&quot; in the  <b>pcreapi</b> documentation. Here is an example of  <b>pcretest</b> output, where the /K modifier requests the retrieval and outputting of (*MARK) data:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    re&gt; /X(*MARK:A)Y|X(*MARK:B)Z/K<br/>
+  data&gt; XY<br/>
+   0: XY<br/>
+  MK: A<br/>
+  XZ<br/>
+   0: XZ<br/>
+  MK: B<div style="height: 1.00em;">
+&#160;</div>
+The (*MARK) name is tagged with &quot;MK:&quot; in this output, and in this example it indicates which of the two alternatives matched. This is a more efficient way of obtaining this information than putting each alternative in its own capturing parentheses.<div class="spacer">
+</div>
+If (*MARK) is encountered in a positive assertion, its name is recorded and passed back if it is the last-encountered. This does not happen for negative assertions.<div class="spacer">
+</div>
+After a partial match or a failed match, the name of the last encountered (*MARK) in the entire match process is returned. For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    re&gt; /X(*MARK:A)Y|X(*MARK:B)Z/K<br/>
+  data&gt; XP<br/>
+  No match, mark = B<div style="height: 1.00em;">
+&#160;</div>
+Note that in this unanchored example the mark is retained from the match attempt that started at the letter &quot;X&quot; in the subject. Subsequent match attempts starting at &quot;P&quot; and then with an empty string do not get as far as the (*MARK) item, but nevertheless do not reset it.<div class="spacer">
+</div>
+If you are interested in (*MARK) values after failed matches, you should probably set the PCRE_NO_START_OPTIMIZE option (see above) to ensure that the match is always attempted.</div>
+<div class="subsection">
+<h2>Verbs that act after backtracking</h2> The following verbs do nothing when they are encountered. Matching continues with what follows, but if there is no subsequent match, causing a backtrack to the verb, a failure is forced. That is, backtracking cannot pass to the left of the verb. However, when one of these verbs appears inside an atomic group, its effect is confined to that group, because once the group has been matched, there is never any backtracking into it. In this situation, backtracking can &quot;jump back&quot; to the left of the entire atomic group. (Remember also, as stated above, that this localization also applies in subroutine calls and assertions.)<div class="spacer">
+</div>
+These verbs differ in exactly what kind of failure occurs when backtracking reaches them.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*COMMIT)<div style="height: 1.00em;">
+&#160;</div>
+This verb, which may not be followed by a name, causes the whole match to fail outright if the rest of the pattern does not match. Even if the pattern is unanchored, no further attempts to find a match by advancing the starting point take place. Once (*COMMIT) has been passed,  <b>pcre_exec()</b> is committed to finding a match at the current starting point, or not at all. For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  a+(*COMMIT)b<div style="height: 1.00em;">
+&#160;</div>
+This matches &quot;xxaab&quot; but not &quot;aacaab&quot;. It can be thought of as a kind of dynamic anchor, or &quot;I've started, so I must finish.&quot; The name of the most recently passed (*MARK) in the path is passed back when (*COMMIT) forces a match failure.<div class="spacer">
+</div>
+Note that (*COMMIT) at the start of a pattern is not the same as an anchor, unless PCRE's start-of-match optimizations are turned off, as shown in this  <b>pcretest</b> example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    re&gt; /(*COMMIT)abc/<br/>
+  data&gt; xyzabc<br/>
+   0: abc<br/>
+  xyzabc\Y<br/>
+  No match<div style="height: 1.00em;">
+&#160;</div>
+PCRE knows that any match must start with &quot;a&quot;, so the optimization skips along the subject to &quot;a&quot; before running the first match attempt, which succeeds. When the optimization is disabled by the \Y escape in the second subject, the match starts at &quot;x&quot; and so the (*COMMIT) causes it to fail without trying any other starting points.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*PRUNE) or (*PRUNE:NAME)<div style="height: 1.00em;">
+&#160;</div>
+This verb causes the match to fail at the current starting position in the subject if the rest of the pattern does not match. If the pattern is unanchored, the normal &quot;bumpalong&quot; advance to the next starting character then happens. Backtracking can occur as usual to the left of (*PRUNE), before it is reached, or when matching to the right of (*PRUNE), but if there is no match to the right, backtracking cannot cross (*PRUNE). In simple cases, the use of (*PRUNE) is just an alternative to an atomic group or possessive quantifier, but there are some uses of (*PRUNE) that cannot be expressed in any other way. The behaviour of (*PRUNE:NAME) is the same as (*MARK:NAME)(*PRUNE). In an anchored pattern (*PRUNE) has the same effect as (*COMMIT).<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*SKIP)<div style="height: 1.00em;">
+&#160;</div>
+This verb, when given without a name, is like (*PRUNE), except that if the pattern is unanchored, the &quot;bumpalong&quot; advance is not to the next character, but to the position in the subject where (*SKIP) was encountered. (*SKIP) signifies that whatever text was matched leading up to it cannot be part of a successful match. Consider:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  a+(*SKIP)b<div style="height: 1.00em;">
+&#160;</div>
+If the subject is &quot;aaaac...&quot;, after the first match attempt fails (starting at the first character in the string), the starting point skips on to start the next attempt at &quot;c&quot;. Note that a possessive quantifer does not have the same effect as this example; although it would suppress backtracking during the first match attempt, the second attempt would start at the second character instead of skipping on to &quot;c&quot;.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*SKIP:NAME)<div style="height: 1.00em;">
+&#160;</div>
+When (*SKIP) has an associated name, its behaviour is modified. If the following pattern fails to match, the previous path through the pattern is searched for the most recent (*MARK) that has the same name. If one is found, the &quot;bumpalong&quot; advance is to the subject position that corresponds to that (*MARK) instead of to where (*SKIP) was encountered. If no (*MARK) with a matching name is found, the (*SKIP) is ignored.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (*THEN) or (*THEN:NAME)<div style="height: 1.00em;">
+&#160;</div>
+This verb causes a skip to the next innermost alternative if the rest of the pattern does not match. That is, it cancels pending backtracking, but only within the current alternative. Its name comes from the observation that it can be used for a pattern-based if-then-else block:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ( COND1 (*THEN) FOO | COND2 (*THEN) BAR | COND3 (*THEN) BAZ ) ...<div style="height: 1.00em;">
+&#160;</div>
+If the COND1 pattern matches, FOO is tried (and possibly further items after the end of the group if FOO succeeds); on failure, the matcher skips to the second alternative and tries COND2, without backtracking into COND1. The behaviour of (*THEN:NAME) is exactly the same as (*MARK:NAME)(*THEN). If (*THEN) is not inside an alternation, it acts like (*PRUNE).<div class="spacer">
+</div>
+Note that a subpattern that does not contain a | character is just a part of the enclosing alternative; it is not a nested alternation with only one alternative. The effect of (*THEN) extends beyond such a subpattern to the enclosing alternative. Consider this pattern, where A, B, etc. are complex pattern fragments that do not contain any | characters at this level:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  A (B(*THEN)C) | D<div style="height: 1.00em;">
+&#160;</div>
+If A and B are matched, but there is a failure in C, matching does not backtrack into A; instead it moves to the next alternative, that is, D. However, if the subpattern containing (*THEN) is given an alternative, it behaves differently:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  A (B(*THEN)C | (*FAIL)) | D<div style="height: 1.00em;">
+&#160;</div>
+The effect of (*THEN) is now confined to the inner subpattern. After a failure in C, matching moves to (*FAIL), which causes the whole subpattern to fail because there are no more alternatives to try. In this case, matching does now backtrack into A.<div class="spacer">
+</div>
+Note also that a conditional subpattern is not considered as having two alternatives, because only one is ever used. In other words, the | character in a conditional subpattern has a different meaning. Ignoring white space, consider:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ^.*? (?(?=a) a | b(*THEN)c )<div style="height: 1.00em;">
+&#160;</div>
+If the subject is &quot;ba&quot;, this pattern does not match. Because .*? is ungreedy, it initially matches zero characters. The condition (?=a) then fails, the character &quot;b&quot; is matched, but &quot;c&quot; is not. At this point, matching does not backtrack to .*? as might perhaps be expected from the presence of the | character. The conditional subpattern is part of the single alternative that comprises the whole pattern, and so the match fails. (If there was a backtrack into .*?, allowing it to match &quot;b&quot;, the match would succeed.)<div class="spacer">
+</div>
+The verbs just described provide four different &quot;strengths&quot; of control when subsequent matching fails. (*THEN) is the weakest, carrying on the match at the next alternative. (*PRUNE) comes next, failing the match at the current starting position, but allowing an advance to the next character (for an unanchored pattern). (*SKIP) is similar, except that the advance may be more than one character. (*COMMIT) is the strongest, causing the entire match to fail.<div class="spacer">
+</div>
+If more than one such verb is present in a pattern, the &quot;strongest&quot; one wins. For example, consider this pattern, where A, B, etc. are complex pattern fragments:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (A(*COMMIT)B(*THEN)C|D)<div style="height: 1.00em;">
+&#160;</div>
+Once A has matched, PCRE is committed to this match, at the current starting position. If subsequently B matches, but C does not, the normal (*THEN) action of trying the next alternative (that is, D) does not happen because (*COMMIT) overrides.</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <b>pcreapi</b>(3), <b>pcrecallout</b>(3), <b>pcrematching</b>(3),  <b>pcresyntax</b>(3), <b>pcre</b>(3), <b>pcre16(3)</b>.</div>
+<div class="section">
+<h1>AUTHOR</h1><br/>
+Philip Hazel<br/>
+University Computing Service<br/>
+Cambridge CB2 3QH, England.<br/>
+</div>
+<div class="section">
+<h1>REVISION</h1><br/>
+Last updated: 17 June 2012<br/>
+Copyright (c) 1997-2012 University of Cambridge.<br/>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+04 May 2012</td>
+<td class="foot-os">
+PCRE 8.31</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

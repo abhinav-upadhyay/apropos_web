@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+X509_STORE_CTX_set_verify_cb(3SSL)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+X509_STORE_CTX_set_verify_cb(3SSL)</td>
+<td class="head-vol">
+OpenSSL</td>
+<td class="head-rtitle">
+X509_STORE_CTX_set_verify_cb(3SSL)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> X509_STORE_CTX_set_verify_cb - set verification callback</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ #include &lt;openssl/x509_vfy.h&gt;<br/>
+<br/>
+ void X509_STORE_CTX_set_verify_cb(X509_STORE_CTX *ctx,<br/>
+                                int (*verify_cb)(int ok, X509_STORE_CTX *ctx));<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <i>X509_STORE_CTX_set_verify_cb()</i> sets the verification callback of <b>ctx</b> to  <b>verify_cb</b> overwriting any existing callback.<div class="spacer">
+</div>
+The verification callback can be used to customise the operation of certificate verification, either by overriding error conditions or logging errors for debugging purposes.<div class="spacer">
+</div>
+However a verification callback is <b>not</b> essential and the default operation is often sufficient.<div class="spacer">
+</div>
+The <b>ok</b> parameter to the callback indicates the value the callback should return to retain the default behaviour. If it is zero then and error condition is indicated. If it is 1 then no error occurred. If the flag  <b>X509_V_FLAG_NOTIFY_POLICY</b> is set then <b>ok</b> is set to 2 to indicate the policy checking is complete.<div class="spacer">
+</div>
+The <b>ctx</b> parameter to the callback is the <b>X509_STORE_CTX</b> structure that is performing the verification operation. A callback can examine this structure and receive additional information about the error, for example by calling  <i>X509_STORE_CTX_get_current_cert()</i>. Additional application data can be passed to the callback via the  <b>ex_data</b> mechanism.</div>
+<div class="section">
+<h1>WARNING</h1> In general a verification callback should  <b>NOT</b> unconditionally return 1 in all circumstances because this will allow verification to succeed no matter what the error. This effectively removes all security from the application because  <b>any</b> certificate (including untrusted generated ones) will be accepted.</div>
+<div class="section">
+<h1>NOTES</h1> The verification callback can be set and inherited from the parent structure performing the operation. In some cases (such as S/MIME verification) the  <b>X509_STORE_CTX</b> structure is created and destroyed internally and the only way to set a custom verification callback is by inheriting it from the associated  <b>X509_STORE</b>.</div>
+<div class="section">
+<h1>RETURN VALUES</h1>  <i>X509_STORE_CTX_set_verify_cb()</i> does not return a value.</div>
+<div class="section">
+<h1>EXAMPLES</h1> Default callback operation:<div class="spacer">
+</div>
+<br/>
+ int verify_callback(int ok, X509_STORE_CTX *ctx)<br/>
+        {<br/>
+        return ok;<br/>
+        }<br/>
+<div class="spacer">
+</div>
+Simple example, suppose a certificate in the chain is expired and we wish to continue after this error:<div class="spacer">
+</div>
+<br/>
+ int verify_callback(int ok, X509_STORE_CTX *ctx)<br/>
+        {<br/>
+        /* Tolerate certificate expiration */<br/>
+        if (X509_STORE_CTX_get_error(ctx) == X509_V_ERR_CERT_HAS_EXPIRED)<br/>
+                        return 1;<br/>
+        /* Otherwise don't override */<br/>
+        return ok;<br/>
+        }<br/>
+<div class="spacer">
+</div>
+More complex example, we don't wish to continue after <b>any</b> certificate has expired just one specific case:<div class="spacer">
+</div>
+<br/>
+ int verify_callback(int ok, X509_STORE_CTX *ctx)<br/>
+        {<br/>
+        int err = X509_STORE_CTX_get_error(ctx);<br/>
+        X509 *err_cert = X509_STORE_CTX_get_current_cert(ctx);<br/>
+        if (err == X509_V_ERR_CERT_HAS_EXPIRED)<br/>
+                {<br/>
+                if (check_is_acceptable_expired_cert(err_cert)<br/>
+                        return 1;<br/>
+                }<br/>
+        return ok;<br/>
+        }<br/>
+<div class="spacer">
+</div>
+Full featured logging callback. In this case the <b>bio_err</b> is assumed to be a global logging  <b>BIO</b>, an alternative would to store a BIO in <b>ctx</b> using  <b>ex_data</b>.<div class="spacer">
+</div>
+<br/>
+ int verify_callback(int ok, X509_STORE_CTX *ctx)<br/>
+        {<br/>
+        X509 *err_cert;<br/>
+        int err,depth;<br/>
+<br/>
+        err_cert = X509_STORE_CTX_get_current_cert(ctx);<br/>
+        err =   X509_STORE_CTX_get_error(ctx);<br/>
+        depth = X509_STORE_CTX_get_error_depth(ctx);<br/>
+<br/>
+        BIO_printf(bio_err,&quot;depth=%d &quot;,depth);<br/>
+        if (err_cert)<br/>
+                {<br/>
+                X509_NAME_print_ex(bio_err, X509_get_subject_name(err_cert),<br/>
+                                        0, XN_FLAG_ONELINE);<br/>
+                BIO_puts(bio_err, &quot;\n&quot;);<br/>
+                }<br/>
+        else<br/>
+                BIO_puts(bio_err, &quot;&lt;no cert&gt;\n&quot;);<br/>
+        if (!ok)<br/>
+                BIO_printf(bio_err,&quot;verify error:num=%d:%s\n&quot;,err,<br/>
+                        X509_verify_cert_error_string(err));<br/>
+        switch (err)<br/>
+                {<br/>
+        case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT:<br/>
+                BIO_puts(bio_err,&quot;issuer= &quot;);<br/>
+                X509_NAME_print_ex(bio_err, X509_get_issuer_name(err_cert),<br/>
+                                        0, XN_FLAG_ONELINE);<br/>
+                BIO_puts(bio_err, &quot;\n&quot;);<br/>
+                break;<br/>
+        case X509_V_ERR_CERT_NOT_YET_VALID:<br/>
+        case X509_V_ERR_ERROR_IN_CERT_NOT_BEFORE_FIELD:<br/>
+                BIO_printf(bio_err,&quot;notBefore=&quot;);<br/>
+                ASN1_TIME_print(bio_err,X509_get_notBefore(err_cert));<br/>
+                BIO_printf(bio_err,&quot;\n&quot;);<br/>
+                break;<br/>
+        case X509_V_ERR_CERT_HAS_EXPIRED:<br/>
+        case X509_V_ERR_ERROR_IN_CERT_NOT_AFTER_FIELD:<br/>
+                BIO_printf(bio_err,&quot;notAfter=&quot;);<br/>
+                ASN1_TIME_print(bio_err,X509_get_notAfter(err_cert));<br/>
+                BIO_printf(bio_err,&quot;\n&quot;);<br/>
+                break;<br/>
+        case X509_V_ERR_NO_EXPLICIT_POLICY:<br/>
+                policies_print(bio_err, ctx);<br/>
+                break;<br/>
+                }<br/>
+        if (err == X509_V_OK &amp;&amp; ok == 2)<br/>
+                /* print out policies */<br/>
+<br/>
+        BIO_printf(bio_err,&quot;verify return:%d\n&quot;,ok);<br/>
+        return(ok);<br/>
+        }<br/>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <i>X509_STORE_CTX_get_error</i>(3)  <i>X509_STORE_set_verify_cb_func</i>(3)  <i>X509_STORE_CTX_get_ex_new_index</i>(3)</div>
+<div class="section">
+<h1>HISTORY</h1>  <i>X509_STORE_CTX_set_verify_cb()</i> is available in all versions of SSLeay and OpenSSL.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2009-10-18</td>
+<td class="foot-os">
+1.0.1</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+SPUFS(7)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+SPUFS(7)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+SPUFS(7)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> spufs - SPU file system</div>
+<div class="section">
+<h1>DESCRIPTION</h1> The SPU file system is used on PowerPC machines that implement the Cell Broadband Engine Architecture in order to access Synergistic Processor Units (SPUs).<div style="height: 1.00em;">
+&#160;</div>
+The file system provides a name space similar to POSIX shared memory or message queues. Users that have write permissions on the file system can use <b>spu_create</b>(2) to establish SPU contexts under the <b>spufs</b> root directory.<div style="height: 1.00em;">
+&#160;</div>
+Every SPU context is represented by a directory containing a predefined set of files. These files can be used for manipulating the state of the logical SPU. Users can change permissions on the files, but can't add or remove files.<div class="subsection">
+<h2>Mount Options</h2><dl>
+<dt>
+<b>uid=&lt;uid&gt;</b></dt>
+<dd>
+Set the user owning the mount point; the default is 0 (root).</dd>
+</dl>
+<dl>
+<dt>
+<b>gid=&lt;gid&gt;</b></dt>
+<dd>
+Set the group owning the mount point; the default is 0 (root).</dd>
+</dl>
+<dl>
+<dt>
+<b>mode=&lt;mode&gt;</b></dt>
+<dd>
+Set the mode of the top-level directory in <b>spufs</b>, as an octal mode string. The default is 0775.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Files</h2> The files in <b>spufs</b> mostly follow the standard behavior for regular system calls like <b>read</b>(2) or <b>write</b>(2), but often support only a subset of the operations supported on regular file systems. This list details the supported operations and the deviations from the standard behavior described in the respective man pages.<div style="height: 1.00em;">
+&#160;</div>
+All files that support the <b>read</b>(2) operation also support <b>readv</b>(2) and all files that support the <b>write</b>(2) operation also support <b>writev</b>(2). All files support the <b>access</b>(2) and <b>stat</b>(2) family of operations, but for the latter call, the only fields of the returned <i>stat</i> structure that contain reliable information are <i>st_mode</i>, <i>st_nlink</i>, <i>st_uid</i>, and <i>st_gid</i>.<div style="height: 1.00em;">
+&#160;</div>
+All files support the <b>chmod</b>(2)/<b>fchmod</b>(2) and <b>chown</b>(2)/<b>fchown</b>(2) operations, but will not be able to grant permissions that contradict the possible operations (e.g., read access on the <i>wbox</i> file).<div style="height: 1.00em;">
+&#160;</div>
+The current set of files is:<dl>
+<dt>
+<i>/capabilities</i></dt>
+<dd>
+Contains a comma-delimited string representing the capabilities of this SPU context. Possible capabilities are:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>sched</b></dt>
+<dd>
+This context may be scheduled.</dd>
+</dl>
+<dl>
+<dt>
+<b>step</b></dt>
+<dd>
+This context can be run in single-step mode, for debugging.</dd>
+</dl>
+<div class="spacer">
+</div>
+New capabilities flags may be added in the future.</div>
+<dl>
+<dt>
+<i>/mem</i></dt>
+<dd>
+the contents of the local storage memory of the SPU. This can be accessed like a regular shared memory file and contains both code and data in the address space of the SPU. The possible operations on an open <i>mem</i> file are:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>read</b>(2), <b>pread</b>(2), <b>write</b>(2), <b>pwrite</b>(2), <b>lseek</b>(2)</dt>
+<dd>
+These operate as usual, with the exception that <b>lseek</b>(2), <b>write</b>(2), and <b>pwrite</b>(2) are not supported beyond the end of the file. The file size is the size of the local storage of the SPU, which is normally 256 kilobytes.</dd>
+</dl>
+<dl>
+<dt>
+<b>mmap</b>(2)</dt>
+<dd>
+Mapping <i>mem</i> into the process address space provides access to the SPU local storage within the process address space. Only <b>MAP_SHARED</b> mappings are allowed.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>/regs</i></dt>
+<dd>
+Contains the saved general-purpose registers of the SPU context. This file contains the 128-bit values of each register, from register 0 to register 127, in order. This allows the general-purpose registers to be inspected for debugging.<div style="height: 1.00em;">
+&#160;</div>
+Reading to or writing from this file requires that the context is scheduled out, so use of this file is not recommended in normal program operation.<div style="height: 1.00em;">
+&#160;</div>
+The <i>regs</i> file is not present on contexts that have been created with the <b>SPU_CREATE_NOSCHED</b> flag.</dd>
+</dl>
+<dl>
+<dt>
+<i>/mbox</i></dt>
+<dd>
+The first SPU-to-CPU communication mailbox. This file is read-only and can be read in units of 4 bytes. The file can only be used in nonblocking mode - even <b>poll</b>(2) cannot be used to block on this file. The only possible operation on an open <i>mbox</i> file is:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>read</b>(2)</dt>
+<dd>
+If <i>count</i> is smaller than four, <b>read</b>(2) returns -1 and sets <i>errno</i> to <b>EINVAL</b>. If there is no data available in the mailbox (i.e., the SPU has not sent a mailbox message), the return value is set to -1 and <i>errno</i> is set to <b>EAGAIN</b>. When data has been read successfully, four bytes are placed in the data buffer and the value four is returned.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>/ibox</i></dt>
+<dd>
+The second SPU-to-CPU communication mailbox. This file is similar to the first mailbox file, but can be read in blocking I/O mode, thus calling <b>read</b>(2) on an open <i>ibox</i> file will block until the SPU has written data to its interrupt mailbox channel (unless the file has been opened with <b>O_NONBLOCK</b>, see below). Also, <b>poll</b>(2) and similar system calls can be used to monitor for the presence of mailbox data.<div style="height: 1.00em;">
+&#160;</div>
+The possible operations on an open <i>ibox</i> file are:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>read</b>(2)</dt>
+<dd>
+If <i>count</i> is smaller than four, <b>read</b>(2) returns -1 and sets <i>errno</i> to <b>EINVAL</b>. If there is no data available in the mailbox and the file descriptor has been opened with <b>O_NONBLOCK</b>, the return value is set to -1 and <i>errno</i> is set to <b>EAGAIN</b>.<div style="height: 1.00em;">
+&#160;</div>
+If there is no data available in the mailbox and the file descriptor has been opened without <b>O_NONBLOCK</b>, the call will block until the SPU writes to its interrupt mailbox channel. When data has been read successfully, four bytes are placed in the data buffer and the value four is returned.</dd>
+</dl>
+<dl>
+<dt>
+<b>poll</b>(2)</dt>
+<dd>
+Poll on the <i>ibox</i> file returns <i>(POLLIN | POLLRDNORM)</i> whenever data is available for reading.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>/wbox</i></dt>
+<dd>
+The CPU-to-SPU communication mailbox. It is write-only and can be written in units of four bytes. If the mailbox is full, <b>write</b>(2) will block, and <b>poll</b>(2) can be used to block until the mailbox is available for writing again. The possible operations on an open <i>wbox</i> file are:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>write</b>(2)</dt>
+<dd>
+If <i>count</i> is smaller than four, <b>write</b>(2) returns -1 and sets <i>errno</i> to <b>EINVAL</b>. If there is no space available in the mailbox and the file descriptor has been opened with <b>O_NONBLOCK</b>, the return value is set to -1 and <i>errno</i> is set to <b>EAGAIN</b>.<div style="height: 1.00em;">
+&#160;</div>
+If there is no space available in the mailbox and the file descriptor has been opened without <b>O_NONBLOCK</b>, the call will block until the SPU reads from its PPE (PowerPC Processing Element) mailbox channel. When data has been written successfully, the system call returns four as its function result.</dd>
+</dl>
+<dl>
+<dt>
+<b>poll</b>(2)</dt>
+<dd>
+A poll on the <i>wbox</i> file returns <i>(POLLOUT | POLLWRNORM)</i> whenever space is available for writing.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>/mbox_stat</i>, <i>/ibox_stat</i>, <i>/wbox_stat</i></dt>
+<dd>
+These are read-only files that contain the length of the current queue of each mailbox, i.e., how many words can be read from <i>mbox</i> or <i>ibox</i> or how many words can be written to <i>wbox</i> without blocking. The files can be read only in four-byte units and return a big-endian binary integer number. The only possible operation on an open <i>*box_stat</i> file is:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>read</b>(2)</dt>
+<dd>
+If <i>count</i> is smaller than four, <b>read</b>(2) returns -1 and sets <i>errno</i> to <b>EINVAL</b>. Otherwise, a four-byte value is placed in the data buffer. This value is the number of elements that can be read from (for <i>mbox_stat</i> and <i>ibox_stat</i>) or written to (for <i>wbox_stat</i>) the respective mailbox without blocking or returning an <b>EAGAIN</b> error.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>/npc</i>, <i>/decr</i>, <i>/decr_status</i>, <i>/spu_tag_mask</i>, <i>/event_mask</i>, <i>/event_status</i>, <i>/srr0</i>, <i>/lslr</i></dt>
+<dd>
+Internal registers of the SPU. These files contain an ASCII string representing the hex value of the specified register. Reads and writes on these files (except for <i>npc</i>, see below) require that the SPU context be scheduled out, so frequent access to these files is not recommended for normal program operation.</dd>
+</dl>
+<dl>
+<dt>
+</dt>
+<dd>
+The contents of these files are:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<i>npc</i></dt>
+<dd>
+Next Program Counter - only valid when the SPU is in a stopped state.</dd>
+</dl>
+<dl>
+<dt>
+<i>decr</i></dt>
+<dd>
+SPU Decrementer</dd>
+</dl>
+<dl>
+<dt>
+<i>decr_status</i></dt>
+<dd>
+Decrementer Status</dd>
+</dl>
+<dl>
+<dt>
+<i>spu_tag_mask</i></dt>
+<dd>
+MFC tag mask for SPU DMA</dd>
+</dl>
+<dl>
+<dt>
+<i>event_mask</i></dt>
+<dd>
+Event mask for SPU interrupts</dd>
+</dl>
+<dl>
+<dt>
+<i>event_status</i></dt>
+<dd>
+Number of SPU events pending (read-only)</dd>
+</dl>
+<dl>
+<dt>
+<i>srr0</i></dt>
+<dd>
+Interrupt Return address register</dd>
+</dl>
+<dl>
+<dt>
+<i>lslr</i></dt>
+<dd>
+Local Store Limit Register</dd>
+</dl>
+</div>
+<dl>
+<dt>
+</dt>
+<dd>
+The possible operations on these files are:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>read</b>(2)</dt>
+<dd>
+Reads the current register value. If the register value is larger than the buffer passed to the <b>read</b>(2) system call, subsequent reads will continue reading from the same buffer, until the end of the buffer is reached.<div style="height: 1.00em;">
+&#160;</div>
+When a complete string has been read, all subsequent read operations will return zero bytes and a new file descriptor needs to be opened to read a new value.</dd>
+</dl>
+<dl>
+<dt>
+<b>write</b>(2)</dt>
+<dd>
+A <b>write</b>(2) operation on the file sets the register to the value given in the string. The string is parsed from the beginning until the first nonnumeric character or the end of the buffer. Subsequent writes to the same file descriptor overwrite the previous setting.<div style="height: 1.00em;">
+&#160;</div>
+Except for the <i>npc</i> file, these files are not present on contexts that have been created with the <b>SPU_CREATE_NOSCHED</b> flag.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>/fpcr</i></dt>
+<dd>
+This file provides access to the Floating Point Status and Control Register (fcpr) as a binary, four-byte file. The operations on the <i>fpcr</i> file are:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>read</b>(2)</dt>
+<dd>
+If <i>count</i> is smaller than four, <b>read</b>(2) returns -1 and sets <i>errno</i> to <b>EINVAL</b>. Otherwise, a four-byte value is placed in the data buffer; this is the current value of the <i>fpcr</i> register.</dd>
+</dl>
+<dl>
+<dt>
+<b>write</b>(2)</dt>
+<dd>
+If <i>count</i> is smaller than four, <b>write</b>(2) returns -1 and sets <i>errno</i> to <b>EINVAL</b>. Otherwise, a four-byte value is copied from the data buffer, updating the value of the <i>fpcr</i> register.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>/signal1</i>, <i>/signal2</i></dt>
+<dd>
+The files provide access to the two signal notification channels of an SPU. These are read-write files that operate on four-byte words. Writing to one of these files triggers an interrupt on the SPU. The value written to the signal files can be read from the SPU through a channel read or from host user space through the file. After the value has been read by the SPU, it is reset to zero. The possible operations on an open <i>signal1</i> or <i>signal2</i> file are:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>read</b>(2)</dt>
+<dd>
+If <i>count</i> is smaller than four, <b>read</b>(2) returns -1 and sets <i>errno</i> to <b>EINVAL</b>. Otherwise, a four-byte value is placed in the data buffer; this is the current value of the specified signal notification register.</dd>
+</dl>
+<dl>
+<dt>
+<b>write</b>(2)</dt>
+<dd>
+If <i>count</i> is smaller than four, <b>write</b>(2) returns -1 and sets <i>errno</i> to <b>EINVAL</b>. Otherwise, a four-byte value is copied from the data buffer, updating the value of the specified signal notification register. The signal notification register will either be replaced with the input data or will be updated to the bitwise OR operation of the old value and the input data, depending on the contents of the <i>signal1_type</i> or <i>signal2_type</i> files respectively.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>/signal1_type</i>, <i>/signal2_type</i></dt>
+<dd>
+These two files change the behavior of the <i>signal1</i> and <i>signal2</i> notification files. They contain a numeric ASCII string which is read as either &quot;1&quot; or &quot;0&quot;. In mode 0 (overwrite), the hardware replaces the contents of the signal channel with the data that is written to it. In mode 1 (logical OR), the hardware accumulates the bits that are subsequently written to it. The possible operations on an open <i>signal1_type</i> or <i>signal2_type</i> file are:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>read</b>(2)</dt>
+<dd>
+When the count supplied to the <b>read</b>(2) call is shorter than the required length for the digit (plus a newline character), subsequent reads from the same file descriptor will complete the string. When a complete string has been read, all subsequent read operations will return zero bytes and a new file descriptor needs to be opened to read the value again.</dd>
+</dl>
+<dl>
+<dt>
+<b>write</b>(2)</dt>
+<dd>
+A <b>write</b>(2) operation on the file sets the register to the value given in the string. The string is parsed from the beginning until the first nonnumeric character or the end of the buffer. Subsequent writes to the same file descriptor overwrite the previous setting.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>/mbox_info</i>, <i>/ibox_info</i>, <i>/wbox_info</i>, <i>/dma_into</i>, <i>/proxydma_info</i></dt>
+<dd>
+Read-only files that contain the saved state of the SPU mailboxes and DMA queues. This allows the SPU status to be inspected, mainly for debugging. The <i>mbox_info</i> and <i>ibox_info</i> files each contain the four-byte mailbox message that has been written by the SPU. If no message has been written to these mailboxes, then contents of these files is undefined. The <i>mbox_stat</i>, <i>ibox_stat</i> and <i>wbox_stat</i> files contain the available message count.<div style="height: 1.00em;">
+&#160;</div>
+The <i>wbox_info</i> file contains an array of four-byte mailbox messages, which have been sent to the SPU. With current CBEA machines, the array is four items in length, so up to 4 * 4 = 16 bytes can be read from this file. If any mailbox queue entry is empty, then the bytes read at the corresponding location are undefined.<div style="height: 1.00em;">
+&#160;</div>
+The <i>dma_info</i> file contains the contents of the SPU MFC DMA queue, represented as the following structure:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+struct spu_dma_info {<br/>
+    uint64_t         dma_info_type;<br/>
+    uint64_t         dma_info_mask;<br/>
+    uint64_t         dma_info_status;<br/>
+    uint64_t         dma_info_stall_and_notify;<br/>
+    uint64_t         dma_info_atomic_command_status;<br/>
+    struct mfc_cq_sr dma_info_command_data[16];<br/>
+};<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The last member of this data structure is the actual DMA queue, containing 16 entries. The <i>mfc_cq_sr</i> structure is defined as:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+struct mfc_cq_sr {<br/>
+    uint64_t mfc_cq_data0_RW;<br/>
+    uint64_t mfc_cq_data1_RW;<br/>
+    uint64_t mfc_cq_data2_RW;<br/>
+    uint64_t mfc_cq_data3_RW;<br/>
+};<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The <i>proxydma_info</i> file contains similar information, but describes the proxy DMA queue (i.e., DMAs initiated by entities outside the SPU) instead. The file is in the following format:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+struct spu_proxydma_info {<br/>
+    uint64_t         proxydma_info_type;<br/>
+    uint64_t         proxydma_info_mask;<br/>
+    uint64_t         proxydma_info_status;<br/>
+    struct mfc_cq_sr proxydma_info_command_data[8];<br/>
+};<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Accessing these files requires that the SPU context is scheduled out - frequent use can be inefficient. These files should not be used for normal program operation.<div style="height: 1.00em;">
+&#160;</div>
+These files are not present on contexts that have been created with the <b>SPU_CREATE_NOSCHED</b> flag.</dd>
+</dl>
+<dl>
+<dt>
+<i>/cntl</i></dt>
+<dd>
+This file provides access to the SPU Run Control and SPU status registers, as an ASCII string. The following operations are supported:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>read</b>(2)</dt>
+<dd>
+Reads from the <i>cntl</i> file will return an ASCII string with the hex value of the SPU Status register.</dd>
+</dl>
+<dl>
+<dt>
+<b>write</b>(2)</dt>
+<dd>
+Writes to the <i>cntl</i> file will set the context's SPU Run Control register.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>/mfc</i></dt>
+<dd>
+Provides access to the Memory Flow Controller of the SPU. Reading from the file returns the contents of the SPU's MFC Tag Status register, and writing to the file initiates a DMA from the MFC. The following operations are supported:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>write</b>(2)</dt>
+<dd>
+Writes to this file need to be in the format of a MFC DMA command, defined as follows:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+struct mfc_dma_command {<br/>
+    int32_t  pad;    /* reserved */<br/>
+    uint32_t lsa;    /* local storage address */<br/>
+    uint64_t ea;     /* effective address */<br/>
+    uint16_t size;   /* transfer size */<br/>
+    uint16_t tag;    /* command tag */<br/>
+    uint16_t class;  /* class ID */<br/>
+    uint16_t cmd;    /* command opcode */<br/>
+};<br/>
+<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Writes are required to be exactly <i>sizeof(struct mfc_dma_command)</i> bytes in size. The command will be sent to the SPU's MFC proxy queue, and the tag stored in the kernel (see below).</dd>
+</dl>
+<dl>
+<dt>
+<b>read</b>(2)</dt>
+<dd>
+Reads the contents of the tag status register. If the file is opened in blocking mode (i.e., without <b>O_NONBLOCK</b>), then the read will block until a DMA tag (as performed by a previous write) is complete. In nonblocking mode, the MFC tag status register will be returned without waiting.</dd>
+</dl>
+<dl>
+<dt>
+<b>poll</b>(2)</dt>
+<dd>
+Calling <b>poll</b>(2) on the <i>mfc</i> file will block until a new DMA can be started (by checking for <b>POLLOUT</b>) or until a previously started DMA (by checking for <b>POLLIN</b>) has been completed.<div style="height: 1.00em;">
+&#160;</div>
+<i>/mss</i> Provides access to the MFC MultiSource Synchronization (MSS) facility. By <b>mmap</b>(2)-ing this file, processes can access the MSS area of the SPU.<div style="height: 1.00em;">
+&#160;</div>
+The following operations are supported:</dd>
+</dl>
+<dl>
+<dt>
+<b>mmap</b>(2)</dt>
+<dd>
+Mapping <b>mss</b> into the process address space gives access to the SPU MSS area within the process address space. Only <b>MAP_SHARED</b> mappings are allowed.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>/psmap</i></dt>
+<dd>
+Provides access to the whole problem-state mapping of the SPU. Applications can use this area to interface to the SPU, rather than writing to individual register files in <b>spufs</b>.<div style="height: 1.00em;">
+&#160;</div>
+The following operations are supported:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>mmap</b>(2)</dt>
+<dd>
+Mapping <b>psmap</b> gives a process a direct map of the SPU problem state area. Only <b>MAP_SHARED</b> mappings are supported.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+<i>/phys-id</i></dt>
+<dd>
+Read-only file containing the physical SPU number that the SPU context is running on. When the context is not running, this file contains the string &quot;-1&quot;.<div style="height: 1.00em;">
+&#160;</div>
+The physical SPU number is given by an ASCII hex string.</dd>
+</dl>
+<dl>
+<dt>
+<i>/object-id</i></dt>
+<dd>
+Allows applications to store (or retrieve) a single 64-bit ID into the context. This ID is later used by profiling tools to uniquely identify the context.</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+<b>write</b>(2)</dt>
+<dd>
+By writing an ASCII hex value into this file, applications can set the object ID of the SPU context. Any previous value of the object ID is overwritten.</dd>
+</dl>
+<dl>
+<dt>
+<b>read</b>(2)</dt>
+<dd>
+Reading this file gives an ASCII hex string representing the object ID for this SPU context.</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="section">
+<h1>EXAMPLE</h1><dl>
+<dt>
+<i>/etc/fstab</i>  entry</dt>
+<dd>
+none  	/spu  	spufs  	gid=spu  	0	0</dd>
+</dl>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>close</b>(2), <b>spu_create</b>(2), <b>spu_run</b>(2), <b>capabilities</b>(7), <i>The Cell Broadband Engine Architecture (CBEA) specification</i></div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2007-12-20</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

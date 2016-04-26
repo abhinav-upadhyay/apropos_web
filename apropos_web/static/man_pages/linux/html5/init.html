@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+init(5)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+init(5)</td>
+<td class="head-vol">
+File Formats Manual</td>
+<td class="head-rtitle">
+init(5)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> init - Upstart init daemon job configuration</div>
+<div class="section">
+<h1>SYNOPSIS</h1><dl>
+<dt>
+<b>/etc/init/</b></dt>
+<dd>
+Default location of system job configuration files.</dd>
+</dl>
+<dl>
+<dt>
+<b>$HOME/.init/</b></dt>
+<dd>
+Default location of user job configuration files.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> On startup, the Upstart <b>init</b>(8) daemon reads its job configuration from files in the <i>/etc/init/</i> directory, and watches for future changes to these files using <b>inotify</b>(7).<div style="height: 1.00em;">
+&#160;</div>
+If D-Bus has been configured to allow non-privileged users to invoke all Upstart D-Bus methods, Upstart is also able to manage User Jobs. See <b>User Jobs</b> for further details.<div style="height: 1.00em;">
+&#160;</div>
+To be considered by Upstart, files in this directory must have a recognized suffix and may also be present in sub-directories.  There are two recognized suffixes:<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Files ending in <i>.conf</i> are called configuration files, or simply &quot;conf files&quot; for short. These are the primary vehicle for specifying a job.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Files ending in <i>.override</i> are called override files.  If an override file is present, the stanzas it contains take precedence over those equivalently named stanzas in the corresponding configuration file contents for a particular job. The main use for override files is to modify how a job will run without having to modify its configuration file directly.  See the section  <b>Override File Handling</b> below for further details.</dd>
+</dl>
+<div class="spacer">
+</div>
+A job can thus be defined by either:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A single configuration file.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A single configuration file <b>and</b> a single override file.</dd>
+</dl>
+<div class="spacer">
+</div>
+Unless explicitly stated otherwise, any reference to a jobs configuration can refer both to a configuration file or an override file.<div style="height: 1.00em;">
+&#160;</div>
+Each configuration file defines the template for a single <i>service</i> (long-running process or daemon) or  <i>task</i> (short-lived process).<div style="height: 1.00em;">
+&#160;</div>
+Note that a configuration file is not itself a job: it is a description of an environmenta job could be run in.  A job is the runtime embodiment of a configuration file.<div style="height: 1.00em;">
+&#160;</div>
+The configuration file name as displayed by Upstart and associated tooling is taken from its relative path within the directory without the extension.  For example a configuration file <i>/etc/init/rc-sysinit.conf</i> is named <i>rc-sysinit</i>, while a configuration file <i>/etc/init/net/apache.conf</i> is named <i>net/apache</i>. Since override files only modify the way a configuration file is interpreted, they are not named.<div style="height: 1.00em;">
+&#160;</div>
+Configuration files are plain text and should not be executable.<div class="subsection">
+<h2>User Jobs</h2> A User Job is a job configuration file created by a non-privileged user in their <b>$HOME/.init/</b> directory. Job configuration files in this directory have the same syntax as system job configuration files. Files in this directory will be read and an <b>inotify</b>(7) watch created the first time a user runs <b>initctl</b>(8)<b>.</b><div style="height: 1.00em;">
+&#160;</div>
+Any user can create user jobs, but that user can control <i>only</i> jobs they create.<div style="height: 1.00em;">
+&#160;</div>
+Users are able to manage their jobs using the standard <b>initctl</b>(8) facility.<div style="height: 1.00em;">
+&#160;</div>
+Note that stanzas which manipulate resources limits may cause a job to fail to start should the value provided to such a stanza attempt to exceed the maximum value the users privilege level allows.<div style="height: 1.00em;">
+&#160;</div>
+Note that a user job configuration file cannot have the same name as a system job configuration file.</div>
+<div class="subsection">
+<h2>Chroot Support</h2> Upstart is able to manage jobs within a  <b>chroot</b>(2). To control jobs within the chroot environment, use the standard <b>initctl</b>(8) facility. Note that it is not necessary to install D-Bus within the chroot (in fact it is not recommended).<div style="height: 1.00em;">
+&#160;</div>
+Note that User Jobs can be created within a chroot environment.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="subsection">
+<h2>Configuration File Format</h2> Each line begins with a configuration stanza and continues until either the end of the line or a line containing a closing stanza.  Line breaks within a stanza are permitted within single or double quotes, or if preceeded by a blackslash.<div style="height: 1.00em;">
+&#160;</div>
+If a stanza is duplicated, the last occurence will be used. Unrecognized stanzas will generate parse errors, which will stop a job from running.<div style="height: 1.00em;">
+&#160;</div>
+Stanzas and their arguments are delimited by whitespace, which consists of one or more space or tab characters which are otherwise ignored unless placed within single or double quotes.<div style="height: 1.00em;">
+&#160;</div>
+Comments begin with a `#' and continue until the end of the line.  Blank lines and lines consisting only of whitespace or comments are ignored.</div>
+<div class="subsection">
+<h2>Process definition</h2> The primary use of jobs is to define services or tasks to be run by the <b>init</b>(8) daemon.  Each job may have one or more different processes run as part of its lifecycle, with the most common known as the main process.<div style="height: 1.00em;">
+&#160;</div>
+The main process is defined using either the <b>exec</b> or <b>script</b> stanzas, only one of which is permitted.  These specify the executable or shell script that will be run when the job is considered to be running. Once this process terminates, the job stops.<div style="height: 1.00em;">
+&#160;</div>
+All processes are run with the full job environment available as environment variables in their process.<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+<b>exec <i>COMMAND </i>[ <i>ARG </i>]...</b></dt>
+<dd>
+This stanza defines the process to be run as the name of an executable on the filesystem, and zero or more arguments to be passed to it.  Any special characters, e.g. quotes or `$' specified will result in the entire command being passed to a shell for expansion.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+exec /usr/sbin/acpid -c $EVENTSDIR -s $SOCKET<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>script ... <b>end script</b></b></dt>
+<dd>
+This stanza defines the process to be run as a shell script that will be executed using <b>sh(1).</b> The <i>-e</i> shell option is always used, so any command that fails will terminate the script.<div style="height: 1.00em;">
+&#160;</div>
+The <b>script</b> stanza appears on its own on a line, the script is everything up until the first <b>end script</b> stanza appearing on its own on a line.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+script<br/>
+    dd bs=1 if=/proc/kmsg of=$KMSGSINK<br/>
+    exec /sbin/klogd -P $KMSGSINK<br/>
+end script<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+There are an additional four processes that may be run as part of the job's lifecycle.  These are specified as the process name, followed by an <b>exec</b> or <b>script</b> stanza.<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+<b>pre-start exec|<b>script</b>...</b></dt>
+<dd>
+This process will be run after the job's <b>starting</b>(7) event has finished, but before the main process is run.  It is typically used to prepare the environment, such as making necessary directories.</dd>
+</dl>
+<dl>
+<dt>
+<b>post-start exec|<b>script</b>...</b></dt>
+<dd>
+This process will be run before the job's <b>started</b>(7) event is emitted, but after the main process has been spawned.  It is typically used to send necessary commands to the main process, or to delay the <b>started</b>(7) event until the main process is ready to receive clients.</dd>
+</dl>
+<dl>
+<dt>
+<b>pre-stop exec|<b>script</b>...</b></dt>
+<dd>
+This process is run if the job is stopped by an event listed in its <b>stop on</b> stanza or by the <b>stop</b>(8) command.  It will be run before the job's <b>stopping</b>(7) event is emitted and before the main process is killed.  It is typically used to send any necessary shutdown commands to the main process, and it may also call the <b>start</b>(8) command without arguments to cancel the stop.</dd>
+</dl>
+<dl>
+<dt>
+<b>post-stop exec|<b>script</b>...</b></dt>
+<dd>
+This process is run after the main process has been killed and before the job's <b>stopped</b>(7) event is emitted.  It is typically used to clean up the environment, such as removing temporary directories.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+All of these processes, including the main process, are optional. Services without a main process will appear to be running until they are stopped: this is commonly used to define states such as runlevels.  It is permissable to have no main process, but to have <b>pre-start</b> and <b>post-stop</b> processes for the state.<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 5.00ex;">
+<br/>
+pre-start exec ifup -a<br/>
+post-stop exec ifdown -a<br/>
+</div>
+</div>
+<div class="subsection">
+<h2>Event definition</h2> Jobs can be manually started and stopped at any time by a system adminstrator using the <b>start</b>(8) and <b>stop</b>(8) tools, however it is far more useful for jobs to be started and stopped automatically by the <b>init</b>(8) daemon when necessary.<div style="height: 1.00em;">
+&#160;</div>
+This is done by specifying which events should cause your job to be started, and which cause your process to be stopped again.<div style="height: 1.00em;">
+&#160;</div>
+The set of possible events is limitless, however there are a number of standard events defined by the <b>init</b>(8) daemon and <b>telinit</b>(8) tools that you will want to use.<div style="height: 1.00em;">
+&#160;</div>
+When first started, the <b>init</b>(8) daemon will emit the <b>startup</b>(7) event.  This will activate jobs that implement System V compatibility and the <b>runlevel</b>(7) event.  As jobs are started and stopped, the <b>init</b>(8) daemon will emit the <b>starting</b>(7), <b>started</b>(7), <b>stopping</b>(7) and <b>stopped</b>(7) events on their behalf.<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+<b>start on <i>EVENT </i>[[<i>KEY=</i>]<i>VALUE</i>]... [<b>and</b>|<b>or</b>...]</b></dt>
+<dd>
+The <b>start on</b> stanza defines the set of events that will cause the job to be automatically started.  Each <i>EVENT</i> is given by its name.  Multiple events are permitted using the <b>and</b> &amp; <b>or</b> operators, and complex expressions may be performed with parentheses (within which line breaks are permitted).<div style="height: 1.00em;">
+&#160;</div>
+You may also match on the environment variables contained within the event by specifying the <i>KEY</i> and expected <i>VALUE</i>. If you know the order in which the variables are given to the event you may omit the <i>KEY</i>.<div style="height: 1.00em;">
+&#160;</div>
+<i>VALUE</i> may contain wildcard matches and globs as permitted by <b>fnmatch</b>(3) and may expand the value of any variable defined with the <b>env</b> stanza.<div style="height: 1.00em;">
+&#160;</div>
+Negation is permitted by using <i>!=</i> between the <i>KEY</i> and <i>VALUE</i>.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+start on started gdm or started kdm<div class="spacer">
+</div>
+<br/>
+start on device-added SUBSYSTEM=tty DEVPATH=ttyS*<div class="spacer">
+</div>
+<br/>
+start on net-device-added INTERFACE!=lo<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>stop on <i>EVENT </i>[[<i>KEY=</i>]<i>VALUE</i>]... [<b>and</b>|<b>or</b>...]</b></dt>
+<dd>
+The <b>stop on</b> stanza defines the set of events that will cause the job to be automatically stopped.  It has the same syntax as  <b>start on</b>.<div style="height: 1.00em;">
+&#160;</div>
+<i>VALUE</i> may additionally expand the value of any variable that came from the job's start environment (either the event or the command that started it).<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+stop on stopping gdm or stopping kdm<div class="spacer">
+</div>
+<br/>
+stop on device-removed DEVPATH=$DEVPATH<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>manual</b></dt>
+<dd>
+This stanza will disregard any <i>previously seen</i> <b>start on</b> definition.  By adding this stanza on any line below the <b>start on</b> definition, it provides the ability to stop a job from being automatically started.  When specified, the only way to start such a job is via  <b>start</b> (8).<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Job environment</h2> Each job is run with the environment from the events or commands that started it.  In addition, you may define defaults in the job which may be overridden later and specify which environment variables are exported into the events generated for the job.<div style="height: 1.00em;">
+&#160;</div>
+The special <b>UPSTART_EVENTS</b> environment variable contains the list of events that started the job, it will not be present if the job was started manually.<div style="height: 1.00em;">
+&#160;</div>
+In addition, the <b>pre-stop</b> and <b>post-stop</b> scripts are run with the environment of the events or commands that stopped the job.  The <b>UPSTART_STOP_EVENTS</b> environment variable contains the list of events that stopped the job, it will not be present if the job was stopped manually.<div style="height: 1.00em;">
+&#160;</div>
+All jobs also contain the <b>UPSTART_JOB</b> and <b>UPSTART_INSTANCE</b> environment variables, containing the name of the job and instance.  These are mostly used by the <b>initctl</b>(8) utility to default to acting on the job the commands are called from.<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+<b>env <i>KEY</i>[=<i>VALUE</i>]</b></dt>
+<dd>
+Defines a default environment variable, the value of which may be overriden by the event or command that starts the job. If &#180;KEY=VALUE&#180; is specified, the variable KEY is given the value VALUE. If only &#180;KEY&#180; is given, then the value is taken from the <b>init</b>(8) daemon's own environment.</dd>
+</dl>
+<dl>
+<dt>
+<b>export <i>KEY</i></b></dt>
+<dd>
+Exports the value of an environment variable into the <b>starting</b>(7), <b>started</b>(7), <b>stopping</b>(7) and <b>stopped</b>(7) events for this job and to all resultant events (not just those relating to the current job).</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Services, tasks and respawning</h2> Jobs are <i>services</i> by default.  This means that the act of starting the job is considered to be finished when the job is running, and that even exiting with a zero exit status means the service will be respawned.<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+<b>task</b></dt>
+<dd>
+This stanza may be used to specify that the job is a <i>task</i> instead.  This means that the act of starting the job is not considered to be finished until the job itself has been run and stopped again, but that exiting with a zero exit status means the task has completed successfully and will not be respawned.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+The <b>start</b>(8) command, and any <b>starting</b>(7) or <b>stopping</b>(7) events will block only until a service is running or until a task has finished.<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+<b>respawn</b></dt>
+<dd>
+A service or task with this stanza will be automatically started if it should stop abnormally.  All reasons for a service stopping, except the <b>stop</b>(8) command itself, are considered abnormal.  Tasks may exit with a zero exit status to prevent being respawned.</dd>
+</dl>
+<dl>
+<dt>
+<b>respawn limit <i>COUNT INTERVAL</i></b></dt>
+<dd>
+Respawning is subject to a limit, if the job is respawned more than <i>COUNT</i> times in <i>INTERVAL</i> seconds, it will be considered to be having deeper problems and will be stopped. Default COUNT is 10. Default INTERVAL is 5 seconds.<div style="height: 1.00em;">
+&#160;</div>
+This only applies to automatic respawns and not the <b>restart</b>(8) command.</dd>
+</dl>
+<dl>
+<dt>
+<b>normal exit <i>STATUS</i>|<i>SIGNAL</i>...</b></dt>
+<dd>
+Additional exit statuses or even signals may be added, if the job process terminates with any of these it will not be considered to have failed and will not be respawned.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+normal exit 0 1 TERM HUP<br/>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Instances</h2> By default, only one instance of any job is permitted to exist at one time.  Attempting to start a job when it's already starting or running results in an error. Note that a job is considered to be running if its pre-start process is running.<div style="height: 1.00em;">
+&#160;</div>
+Multiple instances may be permitted by defining the names of those instances.  If an instance with the same name is not already starting or running, a new instance will be started instead of returning an error.<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+<b>instance <i>NAME</i></b></dt>
+<dd>
+This stanza defines the names of instances, on its own its not particularly useful since it would just define the name of the single permitted instance, however <i>NAME</i> expands any variable defined in the job's environment.<div style="height: 1.00em;">
+&#160;</div>
+These will often be variables that you need to pass to the process anyway, so are an excellent way to limit the instances.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+instance $CONFFILE<br/>
+exec /sbin/httpd -c $CONFFILE<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+instance $TTY<br/>
+exec /sbin/getty -8 38300 $TTY<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+These jobs appear in the <b>initctl</b>(8) output with the instance name in parentheses, and have the <b>INSTANCE</b> environment variable set in their events.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Documentation</h2> Upstart provides several stanzas useful for documentation and external tools.<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+<b>description <i>DESCRIPTION</i></b></dt>
+<dd>
+This stanza may contain a description of the job.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+description &quot;This does neat stuff&quot;<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>author <i>AUTHOR</i></b></dt>
+<dd>
+This stanza may contain the author of the job, often used as a contact for bug reports.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+author &quot;Scott James Remnant &lt;scott@netsplit.com&gt;&quot;<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>version <i>VERSION</i></b></dt>
+<dd>
+This stanza may contain version information about the job, such as revision control or package version number.  It is not used or interpreted by <b>init</b>(8) in any way.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+version &quot;$Id$&quot;<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>emits <i>EVENT</i>...</b></dt>
+<dd>
+All processes on the system are free to emit their own events by using the <b>initctl</b>(8) tool, or by communicating directly with the <b>init</b>(8) daemon.<div style="height: 1.00em;">
+&#160;</div>
+This stanza allows a job to document in its job configuration what events it emits itself, and may be useful for graphing possible transitions.<div style="height: 1.00em;">
+&#160;</div>
+The <b>initctl</b>(8) <b>check-config</b> command attempts to use this stanza to resolve events.<div style="height: 1.00em;">
+&#160;</div>
+<i>EVENT</i> can be either a literal string or a string including shell wildcard meta-characters (asterisk ('*'), question mark ('?'), and square brackets ('[' and ']')). Meta-characters are useful to allow <b>initctl</b>(8) <b>check-config</b> to resolve a class of events, such as those emitted by <b>upstart-udev-bridge</b>(8)<b><div class="spacer">
+</div>
+</b>.<div style="height: 1.00em;">
+&#160;</div>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>usage <i>USAGE</i></b></dt>
+<dd>
+This stanza may contain the text used by <b>initctl</b>(8) <b>usage</b> command. This text may be also shown when commands <b>start</b>(8), <b>stop</b>(8) or <b>status</b>(8) fail.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+usage &quot;tty DEV=ttyX - where X is console id&quot;<br/>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Process environment</h2> Many common adjustments to the process environment, such as resource limits, may be configured directly in the job rather than having to handle them yourself.<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+<b>console <b>none</b>|<b>log</b>|<b>output</b>|<b>owner</b></b></dt>
+<dd>
+</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<b>none</b><div style="margin-left: 5.00ex;">
+If <b>none</b> is specified, the jobs standard input, standard output and standard error file descriptors are connected to <i>/dev/null</i>. Any output generated by a job will be discarded. This used to be the default prior to the introduction of  <b>log</b> in Upstart 1.4.</div>
+</div>
+<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 5.00ex;">
+<b>log</b><div style="margin-left: 5.00ex;">
+<b>Only applies to system jobs:</b> if specified by user jobs, the job will be considered to have specified the value <b>none</b>.<div style="height: 1.00em;">
+&#160;</div>
+For system jobs, if <b>log</b> is specified, standard input is connected to <i>/dev/null</i>, and standard output and standard error are connected to a pseudo-tty which logs all job output.<div style="height: 1.00em;">
+&#160;</div>
+Output is logged to file <i>/var/log/upstart/&lt;job-log-file&gt;</i>. If a job has specified  <b>instance</b>, <i>&lt;job-log-file&gt;</i> will equate to <i>&lt;job&gt;-&lt;instance&gt;.log</i> where '&lt;instance&gt;' is replaced by the specific instance value and '&lt;job&gt;' is replaced with the job name (job configuration file name, without the extension).  If  <b>instance</b> is not specified, <i>&lt;job-log-file&gt;</i> will be <i>&lt;job&gt;.log</i> where '&lt;job&gt;' is replaced with the job name.<div style="height: 1.00em;">
+&#160;</div>
+If log files already exist, they are appended to.<div style="height: 1.00em;">
+&#160;</div>
+All slash ('/') characters in <i>&lt;job-log-file&gt;</i> are replaced with underscore ('_') characters. For example, any output from the 'wibble' instance of the 'foo/bar' job would be encoded in file 'foo_bar-wibble.log' in the log file directory. This gives the log file directory a flat structure.<div style="height: 1.00em;">
+&#160;</div>
+If the directory for system jobs does not exist, job output for each job will be cached until the job finishes. Thus, the boot process <b>must</b> ensure that the directory is available as soon as possible since any job that finishes before a writeable disk is available will not be able to take advantage of this facility.<div style="height: 1.00em;">
+&#160;</div>
+If it is not possible to write to any log file due to lack of disk space, the job will be considered to have specified a <b>console</b> value of <b>none</b> and all subsequent job output will be discarded.<div style="height: 1.00em;">
+&#160;</div>
+If the logger detects that the file it is about to write to was deleted, it will re-open the file first.<div style="height: 1.00em;">
+&#160;</div>
+Care should be taken if the log directory is a mount point since any job that starts before that mount is available and which produces output will then attempt to write logs to the mount point, not to the mounted directory. This may give the impression that log data has not been recorded. A strategy to handle this situation is to ensure the mount point directory is not writeable such that logs will only be written when the mount has succeeded (assuming the mount itself is writeable and has sufficient space).<div style="height: 1.00em;">
+&#160;</div>
+Note that since <b>log</b> utilizes pseudo-ttys, your kernel must support these. If it does not, the console value will be modified automatically to <b>none</b>. Further, note that it may be necessary to increase the number of available pty devices; see <b>pty</b>(7) for details.<div style="height: 1.00em;">
+&#160;</div>
+Under Linux, full Unix 98 pty support requires that the <i>devpts</i> filesystem be mounted.<div style="height: 1.00em;">
+&#160;</div>
+If pty setup fails for any reason, an error message will be displayed and the job's console value will be reset to <b>none</b>.</div>
+</div>
+<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 5.00ex;">
+<b>output</b><div style="margin-left: 5.00ex;">
+If <b>output</b> is specified, the standard input, standard output and standard error file descriptors are connected to <i>/dev/console</i>.</div>
+</div>
+<div style="height: 1.00em;">
+&#160;</div>
+<div style="margin-left: 5.00ex;">
+<b>owner</b><div style="margin-left: 5.00ex;">
+The <b>owner</b> value is special: it not only connects the job to the system console but sets the job to be the owner of the system console, which means it will receive certain signals from the kernel when special key combinations such as Control-C are pressed.</div>
+</div>
+<dl>
+<dt>
+<b>umask <i>UMASK</i></b></dt>
+<dd>
+A common configuration is to set the file mode creation mask for the process. <i>UMASK</i> should be an octal value for the mask, see <b>umask</b>(2) for more details.</dd>
+</dl>
+<dl>
+<dt>
+<b>nice <i>NICE</i></b></dt>
+<dd>
+Another common configuration is to adjust the process's nice value, see <b>nice</b>(1) for more details.</dd>
+</dl>
+<dl>
+<dt>
+<b>oom score <i>ADJUSTMENT</i>|<b>never</b></b></dt>
+<dd>
+Normally the OOM killer regards all processes equally, this stanza advises the kernel to treat this job differently.<div style="height: 1.00em;">
+&#160;</div>
+<i>ADJUSTMENT</i> may be an integer value from <i>-999</i> (very unlikely to be killed by the OOM killer) up to <i>1000</i> (very likely to be killed by the OOM killer).  It may also be the special value <b>never</b> to have the job ignored by the OOM killer entirely.</dd>
+</dl>
+<dl>
+<dt>
+<b>chroot <i>DIR</i></b></dt>
+<dd>
+Runs the job's processes in a <b>chroot(8)</b> environment underneath <i>DIR</i><div style="height: 1.00em;">
+&#160;</div>
+Note that <i>DIR</i> must have all the necessary system libraries for the process to be run, often including <i>/bin/sh</i></dd>
+</dl>
+<dl>
+<dt>
+<b>chdir <i>DIR</i></b></dt>
+<dd>
+Runs the job's processes with a working directory of <i>DIR</i> instead of the root of the filesystem.</dd>
+</dl>
+<dl>
+<dt>
+<b>limit <i>LIMIT SOFT</i>|<b>unlimited </b><i>HARD</i>|<b>unlimited</b></b></dt>
+<dd>
+Sets initial system resource limits for the job's processes. <i>LIMIT</i> may be one of <i>core</i>, <i>cpu</i>, <i>data</i>, <i>fsize</i>, <i>memlock</i>, <i>msgqueue</i>, <i>nice</i>, <i>nofile</i>, <i>nproc</i>, <i>rss</i>, <i>rtprio</i>, <i>sigpending</i> or <i>stack</i>.<div style="height: 1.00em;">
+&#160;</div>
+Limits are specified as both a <i>SOFT</i> value and a <i>HARD</i> value, both of which are integers.  The special value <b>unlimited</b> may be specified for either.</dd>
+</dl>
+<dl>
+<dt>
+<b>setuid <i>USERNAME</i></b></dt>
+<dd>
+Changes to the user <i>USERNAME</i> before running any job process.<div style="height: 1.00em;">
+&#160;</div>
+If this stanza is unspecified, all job processes will run as root in the case of system jobs, and as the user in the case of user jobs.<div style="height: 1.00em;">
+&#160;</div>
+Note that system jobs using the <b>setuid</b> stanza are still system jobs, and can not be controlled by an unprivileged user, even if the <b>setuid</b> stanza specifies that user.</dd>
+</dl>
+<dl>
+<dt>
+<b>setgid <i>GROUPNAME</i></b></dt>
+<dd>
+Changes to the group <i>GROUPNAME</i> before running any job process.<div style="height: 1.00em;">
+&#160;</div>
+If this stanza is unspecified, the primary group of the user specified in the <b>setuid</b> block is used for all job processes. If both stanzas are unspecified, all job processes will run with its group ID set to 0 in the case of system jobs, and as the primary group of the user in the case of User Jobs.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Override File Handling</h2> Override files allow a jobs environment to be changed without modifying the jobs configuration file. Rules governing override files:<div style="height: 1.00em;">
+&#160;</div>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If a job is embodied with only a configuration file, the contents of this file define the job.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If an override files exists where there is no existing cofiguration file, the override file is ignored.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If both a configuration file <b>and</b> an override file exist for a job and both files are syntactically correct:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+stanzas in the override file will take precedence over stanzas present in the corresponding configuration file.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+stanzas in the override file which are not present in the corresponding configuration file will be honoured when the job runs.</dd>
+</dl>
+</div>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If both a configuration file and an override file exist for a job and subsequently the override file is deleted, the configuration file is automatically reloaded with the effect that any changes introduced by the override file are undone and the configuration file alone now defines the job.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If both a configuration file and an override file exist for a job and subsequently the configuration file is deleted, a new instance of the job can no longer be started (since without a corresponding configuration file an override file is ignored).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If both a configuration file and an override file exist for a job and any of the contents of the override file are invalid, the override file is ignored and only the contents of the configuration file are considered.</dd>
+</dl>
+<div class="spacer">
+</div>
+<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="subsection">
+<h2>Miscellaneous</h2><dl>
+<dt>
+<b>kill signal <i>SIGNAL</i></b></dt>
+<dd>
+Specifies the stopping signal, <i>SIGTERM</i> by default, a job's main process will receive when stopping the running job.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+kill signal INT<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>kill timeout <i>INTERVAL</i></b></dt>
+<dd>
+Specifies the interval between sending the job's main process the &quot;stopping&quot; (see above) and <i>SIGKILL</i> signals when stopping the running job. Default is 5 seconds.</dd>
+</dl>
+<dl>
+<dt>
+<b>expect stop</b></dt>
+<dd>
+Specifies that the job's main process will raise the <i>SIGSTOP</i> signal to indicate that it is ready. <b>init</b>(8) will wait for this signal before running the job's post-start script, or considering the job to be running.<div style="height: 1.00em;">
+&#160;</div>
+<b>init</b>(8) will send the process the <i>SIGCONT</i> signal to allow it to continue.</dd>
+</dl>
+<dl>
+<dt>
+<b>expect daemon</b></dt>
+<dd>
+Specifies that the job's main process is a daemon, and will fork twice after being run. <b>init</b>(8) will follow this daemonisation, and will wait for this to occur before running the job's post-start script or considering the job to be running.<div style="height: 1.00em;">
+&#160;</div>
+Without this stanza <b>init</b>(8) is unable to supervise daemon processes and will believe them to have stopped as soon as they daemonise on startup.</dd>
+</dl>
+<dl>
+<dt>
+<b>expect fork</b></dt>
+<dd>
+Specifies that the job's main process will fork once after being run. <b>init</b>(8) will follow this fork, and will wait for this to occur before running the job's post-start script or considering the job to be running.<div style="height: 1.00em;">
+&#160;</div>
+Without this stanza <b>init</b>(8) is unable to supervise forking processes and will believe them to have stopped as soon as they fork on startup.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>RESTRICTIONS</h1> The use of symbolic links in job configuration file directories is not supported since it can lead to unpredicable behaviour resulting from broken or inaccessible links (such as would be caused by a link crossing a filesystem boundary to a filesystem that has not yet been mounted).</div>
+<div class="section">
+<h1>BUGS</h1> The <b>and</b> and <b>or</b> operators allowed with <b>start on</b> and <b>stop on</b> do not work intuitively: operands to the right of either operator are only evaluated once and state information is then discarded. This can lead to jobs with complex  <b>start on</b> or <b>stop on</b> conditions not behaving as expected  <i>when restarted</i>. For example, if a job encodes the following condition:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+start on A and (B or C)<br/>
+<div class="spacer">
+</div>
+When 'A' and 'B' become true, the condition is satisfied so the job will be run. However, if the job ends and subsequently 'A' and 'C' become true, the job will  <i>not</i> be re-run even though the condtion is satisfied.  Avoid using complex conditions with jobs which need to be restarted.</div>
+<div class="section">
+<h1>FILES</h1><dl>
+<dt>
+<i>/etc/init/*.conf</i></dt>
+<dd>
+System job configuration files.</dd>
+</dl>
+<dl>
+<dt>
+<i>/etc/init/*.override</i></dt>
+<dd>
+System job override files.</dd>
+</dl>
+<dl>
+<dt>
+<i>$HOME/.init/*.conf</i></dt>
+<dd>
+User job configuration files. Note that you may make the directory <i>$HOME/.init/</i> a symbolic link to <b>$HOME/.config/upstart/</b>.</dd>
+</dl>
+<dl>
+<dt>
+<i>$HOME/.init/*.override</i></dt>
+<dd>
+User job override files.</dd>
+</dl>
+<dl>
+<dt>
+<i>/var/log/upstart/*.log</i></dt>
+<dd>
+Default location of system job output logs.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> Manual page written by Scott James Remnant &lt;<b>scott@netsplit.com</b>&gt; and James Hunt &lt;<b>james.hunt@canonical.com</b>&gt;<b>.</b></div>
+<div class="section">
+<h1>REPORTING BUGS</h1> Report bugs at &lt;<b>https://launchpad.net/upstart/+bugs</b>&gt;</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright &#169; 2009-2011 Canonical Ltd.<div style="height: 0.00em;">
+&#160;</div>
+This is free software; see the source for copying conditions.  There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>init</b>(8) <b>initctl</b>(8) <b>sh</b>(1) <b>upstart-events</b>(7) <b>pty</b>(7)</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-05-12</td>
+<td class="foot-os">
+Upstart</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

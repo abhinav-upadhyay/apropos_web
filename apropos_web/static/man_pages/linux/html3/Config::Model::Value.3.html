@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Config::Model::Value(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Config::Model::Value(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Config::Model::Value(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Config::Model::Value - Strongly typed configuration value</div>
+<div class="section">
+<h1>VERSION</h1> version 2.005</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ use Config::Model;<br/>
+ use Log::Log4perl qw(:easy);<br/>
+ Log::Log4perl-&gt;easy_init($WARN);<br/>
+<br/>
+ # define configuration tree object<br/>
+ my $model = Config::Model-&gt;new;<br/>
+ $model -&gt;create_config_class (<br/>
+    name =&gt; &quot;MyClass&quot;,<br/>
+<br/>
+    element =&gt; [ <br/>
+<br/>
+        [qw/foo bar/] =&gt; {<br/>
+            type       =&gt; 'leaf',<br/>
+            value_type =&gt; 'string',<br/>
+            description =&gt; 'foobar',<br/>
+        },<br/>
+     country =&gt; { <br/>
+       type =&gt;       'leaf',<br/>
+       value_type =&gt; 'enum',<br/>
+       choice =&gt;      [qw/France US/],<br/>
+       description =&gt; 'big countries',<br/>
+     },<br/>
+    ],<br/>
+ ) ;<br/>
+<br/>
+ my $inst = $model-&gt;instance(root_class_name =&gt; 'MyClass' );<br/>
+<br/>
+ my $root = $inst-&gt;config_root ;<br/>
+<br/>
+ # put data<br/>
+ $root-&gt;load( step =&gt; 'foo=FOO country=US' );<br/>
+<br/>
+ print $root-&gt;report ;<br/>
+ #  foo = FOO<br/>
+ #         DESCRIPTION: foobar<br/>
+ # <br/>
+ #  country = US<br/>
+ #         DESCRIPTION: big countries<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This class provides a way to specify configuration value with the following properties:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Strongly typed scalar: the value can either be an enumerated type, a boolean, a number, an integer or a string</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+default parameter: a value can have a default value specified during the construction. This default value will be written in the target configuration file. (&quot;default&quot; parameter)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+upstream default parameter: specifies a default value that will be used by the application when no information is provided in the configuration file. This upstream_default value will not written in the configuration files. Only the &quot;fetch_standard&quot; method will return the builtin value. This parameter was previously referred as &quot;built_in&quot; value. This may be used for audit purpose. (&quot;upstream_default&quot; parameter)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+mandatory value: reading a mandatory value will raise an exception if the value is not specified and has no default value.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+dynamic change of property: A slave value can be registered to another master value so that the properties of the slave value can change according to the value of the master value. For instance, paper size value can be 'letter' for country 'US' and 'A4' for country 'France'.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A reference to the Id of a hash of list element. In other word, the value is an enumerated type where the possible values (choice) is defined by the existing keys of a has element somewhere in the tree. See &quot;Value Reference&quot;.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Default values</h1> There are several kind of default values. They depend on where these values are defined (or found).<div class="spacer">
+</div>
+From the lowest default level to the &quot;highest&quot;:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;upstream_default&quot;: The value is known in the application, but is not written in the configuration file.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;layered&quot;: The value is known by the application through another mean (e.g. an included configuration file), but is not written in the configuration file.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;default&quot;: The value is known by the model, but not by the application. This value must be written in the configuration file.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;computed&quot;: The value is computed from other configuration elements. This value must be written in the configuration file.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;preset&quot;: The value is not known by the model or by the application. But it can be found by an automatic program and stored while the configuration Config::Model::Instance is in Config::Model::Instance/&quot;preset_start ()&quot;</dd>
+</dl>
+<div class="spacer">
+</div>
+Then there is the value entered by the user. This will override all kind of &quot;default&quot; value.<div class="spacer">
+</div>
+The fetch_standard function will return the &quot;highest&quot; level of default value, but will not return a custom value, i.e. a value entered by the user.</div>
+<div class="section">
+<h1>Constructor</h1> Value object should not be created directly.</div>
+<div class="section">
+<h1>Value model declaration</h1> A leaf element must be declared with the following parameters:<dl>
+<dt>
+value_type</dt>
+<dd>
+Either &quot;boolean&quot;, &quot;enum&quot;, &quot;integer&quot;, &quot;number&quot;, &quot;uniline&quot;, &quot;string&quot;. Mandatory. See &quot;Value types&quot;.</dd>
+</dl>
+<dl>
+<dt>
+default</dt>
+<dd>
+Specify the default value (optional)</dd>
+</dl>
+<dl>
+<dt>
+upstream_default</dt>
+<dd>
+Specify a built in default value (optional). I.e a value known by the application which does not need to be written in the configuration file.</dd>
+</dl>
+<dl>
+<dt>
+write_as</dt>
+<dd>
+Array ref. Reserved for boolean value. Specify how to write a boolean value. Default is &quot;[0,1]&quot; which may not be the most readable. &quot;write_as&quot; can be specified as &quot;['false','true']&quot; or &quot;['no','yes']&quot;.</dd>
+</dl>
+<dl>
+<dt>
+compute</dt>
+<dd>
+Will compute a value according to a formula and other values. By default a computed value cannot be set. See Config::Model::ValueComputer for computed value declaration.</dd>
+</dl>
+<dl>
+<dt>
+migrate_from</dt>
+<dd>
+This is a special parameter to cater for smooth configuration upgrade. This parameter can be used to copy the value of a deprecated parameter to its replacement. See &quot;upgrade&quot;&quot; in &quot; for details.</dd>
+</dl>
+<dl>
+<dt>
+convert =&gt; [uc | lc ]</dt>
+<dd>
+When stored, the value will be converted to uppercase (uc) or lowercase (lc).</dd>
+</dl>
+<dl>
+<dt>
+min</dt>
+<dd>
+Specify the minimum value (optional, only for integer, number)</dd>
+</dl>
+<dl>
+<dt>
+max</dt>
+<dd>
+Specify the maximum value (optional, only for integer, number)</dd>
+</dl>
+<dl>
+<dt>
+mandatory</dt>
+<dd>
+Set to 1 if the configuration value <b>must</b> be set by the configuration user (default: 0)</dd>
+</dl>
+<dl>
+<dt>
+choice</dt>
+<dd>
+Array ref of the possible value of an enum. Example :<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ choice =&gt; [ qw/foo bar/]<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+match</dt>
+<dd>
+Perl regular expression. The value will be match with the regex to assert its validity. Example &quot;match =&gt; '^foo'&quot; means that the parameter value must begin with &quot;foo&quot;. Valid only for &quot;string&quot; or &quot;uniline&quot; values.</dd>
+</dl>
+<dl>
+<dt>
+warn_if_match</dt>
+<dd>
+Hash ref. Keys are made of Perl regular expression. The value can specify a warning message (leave empty or undefined for default warning message) and instructions to fix the value. A warning will be issued when the value match the passed regular expression. Valid only for &quot;string&quot; or &quot;uniline&quot; values. The fix instructions will be evaluated when apply_fixes is called. $_ will contain the value to fix. $_ will be stored as the new value once the instructions are done. $self will contain the value object. Use with care.<div style="height: 1.00em;">
+&#160;</div>
+In the example below, any value matching 'foo' will be converted in uppercase:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  warn_if_match =&gt; { 'foo' =&gt; { fix =&gt;'uc;', msg =&gt;  'lower foo is not good'}},<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+warn_unless_match</dt>
+<dd>
+Hash ref like above. A warning will be issued when the value does not match the passed regular expression. Valid only for &quot;string&quot; or &quot;uniline&quot; values.</dd>
+</dl>
+<dl>
+<dt>
+warn</dt>
+<dd>
+String. Issue a warning to user with the specified string any time a value is set or read.</dd>
+</dl>
+<dl>
+<dt>
+warn_unless</dt>
+<dd>
+A bit like &quot;warn_if_match&quot;. The hash key is not a regexp but a label to help users. The hash ref containd some Perl code that is evaluated to perform the test. A warning will be issued if the code returns false.<div style="height: 1.00em;">
+&#160;</div>
+$_ will contains the value to check. $self will contain the &quot;Config::Model::Value&quot; object.<div style="height: 1.00em;">
+&#160;</div>
+The example below will warn if a directory is missing:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  warn_unless =&gt; { 'dir' =&gt; { code =&gt; '-d' , msg =&gt; 'missing dir', fix =&gt; &quot;system(mkdir $_);&quot; }}<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+assert</dt>
+<dd>
+Like &quot;warn_if_match&quot;. Except that returned value will trigger an error if false.</dd>
+</dl>
+<dl>
+<dt>
+grammar</dt>
+<dd>
+Setup a Parse::RecDescent grammar to perform validation.<div style="height: 1.00em;">
+&#160;</div>
+If the grammar does not start with a &quot;check&quot; rule (i.e does not start with &quot;check: &quot;), the first line of the grammar will be modified to add &quot;check&quot; rule and set up this rules so the entire value must match the passed grammar.<div style="height: 1.00em;">
+&#160;</div>
+I.e. the grammar:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  token (oper token)(s?)<br/>
+  oper: 'and' | 'or'<br/>
+  token: 'Apache' | 'CC-BY' | 'Perl'<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+will be changed to<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  check: token (oper token)(s?) /^\Z/ {$return = 1;}<br/>
+  oper: 'and' | 'or'<br/>
+  token: 'Apache' | 'CC-BY' | 'Perl'<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The rule is called with Value object and a string reference. So, in the actions you may need to define, you can call the value object as $arg[0], store error message in &quot;${$arg[1]}}&quot; and store warnings in &quot;${$arg[2]}}&quot;.</dd>
+</dl>
+<dl>
+<dt>
+replace</dt>
+<dd>
+Hash ref. Used for enum to substitute one value with another. This parameter must be used to enable user to upgrade a configuration with obsolete values. For instance, if the value &quot;foo&quot; is obsolete and replaced by &quot;foo_better&quot;, you will need to declare:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  replace =&gt; { foo =&gt; 'foo_better' }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The hash key can also be a regular expression for wider range replacement. The regexp must match the whole value:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  replace =&gt; ( 'foo.*' =&gt; 'better_foo' }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+In this case, a value will be replaced by &quot;better_foo&quot; if the &quot;/^foo.*$/&quot; regexp matches.</dd>
+</dl>
+<dl>
+<dt>
+replace_follow</dt>
+<dd>
+Path specifying a hash of value element in the configuration tree. The hash if used in a way similar to the &quot;replace&quot; parameter. In this case, the replacement is not coded in the model but specified by the configuration.</dd>
+</dl>
+<dl>
+<dt>
+refer_to</dt>
+<dd>
+Specify a path to an id element used as a reference. See Value Reference for details.</dd>
+</dl>
+<dl>
+<dt>
+computed_refer_to</dt>
+<dd>
+Specify a path to an id element used as a computed reference. See &quot;Value Reference&quot; for details.</dd>
+</dl>
+<dl>
+<dt>
+warp</dt>
+<dd>
+See section below: &quot;Warp: dynamic value configuration&quot;.</dd>
+</dl>
+<dl>
+<dt>
+help</dt>
+<dd>
+You may provide detailed description on possible values with a hash ref. Example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ help =&gt; { oui =&gt; &quot;French for 'yes'&quot;, non =&gt; &quot;French for 'no'&quot;}<br/>
+</dd>
+</dl>
+<div class="subsection">
+<h2>Value types</h2> This modules can check several value types:<dl>
+<dt>
+&quot;boolean&quot;</dt>
+<dd>
+Accepts values 1 or 0, &quot;yes&quot; or &quot;no&quot;, &quot;true&quot; or &quot;false&quot;. The value read back is always 1 or 0.</dd>
+</dl>
+<dl>
+<dt>
+&quot;enum&quot;</dt>
+<dd>
+Enum choices must be specified by the &quot;choice&quot; parameter.</dd>
+</dl>
+<dl>
+<dt>
+&quot;integer&quot;</dt>
+<dd>
+Enable positive or negative integer</dd>
+</dl>
+<dl>
+<dt>
+&quot;number&quot;</dt>
+<dd>
+The value can be a decimal number</dd>
+</dl>
+<dl>
+<dt>
+&quot;uniline&quot;</dt>
+<dd>
+A one line string. I.e without &quot;\n&quot; in it.</dd>
+</dl>
+<dl>
+<dt>
+&quot;string&quot;</dt>
+<dd>
+Actually, no check is performed with this type.</dd>
+</dl>
+<dl>
+<dt>
+&quot;reference&quot;</dt>
+<dd>
+Like an &quot;enum&quot; where the possible values (aka choice) is defined by another location if the configuration tree. See &quot;Value Reference&quot;.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Warp: dynamic value configuration</h1> The Warp functionality enable a &quot;Value&quot; object to change its properties (i.e. default value or its type) dynamically according to the value of another &quot;Value&quot; object locate elsewhere in the configuration tree. (See Config::Model::WarpedThing for an explanation on warp mechanism).<div class="spacer">
+</div>
+For instance if you declare 2 &quot;Value&quot; element this way:<div class="spacer">
+</div>
+<br/>
+ $model -&gt;create_config_class (<br/>
+   name =&gt; &quot;TV_config_class&quot;,<br/>
+   element =&gt; [<br/>
+     country =&gt; {<br/>
+       type =&gt; 'leaf',<br/>
+       value_type =&gt; 'enum', <br/>
+       choice =&gt; [qw/US Europe Japan/]<br/>
+     },<br/>
+     tv_standard =&gt; {<br/>
+       type =&gt; 'leaf',<br/>
+       value_type =&gt; 'enum',<br/>
+       choice =&gt; [qw/PAL NTSC SECAM/]  <br/>
+       warp =&gt; { <br/>
+         follow =&gt; { c =&gt; '- country' }, # this points to the warp master<br/>
+         rules =&gt; { <br/>
+           '$c eq &quot;US&quot;'     =&gt; { default =&gt; 'NTSC'  },<br/>
+           '$c eq &quot;France&quot;' =&gt; { default =&gt; 'SECAM' },<br/>
+           '$c eq &quot;Japan&quot;'  =&gt; { default =&gt; 'NTSC'  },<br/>
+           '$c eq &quot;Europe&quot;' =&gt; { default =&gt; 'PAL'   },<br/>
+         }<br/>
+       }<br/>
+     },<br/>
+   ]<br/>
+ );<br/>
+<div class="spacer">
+</div>
+Setting &quot;country&quot; element to &quot;US&quot; will mean that &quot;tv_standard&quot; has a default value set to &quot;NTSC&quot; by the warp mechanism.<div class="spacer">
+</div>
+Likewise, the warp mechanism enables you to dynamically change the possible values of an enum element:<div class="spacer">
+</div>
+<br/>
+ state =&gt; {<br/>
+      type =&gt; 'leaf',<br/>
+      value_type =&gt; 'enum', # example is admittedly silly<br/>
+      warp =&gt;{ <br/>
+         follow =&gt; { c =&gt; '- country' },<br/>
+         rules =&gt; { <br/>
+           '$c eq &quot;US&quot;'     =&gt; { choice =&gt; ['Kansas', 'Texas'    ]},<br/>
+           '$c eq &quot;Europe&quot;' =&gt; { choice =&gt; ['France', 'Spain'    ]},<br/>
+           '$c eq &quot;Japan&quot;'  =&gt; { choice =&gt; ['Honshu', 'Hokkaido' ]}<br/>
+         }<br/>
+      }<br/>
+   }<br/>
+<div class="subsection">
+<h2>Cascaded warping</h2> Warping value can be cascaded: &quot;A&quot; can be warped by &quot;B&quot; which can be warped by &quot;C&quot;. But this feature should be avoided since it can lead to a model very hard to debug. Bear in mind that:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Warp loop are not detected and will end up in &quot;deep recursion subroutine&quot; failures.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If you declare &quot;diamond&quot; shaped warp dependencies, the results will depend on the order of the warp algorithm and can be unpredictable.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The keys declared in the warp rules (&quot;US&quot;, &quot;Europe&quot; and &quot;Japan&quot; in the example above) cannot be checked at start time against the warp master &quot;Value&quot;. So a wrong warp rule key will be silently ignored during start up and will fail at run time.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Value Reference</h1> To set up an enumerated value where the possible choice depends on the key of a Config::Model::AnyId object, you must:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Set &quot;value_type&quot; to &quot;reference&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Specify the &quot;refer_to&quot; or &quot;computed_refer_to&quot; parameter. See refer_to parameter.</dd>
+</dl>
+<div class="spacer">
+</div>
+In this case, a &quot;IdElementReference&quot; object is created to handle the relation between this value object and the referred Id. See Config::Model::IdElementReference for details.</div>
+<div class="section">
+<h1>Introspection methods</h1> The following methods returns the current value of the parameter of the value object (as declared in the model unless they were warped):<dl>
+<dt>
+min</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+max</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+mandatory</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+choice</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+convert</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+value_type</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+default</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+upstream_default</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+index_value</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+element_name</dt>
+<dd>
+</dd>
+</dl>
+<div class="subsection">
+<h2><i>name()</i></h2> Returns the object name.</div>
+<div class="subsection">
+<h2>get_type</h2> Returns &quot;leaf&quot;.</div>
+<div class="subsection">
+<h2><i>can_store()</i></h2> Returns true if the value object can be assigned to. Return 0 for a read-only value (i.e. a computed value with no override allowed).</div>
+<div class="subsection">
+<h2><i>get_choice()</i></h2> Query legal values (only for enum types). Return an array (possibly empty).</div>
+<div class="subsection">
+<h2>get_help ( [ on_value ] )</h2> Returns the help strings passed to the constructor.<div class="spacer">
+</div>
+With &quot;on_value&quot; parameter, returns the help string dedicated to the passed value or undef.<div class="spacer">
+</div>
+Without parameter returns a hash ref that contains all the help strings.</div>
+<div class="subsection">
+<h2>error_msg</h2> Returns the error messages of this object (if any)</div>
+<div class="subsection">
+<h2>warning_msg</h2> Returns warning concerning this value. Returns a list in list context and a string in scalar context.</div>
+<div class="subsection">
+<h2>check_value ( value )</h2> Check the consistency of the value.<div class="spacer">
+</div>
+&quot;check_value&quot; also accepts named parameters:<dl>
+<dt>
+value</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+quiet</dt>
+<dd>
+When non null, check will not try to get extra information from the tree. This is required in some cases to avoid loops in check, get_info, get_warp_info, re-check ...</dd>
+</dl>
+<div class="spacer">
+</div>
+In scalar context, return 0 or 1.<div class="spacer">
+</div>
+In array context, return an empty array when no error was found. In case of errors, returns an array of error strings that should be shown to the user.</div>
+<div class="subsection">
+<h2>has_fixes</h2> Returns the number of fixes that can be applied to the current value.</div>
+<div class="subsection">
+<h2>apply_fixes</h2> Applies the fixes to suppress the current warnings.</div>
+<div class="subsection">
+<h2>check( [ value =&gt; foo ] )</h2> Like &quot;check_value&quot;.<div class="spacer">
+</div>
+Will also display warnings on STDOUT unless &quot;silent&quot; parameter is set to 1. In this case,user is expected to retrieve them with warning_msg.<div class="spacer">
+</div>
+Without &quot;value&quot; argument, this method will check the value currently stored.</div>
+</div>
+<div class="section">
+<h1>Information management</h1><div class="subsection">
+<h2>store( value )</h2> Can be called as &quot;value =&gt; ...,  check =&gt; yes|no|skip )&quot;<div class="spacer">
+</div>
+Store value in leaf element. &quot;check&quot; parameter can be used to skip validation check.</div>
+<div class="subsection">
+<h2>load_data( scalar_value )</h2> Load scalar data. Data is simply forwarded to store.</div>
+<div class="subsection">
+<h2>fetch_custom</h2> Returns the stored value if this value is different from a standard setting or built in setting. In other words, returns undef if the stored value is identical to the default value or the computed value or the built in value.</div>
+<div class="subsection">
+<h2>fetch_standard</h2> Returns the standard value as defined by the configuration model. The standard value can be either a preset value, a layered value, a computed value, a default value or a built-in default value.</div>
+<div class="subsection">
+<h2>fetch( ... )</h2> Check and fetch value from leaf element. The method can have one parameter (the fetch mode) or several pairs:<dl>
+<dt>
+mode</dt>
+<dd>
+Whether to fetch default, custom, etc value. See below for details</dd>
+</dl>
+<dl>
+<dt>
+check</dt>
+<dd>
+Whether to check if the value is valid or not before returning it. Default is 'yes'. Possible value are</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+yes</dt>
+<dd>
+Perform check and raise an exception for bad values</dd>
+</dl>
+<dl>
+<dt>
+skip</dt>
+<dd>
+Perform check and return undef for bad values</dd>
+</dl>
+<dl>
+<dt>
+no</dt>
+<dd>
+Do not check and return values even if bad</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+</div>
+<dl>
+<dt>
+silent</dt>
+<dd>
+When set to 1, warning are not displayed on STDOUT. User is expected to read warnings with warning_msg method.</dd>
+</dl>
+<div class="spacer">
+</div>
+According to the &quot;mode&quot; parameter, this method will return either:<dl>
+<dt>
+empty mode parameter (default)</dt>
+<dd>
+Value entered by user or default value if the value is different from upstream_default or layered value. Typically this value will be written in a configuration file.</dd>
+</dl>
+<dl>
+<dt>
+backend</dt>
+<dd>
+Alias for default mode.</dd>
+</dl>
+<dl>
+<dt>
+custom</dt>
+<dd>
+The value entered by the user (if different from built in, preset, computed or default value)</dd>
+</dl>
+<dl>
+<dt>
+user</dt>
+<dd>
+The value most useful to user: the value that will be used by the application.</dd>
+</dl>
+<dl>
+<dt>
+preset</dt>
+<dd>
+The value entered in preset mode</dd>
+</dl>
+<dl>
+<dt>
+standard</dt>
+<dd>
+The preset or computed or default or built in value.</dd>
+</dl>
+<dl>
+<dt>
+default</dt>
+<dd>
+The default value (defined by the configuration model)</dd>
+</dl>
+<dl>
+<dt>
+layered</dt>
+<dd>
+The value found in included files (treated in layered mode: values specified there are handled as upstream default values). E.g. like in multistrap config.</dd>
+</dl>
+<dl>
+<dt>
+upstream_default</dt>
+<dd>
+The upstream_default value. (defined by the configuration model)</dd>
+</dl>
+<dl>
+<dt>
+non_upstream_default</dt>
+<dd>
+The custom or preset or computed or default value. Will return undef if either of this value is identical to the upstream_default value. This feature is useful to reduce data to write in configuration file.</dd>
+</dl>
+<dl>
+<dt>
+allow_undef</dt>
+<dd>
+This mode will accept to return undef for mandatory values. Normally, trying to fetch an undefined mandatory value leads to an exception.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>user_value</h2> Returns the value entered by the user. Does not use the default or computed value. Returns undef unless a value was actually stored.</div>
+<div class="subsection">
+<h2>fetch_preset</h2> Returns the value entered in preset mode. Does not use the default or computed value. Returns undef unless a value was actually stored in preset mode.</div>
+<div class="subsection">
+<h2>clear_preset</h2> Delete the preset value. (Even out of preset mode). Returns true if other data are still stored in the value (layered or user data). Returns false otherwise.</div>
+<div class="subsection">
+<h2>fetch_layered</h2> Returns the value entered in layered mode. Does not use the default or computed value. Returns undef unless a value was actually stored in layered mode.</div>
+<div class="subsection">
+<h2>clear_layered</h2> Delete the layered value. (Even out of layered mode). Returns true if other data are still stored in the value (layered or user data). Returns false otherwise.</div>
+<div class="subsection">
+<h2>get( path =&gt; ..., mode =&gt; ... ,  check =&gt; ... )</h2> Get a value from a directory like path.</div>
+<div class="subsection">
+<h2>set( path , value )</h2> Set a value from a directory like path.</div>
+</div>
+<div class="section">
+<h1>Examples</h1><div class="subsection">
+<h2>Number with min and max values</h2><br/>
+ bounded_number =&gt; {<br/>
+    type       =&gt; 'leaf',<br/>
+    value_type =&gt; 'number',<br/>
+    min        =&gt; 1,<br/>
+    max        =&gt; 4,<br/>
+  },<br/>
+</div>
+<div class="subsection">
+<h2>Mandatory value</h2><br/>
+  mandatory_string =&gt; {<br/>
+    type       =&gt; 'leaf',<br/>
+    value_type =&gt; 'string',<br/>
+    mandatory  =&gt; 1,<br/>
+  },<br/>
+<br/>
+  mandatory_boolean =&gt; {<br/>
+    type       =&gt; 'leaf',<br/>
+    value_type =&gt; 'boolean',<br/>
+  },<br/>
+</div>
+<div class="subsection">
+<h2>Enum with help associated with each value</h2> Note that the help specification is optional.<div class="spacer">
+</div>
+<br/>
+   enum_with_help =&gt; {<br/>
+    type       =&gt; 'leaf',<br/>
+    value_type =&gt; 'enum',<br/>
+    choice     =&gt; [qw/a b c/],<br/>
+    help       =&gt; { a =&gt; 'a help' }<br/>
+  },<br/>
+</div>
+<div class="subsection">
+<h2>Migrate old obsolete enum value</h2> Legacy values &quot;a1&quot;, &quot;c1&quot; and &quot;foo/.*&quot; are replaced with &quot;a&quot;, &quot;c&quot; and &quot;foo/&quot;.<div class="spacer">
+</div>
+<br/>
+  with_replace =&gt; {<br/>
+    type       =&gt; 'leaf',<br/>
+    value_type =&gt; 'enum',<br/>
+    choice     =&gt; [qw/a b c/],<br/>
+    replace    =&gt; {<br/>
+        a1       =&gt; 'a',<br/>
+        c1       =&gt; 'c',<br/>
+        'foo/.*' =&gt; 'foo',<br/>
+    },<br/>
+  },<br/>
+</div>
+<div class="subsection">
+<h2>Enforce value to match a regexp</h2> An exception will be triggered if the value does not match the &quot;match&quot; regular expression.<div class="spacer">
+</div>
+<br/>
+  match =&gt; {<br/>
+    type       =&gt; 'leaf',<br/>
+    value_type =&gt; 'string',<br/>
+    match      =&gt; '^foo\d{2}$',<br/>
+  },<br/>
+</div>
+<div class="subsection">
+<h2>Enforce value to match a Parse::RecDescent grammar</h2><br/>
+  prd_match =&gt; {<br/>
+    type       =&gt; 'leaf',<br/>
+    value_type =&gt; 'string',<br/>
+    grammar    =&gt; q{ <br/>
+        token (oper token)(s?)<br/>
+        oper: 'and' | 'or'<br/>
+        token: 'Apache' | 'CC-BY' | 'Perl' <br/>
+    },<br/>
+  },<br/>
+</div>
+<div class="subsection">
+<h2>Issue a warning if a value matches a regexp</h2> Issue a warning if the string contains upper case letters. Propose a fix that translate all capital letters to lower case.<div class="spacer">
+</div>
+<br/>
+  warn_if_capital =&gt; {<br/>
+    type          =&gt; 'leaf',<br/>
+    value_type    =&gt; 'string',<br/>
+    warn_if_match =&gt; { '/A-Z/' =&gt; { fix =&gt; '$_ = lc;' } },<br/>
+  },<br/>
+<div class="spacer">
+</div>
+A specific warning can be specified:<div class="spacer">
+</div>
+<br/>
+  warn_if_capital =&gt; {<br/>
+    type          =&gt; 'leaf',<br/>
+    value_type    =&gt; 'string',<br/>
+    warn_if_match =&gt; { <br/>
+        '/A-Z/' =&gt; { <br/>
+            fix =&gt; '$_ = lc;' ,<br/>
+            mesg =&gt;'NO UPPER CASE PLEASE'<br/>
+        } <br/>
+    },<br/>
+  },<br/>
+</div>
+<div class="subsection">
+<h2>Issue a warning if a value does NOT match a regexp</h2><br/>
+  warn_unless =&gt; {<br/>
+    type              =&gt; 'leaf',<br/>
+    value_type        =&gt; 'string',<br/>
+    warn_unless_match =&gt; { foo =&gt; { msg =&gt; '', fix =&gt; '$_ = &quot;foo&quot;.$_;' } },<br/>
+  },<br/>
+</div>
+<div class="subsection">
+<h2>Always issue a warning</h2><br/>
+  always_warn =&gt; {<br/>
+    type       =&gt; 'leaf',<br/>
+    value_type =&gt; 'string',<br/>
+    warn       =&gt; 'Always warn whenever used',<br/>
+  },<br/>
+</div>
+<div class="subsection">
+<h2>Computed values</h2> See &quot;Examples&quot; in Config::Model::ValueComputer.</div>
+</div>
+<div class="section">
+<h1>Upgrade</h1> Upgrade is a special case when the configuration of an application has changed. Some parameters can be removed and replaced by another one. To avoid trouble on the application user side, Config::Model offers a possibility to handle the migration of configuration data through a special declaration in the configuration model.<div class="spacer">
+</div>
+This declaration must:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Declare the deprecated parameter with a &quot;status&quot; set to &quot;deprecated&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Declare the new parameter with the instructions to load the semantic content from the deprecated parameter. These instructions are declared in the &quot;migrate_from&quot; parameters (which is similar to the &quot;compute&quot; parameter)</dd>
+</dl>
+<div class="spacer">
+</div>
+Here an example where a URL parameter is changed to a set of 2 parameters (host and path):<div class="spacer">
+</div>
+<br/>
+       'old_url' =&gt; { type =&gt; 'leaf',<br/>
+                      value_type =&gt; 'uniline',<br/>
+                      status =&gt; 'deprecated',<br/>
+                    },<br/>
+       'host' <br/>
+       =&gt; { type =&gt; 'leaf',<br/>
+            value_type =&gt; 'uniline',<br/>
+            # the formula must end with '$1' so the result of the capture is used<br/>
+            # as the host value<br/>
+            migrate_from =&gt; { formula =&gt; '$old =~ m!http://([\w\.]+)!; $1 ;' , <br/>
+                              variables =&gt; { old =&gt; '- old_url' } ,<br/>
+                              use_eval =&gt; 1 ,<br/>
+                            },<br/>
+                        },<br/>
+       'path' =&gt; { type =&gt; 'leaf',<br/>
+                   value_type =&gt; 'uniline',<br/>
+                   migrate_from =&gt; { formula =&gt; '$old =~ m!http://[\w\.]+(/.*)!; $1 ;', <br/>
+                                     variables =&gt; { old =&gt; '- old_url' } ,<br/>
+                                     use_eval =&gt; 1 ,<br/>
+                                   },<br/>
+                 },<br/>
+</div>
+<div class="section">
+<h1>EXCEPTION HANDLING</h1> When an error is encountered, this module may throw the following exceptions:<div class="spacer">
+</div>
+<br/>
+ Config::Model::Exception::Model<br/>
+ Config::Model::Exception::Formula<br/>
+ Config::Model::Exception::WrongValue<br/>
+ Config::Model::Exception::WarpError<br/>
+<div class="spacer">
+</div>
+See Config::Model::Exception for more details.</div>
+<div class="section">
+<h1>AUTHOR</h1> Dominique Dumont, (ddumont at cpan dot org)</div>
+<div class="section">
+<h1>SEE ALSO</h1> Config::Model, Config::Model::Node, Config::Model::AnyId, Config::Model::WarpedThing, Exception::Class Config::Model::ValueComputer,</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2012-02-24</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Test::Builder(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Test::Builder(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+Test::Builder(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Test::Builder - Backend for building test libraries</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  package My::Test::Module;<br/>
+  use base 'Test::Builder::Module';<br/>
+<br/>
+  my $CLASS = __PACKAGE__;<br/>
+<br/>
+  sub ok {<br/>
+      my($test, $name) = @_;<br/>
+      my $tb = $CLASS-&gt;builder;<br/>
+<br/>
+      $tb-&gt;ok($test, $name);<br/>
+  }<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Test::Simple and Test::More have proven to be popular testing modules, but they're not always flexible enough.  Test::Builder provides a building block upon which to write your own test libraries  <i>which can</i>  <i>work together</i>.<div class="subsection">
+<h2>Construction</h2><dl>
+<dt>
+<b>new</b></dt>
+<dd>
+<br/>
+  my $Test = Test::Builder-&gt;new;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Returns a Test::Builder object representing the current state of the test.<div style="height: 1.00em;">
+&#160;</div>
+Since you only run one test per program &quot;new&quot; always returns the same Test::Builder object.  No matter how many times you call &quot;new()&quot;, you're getting the same object.  This is called a singleton.  This is done so that multiple modules share such global information as the test counter and where test output is going.<div style="height: 1.00em;">
+&#160;</div>
+If you want a completely new Test::Builder object different from the singleton, use &quot;create&quot;.</dd>
+</dl>
+<dl>
+<dt>
+<b>create</b></dt>
+<dd>
+<br/>
+  my $Test = Test::Builder-&gt;create;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Ok, so there can be more than one Test::Builder object and this is how you get it.  You might use this instead of &quot;new()&quot; if you're testing a Test::Builder based module, but otherwise you probably want &quot;new&quot;.<div style="height: 1.00em;">
+&#160;</div>
+<b>NOTE</b>: the implementation is not complete.  &quot;level&quot;, for example, is still shared amongst  <b>all</b> Test::Builder objects, even ones created using this method.  Also, the method name may change in the future.</dd>
+</dl>
+<dl>
+<dt>
+<b>child</b></dt>
+<dd>
+<br/>
+  my $child = $builder-&gt;child($name_of_child);<br/>
+  $child-&gt;plan( tests =&gt; 4 );<br/>
+  $child-&gt;ok(some_code());<br/>
+  ...<br/>
+  $child-&gt;finalize;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Returns a new instance of &quot;Test::Builder&quot;.  Any output from this child will be indented four spaces more than the parent's indentation.  When done, the &quot;finalize&quot; method  <i>must</i> be called explicitly.<div style="height: 1.00em;">
+&#160;</div>
+Trying to create a new child with a previous child still active (i.e., &quot;finalize&quot; not called) will &quot;croak&quot;.<div style="height: 1.00em;">
+&#160;</div>
+Trying to run a test when you have an open child will also &quot;croak&quot; and cause the test suite to fail.</dd>
+</dl>
+<dl>
+<dt>
+<b>subtest</b></dt>
+<dd>
+<br/>
+    $builder-&gt;subtest($name, \&amp;subtests);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+See documentation of &quot;subtest&quot; in Test::More.</dd>
+</dl>
+<dl>
+<dt>
+<b>finalize</b></dt>
+<dd>
+<br/>
+  my $ok = $child-&gt;finalize;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+When your child is done running tests, you must call &quot;finalize&quot; to clean up and tell the parent your pass/fail status.<div style="height: 1.00em;">
+&#160;</div>
+Calling finalize on a child with open children will &quot;croak&quot;.<div style="height: 1.00em;">
+&#160;</div>
+If the child falls out of scope before &quot;finalize&quot; is called, a failure diagnostic will be issued and the child is considered to have failed.<div style="height: 1.00em;">
+&#160;</div>
+No attempt to call methods on a child after &quot;finalize&quot; is called is guaranteed to succeed.<div style="height: 1.00em;">
+&#160;</div>
+Calling this on the root builder is a no-op.</dd>
+</dl>
+<dl>
+<dt>
+<b>parent</b></dt>
+<dd>
+<br/>
+ if ( my $parent = $builder-&gt;parent ) {<br/>
+     ...<br/>
+ }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Returns the parent &quot;Test::Builder&quot; instance, if any.  Only used with child builders for nested TAP.</dd>
+</dl>
+<dl>
+<dt>
+<b>name</b></dt>
+<dd>
+<br/>
+ diag $builder-&gt;name;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Returns the name of the current builder.  Top level builders default to $0 (the name of the executable).  Child builders are named via the &quot;child&quot; method.  If no name is supplied, will be named &quot;Child of $parent-&gt;name&quot;.</dd>
+</dl>
+<dl>
+<dt>
+<b>reset</b></dt>
+<dd>
+<br/>
+  $Test-&gt;reset;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Reinitializes the Test::Builder singleton to its original state. Mostly useful for tests run in persistent environments where the same test might be run multiple times in the same process.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Setting up tests</h2> These methods are for setting up tests and declaring how many there are.  You usually only want to call one of these methods.<dl>
+<dt>
+<b>plan</b></dt>
+<dd>
+<br/>
+  $Test-&gt;plan('no_plan');<br/>
+  $Test-&gt;plan( skip_all =&gt; $reason );<br/>
+  $Test-&gt;plan( tests =&gt; $num_tests );<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+A convenient way to set up your tests.  Call this and Test::Builder will print the appropriate headers and take the appropriate actions.<div style="height: 1.00em;">
+&#160;</div>
+If you call &quot;plan()&quot;, don't call any of the other methods below.<div style="height: 1.00em;">
+&#160;</div>
+If a child calls &quot;skip_all&quot; in the plan, a &quot;Test::Builder::Exception&quot; is thrown.  Trap this error, call &quot;finalize()&quot; and don't run any more tests on the child.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ my $child = $Test-&gt;child('some child');<br/>
+ eval { $child-&gt;plan( $condition ? ( skip_all =&gt; $reason ) : ( tests =&gt; 3 )  ) };<br/>
+ if ( eval { $@-&gt;isa('Test::Builder::Exception') } ) {<br/>
+    $child-&gt;finalize;<br/>
+    return;<br/>
+ }<br/>
+ # run your tests<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>expected_tests</b></dt>
+<dd>
+<br/>
+    my $max = $Test-&gt;expected_tests;<br/>
+    $Test-&gt;expected_tests($max);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Gets/sets the number of tests we expect this test to run and prints out the appropriate headers.</dd>
+</dl>
+<dl>
+<dt>
+<b>no_plan</b></dt>
+<dd>
+<br/>
+  $Test-&gt;no_plan;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Declares that this test will run an indeterminate number of tests.</dd>
+</dl>
+<dl>
+<dt>
+<b>done_testing</b></dt>
+<dd>
+<br/>
+  $Test-&gt;done_testing();<br/>
+  $Test-&gt;done_testing($num_tests);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Declares that you are done testing, no more tests will be run after this point.<div style="height: 1.00em;">
+&#160;</div>
+If a plan has not yet been output, it will do so.<div style="height: 1.00em;">
+&#160;</div>
+$num_tests is the number of tests you planned to run.  If a numbered plan was already declared, and if this contradicts, a failing test will be run to reflect the planning mistake.  If &quot;no_plan&quot; was declared, this will override.<div style="height: 1.00em;">
+&#160;</div>
+If &quot;done_testing()&quot; is called twice, the second call will issue a failing test.<div style="height: 1.00em;">
+&#160;</div>
+If $num_tests is omitted, the number of tests run will be used, like no_plan.<div style="height: 1.00em;">
+&#160;</div>
+&quot;done_testing()&quot; is, in effect, used when you'd want to use &quot;no_plan&quot;, but safer. You'd use it like so:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    $Test-&gt;ok($a == $b);<br/>
+    $Test-&gt;done_testing();<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Or to plan a variable number of tests:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    for my $test (@tests) {<br/>
+        $Test-&gt;ok($test);<br/>
+    }<br/>
+    $Test-&gt;done_testing(@tests);<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>has_plan</b></dt>
+<dd>
+<br/>
+  $plan = $Test-&gt;has_plan<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Find out whether a plan has been defined. $plan is either &quot;undef&quot; (no plan has been set), &quot;no_plan&quot; (indeterminate # of tests) or an integer (the number of expected tests).</dd>
+</dl>
+<dl>
+<dt>
+<b>skip_all</b></dt>
+<dd>
+<br/>
+  $Test-&gt;skip_all;<br/>
+  $Test-&gt;skip_all($reason);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Skips all the tests, using the given $reason.  Exits immediately with 0.</dd>
+</dl>
+<dl>
+<dt>
+<b>exported_to</b></dt>
+<dd>
+<br/>
+  my $pack = $Test-&gt;exported_to;<br/>
+  $Test-&gt;exported_to($pack);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Tells Test::Builder what package you exported your functions to.<div style="height: 1.00em;">
+&#160;</div>
+This method isn't terribly useful since modules which share the same Test::Builder object might get exported to different packages and only the last one will be honored.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Running tests</h2> These actually run the tests, analogous to the functions in Test::More.<div class="spacer">
+</div>
+They all return true if the test passed, false if the test failed.<div class="spacer">
+</div>
+$name is always optional.<dl>
+<dt>
+<b>ok</b></dt>
+<dd>
+<br/>
+  $Test-&gt;ok($test, $name);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Your basic test.  Pass if $test is true, fail if $test is false.  Just like Test::Simple's &quot;ok()&quot;.</dd>
+</dl>
+<dl>
+<dt>
+<b>is_eq</b></dt>
+<dd>
+<br/>
+  $Test-&gt;is_eq($got, $expected, $name);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Like Test::More's &quot;is()&quot;.  Checks if &quot;$got eq $expected&quot;.  This is the string version.<div style="height: 1.00em;">
+&#160;</div>
+&quot;undef&quot; only ever matches another &quot;undef&quot;.</dd>
+</dl>
+<dl>
+<dt>
+<b>is_num</b></dt>
+<dd>
+<br/>
+  $Test-&gt;is_num($got, $expected, $name);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Like Test::More's &quot;is()&quot;.  Checks if &quot;$got == $expected&quot;.  This is the numeric version.<div style="height: 1.00em;">
+&#160;</div>
+&quot;undef&quot; only ever matches another &quot;undef&quot;.</dd>
+</dl>
+<dl>
+<dt>
+<b>isnt_eq</b></dt>
+<dd>
+<br/>
+  $Test-&gt;isnt_eq($got, $dont_expect, $name);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Like Test::More's &quot;isnt()&quot;.  Checks if &quot;$got ne $dont_expect&quot;.  This is the string version.</dd>
+</dl>
+<dl>
+<dt>
+<b>isnt_num</b></dt>
+<dd>
+<br/>
+  $Test-&gt;isnt_num($got, $dont_expect, $name);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Like Test::More's &quot;isnt()&quot;.  Checks if &quot;$got ne $dont_expect&quot;.  This is the numeric version.</dd>
+</dl>
+<dl>
+<dt>
+<b>like</b></dt>
+<dd>
+<br/>
+  $Test-&gt;like($this, qr/$regex/, $name);<br/>
+  $Test-&gt;like($this, '/$regex/', $name);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Like Test::More's &quot;like()&quot;.  Checks if $this matches the given $regex.</dd>
+</dl>
+<dl>
+<dt>
+<b>unlike</b></dt>
+<dd>
+<br/>
+  $Test-&gt;unlike($this, qr/$regex/, $name);<br/>
+  $Test-&gt;unlike($this, '/$regex/', $name);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Like Test::More's &quot;unlike()&quot;.  Checks if $this <b>does not match</b> the given $regex.</dd>
+</dl>
+<dl>
+<dt>
+<b>cmp_ok</b></dt>
+<dd>
+<br/>
+  $Test-&gt;cmp_ok($this, $type, $that, $name);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Works just like Test::More's &quot;cmp_ok()&quot;.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    $Test-&gt;cmp_ok($big_num, '!=', $other_big_num);<br/>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Other Testing Methods</h2> These are methods which are used in the course of writing a test but are not themselves tests.<dl>
+<dt>
+<b>BAIL_OUT</b></dt>
+<dd>
+<br/>
+    $Test-&gt;BAIL_OUT($reason);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Indicates to the Test::Harness that things are going so badly all testing should terminate.  This includes running any additional test scripts.<div style="height: 1.00em;">
+&#160;</div>
+It will exit with 255.</dd>
+</dl>
+<dl>
+<dt>
+<b>skip</b></dt>
+<dd>
+<br/>
+    $Test-&gt;skip;<br/>
+    $Test-&gt;skip($why);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Skips the current test, reporting $why.</dd>
+</dl>
+<dl>
+<dt>
+<b>todo_skip</b></dt>
+<dd>
+<br/>
+  $Test-&gt;todo_skip;<br/>
+  $Test-&gt;todo_skip($why);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Like &quot;skip()&quot;, only it will declare the test as failing and TODO.  Similar to<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    print &quot;not ok $tnum # TODO $why\n&quot;;<br/>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Test building utility methods</h2> These methods are useful when writing your own test methods.<dl>
+<dt>
+<b>maybe_regex</b></dt>
+<dd>
+<br/>
+  $Test-&gt;maybe_regex(qr/$regex/);<br/>
+  $Test-&gt;maybe_regex('/$regex/');<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This method used to be useful back when Test::Builder worked on Perls before 5.6 which didn't have qr//.  Now its pretty useless.<div style="height: 1.00em;">
+&#160;</div>
+Convenience method for building testing functions that take regular expressions as arguments.<div style="height: 1.00em;">
+&#160;</div>
+Takes a quoted regular expression produced by &quot;qr//&quot;, or a string representing a regular expression.<div style="height: 1.00em;">
+&#160;</div>
+Returns a Perl value which may be used instead of the corresponding regular expression, or &quot;undef&quot; if its argument is not recognised.<div style="height: 1.00em;">
+&#160;</div>
+For example, a version of &quot;like()&quot;, sans the useful diagnostic messages, could be written as:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  sub laconic_like {<br/>
+      my ($self, $this, $regex, $name) = @_;<br/>
+      my $usable_regex = $self-&gt;maybe_regex($regex);<br/>
+      die &quot;expecting regex, found '$regex'\n&quot;<br/>
+          unless $usable_regex;<br/>
+      $self-&gt;ok($this =~ m/$usable_regex/, $name);<br/>
+  }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>is_fh</b></dt>
+<dd>
+<br/>
+    my $is_fh = $Test-&gt;is_fh($thing);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Determines if the given $thing can be used as a filehandle.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Test style</h2><dl>
+<dt>
+<b>level</b></dt>
+<dd>
+<br/>
+    $Test-&gt;level($how_high);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+How far up the call stack should $Test look when reporting where the test failed.<div style="height: 1.00em;">
+&#160;</div>
+Defaults to 1.<div style="height: 1.00em;">
+&#160;</div>
+Setting $Test::Builder::Level overrides.  This is typically useful localized:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub my_ok {<br/>
+        my $test = shift;<br/>
+<br/>
+        local $Test::Builder::Level = $Test::Builder::Level + 1;<br/>
+        $TB-&gt;ok($test);<br/>
+    }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+To be polite to other functions wrapping your own you usually want to increment $Level rather than set it to a constant.</dd>
+</dl>
+<dl>
+<dt>
+<b>use_numbers</b></dt>
+<dd>
+<br/>
+    $Test-&gt;use_numbers($on_or_off);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Whether or not the test should output numbers.  That is, this if true:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ok 1<br/>
+  ok 2<br/>
+  ok 3<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+or this if false<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ok<br/>
+  ok<br/>
+  ok<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Most useful when you can't depend on the test output order, such as when threads or forking is involved.<div style="height: 1.00em;">
+&#160;</div>
+Defaults to on.</dd>
+</dl>
+<dl>
+<dt>
+<b>no_diag</b></dt>
+<dd>
+<br/>
+    $Test-&gt;no_diag($no_diag);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If set true no diagnostics will be printed.  This includes calls to &quot;diag()&quot;.</dd>
+</dl>
+<dl>
+<dt>
+<b>no_ending</b></dt>
+<dd>
+<br/>
+    $Test-&gt;no_ending($no_ending);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Normally, Test::Builder does some extra diagnostics when the test ends.  It also changes the exit code as described below.<div style="height: 1.00em;">
+&#160;</div>
+If this is true, none of that will be done.</dd>
+</dl>
+<dl>
+<dt>
+<b>no_header</b></dt>
+<dd>
+<br/>
+    $Test-&gt;no_header($no_header);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If set to true, no &quot;1..N&quot; header will be printed.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Output</h2> Controlling where the test output goes.<div class="spacer">
+</div>
+It's ok for your test to change where STDOUT and STDERR point to, Test::Builder's default output settings will not be affected.<dl>
+<dt>
+<b>diag</b></dt>
+<dd>
+<br/>
+    $Test-&gt;diag(@msgs);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Prints out the given @msgs.  Like &quot;print&quot;, arguments are simply appended together.<div style="height: 1.00em;">
+&#160;</div>
+Normally, it uses the &quot;failure_output()&quot; handle, but if this is for a TODO test, the &quot;todo_output()&quot; handle is used.<div style="height: 1.00em;">
+&#160;</div>
+Output will be indented and marked with a # so as not to interfere with test output.  A newline will be put on the end if there isn't one already.<div style="height: 1.00em;">
+&#160;</div>
+We encourage using this rather than calling print directly.<div style="height: 1.00em;">
+&#160;</div>
+Returns false.  Why?  Because &quot;diag()&quot; is often used in conjunction with a failing test (&quot;ok() || diag()&quot;) it &quot;passes through&quot; the failure.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    return ok(...) || diag(...);<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>note</b></dt>
+<dd>
+<br/>
+    $Test-&gt;note(@msgs);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Like &quot;diag()&quot;, but it prints to the &quot;output()&quot; handle so it will not normally be seen by the user except in verbose mode.</dd>
+</dl>
+<dl>
+<dt>
+<b>explain</b></dt>
+<dd>
+<br/>
+    my @dump = $Test-&gt;explain(@msgs);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Will dump the contents of any references in a human readable format. Handy for things like...<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    is_deeply($have, $want) || diag explain $have;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+or<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    is_deeply($have, $want) || note explain $have;<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>output</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>failure_output</b></dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>todo_output</b></dt>
+<dd>
+<br/>
+    my $filehandle = $Test-&gt;output;<br/>
+    $Test-&gt;output($filehandle);<br/>
+    $Test-&gt;output($filename);<br/>
+    $Test-&gt;output(\$scalar);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+These methods control where Test::Builder will print its output. They take either an open $filehandle, a $filename to open and write to or a $scalar reference to append to.  It will always return a $filehandle.<div style="height: 1.00em;">
+&#160;</div>
+<b>output</b> is where normal &quot;ok/not ok&quot; test output goes.<div style="height: 1.00em;">
+&#160;</div>
+Defaults to STDOUT.<div style="height: 1.00em;">
+&#160;</div>
+<b>failure_output</b> is where diagnostic output on test failures and &quot;diag()&quot; goes.  It is normally not read by Test::Harness and instead is displayed to the user.<div style="height: 1.00em;">
+&#160;</div>
+Defaults to STDERR.<div style="height: 1.00em;">
+&#160;</div>
+&quot;todo_output&quot; is used instead of &quot;failure_output()&quot; for the diagnostics of a failing TODO test.  These will not be seen by the user.<div style="height: 1.00em;">
+&#160;</div>
+Defaults to STDOUT.</dd>
+</dl>
+<dl>
+<dt>
+reset_outputs</dt>
+<dd>
+<br/>
+  $tb-&gt;reset_outputs;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Resets all the output filehandles back to their defaults.</dd>
+</dl>
+<dl>
+<dt>
+carp</dt>
+<dd>
+<br/>
+  $tb-&gt;carp(@message);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Warns with @message but the message will appear to come from the point where the original test function was called (&quot;$tb-&gt;caller&quot;).</dd>
+</dl>
+<dl>
+<dt>
+croak</dt>
+<dd>
+<br/>
+  $tb-&gt;croak(@message);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Dies with @message but the message will appear to come from the point where the original test function was called (&quot;$tb-&gt;caller&quot;).</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Test Status and Info</h2><dl>
+<dt>
+<b>current_test</b></dt>
+<dd>
+<br/>
+    my $curr_test = $Test-&gt;current_test;<br/>
+    $Test-&gt;current_test($num);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Gets/sets the current test number we're on.  You usually shouldn't have to set this.<div style="height: 1.00em;">
+&#160;</div>
+If set forward, the details of the missing tests are filled in as 'unknown'. if set backward, the details of the intervening tests are deleted.  You can erase history if you really want to.</dd>
+</dl>
+<dl>
+<dt>
+<b>is_passing</b></dt>
+<dd>
+<br/>
+   my $ok = $builder-&gt;is_passing;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Indicates if the test suite is currently passing.<div style="height: 1.00em;">
+&#160;</div>
+More formally, it will be false if anything has happened which makes it impossible for the test suite to pass.  True otherwise.<div style="height: 1.00em;">
+&#160;</div>
+For example, if no tests have run &quot;is_passing()&quot; will be true because even though a suite with no tests is a failure you can add a passing test to it and start passing.<div style="height: 1.00em;">
+&#160;</div>
+Don't think about it too much.</dd>
+</dl>
+<dl>
+<dt>
+<b>summary</b></dt>
+<dd>
+<br/>
+    my @tests = $Test-&gt;summary;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+A simple summary of the tests so far.  True for pass, false for fail. This is a logical pass/fail, so todos are passes.<div style="height: 1.00em;">
+&#160;</div>
+Of course, test #1 is $tests[0], etc...</dd>
+</dl>
+<dl>
+<dt>
+<b>details</b></dt>
+<dd>
+<br/>
+    my @tests = $Test-&gt;details;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Like &quot;summary()&quot;, but with a lot more detail.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    $tests[$test_num - 1] = <br/>
+            { 'ok'       =&gt; is the test considered a pass?<br/>
+              actual_ok  =&gt; did it literally say 'ok'?<br/>
+              name       =&gt; name of the test (if any)<br/>
+              type       =&gt; type of test (if any, see below).<br/>
+              reason     =&gt; reason for the above (if any)<br/>
+            };<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+'ok' is true if Test::Harness will consider the test to be a pass.<div style="height: 1.00em;">
+&#160;</div>
+'actual_ok' is a reflection of whether or not the test literally printed 'ok' or 'not ok'.  This is for examining the result of 'todo' tests.<div style="height: 1.00em;">
+&#160;</div>
+'name' is the name of the test.<div style="height: 1.00em;">
+&#160;</div>
+'type' indicates if it was a special test.  Normal tests have a type of ''.  Type can be one of the following:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    skip        see skip()<br/>
+    todo        see todo()<br/>
+    todo_skip   see todo_skip()<br/>
+    unknown     see below<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Sometimes the Test::Builder test counter is incremented without it printing any test output, for example, when &quot;current_test()&quot; is changed. In these cases, Test::Builder doesn't know the result of the test, so its type is 'unknown'.  These details for these tests are filled in. They are considered ok, but the name and actual_ok is left &quot;undef&quot;.<div style="height: 1.00em;">
+&#160;</div>
+For example &quot;not ok 23 - hole count # TODO insufficient donuts&quot; would result in this structure:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    $tests[22] =    # 23 - 1, since arrays start from 0.<br/>
+      { ok        =&gt; 1,   # logically, the test passed since its todo<br/>
+        actual_ok =&gt; 0,   # in absolute terms, it failed<br/>
+        name      =&gt; 'hole count',<br/>
+        type      =&gt; 'todo',<br/>
+        reason    =&gt; 'insufficient donuts'<br/>
+      };<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>todo</b></dt>
+<dd>
+<br/>
+    my $todo_reason = $Test-&gt;todo;<br/>
+    my $todo_reason = $Test-&gt;todo($pack);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If the current tests are considered &quot;TODO&quot; it will return the reason, if any.  This reason can come from a $TODO variable or the last call to &quot;todo_start()&quot;.<div style="height: 1.00em;">
+&#160;</div>
+Since a TODO test does not need a reason, this function can return an empty string even when inside a TODO block.  Use &quot;$Test-&gt;in_todo&quot; to determine if you are currently inside a TODO block.<div style="height: 1.00em;">
+&#160;</div>
+&quot;todo()&quot; is about finding the right package to look for $TODO in.  It's pretty good at guessing the right package to look at.  It first looks for the caller based on &quot;$Level + 1&quot;, since &quot;todo()&quot; is usually called inside a test function.  As a last resort it will use &quot;exported_to()&quot;.<div style="height: 1.00em;">
+&#160;</div>
+Sometimes there is some confusion about where <i>todo()</i> should be looking for the $TODO variable.  If you want to be sure, tell it explicitly what $pack to use.</dd>
+</dl>
+<dl>
+<dt>
+<b>find_TODO</b></dt>
+<dd>
+<br/>
+    my $todo_reason = $Test-&gt;find_TODO();<br/>
+    my $todo_reason = $Test-&gt;find_TODO($pack);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Like &quot;todo()&quot; but only returns the value of $TODO ignoring &quot;todo_start()&quot;.<div style="height: 1.00em;">
+&#160;</div>
+Can also be used to set $TODO to a new value while returning the old value:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    my $old_reason = $Test-&gt;find_TODO($pack, 1, $new_reason);<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+<b>in_todo</b></dt>
+<dd>
+<br/>
+    my $in_todo = $Test-&gt;in_todo;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Returns true if the test is currently inside a TODO block.</dd>
+</dl>
+<dl>
+<dt>
+<b>todo_start</b></dt>
+<dd>
+<br/>
+    $Test-&gt;todo_start();<br/>
+    $Test-&gt;todo_start($message);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This method allows you declare all subsequent tests as TODO tests, up until the &quot;todo_end&quot; method has been called.<div style="height: 1.00em;">
+&#160;</div>
+The &quot;TODO:&quot; and $TODO syntax is generally pretty good about figuring out whether or not we're in a TODO test.  However, often we find that this is not possible to determine (such as when we want to use $TODO but the tests are being executed in other packages which can't be inferred beforehand).<div style="height: 1.00em;">
+&#160;</div>
+Note that you can use this to nest &quot;todo&quot; tests<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ $Test-&gt;todo_start('working on this');<br/>
+ # lots of code<br/>
+ $Test-&gt;todo_start('working on that');<br/>
+ # more code<br/>
+ $Test-&gt;todo_end;<br/>
+ $Test-&gt;todo_end;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This is generally not recommended, but large testing systems often have weird internal needs.<div style="height: 1.00em;">
+&#160;</div>
+We've tried to make this also work with the TODO: syntax, but it's not guaranteed and its use is also discouraged:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ TODO: {<br/>
+     local $TODO = 'We have work to do!';<br/>
+     $Test-&gt;todo_start('working on this');<br/>
+     # lots of code<br/>
+     $Test-&gt;todo_start('working on that');<br/>
+     # more code<br/>
+     $Test-&gt;todo_end;<br/>
+     $Test-&gt;todo_end;<br/>
+ }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Pick one style or another of &quot;TODO&quot; to be on the safe side.</dd>
+</dl>
+<dl>
+<dt>
+&quot;todo_end&quot;</dt>
+<dd>
+<br/>
+ $Test-&gt;todo_end;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Stops running tests as &quot;TODO&quot; tests.  This method is fatal if called without a preceding &quot;todo_start&quot; method call.</dd>
+</dl>
+<dl>
+<dt>
+<b>caller</b></dt>
+<dd>
+<br/>
+    my $package = $Test-&gt;caller;<br/>
+    my($pack, $file, $line) = $Test-&gt;caller;<br/>
+    my($pack, $file, $line) = $Test-&gt;caller($height);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Like the normal &quot;caller()&quot;, except it reports according to your &quot;level()&quot;.<div style="height: 1.00em;">
+&#160;</div>
+$height will be added to the &quot;level()&quot;.<div style="height: 1.00em;">
+&#160;</div>
+If &quot;caller()&quot; winds up off the top of the stack it report the highest context.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>EXIT CODES</h1> If all your tests passed, Test::Builder will exit with zero (which is normal).  If anything failed it will exit with how many failed.  If you run less (or more) tests than you planned, the missing (or extras) will be considered failures.  If no tests were ever run Test::Builder will throw a warning and exit with 255.  If the test died, even after having successfully completed all its tests, it will still be considered a failure and will exit with 255.<div class="spacer">
+</div>
+So the exit codes are...<div class="spacer">
+</div>
+<br/>
+    0                   all tests successful<br/>
+    255                 test died or all passed but wrong # of tests run<br/>
+    any other number    how many failed (including missing or extras)<br/>
+<div class="spacer">
+</div>
+If you fail more than 254 tests, it will be reported as 254.</div>
+<div class="section">
+<h1>THREADS</h1> In perl 5.8.1 and later, Test::Builder is thread-safe.  The test number is shared amongst all threads.  This means if one thread sets the test number using &quot;current_test()&quot; they will all be effected.<div class="spacer">
+</div>
+While versions earlier than 5.8.1 had threads they contain too many bugs to support.<div class="spacer">
+</div>
+Test::Builder is only thread-aware if threads.pm is loaded <i>before</i> Test::Builder.</div>
+<div class="section">
+<h1>MEMORY</h1> An informative hash, accessible via &quot;&lt;details()&quot;&gt;, is stored for each test you perform.  So memory usage will scale linearly with each test run. Although this is not a problem for most test suites, it can become an issue if you do large (hundred thousands to million) combinatorics tests in the same run.<div class="spacer">
+</div>
+In such cases, you are advised to either split the test file into smaller ones, or use a reverse approach, doing &quot;normal&quot; (code) compares and triggering  <i>fail()</i> should anything go unexpected.<div class="spacer">
+</div>
+Future versions of Test::Builder will have a way to turn history off.</div>
+<div class="section">
+<h1>EXAMPLES</h1> CPAN can provide the best examples.  Test::Simple, Test::More, Test::Exception and Test::Differences all use Test::Builder.</div>
+<div class="section">
+<h1>SEE ALSO</h1> Test::Simple, Test::More, Test::Harness</div>
+<div class="section">
+<h1>AUTHORS</h1> Original code by chromatic, maintained by Michael G Schwern &lt;schwern@pobox.com&gt;</div>
+<div class="section">
+<h1>COPYRIGHT</h1> Copyright 2002-2008 by chromatic &lt;chromatic@wgz.org&gt; and<br/>
+                       Michael G Schwern &lt;schwern@pobox.com&gt;.<div class="spacer">
+</div>
+This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.<div class="spacer">
+</div>
+See <i>http://www.perl.com/perl/misc/Artistic.html</i></div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-19</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

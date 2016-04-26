@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+ACCT(5)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+ACCT(5)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+ACCT(5)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> acct - process accounting file</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;sys/acct.h&gt;</b></div>
+<div class="section">
+<h1>DESCRIPTION</h1> If the kernel is built with the process accounting option enabled (<b>CONFIG_BSD_PROCESS_ACCT</b>), then calling <b>acct</b>(2) starts process accounting, for example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+acct(&quot;/var/log/pacct&quot;);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+When process accounting is enabled, the kernel writes a record to the accounting file as each process on the system terminates. This record contains information about the terminated process, and is defined in <i>&lt;sys/acct.h&gt;</i> as follows:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+#define ACCT_COMM 16<div class="spacer">
+</div>
+<br/>
+typedef u_int16_t comp_t;<div class="spacer">
+</div>
+<br/>
+struct acct {<br/>
+    char ac_flag;           /* Accounting flags */<br/>
+    u_int16_t ac_uid;       /* Accounting user ID */<br/>
+    u_int16_t ac_gid;       /* Accounting group ID */<br/>
+    u_int16_t ac_tty;       /* Controlling terminal */<br/>
+    u_int32_t ac_btime;     /* Process creation time<br/>
+                               (seconds since the Epoch) */<br/>
+    comp_t    ac_utime;     /* User CPU time */<br/>
+    comp_t    ac_stime;     /* System CPU time */<br/>
+    comp_t    ac_etime;     /* Elapsed time */<br/>
+    comp_t    ac_mem;       /* Average memory usage (kB) */<br/>
+    comp_t    ac_io;        /* Characters transferred (unused) */<br/>
+    comp_t    ac_rw;        /* Blocks read or written (unused) */<br/>
+    comp_t    ac_minflt;    /* Minor page faults */<br/>
+    comp_t    ac_majflt;    /* Major page faults */<br/>
+    comp_t    ac_swaps;     /* Number of swaps (unused) */<br/>
+    u_int32_t ac_exitcode;  /* Process termination status<br/>
+                               (see wait(2)) */<br/>
+    char      ac_comm[ACCT_COMM+1];<br/>
+                            /* Command name (basename of last<br/>
+                               executed command; null-terminated) */<br/>
+    char      ac_pad[<i>X</i>];    /* padding bytes */<br/>
+};<div class="spacer">
+</div>
+<br/>
+enum {          /* Bits that may be set in ac_flag field */<br/>
+    AFORK = 0x01,           /* Has executed fork, but no exec */<br/>
+    ASU   = 0x02,           /* Used superuser privileges */<br/>
+    ACORE = 0x08,           /* Dumped core */<br/>
+    AXSIG = 0x10            /* Killed by a signal */<br/>
+};<br/>
+<br/>
+<div class="spacer">
+</div>
+The <i>comp_t</i> data type is a floating-point value consisting of a 3-bit, base-8 exponent, and a 13-bit mantissa. A value, <i>c</i>, of this type can be converted to a (long) integer as follows:<div class="spacer">
+</div>
+<br/>
+    v = (c &amp; 0x1fff) &lt;&lt; (((c &gt;&gt; 13) &amp; 0x7) * 3);<br/>
+<div class="spacer">
+</div>
+The <i>ac_utime</i>, <i>ac_stime</i>, and <i>ac_etime</i> fields measure time in &quot;clock ticks&quot;; divide these values by <i>sysconf(_SC_CLK_TCK)</i> to convert them to seconds.<div class="subsection">
+<h2>Version 3 Accounting File Format</h2> Since kernel 2.6.8, an optional alternative version of the accounting file can be produced if the <b>CONFIG_BSD_PROCESS_ACCT_V3</b> option is set when building the kernel. With this option is set, the records written to the accounting file contain additional fields, and the width of <i>c_uid</i> and <i>ac_gid</i> fields is widened from 16 to 32 bits (in line with the increased size of UID and GIDs in Linux 2.4 and later). The records are defined as follows:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+<br/>
+struct acct_v3 {<br/>
+    char      ac_flag;      /* Flags */<br/>
+    char      ac_version;   /* Always set to ACCT_VERSION (3) */<br/>
+    u_int16_t ac_tty;       /* Controlling terminal */<br/>
+    u_int32_t ac_exitcode;  /* Process termination status */<br/>
+    u_int32_t ac_uid;       /* Real user ID */<br/>
+    u_int32_t ac_gid;       /* Real group ID */<br/>
+    u_int32_t ac_pid;       /* Process ID */<br/>
+    u_int32_t ac_ppid;      /* Parent process ID */<br/>
+    u_int32_t ac_btime;     /* Process creation time */<br/>
+    float     ac_etime;     /* Elapsed time */<br/>
+    comp_t    ac_utime;     /* User CPU time */<br/>
+    comp_t    ac_stime;     /* System time */<br/>
+    comp_t    ac_mem;       /* Average memory usage (kB) */<br/>
+    comp_t    ac_io;        /* Characters transferred (unused) */<br/>
+    comp_t    ac_rw;        /* Blocks read or written<br/>
+                               (unused) */<br/>
+    comp_t    ac_minflt;    /* Minor page faults */<br/>
+    comp_t    ac_majflt;    /* Major page faults */<br/>
+    comp_t    ac_swaps;     /* Number of swaps (unused) */<br/>
+    char      ac_comm[ACCT_COMM]; /* Command name */<br/>
+};<div class="spacer">
+</div>
+<br/>
+<br/>
+</div>
+</div>
+<div class="section">
+<h1>VERSIONS</h1> The <i>acct_v3</i> structure is defined in glibc since version 2.6.</div>
+<div class="section">
+<h1>CONFORMING TO</h1> Process accounting originated on BSD. Although it is present on most systems, it is not standardized, and the details vary somewhat between systems.</div>
+<div class="section">
+<h1>NOTES</h1> Records in the accounting file are ordered by termination time of the process.<div style="height: 1.00em;">
+&#160;</div>
+In kernels up to and including 2.6.9, a separate accounting record is written for each thread created using the NPTL threading library; since Linux 2.6.10, a single accounting record is written for the entire process on termination of the last thread in the process.<div style="height: 1.00em;">
+&#160;</div>
+The <i>proc/sys/kernel/acct</i> file, described in <b>proc</b>(5), defines settings that control the behavior of process accounting when disk space runs low.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>lastcomm</b>(1), <b>acct</b>(2), <b>accton</b>(8), <b>sa</b>(8)</div>
+<div class="section">
+<h1>COLOPHON</h1> This page is part of release 3.35 of the Linux <i>man-pages</i> project. A description of the project, and information about reporting bugs, can be found at http://man7.org/linux/man-pages/.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2008-06-15</td>
+<td class="foot-os">
+Linux</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

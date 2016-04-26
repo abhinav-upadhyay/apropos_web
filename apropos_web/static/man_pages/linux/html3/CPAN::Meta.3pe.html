@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+CPAN::Meta(3perl)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+CPAN::Meta(3perl)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+CPAN::Meta(3perl)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> CPAN::Meta - the distribution metadata for a CPAN dist</div>
+<div class="section">
+<h1>VERSION</h1> version 2.110440</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+  my $meta = CPAN::Meta-&gt;load_file('META.json');<br/>
+<br/>
+  printf &quot;testing requirements for %s version %s\n&quot;,<br/>
+    $meta-&gt;name,<br/>
+    $meta-&gt;version;<br/>
+<br/>
+  my $prereqs = $meta-&gt;requirements_for('configure');<br/>
+<br/>
+  for my $module ($prereqs-&gt;required_modules) {<br/>
+    my $version = get_local_version($module);<br/>
+<br/>
+    die &quot;missing required module $module&quot; unless defined $version;<br/>
+    die &quot;version for $module not in range&quot;<br/>
+      unless $prereqs-&gt;accepts_module($module, $version);<br/>
+  }<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Software distributions released to the CPAN include a  <i>META.json</i> or, for older distributions,  <i>META.yml</i>, which describes the distribution, its contents, and the requirements for building and installing the distribution. The data structure stored in the  <i>META.json</i> file is described in CPAN::Meta::Spec.<div class="spacer">
+</div>
+CPAN::Meta provides a simple class to represent this distribution metadata (or  <i>distmeta</i>), along with some helpful methods for interrogating that data.<div class="spacer">
+</div>
+The documentation below is only for the methods of the CPAN::Meta object.  For information on the meaning of individual fields, consult the spec.</div>
+<div class="section">
+<h1>METHODS</h1><div class="subsection">
+<h2>new</h2><br/>
+  my $meta = CPAN::Meta-&gt;new($distmeta_struct, \%options);<br/>
+<div class="spacer">
+</div>
+Returns a valid CPAN::Meta object or dies if the supplied metadata hash reference fails to validate.  Older-format metadata will be up-converted to version 2 if they validate against the original stated specification.<div class="spacer">
+</div>
+It takes an optional hashref of options. Valid options include:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+lazy_validation -- if true, new will attempt to convert the given metadata to version 2 before attempting to validate it.  This means than any fixable errors will be handled by CPAN::Meta::Converter before validation. (Note that this might result in invalid optional data being silently dropped.)  The default is false.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>create</h2><br/>
+  my $meta = CPAN::Meta-&gt;create($distmeta_struct, \%options);<br/>
+<div class="spacer">
+</div>
+This is same as &quot;new()&quot;, except that &quot;generated_by&quot; and &quot;meta-spec&quot; fields will be generated if not provided.  This means the metadata structure is assumed to otherwise follow the latest CPAN::Meta::Spec.</div>
+<div class="subsection">
+<h2>load_file</h2><br/>
+  my $meta = CPAN::Meta-&gt;load_file($distmeta_file, \%options);<br/>
+<div class="spacer">
+</div>
+Given a pathname to a file containing metadata, this deserializes the file according to its file suffix and constructs a new &quot;CPAN::Meta&quot; object, just like &quot;new()&quot;.  It will die if the deserialized version fails to validate against its stated specification version.<div class="spacer">
+</div>
+It takes the same options as &quot;new()&quot; but &quot;lazy_validation&quot; defaults to true.</div>
+<div class="subsection">
+<h2>load_yaml_string</h2><br/>
+  my $meta = CPAN::Meta-&gt;load_yaml_string($yaml, \%options);<br/>
+<div class="spacer">
+</div>
+This method returns a new CPAN::Meta object using the first document in the given YAML string.  In other respects it is identical to &quot;load_file()&quot;.</div>
+<div class="subsection">
+<h2>load_json_string</h2><br/>
+  my $meta = CPAN::Meta-&gt;load_json_string($json, \%options);<br/>
+<div class="spacer">
+</div>
+This method returns a new CPAN::Meta object using the structure represented by the given JSON string.  In other respects it is identical to &quot;load_file()&quot;.</div>
+<div class="subsection">
+<h2>save</h2><br/>
+  $meta-&gt;save($distmeta_file, \%options);<br/>
+<div class="spacer">
+</div>
+Serializes the object as JSON and writes it to the given file.  The only valid option is &quot;version&quot;, which defaults to '2'. On Perl 5.8.1 or later, the file is saved with UTF-8 encoding.<div class="spacer">
+</div>
+For &quot;version&quot; 2 (or higher), the filename should end in '.json'.  JSON::PP is the default JSON backend. Using another JSON backend requires JSON 2.5 or later and you must set the $ENV{PERL_JSON_BACKEND} to a supported alternate backend like JSON::XS.<div class="spacer">
+</div>
+For &quot;version&quot; less than 2, the filename should end in '.yml'. CPAN::Meta::Converter is used to generate an older metadata structure, which is serialized to YAML.  CPAN::Meta::YAML is the default YAML backend.  You may set the $ENV{PERL_YAML_BACKEND} to a supported alternative backend, though this is not recommended due to subtle incompatibilities between YAML parsers on CPAN.</div>
+<div class="subsection">
+<h2>meta_spec_version</h2> This method returns the version part of the &quot;meta_spec&quot; entry in the distmeta structure.  It is equivalent to:<div class="spacer">
+</div>
+<br/>
+  $meta-&gt;meta_spec-&gt;{version};<br/>
+</div>
+<div class="subsection">
+<h2>effective_prereqs</h2><br/>
+  my $prereqs = $meta-&gt;effective_prereqs;<br/>
+<br/>
+  my $prereqs = $meta-&gt;effective_prereqs( \@feature_identifiers );<br/>
+<div class="spacer">
+</div>
+This method returns a CPAN::Meta::Prereqs object describing all the prereqs for the distribution.  If an arrayref of feature identifiers is given, the prereqs for the identified features are merged together with the distribution's core prereqs before the CPAN::Meta::Prereqs object is returned.</div>
+<div class="subsection">
+<h2>should_index_file</h2><br/>
+  ... if $meta-&gt;should_index_file( $filename );<br/>
+<div class="spacer">
+</div>
+This method returns true if the given file should be indexed.  It decides this by checking the &quot;file&quot; and &quot;directory&quot; keys in the &quot;no_index&quot; property of the distmeta structure.<div class="spacer">
+</div>
+$filename should be given in unix format.</div>
+<div class="subsection">
+<h2>should_index_package</h2><br/>
+  ... if $meta-&gt;should_index_package( $package );<br/>
+<div class="spacer">
+</div>
+This method returns true if the given package should be indexed.  It decides this by checking the &quot;package&quot; and &quot;namespace&quot; keys in the &quot;no_index&quot; property of the distmeta structure.</div>
+<div class="subsection">
+<h2>features</h2><br/>
+  my @feature_objects = $meta-&gt;features;<br/>
+<div class="spacer">
+</div>
+This method returns a list of CPAN::Meta::Feature objects, one for each optional feature described by the distribution's metadata.</div>
+<div class="subsection">
+<h2>feature</h2><br/>
+  my $feature_object = $meta-&gt;feature( $identifier );<br/>
+<div class="spacer">
+</div>
+This method returns a CPAN::Meta::Feature object for the optional feature with the given identifier.  If no feature with that identifier exists, an exception will be raised.</div>
+<div class="subsection">
+<h2>as_struct</h2><br/>
+  my $copy = $meta-&gt;as_struct( \%options );<br/>
+<div class="spacer">
+</div>
+This method returns a deep copy of the object's metadata as an unblessed has reference.  It takes an optional hashref of options.  If the hashref contains a &quot;version&quot; argument, the copied metadata will be converted to the version of the specification and returned.  For example:<div class="spacer">
+</div>
+<br/>
+  my $old_spec = $meta-&gt;as_struct( {version =&gt; &quot;1.4&quot;} );<br/>
+</div>
+<div class="subsection">
+<h2>as_string</h2><br/>
+  my $string = $meta-&gt;as_string( \%options );<br/>
+<div class="spacer">
+</div>
+This method returns a serialized copy of the object's metadata as a character string.  (The strings are  <b>not</b> UTF-8 encoded.)  It takes an optional hashref of options.  If the hashref contains a &quot;version&quot; argument, the copied metadata will be converted to the version of the specification and returned.  For example:<div class="spacer">
+</div>
+<br/>
+  my $string = $meta-&gt;as_struct( {version =&gt; &quot;1.4&quot;} );<br/>
+<div class="spacer">
+</div>
+For &quot;version&quot; greater than or equal to 2, the string will be serialized as JSON.  For &quot;version&quot; less than 2, the string will be serialized as YAML.  In both cases, the same rules are followed as in the &quot;save()&quot; method for choosing a serialization backend.</div>
+</div>
+<div class="section">
+<h1>STRING DATA</h1> The following methods return a single value, which is the value for the corresponding entry in the distmeta structure.  Values should be either undef or strings.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+abstract</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+description</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+dynamic_config</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+generated_by</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+name</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+release_status</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+version</dd>
+</dl>
+</div>
+<div class="section">
+<h1>LIST DATA</h1> These methods return lists of string values, which might be represented in the distmeta structure as arrayrefs or scalars:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+authors</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+keywords</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+licenses</dd>
+</dl>
+<div class="spacer">
+</div>
+The &quot;authors&quot; and &quot;licenses&quot; methods may also be called as &quot;author&quot; and &quot;license&quot;, respectively, to match the field name in the distmeta structure.</div>
+<div class="section">
+<h1>MAP DATA</h1> These readers return hashrefs of arbitrary unblessed data structures, each described more fully in the specification:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+meta_spec</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+resources</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+provides</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+no_index</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+prereqs</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+optional_features</dd>
+</dl>
+</div>
+<div class="section">
+<h1>CUSTOM DATA</h1> A list of custom keys are available from the &quot;custom_keys&quot; method and particular keys may be retrieved with the &quot;custom&quot; method.<div class="spacer">
+</div>
+<br/>
+  say $meta-&gt;custom($_) for $meta-&gt;custom_keys;<br/>
+<div class="spacer">
+</div>
+If a custom key refers to a data structure, a deep clone is returned.</div>
+<div class="section">
+<h1>BUGS</h1> Please report any bugs or feature using the CPAN Request Tracker. Bugs can be submitted through the web interface at http://rt.cpan.org/Dist/Display.html?Queue=CPAN-Meta &lt;http://rt.cpan.org/Dist/Display.html?Queue=CPAN-Meta&gt;<div class="spacer">
+</div>
+When submitting a bug or request, please include a test-file or a patch to an existing test-file that illustrates the bug or desired feature.</div>
+<div class="section">
+<h1>SEE ALSO</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+CPAN::Meta::Converter</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+CPAN::Meta::Validator</dd>
+</dl>
+</div>
+<div class="section">
+<h1>AUTHORS</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+David Golden &lt;dagolden@cpan.org&gt;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Ricardo Signes &lt;rjbs@cpan.org&gt;</dd>
+</dl>
+</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> This software is copyright (c) 2010 by David Golden and Ricardo Signes.<div class="spacer">
+</div>
+This is free software; you can redistribute it and/or modify it under the same terms as the Perl 5 programming language system itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

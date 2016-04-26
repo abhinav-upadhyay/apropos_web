@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Appender::Synchronized(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Appender::Synchronized(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Appender::Synchronized(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1><br/>
+    Log::Log4perl::Appender::Synchronized - Synchronizing other appenders<br/>
+</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+    use Log::Log4perl qw(:easy);<br/>
+<br/>
+    my $conf = qq(<br/>
+    log4perl.category                   = WARN, Syncer<br/>
+    <br/>
+        # File appender (unsynchronized)<br/>
+    log4perl.appender.Logfile           = Log::Log4perl::Appender::File<br/>
+    log4perl.appender.Logfile.autoflush = 1<br/>
+    log4perl.appender.Logfile.filename  = test.log<br/>
+    log4perl.appender.Logfile.mode      = truncate<br/>
+    log4perl.appender.Logfile.layout    = SimpleLayout<br/>
+    <br/>
+        # Synchronizing appender, using the file appender above<br/>
+    log4perl.appender.Syncer            = Log::Log4perl::Appender::Synchronized<br/>
+    log4perl.appender.Syncer.appender   = Logfile<br/>
+);<br/>
+<br/>
+    Log::Log4perl-&gt;init(\$conf);<br/>
+    WARN(&quot;This message is guaranteed to be complete.&quot;);<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> If multiple processes are using the same &quot;Log::Log4perl&quot; appender without synchronization, overwrites might happen. A typical scenario for this would be a process spawning children, each of which inherits the parent's Log::Log4perl configuration.<div class="spacer">
+</div>
+In most cases, you won't need an external synchronisation tool like Log::Log4perl::Appender::Synchronized at all. Log4perl's file appender, Log::Log4perl::Appender::File, for example, provides the &quot;syswrite&quot; mechanism for making sure that even long log lines won't interleave. Short log lines won't interleave anyway, because the operating system makes sure the line gets written before a task switch occurs.<div class="spacer">
+</div>
+In cases where you need additional synchronization, however, you can use &quot;Log::Log4perl::Appender::Synchronized&quot; as a gateway between your loggers and your appenders. An appender itself, &quot;Log::Log4perl::Appender::Synchronized&quot; just takes two additional arguments:<dl>
+<dt>
+&quot;appender&quot;</dt>
+<dd>
+Specifies the name of the appender it synchronizes access to. The appender specified must be defined somewhere in the configuration file, not necessarily before the definition of &quot;Log::Log4perl::Appender::Synchronized&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;key&quot;</dt>
+<dd>
+This optional argument specifies the key for the semaphore that &quot;Log::Log4perl::Appender::Synchronized&quot; uses internally to ensure atomic operations. It defaults to &quot;_l4p&quot;. If you define more than one &quot;Log::Log4perl::Appender::Synchronized&quot; appender, it is important to specify different keys for them, as otherwise every new &quot;Log::Log4perl::Appender::Synchronized&quot; appender will nuke previously defined semaphores. The maximum key length is four characters, longer keys will be truncated to 4 characters -- &quot;mylongkey1&quot; and &quot;mylongkey2&quot; are interpreted to be the same: &quot;mylo&quot; (thanks to David Viner &lt;dviner@yahoo-inc.com&gt; for pointing this out).</dd>
+</dl>
+<div class="spacer">
+</div>
+&quot;Log::Log4perl::Appender::Synchronized&quot; uses Log::Log4perl::Util::Semaphore internally to perform locking with semaphores provided by the operating system used.<div class="subsection">
+<h2>Performance tips</h2> The &quot;Log::Log4perl::Appender::Synchronized&quot; serializes access to a protected resource globally, slowing down actions otherwise performed in parallel.<div class="spacer">
+</div>
+Unless specified otherwise, all instances of &quot;Log::Log4perl::Appender::Synchronized&quot; objects in the system will use the same global IPC key &quot;_l4p&quot;.<div class="spacer">
+</div>
+To control access to different appender instances, it often makes sense to define different keys for different synchronizing appenders. In this way, Log::Log4perl serializes access to each appender instance separately:<div class="spacer">
+</div>
+<br/>
+    log4perl.category                   = WARN, Syncer1, Syncer2<br/>
+    <br/>
+        # File appender 1 (unsynchronized)<br/>
+    log4perl.appender.Logfile1           = Log::Log4perl::Appender::File<br/>
+    log4perl.appender.Logfile1.filename  = test1.log<br/>
+    log4perl.appender.Logfile1.layout    = SimpleLayout<br/>
+    <br/>
+        # File appender 2 (unsynchronized)<br/>
+    log4perl.appender.Logfile2           = Log::Log4perl::Appender::File<br/>
+    log4perl.appender.Logfile2.filename  = test2.log<br/>
+    log4perl.appender.Logfile2.layout    = SimpleLayout<br/>
+    <br/>
+        # Synchronizing appender, using the file appender above<br/>
+    log4perl.appender.Syncer1            = Log::Log4perl::Appender::Synchronized<br/>
+    log4perl.appender.Syncer1.appender   = Logfile1<br/>
+    log4perl.appender.Syncer1.key        = l4p1<br/>
+<br/>
+        # Synchronizing appender, using the file appender above<br/>
+    log4perl.appender.Syncer2            = Log::Log4perl::Appender::Synchronized<br/>
+    log4perl.appender.Syncer2.appender   = Logfile2<br/>
+    log4perl.appender.Syncer2.key        = l4p2<br/>
+<div class="spacer">
+</div>
+Without the &quot;.key = l4p1&quot; and &quot;.key = l4p2&quot; lines, both Synchronized appenders would be using the default &quot;_l4p&quot; key, causing unnecessary serialization of output written to different files.</div>
+<div class="subsection">
+<h2>Advanced configuration</h2> To configure the underlying Log::Log4perl::Util::Semaphore module in a different way than with the default settings provided by Log::Log4perl::Appender::Synchronized, use the following parameters:<div class="spacer">
+</div>
+<br/>
+    log4perl.appender.Syncer1.destroy  = 1<br/>
+    log4perl.appender.Syncer1.mode     = sub { 0775 }<br/>
+    log4perl.appender.Syncer1.uid      = hugo<br/>
+    log4perl.appender.Syncer1.gid      = 100<br/>
+<div class="spacer">
+</div>
+Valid options are &quot;destroy&quot; (Remove the semaphore on exit), &quot;mode&quot; (permissions on the semaphore), &quot;uid&quot; (uid or user name the semaphore is owned by), and &quot;gid&quot; (group id the semaphore is owned by),<div class="spacer">
+</div>
+Note that &quot;mode&quot; is usually given in octal and therefore needs to be specified as a perl sub {}, unless you want to calculate what 0755 means in decimal.<div class="spacer">
+</div>
+Changing ownership or group settings for a semaphore will obviously only work if the current user ID owns the semaphore already or if the current user is &quot;root&quot;. The &quot;destroy&quot; option causes the current process to destroy the semaphore on exit. Spawned children of the process won't inherit this behavior.</div>
+<div class="subsection">
+<h2>Semaphore user and group IDs with mod_perl</h2> Setting user and group IDs is especially important when the Synchronized appender is used with mod_perl. If Log4perl gets initialized by a startup handler, which runs as root, and not as the user who will later use the semaphore, the settings for uid, gid, and mode can help establish matching semaphore ownership and access rights.</div>
+</div>
+<div class="section">
+<h1>DEVELOPMENT NOTES</h1> &quot;Log::Log4perl::Appender::Synchronized&quot; is a  <i>composite</i> appender. Unlike other appenders, it doesn't log any messages, it just passes them on to its attached sub-appender. For this reason, it doesn't need a layout (contrary to regular appenders). If it defines none, messages are passed on unaltered.<div class="spacer">
+</div>
+Custom filters are also applied to the composite appender only. They are  <i>not</i> applied to the sub-appender. Same applies to appender thresholds. This behaviour might change in the future.</div>
+<div class="section">
+<h1>COPYRIGHT AND LICENSE</h1> Copyright 2002-2009 by Mike Schilli &lt;m@perlmeister.com&gt; and Kevin Goess &lt;cpan@goess.org&gt;.<div class="spacer">
+</div>
+This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2010-02-24</td>
+<td class="foot-os">
+perl v5.10.1</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

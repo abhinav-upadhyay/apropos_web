@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+CAP_FROM_TEXT(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+CAP_FROM_TEXT(3)</td>
+<td class="head-vol">
+Linux Programmer's Manual</td>
+<td class="head-rtitle">
+CAP_FROM_TEXT(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> cap_from_text, cap_to_text, cap_to_name, cap_from_name - capability state textual representation translation</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>#include &lt;sys/capability.h&gt;</b><div style="height: 1.00em;">
+&#160;</div>
+<b>cap_t cap_from_text(const char *</b><i>buf_p</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<b>char *cap_to_text(cap_t </b><i>caps</i><b>, ssize_t *</b><i>length_p</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<b>int cap_from_name(const char *</b><i>name</i><b>, cap_value_t *</b><i>cap_p</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+<b>char *cap_to_name(cap_value_t </b><i>cap</i><b>);</b><div style="height: 1.00em;">
+&#160;</div>
+Link with <i>-lcap</i>.</div>
+<div class="section">
+<h1>DESCRIPTION</h1> These functions translate a capability state between an internal representation and a textual one. The internal representation is managed by the capability functions in working storage. The textual representation is a structured, human-readable string suitable for display.<div class="spacer">
+</div>
+<b>cap_from_text</b>() allocates and initializes a capability state in working storage. It then sets the contents of this newly created capability state to the state represented by a human-readable, nul-terminated character string pointed to by <i>buf_p</i>. It returns a pointer to the newly created capability state. When the capability state in working storage is no longer required, the caller should free any releasable memory by calling <b>cap_free</b>() with <i>cap_t</i> as an argument.  The function returns an error if it cannot parse the contents of the string pointed to by <i>buf_p</i> or does not recognize any <i>capability_name</i> or flag character as valid.  The function also returns an error if any flag is both set and cleared within a single clause.<div class="spacer">
+</div>
+<b>cap_to_text</b>() converts the capability state in working storage identified by <i>cap_p</i> into a nul-terminated human-readable string.  This function allocates any memory necessary to contain the string, and returns a pointer to the string.  If the pointer <i>len_p</i> is not NULL, the function shall also return the full length of the string (not including the nul terminator) in the location pointed to by <i>len_p</i>. The capability state in working storage, identified by <i>cap_p</i>, is completely represented in the character string. When the capability state in working storage is no longer required, the caller should free any releasable memory by calling <b>cap_free</b>() with the returned string pointer as an argument.<div class="spacer">
+</div>
+<b>cap_from_name</b>() converts a text representation of a capability, such as &quot;cap_chown&quot;, to its numerical representation (<b>CAP_CHOWN=0</b>), writing the decoded value into <i>*cap_p</i>. If <i>cap_p</i> is NULL no result is written, but the return code of the function indicates whether or not the specified capability can be represented by the library.<div class="spacer">
+</div>
+<b>cap_to_name</b>() converts a capability index value, <i>cap</i>, to a libcap-allocated textual string. This string should be deallocated with <b>cap_free</b>().</div>
+<div class="section">
+<h1>TEXTUAL REPRESENTATION</h1> A textual representation of capability sets consists of one or more whitespace-separated <i>clauses</i>. Each clause specifies some operations on a capability set; the set starts out with all capabilities lowered, and the meaning of the string is the state of the capability set after all the clauses have been applied in order.<div class="spacer">
+</div>
+Each clause consists of a list of comma-separated capability names (or the word `<b>all</b>'), followed by an <i>action-list</i>. An action-list consists of a sequence of <i>operator flag</i> pairs.  Legal operators are: `<b>=</b>', '<b>+</b>', and `<b>-</b>'. Legal flags are: `<b>e</b>', `<b>i</b>', and `<b>p</b>'. These flags are case-sensitive and specify the Effective, Inheritable and Permitted sets respectively.<div class="spacer">
+</div>
+In the capability name lists, all names are case-insensitive.  The special name `<b>all</b>' specifies all capabilities; it is equivalent to a list naming every capability individually.<div class="spacer">
+</div>
+Unnamed capabilities can also be specified by number. This feature ensures that libcap can support capabilities that were not allocated at the time libcap was compiled. However, generally upgrading libcap will add names for recently allocated capabilities.<div class="spacer">
+</div>
+The `<b>=</b>' operator indicates that the listed capabilities are first reset in all three capability sets.  The subsequent flags (which are optional when associated with this operator) indicate that the listed capabilities for the corresponding set are to be raised.  For example: &quot;all=p&quot; means lower every capability in the Effective and Inheritable sets but raise all of the Permitted capabilities; or, &quot;cap_fowner=ep&quot; means raise the Effective and Permitted override-file-ownership capability, while lowering this Inheritable capability.<div class="spacer">
+</div>
+In the case that the leading operator is `<b>=</b>', and no list of capabilities is provided, the action-list is assumed to refer to `all' capabilities.  For example, the following three clauses are equivalent to each other (and indicate a completely empty capability set): &quot;all=&quot;; &quot;=&quot;; &quot;cap_chown,&lt;every-other-capability&gt;=&quot;.<div class="spacer">
+</div>
+The operators, `+' and `-' both require an explicit preceding capability list and one or more explicit trailing flags.  The `+' operator will raise all of the listed capabilities in the flagged capability sets.  The `-' operator will lower all of the listed capabilities in the flagged capability sets.  For example: &quot;all+p&quot; will raise all of the Permitted capabilities; &quot;cap_fowner+p-i&quot; will raise the override-file-ownership capability in the Permitted capability set and lower this Inheritable capability; &quot;cap_fowner+pe-i&quot; and &quot;cap_fowner=+pe&quot; are equivalent.</div>
+<div class="section">
+<h1>RETURN VALUE</h1> <b>cap_from_text</b>(), <b>cap_to_text</b>() and <b>cap_to_name</b>() return a non-NULL value on success, and NULL on failure. <b>cap_from_name</b>() returns 0 for success, and -1 on failure (unknown capability).<div class="spacer">
+</div>
+On failure, <i>errno</i> is set to <b>EINVAL</b>, or <b>ENOMEM</b>.</div>
+<div class="section">
+<h1>CONFORMING TO</h1> <b>cap_from_text</b>() and <b>cap_to_text</b>() are specified by the withdrawn POSIX.1e draft specification. <b>cap_from_name</b>() and <b>cap_to_name</b>() are Linux extensions.</div>
+<div class="section">
+<h1>EXAMPLE</h1> The example program below demonstrates the use of <b>cap_from_text</b>() and <b>cap_to_text</b>(). The following shell session shows a some example runs:<br/>
+<div class="spacer">
+</div>
+<br/>
+$ ./a.out &quot;cap_chown=p cap_chown+e&quot;<br/>
+caps_to_text() returned &quot;= cap_chown+ep&quot;<br/>
+$ ./a.out &quot;all=pe cap_chown-e cap_kill-pe&quot;<br/>
+caps_to_text() returned &quot;=ep cap_chown-e cap_kill-ep&quot;<div class="spacer">
+</div>
+<br/>
+<br/>
+The source code of the program is as follows:<div class="spacer">
+</div>
+<br/>
+#include &lt;stdlib.h&gt;<br/>
+#include &lt;stdio.h&gt;<br/>
+#include &lt;sys/capability.h&gt;<div class="spacer">
+</div>
+<br/>
+#define handle_error(msg) \<br/>
+    do { perror(msg); exit(EXIT_FAILURE); } while (0)<div class="spacer">
+</div>
+<br/>
+int<br/>
+main(int argc, char *argv[])<br/>
+{<br/>
+    cap_t caps;<br/>
+    char *txt_caps;<div class="spacer">
+</div>
+<br/>
+    if (argc != 2) {<br/>
+        fprintf(stderr, &quot;%s &lt;textual-cap-set&gt;\n&quot;, argv[0]);<br/>
+        exit(EXIT_FAILURE);<br/>
+    }<div class="spacer">
+</div>
+<br/>
+    caps = cap_from_text(argv[1]);<br/>
+    if (caps == NULL)<br/>
+        handle_error(&quot;cap_from_text&quot;);<div class="spacer">
+</div>
+<br/>
+    txt_caps = cap_to_text(caps, NULL);<br/>
+    if (txt_caps == NULL)<br/>
+        handle_error(&quot;cap_to_text&quot;);<div class="spacer">
+</div>
+<br/>
+    printf(&quot;caps_to_text() returned \&quot;%s\&quot;\n&quot;, txt_caps);<div class="spacer">
+</div>
+<br/>
+    if (cap_free(txt_caps) != 0 || cap_free(caps) != 0)<br/>
+        handle_error(&quot;cap_free&quot;);<div class="spacer">
+</div>
+<br/>
+    exit(EXIT_SUCCESS);<br/>
+}<br/>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>libcap</b>(3), <b>cap_clear</b>(3), <b>cap_compare</b>(3), <b>cap_copy_ext</b>(3), <b>cap_get_file</b>(3), <b>cap_get_proc</b>(3), <b>cap_init</b>(3), <b>capabilities</b>(7)</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2008-05-10</td>
+<td class="foot-os">
+</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

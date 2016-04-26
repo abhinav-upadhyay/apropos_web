@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PERLPACKTUT(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERLPACKTUT(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+PERLPACKTUT(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perlpacktut - tutorial on &quot;pack&quot; and &quot;unpack&quot;</div>
+<div class="section">
+<h1>DESCRIPTION</h1> &quot;pack&quot; and &quot;unpack&quot; are two functions for transforming data according to a user-defined template, between the guarded way Perl stores values and some well-defined representation as might be required in the environment of a Perl program. Unfortunately, they're also two of the most misunderstood and most often overlooked functions that Perl provides. This tutorial will demystify them for you.</div>
+<div class="section">
+<h1>The Basic Principle</h1> Most programming languages don't shelter the memory where variables are stored. In C, for instance, you can take the address of some variable, and the &quot;sizeof&quot; operator tells you how many bytes are allocated to the variable. Using the address and the size, you may access the storage to your heart's content.<div class="spacer">
+</div>
+In Perl, you just can't access memory at random, but the structural and representational conversion provided by &quot;pack&quot; and &quot;unpack&quot; is an excellent alternative. The &quot;pack&quot; function converts values to a byte sequence containing representations according to a given specification, the so-called &quot;template&quot; argument. &quot;unpack&quot; is the reverse process, deriving some values from the contents of a string of bytes. (Be cautioned, however, that not all that has been packed together can be neatly unpacked - a very common experience as seasoned travellers are likely to confirm.)<div class="spacer">
+</div>
+Why, you may ask, would you need a chunk of memory containing some values in binary representation? One good reason is input and output accessing some file, a device, or a network connection, whereby this binary representation is either forced on you or will give you some benefit in processing. Another cause is passing data to some system call that is not available as a Perl function: &quot;syscall&quot; requires you to provide parameters stored in the way it happens in a C program. Even text processing (as shown in the next section) may be simplified with judicious usage of these two functions.<div class="spacer">
+</div>
+To see how (un)packing works, we'll start with a simple template code where the conversion is in low gear: between the contents of a byte sequence and a string of hexadecimal digits. Let's use &quot;unpack&quot;, since this is likely to remind you of a dump program, or some desperate last message unfortunate programs are wont to throw at you before they expire into the wild blue yonder. Assuming that the variable $mem holds a sequence of bytes that we'd like to inspect without assuming anything about its meaning, we can write<div class="spacer">
+</div>
+<br/>
+   my( $hex ) = unpack( 'H*', $mem );<br/>
+   print &quot;$hex\n&quot;;<br/>
+<div class="spacer">
+</div>
+whereupon we might see something like this, with each pair of hex digits corresponding to a byte:<div class="spacer">
+</div>
+<br/>
+   41204d414e204120504c414e20412043414e414c2050414e414d41<br/>
+<div class="spacer">
+</div>
+What was in this chunk of memory? Numbers, characters, or a mixture of both? Assuming that we're on a computer where ASCII (or some similar) encoding is used: hexadecimal values in the range 0x40 - 0x5A indicate an uppercase letter, and 0x20 encodes a space. So we might assume it is a piece of text, which some are able to read like a tabloid; but others will have to get hold of an ASCII table and relive that firstgrader feeling. Not caring too much about which way to read this, we note that &quot;unpack&quot; with the template code &quot;H&quot; converts the contents of a sequence of bytes into the customary hexadecimal notation. Since &quot;a sequence of&quot; is a pretty vague indication of quantity, &quot;H&quot; has been defined to convert just a single hexadecimal digit unless it is followed by a repeat count. An asterisk for the repeat count means to use whatever remains.<div class="spacer">
+</div>
+The inverse operation - packing byte contents from a string of hexadecimal digits - is just as easily written. For instance:<div class="spacer">
+</div>
+<br/>
+   my $s = pack( 'H2' x 10, map { &quot;3$_&quot; } ( 0..9 ) );<br/>
+   print &quot;$s\n&quot;;<br/>
+<div class="spacer">
+</div>
+Since we feed a list of ten 2-digit hexadecimal strings to &quot;pack&quot;, the pack template should contain ten pack codes. If this is run on a computer with ASCII character coding, it will print 0123456789.</div>
+<div class="section">
+<h1>Packing Text</h1> Let's suppose you've got to read in a data file like this:<div class="spacer">
+</div>
+<br/>
+    Date      |Description                | Income|Expenditure<br/>
+    01/24/2001 Ahmed's Camel Emporium                  1147.99<br/>
+    01/28/2001 Flea spray                                24.99<br/>
+    01/29/2001 Camel rides to tourists      235.00<br/>
+<div class="spacer">
+</div>
+How do we do it? You might think first to use &quot;split&quot;; however, since &quot;split&quot; collapses blank fields, you'll never know whether a record was income or expenditure. Oops. Well, you could always use &quot;substr&quot;:<div class="spacer">
+</div>
+<br/>
+    while (&lt;&gt;) { <br/>
+        my $date   = substr($_,  0, 11);<br/>
+        my $desc   = substr($_, 12, 27);<br/>
+        my $income = substr($_, 40,  7);<br/>
+        my $expend = substr($_, 52,  7);<br/>
+        ...<br/>
+    }<br/>
+<div class="spacer">
+</div>
+It's not really a barrel of laughs, is it? In fact, it's worse than it may seem; the eagle-eyed may notice that the first field should only be 10 characters wide, and the error has propagated right through the other numbers - which we've had to count by hand. So it's error-prone as well as horribly unfriendly.<div class="spacer">
+</div>
+Or maybe we could use regular expressions:<div class="spacer">
+</div>
+<br/>
+    while (&lt;&gt;) { <br/>
+        my($date, $desc, $income, $expend) = <br/>
+            m|(\d\d/\d\d/\d{4}) (.{27}) (.{7})(.*)|;<br/>
+        ...<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Urgh. Well, it's a bit better, but - well, would you want to maintain that?<div class="spacer">
+</div>
+Hey, isn't Perl supposed to make this sort of thing easy? Well, it does, if you use the right tools. &quot;pack&quot; and &quot;unpack&quot; are designed to help you out when dealing with fixed-width data like the above. Let's have a look at a solution with &quot;unpack&quot;:<div class="spacer">
+</div>
+<br/>
+    while (&lt;&gt;) { <br/>
+        my($date, $desc, $income, $expend) = unpack(&quot;A10xA27xA7A*&quot;, $_);<br/>
+        ...<br/>
+    }<br/>
+<div class="spacer">
+</div>
+That looks a bit nicer; but we've got to take apart that weird template. Where did I pull that out of?<div class="spacer">
+</div>
+OK, let's have a look at some of our data again; in fact, we'll include the headers, and a handy ruler so we can keep track of where we are.<div class="spacer">
+</div>
+<br/>
+             1         2         3         4         5        <br/>
+    1234567890123456789012345678901234567890123456789012345678<br/>
+    Date      |Description                | Income|Expenditure<br/>
+    01/28/2001 Flea spray                                24.99<br/>
+    01/29/2001 Camel rides to tourists      235.00<br/>
+<div class="spacer">
+</div>
+From this, we can see that the date column stretches from column 1 to column 10 - ten characters wide. The &quot;pack&quot;-ese for &quot;character&quot; is &quot;A&quot;, and ten of them are &quot;A10&quot;. So if we just wanted to extract the dates, we could say this:<div class="spacer">
+</div>
+<br/>
+    my($date) = unpack(&quot;A10&quot;, $_);<br/>
+<div class="spacer">
+</div>
+OK, what's next? Between the date and the description is a blank column; we want to skip over that. The &quot;x&quot; template means &quot;skip forward&quot;, so we want one of those. Next, we have another batch of characters, from 12 to 38. That's 27 more characters, hence &quot;A27&quot;. (Don't make the fencepost error - there are 27 characters between 12 and 38, not 26. Count 'em!)<div class="spacer">
+</div>
+Now we skip another character and pick up the next 7 characters:<div class="spacer">
+</div>
+<br/>
+    my($date,$description,$income) = unpack(&quot;A10xA27xA7&quot;, $_);<br/>
+<div class="spacer">
+</div>
+Now comes the clever bit. Lines in our ledger which are just income and not expenditure might end at column 46. Hence, we don't want to tell our &quot;unpack&quot; pattern that we  <b>need</b> to find another 12 characters; we'll just say &quot;if there's anything left, take it&quot;. As you might guess from regular expressions, that's what the &quot;*&quot; means: &quot;use everything remaining&quot;.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Be warned, though, that unlike regular expressions, if the &quot;unpack&quot; template doesn't match the incoming data, Perl will scream and die.</dd>
+</dl>
+<div class="spacer">
+</div>
+Hence, putting it all together:<div class="spacer">
+</div>
+<br/>
+    my($date,$description,$income,$expend) = unpack(&quot;A10xA27xA7xA*&quot;, $_);<br/>
+<div class="spacer">
+</div>
+Now, that's our data parsed. I suppose what we might want to do now is total up our income and expenditure, and add another line to the end of our ledger - in the same format - saying how much we've brought in and how much we've spent:<div class="spacer">
+</div>
+<br/>
+    while (&lt;&gt;) {<br/>
+        my($date, $desc, $income, $expend) = unpack(&quot;A10xA27xA7xA*&quot;, $_);<br/>
+        $tot_income += $income;<br/>
+        $tot_expend += $expend;<br/>
+    }<br/>
+<br/>
+    $tot_income = sprintf(&quot;%.2f&quot;, $tot_income); # Get them into <br/>
+    $tot_expend = sprintf(&quot;%.2f&quot;, $tot_expend); # &quot;financial&quot; format<br/>
+<br/>
+    $date = POSIX::strftime(&quot;%m/%d/%Y&quot;, localtime); <br/>
+<br/>
+    # OK, let's go:<br/>
+<br/>
+    print pack(&quot;A10xA27xA7xA*&quot;, $date, &quot;Totals&quot;, $tot_income, $tot_expend);<br/>
+<div class="spacer">
+</div>
+Oh, hmm. That didn't quite work. Let's see what happened:<div class="spacer">
+</div>
+<br/>
+    01/24/2001 Ahmed's Camel Emporium                   1147.99<br/>
+    01/28/2001 Flea spray                                 24.99<br/>
+    01/29/2001 Camel rides to tourists     1235.00<br/>
+    03/23/2001Totals                     1235.001172.98<br/>
+<div class="spacer">
+</div>
+OK, it's a start, but what happened to the spaces? We put &quot;x&quot;, didn't we? Shouldn't it skip forward? Let's look at what &quot;pack&quot; in perlfunc says:<div class="spacer">
+</div>
+<br/>
+    x   A null byte.<br/>
+<div class="spacer">
+</div>
+Urgh. No wonder. There's a big difference between &quot;a null byte&quot;, character zero, and &quot;a space&quot;, character 32. Perl's put something between the date and the description - but unfortunately, we can't see it!<div class="spacer">
+</div>
+What we actually need to do is expand the width of the fields. The &quot;A&quot; format pads any non-existent characters with spaces, so we can use the additional spaces to line up our fields, like this:<div class="spacer">
+</div>
+<br/>
+    print pack(&quot;A11 A28 A8 A*&quot;, $date, &quot;Totals&quot;, $tot_income, $tot_expend);<br/>
+<div class="spacer">
+</div>
+(Note that you can put spaces in the template to make it more readable, but they don't translate to spaces in the output.) Here's what we got this time:<div class="spacer">
+</div>
+<br/>
+    01/24/2001 Ahmed's Camel Emporium                   1147.99<br/>
+    01/28/2001 Flea spray                                 24.99<br/>
+    01/29/2001 Camel rides to tourists     1235.00<br/>
+    03/23/2001 Totals                      1235.00 1172.98<br/>
+<div class="spacer">
+</div>
+That's a bit better, but we still have that last column which needs to be moved further over. There's an easy way to fix this up: unfortunately, we can't get &quot;pack&quot; to right-justify our fields, but we can get &quot;sprintf&quot; to do it:<div class="spacer">
+</div>
+<br/>
+    $tot_income = sprintf(&quot;%.2f&quot;, $tot_income); <br/>
+    $tot_expend = sprintf(&quot;%12.2f&quot;, $tot_expend);<br/>
+    $date = POSIX::strftime(&quot;%m/%d/%Y&quot;, localtime); <br/>
+    print pack(&quot;A11 A28 A8 A*&quot;, $date, &quot;Totals&quot;, $tot_income, $tot_expend);<br/>
+<div class="spacer">
+</div>
+This time we get the right answer:<div class="spacer">
+</div>
+<br/>
+    01/28/2001 Flea spray                                 24.99<br/>
+    01/29/2001 Camel rides to tourists     1235.00<br/>
+    03/23/2001 Totals                      1235.00      1172.98<br/>
+<div class="spacer">
+</div>
+So that's how we consume and produce fixed-width data. Let's recap what we've seen of &quot;pack&quot; and &quot;unpack&quot; so far:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Use &quot;pack&quot; to go from several pieces of data to one fixed-width version; use &quot;unpack&quot; to turn a fixed-width-format string into several pieces of data.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The pack format &quot;A&quot; means &quot;any character&quot;; if you're &quot;pack&quot;ing and you've run out of things to pack, &quot;pack&quot; will fill the rest up with spaces.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;x&quot; means &quot;skip a byte&quot; when &quot;unpack&quot;ing; when &quot;pack&quot;ing, it means &quot;introduce a null byte&quot; - that's probably not what you mean if you're dealing with plain text.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+You can follow the formats with numbers to say how many characters should be affected by that format: &quot;A12&quot; means &quot;take 12 characters&quot;; &quot;x6&quot; means &quot;skip 6 bytes&quot; or &quot;character 0, 6 times&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Instead of a number, you can use &quot;*&quot; to mean &quot;consume everything else left&quot;.<div style="height: 1.00em;">
+&#160;</div>
+<b>Warning</b>: when packing multiple pieces of data, &quot;*&quot; only means &quot;consume all of the current piece of data&quot;. That's to say<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    pack(&quot;A*A*&quot;, $one, $two)<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+packs all of $one into the first &quot;A*&quot; and then all of $two into the second. This is a general principle: each format character corresponds to one piece of data to be &quot;pack&quot;ed.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Packing Numbers</h1> So much for textual data. Let's get onto the meaty stuff that &quot;pack&quot; and &quot;unpack&quot; are best at: handling binary formats for numbers. There is, of course, not just one binary format  - life would be too simple - but Perl will do all the finicky labor for you.<div class="subsection">
+<h2>Integers</h2> Packing and unpacking numbers implies conversion to and from some  <i>specific</i> binary representation. Leaving floating point numbers aside for the moment, the salient properties of any such representation are:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+the number of bytes used for storing the integer,</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+whether the contents are interpreted as a signed or unsigned number,</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+the byte ordering: whether the first byte is the least or most significant byte (or: little-endian or big-endian, respectively).</dd>
+</dl>
+<div class="spacer">
+</div>
+So, for instance, to pack 20302 to a signed 16 bit integer in your computer's representation you write<div class="spacer">
+</div>
+<br/>
+   my $ps = pack( 's', 20302 );<br/>
+<div class="spacer">
+</div>
+Again, the result is a string, now containing 2 bytes. If you print this string (which is, generally, not recommended) you might see &quot;ON&quot; or &quot;NO&quot; (depending on your system's byte ordering) - or something entirely different if your computer doesn't use ASCII character encoding. Unpacking $ps with the same template returns the original integer value:<div class="spacer">
+</div>
+<br/>
+   my( $s ) = unpack( 's', $ps );<br/>
+<div class="spacer">
+</div>
+This is true for all numeric template codes. But don't expect miracles: if the packed value exceeds the allotted byte capacity, high order bits are silently discarded, and unpack certainly won't be able to pull them back out of some magic hat. And, when you pack using a signed template code such as &quot;s&quot;, an excess value may result in the sign bit getting set, and unpacking this will smartly return a negative value.<div class="spacer">
+</div>
+16 bits won't get you too far with integers, but there is &quot;l&quot; and &quot;L&quot; for signed and unsigned 32-bit integers. And if this is not enough and your system supports 64 bit integers you can push the limits much closer to infinity with pack codes &quot;q&quot; and &quot;Q&quot;. A notable exception is provided by pack codes &quot;i&quot; and &quot;I&quot; for signed and unsigned integers of the &quot;local custom&quot; variety: Such an integer will take up as many bytes as a local C compiler returns for &quot;sizeof(int)&quot;, but it'll use  <i>at least</i> 32 bits.<div class="spacer">
+</div>
+Each of the integer pack codes &quot;sSlLqQ&quot; results in a fixed number of bytes, no matter where you execute your program. This may be useful for some applications, but it does not provide for a portable way to pass data structures between Perl and C programs (bound to happen when you call XS extensions or the Perl function &quot;syscall&quot;), or when you read or write binary files. What you'll need in this case are template codes that depend on what your local C compiler compiles when you code &quot;short&quot; or &quot;unsigned long&quot;, for instance. These codes and their corresponding byte lengths are shown in the table below.  Since the C standard leaves much leeway with respect to the relative sizes of these data types, actual values may vary, and that's why the values are given as expressions in C and Perl. (If you'd like to use values from %Config in your program you have to import it with &quot;use Config&quot;.)<div class="spacer">
+</div>
+<br/>
+   signed unsigned  byte length in C   byte length in Perl       <br/>
+     s!     S!      sizeof(short)      $Config{shortsize}<br/>
+     i!     I!      sizeof(int)        $Config{intsize}<br/>
+     l!     L!      sizeof(long)       $Config{longsize}<br/>
+     q!     Q!      sizeof(long long)  $Config{longlongsize}<br/>
+<div class="spacer">
+</div>
+The &quot;i!&quot; and &quot;I!&quot; codes aren't different from &quot;i&quot; and &quot;I&quot;; they are tolerated for completeness' sake.</div>
+<div class="subsection">
+<h2>Unpacking a Stack Frame</h2> Requesting a particular byte ordering may be necessary when you work with binary data coming from some specific architecture whereas your program could run on a totally different system. As an example, assume you have 24 bytes containing a stack frame as it happens on an Intel 8086:<div class="spacer">
+</div>
+<br/>
+      +---------+        +----+----+               +---------+<br/>
+ TOS: |   IP    |  TOS+4:| FL | FH | FLAGS  TOS+14:|   SI    |<br/>
+      +---------+        +----+----+               +---------+<br/>
+      |   CS    |        | AL | AH | AX            |   DI    |<br/>
+      +---------+        +----+----+               +---------+<br/>
+                         | BL | BH | BX            |   BP    |<br/>
+                         +----+----+               +---------+<br/>
+                         | CL | CH | CX            |   DS    |<br/>
+                         +----+----+               +---------+<br/>
+                         | DL | DH | DX            |   ES    |<br/>
+                         +----+----+               +---------+<br/>
+<div class="spacer">
+</div>
+First, we note that this time-honored 16-bit CPU uses little-endian order, and that's why the low order byte is stored at the lower address. To unpack such a (unsigned) short we'll have to use code &quot;v&quot;. A repeat count unpacks all 12 shorts:<div class="spacer">
+</div>
+<br/>
+   my( $ip, $cs, $flags, $ax, $bx, $cd, $dx, $si, $di, $bp, $ds, $es ) =<br/>
+     unpack( 'v12', $frame );<br/>
+<div class="spacer">
+</div>
+Alternatively, we could have used &quot;C&quot; to unpack the individually accessible byte registers FL, FH, AL, AH, etc.:<div class="spacer">
+</div>
+<br/>
+   my( $fl, $fh, $al, $ah, $bl, $bh, $cl, $ch, $dl, $dh ) =<br/>
+     unpack( 'C10', substr( $frame, 4, 10 ) );<br/>
+<div class="spacer">
+</div>
+It would be nice if we could do this in one fell swoop: unpack a short, back up a little, and then unpack 2 bytes. Since Perl  <i>is</i> nice, it proffers the template code &quot;X&quot; to back up one byte. Putting this all together, we may now write:<div class="spacer">
+</div>
+<br/>
+   my( $ip, $cs,<br/>
+       $flags,$fl,$fh,<br/>
+       $ax,$al,$ah, $bx,$bl,$bh, $cx,$cl,$ch, $dx,$dl,$dh, <br/>
+       $si, $di, $bp, $ds, $es ) =<br/>
+   unpack( 'v2' . ('vXXCC' x 5) . 'v5', $frame );<br/>
+<div class="spacer">
+</div>
+(The clumsy construction of the template can be avoided - just read on!)<div class="spacer">
+</div>
+We've taken some pains to construct the template so that it matches the contents of our frame buffer. Otherwise we'd either get undefined values, or &quot;unpack&quot; could not unpack all. If &quot;pack&quot; runs out of items, it will supply null strings (which are coerced into zeroes whenever the pack code says so).</div>
+<div class="subsection">
+<h2>How to Eat an Egg on a Net</h2> The pack code for big-endian (high order byte at the lowest address) is &quot;n&quot; for 16 bit and &quot;N&quot; for 32 bit integers. You use these codes if you know that your data comes from a compliant architecture, but, surprisingly enough, you should also use these pack codes if you exchange binary data, across the network, with some system that you know next to nothing about. The simple reason is that this order has been chosen as the  <i>network order</i>, and all standard-fearing programs ought to follow this convention. (This is, of course, a stern backing for one of the Lilliputian parties and may well influence the political development there.) So, if the protocol expects you to send a message by sending the length first, followed by just so many bytes, you could write:<div class="spacer">
+</div>
+<br/>
+   my $buf = pack( 'N', length( $msg ) ) . $msg;<br/>
+<div class="spacer">
+</div>
+or even:<div class="spacer">
+</div>
+<br/>
+   my $buf = pack( 'NA*', length( $msg ), $msg );<br/>
+<div class="spacer">
+</div>
+and pass $buf to your send routine. Some protocols demand that the count should include the length of the count itself: then just add 4 to the data length. (But make sure to read &quot;Lengths and Widths&quot; before you really code this!)</div>
+<div class="subsection">
+<h2>Byte-order modifiers</h2> In the previous sections we've learned how to use &quot;n&quot;, &quot;N&quot;, &quot;v&quot; and &quot;V&quot; to pack and unpack integers with big- or little-endian byte-order. While this is nice, it's still rather limited because it leaves out all kinds of signed integers as well as 64-bit integers. For example, if you wanted to unpack a sequence of signed big-endian 16-bit integers in a platform-independent way, you would have to write:<div class="spacer">
+</div>
+<br/>
+   my @data = unpack 's*', pack 'S*', unpack 'n*', $buf;<br/>
+<div class="spacer">
+</div>
+This is ugly. As of Perl 5.9.2, there's a much nicer way to express your desire for a certain byte-order: the &quot;&gt;&quot; and &quot;&lt;&quot; modifiers. &quot;&gt;&quot; is the big-endian modifier, while &quot;&lt;&quot; is the little-endian modifier. Using them, we could rewrite the above code as:<div class="spacer">
+</div>
+<br/>
+   my @data = unpack 's&gt;*', $buf;<br/>
+<div class="spacer">
+</div>
+As you can see, the &quot;big end&quot; of the arrow touches the &quot;s&quot;, which is a nice way to remember that &quot;&gt;&quot; is the big-endian modifier. The same obviously works for &quot;&lt;&quot;, where the &quot;little end&quot; touches the code.<div class="spacer">
+</div>
+You will probably find these modifiers even more useful if you have to deal with big- or little-endian C structures. Be sure to read &quot;Packing and Unpacking C Structures&quot; for more on that.</div>
+<div class="subsection">
+<h2>Floating point Numbers</h2> For packing floating point numbers you have the choice between the pack codes &quot;f&quot;, &quot;d&quot;, &quot;F&quot; and &quot;D&quot;. &quot;f&quot; and &quot;d&quot; pack into (or unpack from) single-precision or double-precision representation as it is provided by your system. If your systems supports it, &quot;D&quot; can be used to pack and unpack extended-precision floating point values (&quot;long double&quot;), which can offer even more resolution than &quot;f&quot; or &quot;d&quot;. &quot;F&quot; packs an &quot;NV&quot;, which is the floating point type used by Perl internally. (There is no such thing as a network representation for reals, so if you want to send your real numbers across computer boundaries, you'd better stick to ASCII representation, unless you're absolutely sure what's on the other end of the line. For the even more adventuresome, you can use the byte-order modifiers from the previous section also on floating point codes.)</div>
+</div>
+<div class="section">
+<h1>Exotic Templates</h1><div class="subsection">
+<h2>Bit Strings</h2> Bits are the atoms in the memory world. Access to individual bits may have to be used either as a last resort or because it is the most convenient way to handle your data. Bit string (un)packing converts between strings containing a series of 0 and 1 characters and a sequence of bytes each containing a group of 8 bits. This is almost as simple as it sounds, except that there are two ways the contents of a byte may be written as a bit string. Let's have a look at an annotated byte:<div class="spacer">
+</div>
+<br/>
+     7 6 5 4 3 2 1 0<br/>
+   +-----------------+<br/>
+   | 1 0 0 0 1 1 0 0 |<br/>
+   +-----------------+<br/>
+    MSB           LSB<br/>
+<div class="spacer">
+</div>
+It's egg-eating all over again: Some think that as a bit string this should be written &quot;10001100&quot; i.e. beginning with the most significant bit, others insist on &quot;00110001&quot;. Well, Perl isn't biased, so that's why we have two bit string codes:<div class="spacer">
+</div>
+<br/>
+   $byte = pack( 'B8', '10001100' ); # start with MSB<br/>
+   $byte = pack( 'b8', '00110001' ); # start with LSB<br/>
+<div class="spacer">
+</div>
+It is not possible to pack or unpack bit fields - just integral bytes. &quot;pack&quot; always starts at the next byte boundary and &quot;rounds up&quot; to the next multiple of 8 by adding zero bits as required. (If you do want bit fields, there is &quot;vec&quot; in perlfunc. Or you could implement bit field handling at the character string level, using split, substr, and concatenation on unpacked bit strings.)<div class="spacer">
+</div>
+To illustrate unpacking for bit strings, we'll decompose a simple status register (a &quot;-&quot; stands for a &quot;reserved&quot; bit):<div class="spacer">
+</div>
+<br/>
+   +-----------------+-----------------+<br/>
+   | S Z - A - P - C | - - - - O D I T |<br/>
+   +-----------------+-----------------+<br/>
+    MSB           LSB MSB           LSB<br/>
+<div class="spacer">
+</div>
+Converting these two bytes to a string can be done with the unpack template 'b16'. To obtain the individual bit values from the bit string we use &quot;split&quot; with the &quot;empty&quot; separator pattern which dissects into individual characters. Bit values from the &quot;reserved&quot; positions are simply assigned to &quot;undef&quot;, a convenient notation for &quot;I don't care where this goes&quot;.<div class="spacer">
+</div>
+<br/>
+   ($carry, undef, $parity, undef, $auxcarry, undef, $zero, $sign,<br/>
+    $trace, $interrupt, $direction, $overflow) =<br/>
+      split( //, unpack( 'b16', $status ) );<br/>
+<div class="spacer">
+</div>
+We could have used an unpack template 'b12' just as well, since the last 4 bits can be ignored anyway.</div>
+<div class="subsection">
+<h2>Uuencoding</h2> Another odd-man-out in the template alphabet is &quot;u&quot;, which packs an &quot;uuencoded string&quot;. (&quot;uu&quot; is short for Unix-to-Unix.) Chances are that you won't ever need this encoding technique which was invented to overcome the shortcomings of old-fashioned transmission mediums that do not support other than simple ASCII data. The essential recipe is simple: Take three bytes, or 24 bits. Split them into 4 six-packs, adding a space (0x20) to each. Repeat until all of the data is blended. Fold groups of 4 bytes into lines no longer than 60 and garnish them in front with the original byte count (incremented by 0x20) and a &quot;\n&quot; at the end. - The &quot;pack&quot; chef will prepare this for you, a la minute, when you select pack code &quot;u&quot; on the menu:<div class="spacer">
+</div>
+<br/>
+   my $uubuf = pack( 'u', $bindat );<br/>
+<div class="spacer">
+</div>
+A repeat count after &quot;u&quot; sets the number of bytes to put into an uuencoded line, which is the maximum of 45 by default, but could be set to some (smaller) integer multiple of three. &quot;unpack&quot; simply ignores the repeat count.</div>
+<div class="subsection">
+<h2>Doing Sums</h2> An even stranger template code is &quot;%&quot;&lt; <i>number</i>&gt;. First, because it's used as a prefix to some other template code. Second, because it cannot be used in &quot;pack&quot; at all, and third, in &quot;unpack&quot;, doesn't return the data as defined by the template code it precedes. Instead it'll give you an integer of  <i>number</i> bits that is computed from the data value by doing sums. For numeric unpack codes, no big feat is achieved:<div class="spacer">
+</div>
+<br/>
+    my $buf = pack( 'iii', 100, 20, 3 );<br/>
+    print unpack( '%32i3', $buf ), &quot;\n&quot;;  # prints 123<br/>
+<div class="spacer">
+</div>
+For string values, &quot;%&quot; returns the sum of the byte values saving you the trouble of a sum loop with &quot;substr&quot; and &quot;ord&quot;:<div class="spacer">
+</div>
+<br/>
+    print unpack( '%32A*', &quot;\x01\x10&quot; ), &quot;\n&quot;;  # prints 17<br/>
+<div class="spacer">
+</div>
+Although the &quot;%&quot; code is documented as returning a &quot;checksum&quot;: don't put your trust in such values! Even when applied to a small number of bytes, they won't guarantee a noticeable Hamming distance.<div class="spacer">
+</div>
+In connection with &quot;b&quot; or &quot;B&quot;, &quot;%&quot; simply adds bits, and this can be put to good use to count set bits efficiently:<div class="spacer">
+</div>
+<br/>
+    my $bitcount = unpack( '%32b*', $mask );<br/>
+<div class="spacer">
+</div>
+And an even parity bit can be determined like this:<div class="spacer">
+</div>
+<br/>
+    my $evenparity = unpack( '%1b*', $mask );<br/>
+</div>
+<div class="subsection">
+<h2>Unicode</h2> Unicode is a character set that can represent most characters in most of the world's languages, providing room for over one million different characters. Unicode 3.1 specifies 94,140 characters: The Basic Latin characters are assigned to the numbers 0 - 127. The Latin-1 Supplement with characters that are used in several European languages is in the next range, up to 255. After some more Latin extensions we find the character sets from languages using non-Roman alphabets, interspersed with a variety of symbol sets such as currency symbols, Zapf Dingbats or Braille. (You might want to visit &lt;http://www.unicode.org/&gt; for a look at some of them - my personal favourites are Telugu and Kannada.)<div class="spacer">
+</div>
+The Unicode character sets associates characters with integers. Encoding these numbers in an equal number of bytes would more than double the requirements for storing texts written in Latin alphabets. The UTF-8 encoding avoids this by storing the most common (from a western point of view) characters in a single byte while encoding the rarer ones in three or more bytes.<div class="spacer">
+</div>
+Perl uses UTF-8, internally, for most Unicode strings.<div class="spacer">
+</div>
+So what has this got to do with &quot;pack&quot;? Well, if you want to compose a Unicode string (that is internally encoded as UTF-8), you can do so by using template code &quot;U&quot;. As an example, let's produce the Euro currency symbol (code number 0x20AC):<div class="spacer">
+</div>
+<br/>
+   $UTF8{Euro} = pack( 'U', 0x20AC );<br/>
+   # Equivalent to: $UTF8{Euro} = &quot;\x{20ac}&quot;;<br/>
+<div class="spacer">
+</div>
+Inspecting $UTF8{Euro} shows that it contains 3 bytes: &quot;\xe2\x82\xac&quot;. However, it contains only 1 character, number 0x20AC. The round trip can be completed with &quot;unpack&quot;:<div class="spacer">
+</div>
+<br/>
+   $Unicode{Euro} = unpack( 'U', $UTF8{Euro} );<br/>
+<div class="spacer">
+</div>
+Unpacking using the &quot;U&quot; template code also works on UTF-8 encoded byte strings.<div class="spacer">
+</div>
+Usually you'll want to pack or unpack UTF-8 strings:<div class="spacer">
+</div>
+<br/>
+   # pack and unpack the Hebrew alphabet<br/>
+   my $alefbet = pack( 'U*', 0x05d0..0x05ea );<br/>
+   my @hebrew = unpack( 'U*', $utf );<br/>
+<div class="spacer">
+</div>
+Please note: in the general case, you're better off using Encode::decode_utf8 to decode a UTF-8 encoded byte string to a Perl Unicode string, and Encode::encode_utf8 to encode a Perl Unicode string to UTF-8 bytes. These functions provide means of handling invalid byte sequences and generally have a friendlier interface.</div>
+<div class="subsection">
+<h2>Another Portable Binary Encoding</h2> The pack code &quot;w&quot; has been added to support a portable binary data encoding scheme that goes way beyond simple integers. (Details can be found at &lt;http://Casbah.org/&gt;, the Scarab project.)  A BER (Binary Encoded Representation) compressed unsigned integer stores base 128 digits, most significant digit first, with as few digits as possible. Bit eight (the high bit) is set on each byte except the last. There is no size limit to BER encoding, but Perl won't go to extremes.<div class="spacer">
+</div>
+<br/>
+   my $berbuf = pack( 'w*', 1, 128, 128+1, 128*128+127 );<br/>
+<div class="spacer">
+</div>
+A hex dump of $berbuf, with spaces inserted at the right places, shows 01 8100 8101 81807F. Since the last byte is always less than 128, &quot;unpack&quot; knows where to stop.</div>
+</div>
+<div class="section">
+<h1>Template Grouping</h1> Prior to Perl 5.8, repetitions of templates had to be made by &quot;x&quot;-multiplication of template strings. Now there is a better way as we may use the pack codes &quot;(&quot; and &quot;)&quot; combined with a repeat count. The &quot;unpack&quot; template from the Stack Frame example can simply be written like this:<div class="spacer">
+</div>
+<br/>
+   unpack( 'v2 (vXXCC)5 v5', $frame )<br/>
+<div class="spacer">
+</div>
+Let's explore this feature a little more. We'll begin with the equivalent of<div class="spacer">
+</div>
+<br/>
+   join( '', map( substr( $_, 0, 1 ), @str ) )<br/>
+<div class="spacer">
+</div>
+which returns a string consisting of the first character from each string. Using pack, we can write<div class="spacer">
+</div>
+<br/>
+   pack( '(A)'.@str, @str )<br/>
+<div class="spacer">
+</div>
+or, because a repeat count &quot;*&quot; means &quot;repeat as often as required&quot;, simply<div class="spacer">
+</div>
+<br/>
+   pack( '(A)*', @str )<br/>
+<div class="spacer">
+</div>
+(Note that the template &quot;A*&quot; would only have packed $str[0] in full length.)<div class="spacer">
+</div>
+To pack dates stored as triplets ( day, month, year ) in an array @dates into a sequence of byte, byte, short integer we can write<div class="spacer">
+</div>
+<br/>
+   $pd = pack( '(CCS)*', map( @$_, @dates ) );<br/>
+<div class="spacer">
+</div>
+To swap pairs of characters in a string (with even length) one could use several techniques. First, let's use &quot;x&quot; and &quot;X&quot; to skip forward and back:<div class="spacer">
+</div>
+<br/>
+   $s = pack( '(A)*', unpack( '(xAXXAx)*', $s ) );<br/>
+<div class="spacer">
+</div>
+We can also use &quot;@&quot; to jump to an offset, with 0 being the position where we were when the last &quot;(&quot; was encountered:<div class="spacer">
+</div>
+<br/>
+   $s = pack( '(A)*', unpack( '(@1A @0A @2)*', $s ) );<br/>
+<div class="spacer">
+</div>
+Finally, there is also an entirely different approach by unpacking big endian shorts and packing them in the reverse byte order:<div class="spacer">
+</div>
+<br/>
+   $s = pack( '(v)*', unpack( '(n)*', $s );<br/>
+</div>
+<div class="section">
+<h1>Lengths and Widths</h1><div class="subsection">
+<h2>String Lengths</h2> In the previous section we've seen a network message that was constructed by prefixing the binary message length to the actual message. You'll find that packing a length followed by so many bytes of data is a frequently used recipe since appending a null byte won't work if a null byte may be part of the data. Here is an example where both techniques are used: after two null terminated strings with source and destination address, a Short Message (to a mobile phone) is sent after a length byte:<div class="spacer">
+</div>
+<br/>
+   my $msg = pack( 'Z*Z*CA*', $src, $dst, length( $sm ), $sm );<br/>
+<div class="spacer">
+</div>
+Unpacking this message can be done with the same template:<div class="spacer">
+</div>
+<br/>
+   ( $src, $dst, $len, $sm ) = unpack( 'Z*Z*CA*', $msg );<br/>
+<div class="spacer">
+</div>
+There's a subtle trap lurking in the offing: Adding another field after the Short Message (in variable $sm) is all right when packing, but this cannot be unpacked naively:<div class="spacer">
+</div>
+<br/>
+   # pack a message<br/>
+   my $msg = pack( 'Z*Z*CA*C', $src, $dst, length( $sm ), $sm, $prio );<br/>
+<br/>
+   # unpack fails - $prio remains undefined!<br/>
+   ( $src, $dst, $len, $sm, $prio ) = unpack( 'Z*Z*CA*C', $msg );<br/>
+<div class="spacer">
+</div>
+The pack code &quot;A*&quot; gobbles up all remaining bytes, and $prio remains undefined! Before we let disappointment dampen the morale: Perl's got the trump card to make this trick too, just a little further up the sleeve. Watch this:<div class="spacer">
+</div>
+<br/>
+   # pack a message: ASCIIZ, ASCIIZ, length/string, byte<br/>
+   my $msg = pack( 'Z* Z* C/A* C', $src, $dst, $sm, $prio );<br/>
+<br/>
+   # unpack<br/>
+   ( $src, $dst, $sm, $prio ) = unpack( 'Z* Z* C/A* C', $msg );<br/>
+<div class="spacer">
+</div>
+Combining two pack codes with a slash (&quot;/&quot;) associates them with a single value from the argument list. In &quot;pack&quot;, the length of the argument is taken and packed according to the first code while the argument itself is added after being converted with the template code after the slash. This saves us the trouble of inserting the &quot;length&quot; call, but it is in &quot;unpack&quot; where we really score: The value of the length byte marks the end of the string to be taken from the buffer. Since this combination doesn't make sense except when the second pack code isn't &quot;a*&quot;, &quot;A*&quot; or &quot;Z*&quot;, Perl won't let you.<div class="spacer">
+</div>
+The pack code preceding &quot;/&quot; may be anything that's fit to represent a number: All the numeric binary pack codes, and even text codes such as &quot;A4&quot; or &quot;Z*&quot;:<div class="spacer">
+</div>
+<br/>
+   # pack/unpack a string preceded by its length in ASCII<br/>
+   my $buf = pack( 'A4/A*', &quot;Humpty-Dumpty&quot; );<br/>
+   # unpack $buf: '13  Humpty-Dumpty'<br/>
+   my $txt = unpack( 'A4/A*', $buf );<br/>
+<div class="spacer">
+</div>
+&quot;/&quot; is not implemented in Perls before 5.6, so if your code is required to work on older Perls you'll need to &quot;unpack( 'Z* Z* C')&quot; to get the length, then use it to make a new unpack string. For example<div class="spacer">
+</div>
+<br/>
+   # pack a message: ASCIIZ, ASCIIZ, length, string, byte (5.005 compatible)<br/>
+   my $msg = pack( 'Z* Z* C A* C', $src, $dst, length $sm, $sm, $prio );<br/>
+<br/>
+   # unpack<br/>
+   ( undef, undef, $len) = unpack( 'Z* Z* C', $msg );<br/>
+   ($src, $dst, $sm, $prio) = unpack ( &quot;Z* Z* x A$len C&quot;, $msg );<br/>
+<div class="spacer">
+</div>
+But that second &quot;unpack&quot; is rushing ahead. It isn't using a simple literal string for the template. So maybe we should introduce...</div>
+<div class="subsection">
+<h2>Dynamic Templates</h2> So far, we've seen literals used as templates. If the list of pack items doesn't have fixed length, an expression constructing the template is required (whenever, for some reason, &quot;()*&quot; cannot be used). Here's an example: To store named string values in a way that can be conveniently parsed by a C program, we create a sequence of names and null terminated ASCII strings, with &quot;=&quot; between the name and the value, followed by an additional delimiting null byte. Here's how:<div class="spacer">
+</div>
+<br/>
+   my $env = pack( '(A*A*Z*)' . keys( %Env ) . 'C',<br/>
+                   map( { ( $_, '=', $Env{$_} ) } keys( %Env ) ), 0 );<br/>
+<div class="spacer">
+</div>
+Let's examine the cogs of this byte mill, one by one. There's the &quot;map&quot; call, creating the items we intend to stuff into the $env buffer: to each key (in $_) it adds the &quot;=&quot; separator and the hash entry value. Each triplet is packed with the template code sequence &quot;A*A*Z*&quot; that is repeated according to the number of keys. (Yes, that's what the &quot;keys&quot; function returns in scalar context.) To get the very last null byte, we add a 0 at the end of the &quot;pack&quot; list, to be packed with &quot;C&quot;. (Attentive readers may have noticed that we could have omitted the 0.)<div class="spacer">
+</div>
+For the reverse operation, we'll have to determine the number of items in the buffer before we can let &quot;unpack&quot; rip it apart:<div class="spacer">
+</div>
+<br/>
+   my $n = $env =~ tr/\0// - 1;<br/>
+   my %env = map( split( /=/, $_ ), unpack( &quot;(Z*)$n&quot;, $env ) );<br/>
+<div class="spacer">
+</div>
+The &quot;tr&quot; counts the null bytes. The &quot;unpack&quot; call returns a list of name-value pairs each of which is taken apart in the &quot;map&quot; block.</div>
+<div class="subsection">
+<h2>Counting Repetitions</h2> Rather than storing a sentinel at the end of a data item (or a list of items), we could precede the data with a count. Again, we pack keys and values of a hash, preceding each with an unsigned short length count, and up front we store the number of pairs:<div class="spacer">
+</div>
+<br/>
+   my $env = pack( 'S(S/A* S/A*)*', scalar keys( %Env ), %Env );<br/>
+<div class="spacer">
+</div>
+This simplifies the reverse operation as the number of repetitions can be unpacked with the &quot;/&quot; code:<div class="spacer">
+</div>
+<br/>
+   my %env = unpack( 'S/(S/A* S/A*)', $env );<br/>
+<div class="spacer">
+</div>
+Note that this is one of the rare cases where you cannot use the same template for &quot;pack&quot; and &quot;unpack&quot; because &quot;pack&quot; can't determine a repeat count for a &quot;()&quot;-group.</div>
+<div class="subsection">
+<h2>Intel HEX</h2> Intel HEX is a file format for representing binary data, mostly for programming various chips, as a text file. (See &lt;http://en.wikipedia.org/wiki/.hex&gt; for a detailed description, and &lt;http://en.wikipedia.org/wiki/SREC_(file_format)&gt; for the Motorola S-record format, which can be unravelled using the same technique.) Each line begins with a colon (':') and is followed by a sequence of hexadecimal characters, specifying a byte count  <i>n</i> (8 bit), an address (16 bit, big endian), a record type (8 bit),  <i>n</i> data bytes and a checksum (8 bit) computed as the least significant byte of the two's complement sum of the preceding bytes. Example: &quot;:0300300002337A1E&quot;.<div class="spacer">
+</div>
+The first step of processing such a line is the conversion, to binary, of the hexadecimal data, to obtain the four fields, while checking the checksum. No surprise here: we'll start with a simple &quot;pack&quot; call to convert everything to binary:<div class="spacer">
+</div>
+<br/>
+   my $binrec = pack( 'H*', substr( $hexrec, 1 ) );<br/>
+<div class="spacer">
+</div>
+The resulting byte sequence is most convenient for checking the checksum. Don't slow your program down with a for loop adding the &quot;ord&quot; values of this string's bytes - the &quot;unpack&quot; code &quot;%&quot; is the thing to use for computing the 8-bit sum of all bytes, which must be equal to zero:<div class="spacer">
+</div>
+<br/>
+   die unless unpack( &quot;%8C*&quot;, $binrec ) == 0;<br/>
+<div class="spacer">
+</div>
+Finally, let's get those four fields. By now, you shouldn't have any problems with the first three fields - but how can we use the byte count of the data in the first field as a length for the data field? Here the codes &quot;x&quot; and &quot;X&quot; come to the rescue, as they permit jumping back and forth in the string to unpack.<div class="spacer">
+</div>
+<br/>
+   my( $addr, $type, $data ) = unpack( &quot;x n C X4 C x3 /a&quot;, $bin );<br/>
+<div class="spacer">
+</div>
+Code &quot;x&quot; skips a byte, since we don't need the count yet. Code &quot;n&quot; takes care of the 16-bit big-endian integer address, and &quot;C&quot; unpacks the record type. Being at offset 4, where the data begins, we need the count. &quot;X4&quot; brings us back to square one, which is the byte at offset 0. Now we pick up the count, and zoom forth to offset 4, where we are now fully furnished to extract the exact number of data bytes, leaving the trailing checksum byte alone.</div>
+</div>
+<div class="section">
+<h1>Packing and Unpacking C Structures</h1> In previous sections we have seen how to pack numbers and character strings. If it were not for a couple of snags we could conclude this section right away with the terse remark that C structures don't contain anything else, and therefore you already know all there is to it. Sorry, no: read on, please.<div class="spacer">
+</div>
+If you have to deal with a lot of C structures, and don't want to hack all your template strings manually, you'll probably want to have a look at the CPAN module &quot;Convert::Binary::C&quot;. Not only can it parse your C source directly, but it also has built-in support for all the odds and ends described further on in this section.<div class="subsection">
+<h2>The Alignment Pit</h2> In the consideration of speed against memory requirements the balance has been tilted in favor of faster execution. This has influenced the way C compilers allocate memory for structures: On architectures where a 16-bit or 32-bit operand can be moved faster between places in memory, or to or from a CPU register, if it is aligned at an even or multiple-of-four or even at a multiple-of eight address, a C compiler will give you this speed benefit by stuffing extra bytes into structures. If you don't cross the C shoreline this is not likely to cause you any grief (although you should care when you design large data structures, or you want your code to be portable between architectures (you do want that, don't you?)).<div class="spacer">
+</div>
+To see how this affects &quot;pack&quot; and &quot;unpack&quot;, we'll compare these two C structures:<div class="spacer">
+</div>
+<br/>
+   typedef struct {<br/>
+     char     c1;<br/>
+     short    s;<br/>
+     char     c2;<br/>
+     long     l;<br/>
+   } gappy_t;<br/>
+<br/>
+   typedef struct {<br/>
+     long     l;<br/>
+     short    s;<br/>
+     char     c1;<br/>
+     char     c2;<br/>
+   } dense_t;<br/>
+<div class="spacer">
+</div>
+Typically, a C compiler allocates 12 bytes to a &quot;gappy_t&quot; variable, but requires only 8 bytes for a &quot;dense_t&quot;. After investigating this further, we can draw memory maps, showing where the extra 4 bytes are hidden:<div class="spacer">
+</div>
+<br/>
+   0           +4          +8          +12<br/>
+   +--+--+--+--+--+--+--+--+--+--+--+--+<br/>
+   |c1|xx|  s  |c2|xx|xx|xx|     l     |    xx = fill byte<br/>
+   +--+--+--+--+--+--+--+--+--+--+--+--+<br/>
+   gappy_t<br/>
+<br/>
+   0           +4          +8<br/>
+   +--+--+--+--+--+--+--+--+<br/>
+   |     l     |  h  |c1|c2|<br/>
+   +--+--+--+--+--+--+--+--+<br/>
+   dense_t<br/>
+<div class="spacer">
+</div>
+And that's where the first quirk strikes: &quot;pack&quot; and &quot;unpack&quot; templates have to be stuffed with &quot;x&quot; codes to get those extra fill bytes.<div class="spacer">
+</div>
+The natural question: &quot;Why can't Perl compensate for the gaps?&quot; warrants an answer. One good reason is that C compilers might provide (non-ANSI) extensions permitting all sorts of fancy control over the way structures are aligned, even at the level of an individual structure field. And, if this were not enough, there is an insidious thing called &quot;union&quot; where the amount of fill bytes cannot be derived from the alignment of the next item alone.<div class="spacer">
+</div>
+OK, so let's bite the bullet. Here's one way to get the alignment right by inserting template codes &quot;x&quot;, which don't take a corresponding item from the list:<div class="spacer">
+</div>
+<br/>
+  my $gappy = pack( 'cxs cxxx l!', $c1, $s, $c2, $l );<br/>
+<div class="spacer">
+</div>
+Note the &quot;!&quot; after &quot;l&quot;: We want to make sure that we pack a long integer as it is compiled by our C compiler. And even now, it will only work for the platforms where the compiler aligns things as above. And somebody somewhere has a platform where it doesn't. [Probably a Cray, where &quot;short&quot;s, &quot;int&quot;s and &quot;long&quot;s are all 8 bytes. :-)]<div class="spacer">
+</div>
+Counting bytes and watching alignments in lengthy structures is bound to be a drag. Isn't there a way we can create the template with a simple program? Here's a C program that does the trick:<div class="spacer">
+</div>
+<br/>
+   #include &lt;stdio.h&gt;<br/>
+   #include &lt;stddef.h&gt;<br/>
+<br/>
+   typedef struct {<br/>
+     char     fc1;<br/>
+     short    fs;<br/>
+     char     fc2;<br/>
+     long     fl;<br/>
+   } gappy_t;<br/>
+<br/>
+   #define Pt(struct,field,tchar) \<br/>
+     printf( &quot;@%d%s &quot;, offsetof(struct,field), # tchar );<br/>
+<br/>
+   int main() {<br/>
+     Pt( gappy_t, fc1, c  );<br/>
+     Pt( gappy_t, fs,  s! );<br/>
+     Pt( gappy_t, fc2, c  );<br/>
+     Pt( gappy_t, fl,  l! );<br/>
+     printf( &quot;\n&quot; );<br/>
+   }<br/>
+<div class="spacer">
+</div>
+The output line can be used as a template in a &quot;pack&quot; or &quot;unpack&quot; call:<div class="spacer">
+</div>
+<br/>
+  my $gappy = pack( '@0c @2s! @4c @8l!', $c1, $s, $c2, $l );<br/>
+<div class="spacer">
+</div>
+Gee, yet another template code - as if we hadn't plenty. But &quot;@&quot; saves our day by enabling us to specify the offset from the beginning of the pack buffer to the next item: This is just the value the &quot;offsetof&quot; macro (defined in &quot;&lt;stddef.h&gt;&quot;) returns when given a &quot;struct&quot; type and one of its field names (&quot;member-designator&quot; in C standardese).<div class="spacer">
+</div>
+Neither using offsets nor adding &quot;x&quot;'s to bridge the gaps is satisfactory. (Just imagine what happens if the structure changes.) What we really need is a way of saying &quot;skip as many bytes as required to the next multiple of N&quot;. In fluent Templatese, you say this with &quot;x!N&quot; where N is replaced by the appropriate value. Here's the next version of our struct packaging:<div class="spacer">
+</div>
+<br/>
+  my $gappy = pack( 'c x!2 s c x!4 l!', $c1, $s, $c2, $l );<br/>
+<div class="spacer">
+</div>
+That's certainly better, but we still have to know how long all the integers are, and portability is far away. Rather than 2, for instance, we want to say &quot;however long a short is&quot;. But this can be done by enclosing the appropriate pack code in brackets: &quot;[s]&quot;. So, here's the very best we can do:<div class="spacer">
+</div>
+<br/>
+  my $gappy = pack( 'c x![s] s c x![l!] l!', $c1, $s, $c2, $l );<br/>
+</div>
+<div class="subsection">
+<h2>Dealing with Endian-ness</h2> Now, imagine that we want to pack the data for a machine with a different byte-order. First, we'll have to figure out how big the data types on the target machine really are. Let's assume that the longs are 32 bits wide and the shorts are 16 bits wide. You can then rewrite the template as:<div class="spacer">
+</div>
+<br/>
+  my $gappy = pack( 'c x![s] s c x![l] l', $c1, $s, $c2, $l );<br/>
+<div class="spacer">
+</div>
+If the target machine is little-endian, we could write:<div class="spacer">
+</div>
+<br/>
+  my $gappy = pack( 'c x![s] s&lt; c x![l] l&lt;', $c1, $s, $c2, $l );<br/>
+<div class="spacer">
+</div>
+This forces the short and the long members to be little-endian, and is just fine if you don't have too many struct members. But we could also use the byte-order modifier on a group and write the following:<div class="spacer">
+</div>
+<br/>
+  my $gappy = pack( '( c x![s] s c x![l] l )&lt;', $c1, $s, $c2, $l );<br/>
+<div class="spacer">
+</div>
+This is not as short as before, but it makes it more obvious that we intend to have little-endian byte-order for a whole group, not only for individual template codes. It can also be more readable and easier to maintain.</div>
+<div class="subsection">
+<h2>Alignment, Take 2</h2> I'm afraid that we're not quite through with the alignment catch yet. The hydra raises another ugly head when you pack arrays of structures:<div class="spacer">
+</div>
+<br/>
+   typedef struct {<br/>
+     short    count;<br/>
+     char     glyph;<br/>
+   } cell_t;<br/>
+<br/>
+   typedef cell_t buffer_t[BUFLEN];<br/>
+<div class="spacer">
+</div>
+Where's the catch? Padding is neither required before the first field &quot;count&quot;, nor between this and the next field &quot;glyph&quot;, so why can't we simply pack like this:<div class="spacer">
+</div>
+<br/>
+   # something goes wrong here:<br/>
+   pack( 's!a' x @buffer,<br/>
+         map{ ( $_-&gt;{count}, $_-&gt;{glyph} ) } @buffer );<br/>
+<div class="spacer">
+</div>
+This packs &quot;3*@buffer&quot; bytes, but it turns out that the size of &quot;buffer_t&quot; is four times &quot;BUFLEN&quot;! The moral of the story is that the required alignment of a structure or array is propagated to the next higher level where we have to consider padding  <i>at the end</i> of each component as well. Thus the correct template is:<div class="spacer">
+</div>
+<br/>
+   pack( 's!ax' x @buffer,<br/>
+         map{ ( $_-&gt;{count}, $_-&gt;{glyph} ) } @buffer );<br/>
+</div>
+<div class="subsection">
+<h2>Alignment, Take 3</h2> And even if you take all the above into account, ANSI still lets this:<div class="spacer">
+</div>
+<br/>
+   typedef struct {<br/>
+     char     foo[2];<br/>
+   } foo_t;<br/>
+<div class="spacer">
+</div>
+vary in size. The alignment constraint of the structure can be greater than any of its elements. [And if you think that this doesn't affect anything common, dismember the next cellphone that you see. Many have ARM cores, and the ARM structure rules make &quot;sizeof (foo_t)&quot; == 4]</div>
+<div class="subsection">
+<h2>Pointers for How to Use Them</h2> The title of this section indicates the second problem you may run into sooner or later when you pack C structures. If the function you intend to call expects a, say, &quot;void *&quot; value, you  <i>cannot</i> simply take a reference to a Perl variable. (Although that value certainly is a memory address, it's not the address where the variable's contents are stored.)<div class="spacer">
+</div>
+Template code &quot;P&quot; promises to pack a &quot;pointer to a fixed length string&quot;. Isn't this what we want? Let's try:<div class="spacer">
+</div>
+<br/>
+    # allocate some storage and pack a pointer to it<br/>
+    my $memory = &quot;\x00&quot; x $size;<br/>
+    my $memptr = pack( 'P', $memory );<br/>
+<div class="spacer">
+</div>
+But wait: doesn't &quot;pack&quot; just return a sequence of bytes? How can we pass this string of bytes to some C code expecting a pointer which is, after all, nothing but a number? The answer is simple: We have to obtain the numeric address from the bytes returned by &quot;pack&quot;.<div class="spacer">
+</div>
+<br/>
+    my $ptr = unpack( 'L!', $memptr );<br/>
+<div class="spacer">
+</div>
+Obviously this assumes that it is possible to typecast a pointer to an unsigned long and vice versa, which frequently works but should not be taken as a universal law. - Now that we have this pointer the next question is: How can we put it to good use? We need a call to some C function where a pointer is expected. The  <i>read</i>(2) system call comes to mind:<div class="spacer">
+</div>
+<br/>
+    ssize_t read(int fd, void *buf, size_t count);<br/>
+<div class="spacer">
+</div>
+After reading perlfunc explaining how to use &quot;syscall&quot; we can write this Perl function copying a file to standard output:<div class="spacer">
+</div>
+<br/>
+    require 'syscall.ph';<br/>
+    sub cat($){<br/>
+        my $path = shift();<br/>
+        my $size = -s $path;<br/>
+        my $memory = &quot;\x00&quot; x $size;  # allocate some memory<br/>
+        my $ptr = unpack( 'L', pack( 'P', $memory ) );<br/>
+        open( F, $path ) || die( &quot;$path: cannot open ($!)\n&quot; );<br/>
+        my $fd = fileno(F);<br/>
+        my $res = syscall( &amp;SYS_read, fileno(F), $ptr, $size );<br/>
+        print $memory;<br/>
+        close( F );<br/>
+    }<br/>
+<div class="spacer">
+</div>
+This is neither a specimen of simplicity nor a paragon of portability but it illustrates the point: We are able to sneak behind the scenes and access Perl's otherwise well-guarded memory! (Important note: Perl's &quot;syscall&quot; does  <i>not</i> require you to construct pointers in this roundabout way. You simply pass a string variable, and Perl forwards the address.)<div class="spacer">
+</div>
+How does &quot;unpack&quot; with &quot;P&quot; work? Imagine some pointer in the buffer about to be unpacked: If it isn't the null pointer (which will smartly produce the &quot;undef&quot; value) we have a start address - but then what? Perl has no way of knowing how long this &quot;fixed length string&quot; is, so it's up to you to specify the actual size as an explicit length after &quot;P&quot;.<div class="spacer">
+</div>
+<br/>
+   my $mem = &quot;abcdefghijklmn&quot;;<br/>
+   print unpack( 'P5', pack( 'P', $mem ) ); # prints &quot;abcde&quot;<br/>
+<div class="spacer">
+</div>
+As a consequence, &quot;pack&quot; ignores any number or &quot;*&quot; after &quot;P&quot;.<div class="spacer">
+</div>
+Now that we have seen &quot;P&quot; at work, we might as well give &quot;p&quot; a whirl. Why do we need a second template code for packing pointers at all? The answer lies behind the simple fact that an &quot;unpack&quot; with &quot;p&quot; promises a null-terminated string starting at the address taken from the buffer, and that implies a length for the data item to be returned:<div class="spacer">
+</div>
+<br/>
+   my $buf = pack( 'p', &quot;abc\x00efhijklmn&quot; );<br/>
+   print unpack( 'p', $buf );    # prints &quot;abc&quot;<br/>
+<div class="spacer">
+</div>
+Albeit this is apt to be confusing: As a consequence of the length being implied by the string's length, a number after pack code &quot;p&quot; is a repeat count, not a length as after &quot;P&quot;.<div class="spacer">
+</div>
+Using &quot;pack(..., $x)&quot; with &quot;P&quot; or &quot;p&quot; to get the address where $x is actually stored must be used with circumspection. Perl's internal machinery considers the relation between a variable and that address as its very own private matter and doesn't really care that we have obtained a copy. Therefore:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Do not use &quot;pack&quot; with &quot;p&quot; or &quot;P&quot; to obtain the address of variable that's bound to go out of scope (and thereby freeing its memory) before you are done with using the memory at that address.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Be very careful with Perl operations that change the value of the variable. Appending something to the variable, for instance, might require reallocation of its storage, leaving you with a pointer into no-man's land.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Don't think that you can get the address of a Perl variable when it is stored as an integer or double number! &quot;pack('P', $x)&quot; will force the variable's internal representation to string, just as if you had written something like &quot;$x .= ''&quot;.</dd>
+</dl>
+<div class="spacer">
+</div>
+It's safe, however, to P- or p-pack a string literal, because Perl simply allocates an anonymous variable.</div>
+</div>
+<div class="section">
+<h1>Pack Recipes</h1> Here are a collection of (possibly) useful canned recipes for &quot;pack&quot; and &quot;unpack&quot;:<div class="spacer">
+</div>
+<br/>
+    # Convert IP address for socket functions<br/>
+    pack( &quot;C4&quot;, split /\./, &quot;123.4.5.6&quot; ); <br/>
+<br/>
+    # Count the bits in a chunk of memory (e.g. a select vector)<br/>
+    unpack( '%32b*', $mask );<br/>
+<br/>
+    # Determine the endianness of your system<br/>
+    $is_little_endian = unpack( 'c', pack( 's', 1 ) );<br/>
+    $is_big_endian = unpack( 'xc', pack( 's', 1 ) );<br/>
+<br/>
+    # Determine the number of bits in a native integer<br/>
+    $bits = unpack( '%32I!', ~0 );<br/>
+<br/>
+    # Prepare argument for the nanosleep system call<br/>
+    my $timespec = pack( 'L!L!', $secs, $nanosecs );<br/>
+<div class="spacer">
+</div>
+For a simple memory dump we unpack some bytes into just as many pairs of hex digits, and use &quot;map&quot; to handle the traditional spacing - 16 bytes to a line:<div class="spacer">
+</div>
+<br/>
+    my $i;<br/>
+    print map( ++$i % 16 ? &quot;$_ &quot; : &quot;$_\n&quot;,<br/>
+               unpack( 'H2' x length( $mem ), $mem ) ),<br/>
+          length( $mem ) % 16 ? &quot;\n&quot; : '';<br/>
+</div>
+<div class="section">
+<h1>Funnies Section</h1><br/>
+    # Pulling digits out of nowhere...<br/>
+    print unpack( 'C', pack( 'x' ) ),<br/>
+          unpack( '%B*', pack( 'A' ) ),<br/>
+          unpack( 'H', pack( 'A' ) ),<br/>
+          unpack( 'A', unpack( 'C', pack( 'A' ) ) ), &quot;\n&quot;;<br/>
+<br/>
+    # One for the road ;-)<br/>
+    my $advice = pack( 'all u can in a van' );<br/>
+</div>
+<div class="section">
+<h1>Authors</h1> Simon Cozens and Wolfgang Laun.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

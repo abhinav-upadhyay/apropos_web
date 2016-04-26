@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+Config::Model::Manual::ModelCreationAdvanced(3pm)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+Config::Model::Manual::ModelCreationAdvanced(3pm)</td>
+<td class="head-vol">
+User Contributed Perl Documentation</td>
+<td class="head-rtitle">
+Config::Model::Manual::ModelCreationAdvanced(3pm)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> Config::Model::Manual::ModelCreationAdvanced - Creating a model with advanced features</div>
+<div class="section">
+<h1>VERSION</h1> version 2.005</div>
+<div class="section">
+<h1>Introduction</h1> The page Config::Model::Manual::ModelCreationIntroduction explains what is a configuration tree and a configuration model and how to create a simple configuration model.<div class="spacer">
+</div>
+But a configuration model can be more complex and define interactions between elements with the following features:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Model warp. For instance, Xorg driver options change depending on driver name (&quot;nvidia&quot;, &quot;radeon&quot;...)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Simple computation from other elements (used for upgrades)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+References. For instance, in &quot;Xorg::Device::Radeon&quot;, &quot;Monitor-DVI-0&quot; name must refer to one of the monitors declared in &quot;Monitor&quot; section.</dd>
+</dl>
+<div class="spacer">
+</div>
+Caveat: Xorg examples are based on Xorg 1.4 and may not be valid for Xorg 1.5 or 1.6</div>
+<div class="section">
+<h1>Model warp</h1> From a user's point of view, model warp will look like the structure or properties of the configuration is changing (or adapting) dynamically depending on the values being entered. For instance, when changing a driver name from &quot;fglrx&quot; to &quot;radeon&quot;, some options will disappear from the GUI and some other options will pop-in.<div class="spacer">
+</div>
+Model warping need not be that spectacular and can have more subtle effect like changing a default value.<div class="spacer">
+</div>
+Of course, there's no magic, model warp properties needs to be prepared and declared in the model.<div class="subsection">
+<h2>Warped value</h2> Let's start simple with value warp: the properties of a single value is changed dynamically. Let's imagine a configuration file with 2 values:  <i>size</i> which can be set to <i>big</i> or <i>small</i> and <i>length</i> whose maximum value is 10 when size is small and 50 when size is big. (this may be dumb, but it's for the sake of the example).<div class="spacer">
+</div>
+So the basic model without warp will be<div class="spacer">
+</div>
+<br/>
+ element =&gt; [<br/>
+              size =&gt; { type =&gt; 'leaf',<br/>
+                        value_type =&gt; 'enum',<br/>
+                        choice     =&gt; ['big','small'],<br/>
+                      },<br/>
+              length =&gt; { type =&gt; 'leaf',<br/>
+                          value_type =&gt; 'integer',<br/>
+                          max =&gt; '10',<br/>
+                        },<br/>
+            ]<br/>
+<div class="spacer">
+</div>
+Now we need to declare the relationship between <i>size</i> and <i>length</i> to be able to change dynamically the  <i>max</i> property.<div class="spacer">
+</div>
+This setup is made of 2 specifications:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+what is the element that will trigger the change (called <i>warp master</i> in the doc)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+what is the effect of the warp master change</dd>
+</dl>
+<div class="spacer">
+</div>
+The first is done with a declaration of the <i>path</i> to <i>follow</i> to find the warp master (associated to a variable). The second is a set of value properties:<div class="spacer">
+</div>
+<br/>
+ element =&gt; [ <br/>
+   size =&gt; { <br/>
+     type =&gt; 'leaf',<br/>
+     value_type =&gt; 'enum',<br/>
+     choice     =&gt; ['big','small'],<br/>
+   },<br/>
+<br/>
+   length =&gt; { <br/>
+     type =&gt; 'leaf',<br/>
+     value_type =&gt; 'integer',<br/>
+     warp =&gt; {                         # change specification<br/>
+       follow =&gt; {                     # declare what trigger the change<br/>
+         size_type =&gt; '- size'         # size_type: go 1 level above and fetch<br/>
+                                       #            size value<br/>
+       },<br/>
+       rules  =&gt; {                     # how to apply change<br/>
+         '$size_type eq &quot;small&quot;' =&gt; {  # set max to 10 when size is small<br/>
+            max =&gt; 10 <br/>
+         },<br/>
+         '$size_type eq &quot;big&quot; ' =&gt; {   # set max to 50 when size is big<br/>
+             max =&gt; 50 },<br/>
+         },<br/>
+       },<br/>
+     }<br/>
+  ]<br/>
+</div>
+<div class="subsection">
+<h2>Warp in or warp out an element</h2> Here's a real use case scenario from OpenSsh.<div class="spacer">
+</div>
+&quot;ssh_config&quot; enables a user to set up a tunnel through ssh. The input of this tunnel can listen to localhost (default) or to other hosts. These other hosts are specified by the  <i>bind_adress</i> part of the &quot;LocalForward&quot; parameter.<div class="spacer">
+</div>
+But this bind address is ignored if &quot;GatewayPorts&quot; is false (which is the default).<div class="spacer">
+</div>
+In order to present only meaningful parameters to the user,  <i>bind_address</i> parameter must be hidden when &quot;GatewayPorts&quot; is false and shown when &quot;GatewayPorts&quot; is true.<div class="spacer">
+</div>
+Here's the recipe. First create a boolean element for &quot;GatewayPorts&quot;:<div class="spacer">
+</div>
+<br/>
+ GatewayPorts =&gt; {<br/>
+    type =&gt; 'leaf',<br/>
+    value_type =&gt; 'boolean',<br/>
+    upstream_default =&gt; 0,<br/>
+ },<br/>
+<div class="spacer">
+</div>
+And &quot;LocalForward&quot; that will provide <i>bind_address</i> parameter:<div class="spacer">
+</div>
+<br/>
+ LocalForward =&gt; {<br/>
+   type =&gt; 'list',<br/>
+   cargo =&gt; {<br/>
+     type =&gt; 'node',<br/>
+     config_class_name =&gt; 'Ssh::PortForward'<br/>
+   },<br/>
+   summary =&gt; 'Local port forwarding',<br/>
+   experience =&gt; 'advanced',<br/>
+ }<br/>
+<div class="spacer">
+</div>
+In &quot;Ssh::PortForward&quot; configuration class, declare <i>bind_address</i> with the warp instructions:<div class="spacer">
+</div>
+<br/>
+ bind_address =&gt; {<br/>
+   type =&gt; 'leaf',<br/>
+   value_type =&gt; 'uniline',<br/>
+   level =&gt; 'hidden',             # by default, is hidden from user<br/>
+   warp =&gt; {                      # instructions to show bind_address<br/>
+     follow =&gt; {                  # specify what does trigger the change<br/>
+        gp =&gt; '- - GatewayPorts'  # gp: go to 2 levels above in tree ('- -') and<br/>
+                                  #     fetch GatewayPorts value<br/>
+     },<br/>
+     rules =&gt; [                   # specify how to apply the change triggered by gp<br/>
+       '$gp' =&gt; {                 # apply change when $gp is true<br/>
+           level =&gt; 'normal'      # set level to normal (instead of 'hidden'). This change<br/>
+                                  #     will show this parameter in the UI<br/>
+       }<br/>
+     ]<br/>
+   },<br/>
+ },<br/>
+</div>
+<div class="subsection">
+<h2>warped node</h2> Sometimes, warping a value line by line is not practical. For instance, in &quot;/etc/fstab&quot; the mount options of a file system change drastically from one file system to another. In this case, it's better to swap a configuration class with another.<div class="spacer">
+</div>
+For instance, swap &quot;vfat&quot; mount options with &quot;ext3&quot; mount options when a file system is changed from &quot;vfat&quot; to &quot;ext3&quot;.<div class="spacer">
+</div>
+Here's how this can be done. First declare the &quot;fstype&quot; parameter:<div class="spacer">
+</div>
+<br/>
+ fs_vfstype =&gt; {<br/>
+   type =&gt; 'leaf',<br/>
+   mandatory =&gt; 1,<br/>
+   value_type =&gt; 'enum',<br/>
+   choice =&gt; [ 'auto', 'davfs', 'vfat', 'ext2', 'ext3', ] , # etc ...<br/>
+ }<br/>
+<div class="spacer">
+</div>
+Then declare &quot;mntopts&quot; as a <b>warped_node</b> (not a simple &quot;node&quot;)) that will use &quot;fs_vfstype&quot; to swap one config class with another:<div class="spacer">
+</div>
+<br/>
+ fs_mntopts =&gt; {<br/>
+   type =&gt; 'warped_node', # a shape-shifting node<br/>
+   follow =&gt; {<br/>
+     f1 =&gt; '- fs_vfstype' , # use fs_vfstype as a trigger<br/>
+   },<br/>
+   rules =&gt; [<br/>
+     # condition     =&gt; effect: config class to swap in<br/>
+<br/>
+     &quot;$f1 eq 'proc'&quot; =&gt; { config_class_name =&gt; 'Fstab::CommonOptions' },<br/>
+     &quot;$f1 eq 'auto'&quot; =&gt; { config_class_name =&gt; 'Fstab::CommonOptions' },<br/>
+     &quot;$f1 eq 'vfat'&quot; =&gt; { config_class_name =&gt; 'Fstab::CommonOptions' },<br/>
+     &quot;$f1 eq 'swap'&quot; =&gt; { config_class_name =&gt; 'Fstab::SwapOptions'   },<br/>
+     &quot;$f1 eq 'ext3'&quot; =&gt; { config_class_name =&gt; 'Fstab::Ext3FsOpt'     },<br/>
+     # etc ...<br/>
+   ]<br/>
+  }<br/>
+</div>
+</div>
+<div class="section">
+<h1>References</h1></div>
+<div class="section">
+<h1>Computation and migrations</h1><div class="subsection">
+<h2>Cascaded warp</h2> Config::Model also supports cascaded warps: A warped value is dependent on another value which is itself a warped value.</div>
+</div>
+<div class="section">
+<h1>Feedback welcome</h1> Feel free to send comments and suggestion about this page at<div class="spacer">
+</div>
+<br/>
+ config-model-users at lists dot sourceforge dot net.<br/>
+</div>
+<div class="section">
+<h1>AUTHORS</h1> Dominique Dumont &lt;ddumont at cpan.org&gt;</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2012-02-24</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

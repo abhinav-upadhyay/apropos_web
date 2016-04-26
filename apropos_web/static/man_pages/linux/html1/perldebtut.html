@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+PERLDEBTUT(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERLDEBTUT(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+PERLDEBTUT(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perldebtut - Perl debugging tutorial</div>
+<div class="section">
+<h1>DESCRIPTION</h1> A (very) lightweight introduction in the use of the perl debugger, and a pointer to existing, deeper sources of information on the subject of debugging perl programs.<div class="spacer">
+</div>
+There's an extraordinary number of people out there who don't appear to know anything about using the perl debugger, though they use the language every day. This is for them.</div>
+<div class="section">
+<h1>use strict</h1> First of all, there's a few things you can do to make your life a lot more straightforward when it comes to debugging perl programs, without using the debugger at all.  To demonstrate, here's a simple script, named &quot;hello&quot;, with a problem:<div class="spacer">
+</div>
+<br/>
+        #!/usr/bin/perl<br/>
+<br/>
+        $var1 = 'Hello World'; # always wanted to do that :-)<br/>
+        $var2 = &quot;$varl\n&quot;;<br/>
+<br/>
+        print $var2; <br/>
+        exit;<br/>
+<div class="spacer">
+</div>
+While this compiles and runs happily, it probably won't do what's expected, namely it doesn't print &quot;Hello World\n&quot; at all;  It will on the other hand do exactly what it was told to do, computers being a bit that way inclined.  That is, it will print out a newline character, and you'll get what looks like a blank line.  It looks like there's 2 variables when (because of the typo) there's really 3:<div class="spacer">
+</div>
+<br/>
+        $var1 = 'Hello World';<br/>
+        $varl = undef;<br/>
+        $var2 = &quot;\n&quot;;<br/>
+<div class="spacer">
+</div>
+To catch this kind of problem, we can force each variable to be declared before use by pulling in the strict module, by putting 'use strict;' after the first line of the script.<div class="spacer">
+</div>
+Now when you run it, perl complains about the 3 undeclared variables and we get four error messages because one variable is referenced twice:<div class="spacer">
+</div>
+<br/>
+ Global symbol &quot;$var1&quot; requires explicit package name at ./t1 line 4.<br/>
+ Global symbol &quot;$var2&quot; requires explicit package name at ./t1 line 5.<br/>
+ Global symbol &quot;$varl&quot; requires explicit package name at ./t1 line 5.<br/>
+ Global symbol &quot;$var2&quot; requires explicit package name at ./t1 line 7.<br/>
+ Execution of ./hello aborted due to compilation errors.<br/>
+<div class="spacer">
+</div>
+Luvverly! and to fix this we declare all variables explicitly and now our script looks like this:<div class="spacer">
+</div>
+<br/>
+        #!/usr/bin/perl<br/>
+        use strict;<br/>
+<br/>
+        my $var1 = 'Hello World';<br/>
+        my $varl = undef;<br/>
+        my $var2 = &quot;$varl\n&quot;;<br/>
+<br/>
+        print $var2; <br/>
+        exit;<br/>
+<div class="spacer">
+</div>
+We then do (always a good idea) a syntax check before we try to run it again:<div class="spacer">
+</div>
+<br/>
+        &gt; perl -c hello<br/>
+        hello syntax OK<br/>
+<div class="spacer">
+</div>
+And now when we run it, we get &quot;\n&quot; still, but at least we know why.  Just getting this script to compile has exposed the '$varl' (with the letter 'l') variable, and simply changing $varl to $var1 solves the problem.</div>
+<div class="section">
+<h1>Looking at data and -w and v</h1> Ok, but how about when you want to really see your data, what's in that dynamic variable, just before using it?<div class="spacer">
+</div>
+<br/>
+        #!/usr/bin/perl <br/>
+        use strict;<br/>
+<br/>
+        my $key = 'welcome';<br/>
+        my %data = (<br/>
+                'this' =&gt; qw(that), <br/>
+                'tom' =&gt; qw(and jerry),<br/>
+                'welcome' =&gt; q(Hello World),<br/>
+                'zip' =&gt; q(welcome),<br/>
+        );<br/>
+        my @data = keys %data;<br/>
+<br/>
+        print &quot;$data{$key}\n&quot;;<br/>
+        exit;<br/>
+<div class="spacer">
+</div>
+Looks OK, after it's been through the syntax check (perl -c scriptname), we run it and all we get is a blank line again!  Hmmmm.<div class="spacer">
+</div>
+One common debugging approach here, would be to liberally sprinkle a few print statements, to add a check just before we print out our data, and another just after:<div class="spacer">
+</div>
+<br/>
+        print &quot;All OK\n&quot; if grep($key, keys %data);<br/>
+        print &quot;$data{$key}\n&quot;;<br/>
+        print &quot;done: '$data{$key}'\n&quot;;<br/>
+<div class="spacer">
+</div>
+And try again:<div class="spacer">
+</div>
+<br/>
+        &gt; perl data<br/>
+        All OK     <br/>
+<br/>
+        done: ''<br/>
+<div class="spacer">
+</div>
+After much staring at the same piece of code and not seeing the wood for the trees for some time, we get a cup of coffee and try another approach.  That is, we bring in the cavalry by giving perl the ' <b>-d</b>' switch on the command line:<div class="spacer">
+</div>
+<br/>
+        &gt; perl -d data <br/>
+        Default die handler restored.<br/>
+<br/>
+        Loading DB routines from perl5db.pl version 1.07<br/>
+        Editor support available.<br/>
+<br/>
+        Enter h or `h h' for help, or `man perldebug' for more help.<br/>
+<br/>
+        main::(./data:4):     my $key = 'welcome';<br/>
+<div class="spacer">
+</div>
+Now, what we've done here is to launch the built-in perl debugger on our script.  It's stopped at the first line of executable code and is waiting for input.<div class="spacer">
+</div>
+Before we go any further, you'll want to know how to quit the debugger: use just the letter ' <b>q</b>', not the words 'quit' or 'exit':<div class="spacer">
+</div>
+<br/>
+        DB&lt;1&gt; q<br/>
+        &gt;<br/>
+<div class="spacer">
+</div>
+That's it, you're back on home turf again.</div>
+<div class="section">
+<h1>help</h1> Fire the debugger up again on your script and we'll look at the help menu. There's a couple of ways of calling help: a simple ' <b>h</b>' will get the summary help list, ' <b>|h</b>' (pipe-h) will pipe the help through your pager (which is (probably 'more' or 'less'), and finally, ' <b>h h</b>' (h-space-h) will give you the entire help screen.  Here is the summary page:<div class="spacer">
+</div>
+D<b>1</b>h<div class="spacer">
+</div>
+<br/>
+ List/search source lines:               Control script execution:<br/>
+  l [ln|sub]  List source code            T           Stack trace<br/>
+  - or .      List previous/current line  s [expr]    Single step [in expr]<br/>
+  v [line]    View around line            n [expr]    Next, steps over subs<br/>
+  f filename  View source in file         &lt;CR/Enter&gt;  Repeat last n or s<br/>
+  /pattern/ ?patt?   Search forw/backw    r           Return from subroutine<br/>
+  M           Show module versions        c [ln|sub]  Continue until position<br/>
+ Debugger controls:                       L           List break/watch/actions<br/>
+  o [...]     Set debugger options        t [expr]    Toggle trace [trace expr]<br/>
+  &lt;[&lt;]|{[{]|&gt;[&gt;] [cmd] Do pre/post-prompt b [ln|event|sub] [cnd] Set breakpoint<br/>
+  ! [N|pat]   Redo a previous command     B ln|*      Delete a/all breakpoints<br/>
+  H [-num]    Display last num commands   a [ln] cmd  Do cmd before line<br/>
+  = [a val]   Define/list an alias        A ln|*      Delete a/all actions<br/>
+  h [db_cmd]  Get help on command         w expr      Add a watch expression<br/>
+  h h         Complete help page          W expr|*    Delete a/all watch exprs<br/>
+  |[|]db_cmd  Send output to pager        ![!] syscmd Run cmd in a subprocess<br/>
+  q or ^D     Quit                        R           Attempt a restart<br/>
+ Data Examination:     expr     Execute perl code, also see: s,n,t expr<br/>
+  x|m expr       Evals expr in list context, dumps the result or lists methods.<br/>
+  p expr         Print expression (uses script's current package).<br/>
+  S [[!]pat]     List subroutine names [not] matching pattern<br/>
+  V [Pk [Vars]]  List Variables in Package.  Vars can be ~pattern or !pattern.<br/>
+  X [Vars]       Same as &quot;V current_package [Vars]&quot;.<br/>
+  y [n [Vars]]   List lexicals in higher scope &lt;n&gt;.  Vars same as V.<br/>
+ For more help, type h cmd_letter, or run man perldebug for all docs.<br/>
+<div class="spacer">
+</div>
+More confusing options than you can shake a big stick at!  It's not as bad as it looks and it's very useful to know more about all of it, and fun too!<div class="spacer">
+</div>
+There's a couple of useful ones to know about straight away.  You wouldn't think we're using any libraries at all at the moment, but ' <b>M</b>' will show which modules are currently loaded, and their version number, while ' <b>m</b>' will show the methods, and ' <b>S</b>' shows all subroutines (by pattern) as shown below.  ' <b>V</b>' and '<b>X</b>' show variables in the program by package scope and can be constrained by pattern.<div class="spacer">
+</div>
+<br/>
+        DB&lt;2&gt;S str <br/>
+        dumpvar::stringify<br/>
+        strict::bits<br/>
+        strict::import<br/>
+        strict::unimport<br/>
+<div class="spacer">
+</div>
+Using 'X' and cousins requires you not to use the type identifiers ($@%), just the 'name':<div class="spacer">
+</div>
+<br/>
+        DM&lt;3&gt;X ~err<br/>
+        FileHandle(stderr) =&gt; fileno(2)<br/>
+<div class="spacer">
+</div>
+Remember we're in our tiny program with a problem, we should have a look at where we are, and what our data looks like. First of all let's view some code at our present position (the first line of code in this case), via ' <b>v</b>':<div class="spacer">
+</div>
+<br/>
+        DB&lt;4&gt; v<br/>
+        1       #!/usr/bin/perl<br/>
+        2:      use strict;<br/>
+        3<br/>
+        4==&gt;    my $key = 'welcome';<br/>
+        5:      my %data = (<br/>
+        6               'this' =&gt; qw(that),<br/>
+        7               'tom' =&gt; qw(and jerry),<br/>
+        8               'welcome' =&gt; q(Hello World),<br/>
+        9               'zip' =&gt; q(welcome),<br/>
+        10      );<br/>
+<div class="spacer">
+</div>
+At line number 4 is a helpful pointer, that tells you where you are now.  To see more code, type 'v' again:<div class="spacer">
+</div>
+<br/>
+        DB&lt;4&gt; v<br/>
+        8               'welcome' =&gt; q(Hello World),<br/>
+        9               'zip' =&gt; q(welcome),<br/>
+        10      );<br/>
+        11:     my @data = keys %data;<br/>
+        12:     print &quot;All OK\n&quot; if grep($key, keys %data);<br/>
+        13:     print &quot;$data{$key}\n&quot;;<br/>
+        14:     print &quot;done: '$data{$key}'\n&quot;;<br/>
+        15:     exit;<br/>
+<div class="spacer">
+</div>
+And if you wanted to list line 5 again, type 'l 5', (note the space):<div class="spacer">
+</div>
+<br/>
+        DB&lt;4&gt; l 5<br/>
+        5:      my %data = (<br/>
+<div class="spacer">
+</div>
+In this case, there's not much to see, but of course normally there's pages of stuff to wade through, and 'l' can be very useful.  To reset your view to the line we're about to execute, type a lone period '.':<div class="spacer">
+</div>
+<br/>
+        DB&lt;5&gt; .<br/>
+        main::(./data_a:4):     my $key = 'welcome';<br/>
+<div class="spacer">
+</div>
+The line shown is the one that is about to be executed <b>next</b>, it hasn't happened yet.  So while we can print a variable with the letter ' <b>p</b>', at this point all we'd get is an empty (undefined) value back.  What we need to do is to step through the next executable statement with an ' <b>s</b>':<div class="spacer">
+</div>
+<br/>
+        DB&lt;6&gt; s<br/>
+        main::(./data_a:5):     my %data = (<br/>
+        main::(./data_a:6):             'this' =&gt; qw(that),<br/>
+        main::(./data_a:7):             'tom' =&gt; qw(and jerry),<br/>
+        main::(./data_a:8):             'welcome' =&gt; q(Hello World),<br/>
+        main::(./data_a:9):             'zip' =&gt; q(welcome),<br/>
+        main::(./data_a:10):    );<br/>
+<div class="spacer">
+</div>
+Now we can have a look at that first ($key) variable:<div class="spacer">
+</div>
+<br/>
+        DB&lt;7&gt; p $key <br/>
+        welcome<br/>
+<div class="spacer">
+</div>
+line 13 is where the action is, so let's continue down to there via the letter ' <b>c</b>', which by the way, inserts a 'one-time-only' breakpoint at the given line or sub routine:<div class="spacer">
+</div>
+<br/>
+        DB&lt;8&gt; c 13<br/>
+        All OK<br/>
+        main::(./data_a:13):    print &quot;$data{$key}\n&quot;;<br/>
+<div class="spacer">
+</div>
+We've gone past our check (where 'All OK' was printed) and have stopped just before the meat of our task.  We could try to print out a couple of variables to see what is happening:<div class="spacer">
+</div>
+<br/>
+        DB&lt;9&gt; p $data{$key}<br/>
+<div class="spacer">
+</div>
+Not much in there, lets have a look at our hash:<div class="spacer">
+</div>
+<br/>
+        DB&lt;10&gt; p %data<br/>
+        Hello Worldziptomandwelcomejerrywelcomethisthat <br/>
+<br/>
+        DB&lt;11&gt; p keys %data<br/>
+        Hello Worldtomwelcomejerrythis<br/>
+<div class="spacer">
+</div>
+Well, this isn't very easy to read, and using the helpful manual (<b>h h</b>), the ' <b>x</b>' command looks promising:<div class="spacer">
+</div>
+<br/>
+        DB&lt;12&gt; x %data<br/>
+        0  'Hello World'<br/>
+        1  'zip'<br/>
+        2  'tom'<br/>
+        3  'and'<br/>
+        4  'welcome'<br/>
+        5  undef<br/>
+        6  'jerry'<br/>
+        7  'welcome'<br/>
+        8  'this'<br/>
+        9  'that'<br/>
+<div class="spacer">
+</div>
+That's not much help, a couple of welcomes in there, but no indication of which are keys, and which are values, it's just a listed array dump and, in this case, not particularly helpful.  The trick here, is to use a  <b>reference</b> to the data structure:<div class="spacer">
+</div>
+<br/>
+        DB&lt;13&gt; x \%data<br/>
+        0  HASH(0x8194bc4)<br/>
+           'Hello World' =&gt; 'zip'<br/>
+           'jerry' =&gt; 'welcome'<br/>
+           'this' =&gt; 'that'<br/>
+           'tom' =&gt; 'and'<br/>
+           'welcome' =&gt; undef<br/>
+<div class="spacer">
+</div>
+The reference is truly dumped and we can finally see what we're dealing with. Our quoting was perfectly valid but wrong for our purposes, with 'and jerry' being treated as 2 separate words rather than a phrase, thus throwing the evenly paired hash structure out of alignment.<div class="spacer">
+</div>
+The '<b>-w</b>' switch would have told us about this, had we used it at the start, and saved us a lot of trouble:<div class="spacer">
+</div>
+<br/>
+        &gt; perl -w data<br/>
+        Odd number of elements in hash assignment at ./data line 5.<br/>
+<div class="spacer">
+</div>
+We fix our quoting: 'tom' =&gt; q(and jerry), and run it again, this time we get our expected output:<div class="spacer">
+</div>
+<br/>
+        &gt; perl -w data<br/>
+        Hello World<br/>
+<div class="spacer">
+</div>
+While we're here, take a closer look at the '<b>x</b>' command, it's really useful and will merrily dump out nested references, complete objects, partial objects - just about whatever you throw at it:<div class="spacer">
+</div>
+Let's make a quick object and x-plode it, first we'll start the debugger: it wants some form of input from STDIN, so we give it something non-committal, a zero:<div class="spacer">
+</div>
+<br/>
+        &gt; perl -de 0<br/>
+        Default die handler restored.<br/>
+<br/>
+        Loading DB routines from perl5db.pl version 1.07<br/>
+        Editor support available.<br/>
+<br/>
+        Enter h or `h h' for help, or `man perldebug' for more help.<br/>
+<br/>
+        main::(-e:1):   0<br/>
+<div class="spacer">
+</div>
+Now build an on-the-fly object over a couple of lines (note the backslash):<div class="spacer">
+</div>
+<br/>
+        DB&lt;1&gt; $obj = bless({'unique_id'=&gt;'123', 'attr'=&gt; \<br/>
+        cont:   {'col' =&gt; 'black', 'things' =&gt; [qw(this that etc)]}}, 'MY_class')<br/>
+<div class="spacer">
+</div>
+And let's have a look at it:<div class="spacer">
+</div>
+<br/>
+        DB&lt;2&gt; x $obj<br/>
+        0  MY_class=HASH(0x828ad98)<br/>
+                'attr' =&gt; HASH(0x828ad68)<br/>
+        'col' =&gt; 'black'<br/>
+        'things' =&gt; ARRAY(0x828abb8)<br/>
+                0  'this'<br/>
+                1  'that'<br/>
+                2  'etc'<br/>
+                'unique_id' =&gt; 123       <br/>
+        DB&lt;3&gt;<br/>
+<div class="spacer">
+</div>
+Useful, huh?  You can eval nearly anything in there, and experiment with bits of code or regexes until the cows come home:<div class="spacer">
+</div>
+<br/>
+        DB&lt;3&gt; @data = qw(this that the other atheism leather theory scythe)<br/>
+<br/>
+        DB&lt;4&gt; p 'saw -&gt; '.($cnt += map { print &quot;\t:\t$_\n&quot; } grep(/the/, sort @data))<br/>
+        atheism<br/>
+        leather<br/>
+        other<br/>
+        scythe<br/>
+        the<br/>
+        theory  <br/>
+        saw -&gt; 6<br/>
+<div class="spacer">
+</div>
+If you want to see the command History, type an '<b>H</b>':<div class="spacer">
+</div>
+<br/>
+        DB&lt;5&gt; H<br/>
+        4: p 'saw -&gt; '.($cnt += map { print &quot;\t:\t$_\n&quot; } grep(/the/, sort @data))<br/>
+        3: @data = qw(this that the other atheism leather theory scythe)<br/>
+        2: x $obj<br/>
+        1: $obj = bless({'unique_id'=&gt;'123', 'attr'=&gt;<br/>
+        {'col' =&gt; 'black', 'things' =&gt; [qw(this that etc)]}}, 'MY_class')<br/>
+        DB&lt;5&gt;<br/>
+<div class="spacer">
+</div>
+And if you want to repeat any previous command, use the exclamation: '<b>!</b>':<div class="spacer">
+</div>
+<br/>
+        DB&lt;5&gt; !4<br/>
+        p 'saw -&gt; '.($cnt += map { print &quot;$_\n&quot; } grep(/the/, sort @data))<br/>
+        atheism<br/>
+        leather<br/>
+        other<br/>
+        scythe<br/>
+        the<br/>
+        theory  <br/>
+        saw -&gt; 12<br/>
+<div class="spacer">
+</div>
+For more on references see perlref and perlreftut</div>
+<div class="section">
+<h1>Stepping through code</h1> Here's a simple program which converts between Celsius and Fahrenheit, it too has a problem:<div class="spacer">
+</div>
+<br/>
+        #!/usr/bin/perl -w<br/>
+        use strict;<br/>
+<br/>
+        my $arg = $ARGV[0] || '-c20';<br/>
+<br/>
+        if ($arg =~ /^\-(c|f)((\-|\+)*\d+(\.\d+)*)$/) {<br/>
+                my ($deg, $num) = ($1, $2);<br/>
+                my ($in, $out) = ($num, $num);<br/>
+                if ($deg eq 'c') {<br/>
+                        $deg = 'f';<br/>
+                        $out = &amp;c2f($num);<br/>
+                } else {<br/>
+                        $deg = 'c';<br/>
+                        $out = &amp;f2c($num);<br/>
+                }<br/>
+                $out = sprintf('%0.2f', $out);<br/>
+                $out =~ s/^((\-|\+)*\d+)\.0+$/$1/;<br/>
+                print &quot;$out $deg\n&quot;;<br/>
+        } else {<br/>
+                print &quot;Usage: $0 -[c|f] num\n&quot;;<br/>
+        }<br/>
+        exit;<br/>
+<br/>
+        sub f2c {<br/>
+                my $f = shift;<br/>
+                my $c = 5 * $f - 32 / 9;<br/>
+                return $c;<br/>
+        }<br/>
+<br/>
+        sub c2f {<br/>
+                my $c = shift;<br/>
+                my $f = 9 * $c / 5 + 32;<br/>
+                return $f;<br/>
+        }<br/>
+<div class="spacer">
+</div>
+For some reason, the Fahrenheit to Celsius conversion fails to return the expected output.  This is what it does:<div class="spacer">
+</div>
+<br/>
+        &gt; temp -c0.72<br/>
+        33.30 f<br/>
+<br/>
+        &gt; temp -f33.3<br/>
+        162.94 c<br/>
+<div class="spacer">
+</div>
+Not very consistent!  We'll set a breakpoint in the code manually and run it under the debugger to see what's going on.  A breakpoint is a flag, to which the debugger will run without interruption, when it reaches the breakpoint, it will stop execution and offer a prompt for further interaction.  In normal use, these debugger commands are completely ignored, and they are safe - if a little messy, to leave in production code.<div class="spacer">
+</div>
+<br/>
+        my ($in, $out) = ($num, $num);<br/>
+        $DB::single=2; # insert at line 9!<br/>
+        if ($deg eq 'c') <br/>
+                ...<br/>
+<br/>
+        &gt; perl -d temp -f33.3<br/>
+        Default die handler restored.<br/>
+<br/>
+        Loading DB routines from perl5db.pl version 1.07<br/>
+        Editor support available.<br/>
+<br/>
+        Enter h or `h h' for help, or `man perldebug' for more help.<br/>
+<br/>
+        main::(temp:4): my $arg = $ARGV[0] || '-c100';<br/>
+<div class="spacer">
+</div>
+We'll simply continue down to our pre-set breakpoint with a '<b>c</b>':<div class="spacer">
+</div>
+<br/>
+        DB&lt;1&gt; c<br/>
+        main::(temp:10):                if ($deg eq 'c') {<br/>
+<div class="spacer">
+</div>
+Followed by a view command to see where we are:<div class="spacer">
+</div>
+<br/>
+        DB&lt;1&gt; v<br/>
+        7:              my ($deg, $num) = ($1, $2);<br/>
+        8:              my ($in, $out) = ($num, $num);<br/>
+        9:              $DB::single=2;<br/>
+        10==&gt;           if ($deg eq 'c') {<br/>
+        11:                     $deg = 'f';<br/>
+        12:                     $out = &amp;c2f($num);<br/>
+        13              } else {<br/>
+        14:                     $deg = 'c';<br/>
+        15:                     $out = &amp;f2c($num);<br/>
+        16              }<br/>
+<div class="spacer">
+</div>
+And a print to show what values we're currently using:<div class="spacer">
+</div>
+<br/>
+        DB&lt;1&gt; p $deg, $num<br/>
+        f33.3<br/>
+<div class="spacer">
+</div>
+We can put another break point on any line beginning with a colon, we'll use line 17 as that's just as we come out of the subroutine, and we'd like to pause there later on:<div class="spacer">
+</div>
+<br/>
+        DB&lt;2&gt; b 17<br/>
+<div class="spacer">
+</div>
+There's no feedback from this, but you can see what breakpoints are set by using the list 'L' command:<div class="spacer">
+</div>
+<br/>
+        DB&lt;3&gt; L<br/>
+        temp:<br/>
+                17:            print &quot;$out $deg\n&quot;;<br/>
+                break if (1)<br/>
+<div class="spacer">
+</div>
+Note that to delete a breakpoint you use 'B'.<div class="spacer">
+</div>
+Now we'll continue down into our subroutine, this time rather than by line number, we'll use the subroutine name, followed by the now familiar 'v':<div class="spacer">
+</div>
+<br/>
+        DB&lt;3&gt; c f2c<br/>
+        main::f2c(temp:30):             my $f = shift;  <br/>
+<br/>
+        DB&lt;4&gt; v<br/>
+        24:     exit;<br/>
+        25<br/>
+        26      sub f2c {<br/>
+        27==&gt;           my $f = shift;<br/>
+        28:             my $c = 5 * $f - 32 / 9; <br/>
+        29:             return $c;<br/>
+        30      }<br/>
+        31<br/>
+        32      sub c2f {<br/>
+        33:             my $c = shift;<br/>
+<div class="spacer">
+</div>
+Note that if there was a subroutine call between us and line 29, and we wanted to  <b>single-step</b> through it, we could use the '<b>s</b>' command, and to step over it we would use ' <b>n</b>' which would execute the sub, but not descend into it for inspection.  In this case though, we simply continue down to line 29:<div class="spacer">
+</div>
+<br/>
+        DB&lt;4&gt; c 29  <br/>
+        main::f2c(temp:29):             return $c;<br/>
+<div class="spacer">
+</div>
+And have a look at the return value:<div class="spacer">
+</div>
+<br/>
+        DB&lt;5&gt; p $c<br/>
+        162.944444444444<br/>
+<div class="spacer">
+</div>
+This is not the right answer at all, but the sum looks correct.  I wonder if it's anything to do with operator precedence?  We'll try a couple of other possibilities with our sum:<div class="spacer">
+</div>
+<br/>
+        DB&lt;6&gt; p (5 * $f - 32 / 9)<br/>
+        162.944444444444<br/>
+<br/>
+        DB&lt;7&gt; p 5 * $f - (32 / 9) <br/>
+        162.944444444444<br/>
+<br/>
+        DB&lt;8&gt; p (5 * $f) - 32 / 9<br/>
+        162.944444444444<br/>
+<br/>
+        DB&lt;9&gt; p 5 * ($f - 32) / 9<br/>
+        0.722222222222221<br/>
+<div class="spacer">
+</div>
+:-) that's more like it!  Ok, now we can set our return variable and we'll return out of the sub with an 'r':<div class="spacer">
+</div>
+<br/>
+        DB&lt;10&gt; $c = 5 * ($f - 32) / 9<br/>
+<br/>
+        DB&lt;11&gt; r<br/>
+        scalar context return from main::f2c: 0.722222222222221<br/>
+<div class="spacer">
+</div>
+Looks good, let's just continue off the end of the script:<div class="spacer">
+</div>
+<br/>
+        DB&lt;12&gt; c<br/>
+        0.72 c <br/>
+        Debugged program terminated.  Use q to quit or R to restart,<br/>
+        use O inhibit_exit to avoid stopping after program termination,<br/>
+        h q, h R or h O to get additional info.<br/>
+<div class="spacer">
+</div>
+A quick fix to the offending line (insert the missing parentheses) in the actual program and we're finished.</div>
+<div class="section">
+<h1>Placeholder for a, w, t, T</h1> Actions, watch variables, stack traces etc.: on the TODO list.<div class="spacer">
+</div>
+<br/>
+        a <br/>
+<br/>
+        w <br/>
+<br/>
+        t <br/>
+<br/>
+        T<br/>
+</div>
+<div class="section">
+<h1>REGULAR EXPRESSIONS</h1> Ever wanted to know what a regex looked like?  You'll need perl compiled with the DEBUGGING flag for this one:<div class="spacer">
+</div>
+<br/>
+        &gt; perl -Dr -e '/^pe(a)*rl$/i'<br/>
+        Compiling REx `^pe(a)*rl$'<br/>
+        size 17 first at 2<br/>
+        rarest char<br/>
+         at 0<br/>
+           1: BOL(2)<br/>
+           2: EXACTF &lt;pe&gt;(4)<br/>
+           4: CURLYN[1] {0,32767}(14)<br/>
+           6:   NOTHING(8)<br/>
+           8:   EXACTF &lt;a&gt;(0)<br/>
+          12:   WHILEM(0)<br/>
+          13: NOTHING(14)<br/>
+          14: EXACTF &lt;rl&gt;(16)<br/>
+          16: EOL(17)<br/>
+          17: END(0)<br/>
+        floating `'$ at 4..2147483647 (checking floating) stclass `EXACTF &lt;pe&gt;'<br/>
+anchored(BOL) minlen 4<br/>
+        Omitting $` $&amp; $' support.<br/>
+<br/>
+        EXECUTING...<br/>
+<br/>
+        Freeing REx: `^pe(a)*rl$'<br/>
+<div class="spacer">
+</div>
+Did you really want to know? :-) For more gory details on getting regular expressions to work, have a look at perlre, perlretut, and to decode the mysterious labels (BOL and CURLYN, etc. above), see perldebguts.</div>
+<div class="section">
+<h1>OUTPUT TIPS</h1> To get all the output from your error log, and not miss any messages via helpful operating system buffering, insert a line like this, at the start of your script:<div class="spacer">
+</div>
+<br/>
+        $|=1;<br/>
+<div class="spacer">
+</div>
+To watch the tail of a dynamically growing logfile, (from the command line):<div class="spacer">
+</div>
+<br/>
+        tail -f $error_log<br/>
+<div class="spacer">
+</div>
+Wrapping all die calls in a handler routine can be useful to see how, and from where, they're being called, perlvar has more information:<div class="spacer">
+</div>
+<br/>
+        BEGIN { $SIG{__DIE__} = sub { require Carp; Carp::confess(@_) } }<br/>
+<div class="spacer">
+</div>
+Various useful techniques for the redirection of STDOUT and STDERR filehandles are explained in perlopentut and perlfaq8.</div>
+<div class="section">
+<h1>CGI</h1> Just a quick hint here for all those CGI programmers who can't figure out how on earth to get past that 'waiting for input' prompt, when running their CGI script from the command-line, try something like this:<div class="spacer">
+</div>
+<br/>
+        &gt; perl -d my_cgi.pl -nodebug<br/>
+<div class="spacer">
+</div>
+Of course CGI and perlfaq9 will tell you more.</div>
+<div class="section">
+<h1>GUIs</h1> The command line interface is tightly integrated with an  <b>emacs</b> extension and there's a  <b>vi</b> interface too.<div class="spacer">
+</div>
+You don't have to do this all on the command line, though, there are a few GUI options out there.  The nice thing about these is you can wave a mouse over a variable and a dump of its data will appear in an appropriate window, or in a popup balloon, no more tiresome typing of 'x $varname' :-)<div class="spacer">
+</div>
+In particular have a hunt around for the following:<div class="spacer">
+</div>
+<b>ptkdb</b> perlTK based wrapper for the built-in debugger<div class="spacer">
+</div>
+<b>ddd</b> data display debugger<div class="spacer">
+</div>
+<b>PerlDevKit</b> and <b>PerlBuilder</b> are NT specific<div class="spacer">
+</div>
+NB. (more info on these and others would be appreciated).</div>
+<div class="section">
+<h1>SUMMARY</h1> We've seen how to encourage good coding practices with  <b>use strict</b> and  <b>-w</b>.  We can run the perl debugger <b>perl -d scriptname</b> to inspect your data from within the perl debugger with the  <b>p</b> and <b>x</b> commands.  You can walk through your code, set breakpoints with  <b>b</b> and step through that code with  <b>s</b> or <b>n</b>, continue with <b>c</b> and return from a sub with <b>r</b>.  Fairly intuitive stuff when you get down to it.<div class="spacer">
+</div>
+There is of course lots more to find out about, this has just scratched the surface.  The best way to learn more is to use perldoc to find out more about the language, to read the on-line help (perldebug is probably the next place to go), and of course, experiment.</div>
+<div class="section">
+<h1>SEE ALSO</h1> perldebug, perldebguts, perldiag, dprofpp, perlrun</div>
+<div class="section">
+<h1>AUTHOR</h1> Richard Foley &lt;richard.foley@rfi.net&gt; Copyright (c) 2000</div>
+<div class="section">
+<h1>CONTRIBUTORS</h1> Various people have made helpful suggestions and contributions, in particular:<div class="spacer">
+</div>
+Ronald J Kimball &lt;rjk@linguist.dartmouth.edu&gt;<div class="spacer">
+</div>
+Hugo van der Sanden &lt;hv@crypt0.demon.co.uk&gt;<div class="spacer">
+</div>
+Peter Scott &lt;Peter@PSDT.com&gt;</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2011-09-26</td>
+<td class="foot-os">
+perl v5.14.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/linux/style.css" type="text/css" media="all"/>
+<title>
+E2IMAGE(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+E2IMAGE(8)</td>
+<td class="head-vol">
+System Manager's Manual</td>
+<td class="head-rtitle">
+E2IMAGE(8)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> e2image - Save critical ext2/ext3/ext4 filesystem metadata to a file</div>
+<div class="section">
+<h1>SYNOPSIS</h1> <b>e2image</b> [ <b>-rsI</b> ] <i>device</i> <i>image-file</i></div>
+<div class="section">
+<h1>DESCRIPTION</h1> The <b>e2image</b> program will save critical ext2, ext3, or ext4 filesystem metadata located on <i>device</i> to a file specified by <i>image-file</i>. The image file may be examined by <b>dumpe2fs</b> and <b>debugfs</b>, by using the <b>-i</b> option to those programs.  This can assist an expert in recovering catastrophically corrupted filesystems.  In the future, e2fsck will be enhanced to be able to use the image file to help recover a badly damaged filesystem.<div class="spacer">
+</div>
+If <i>image-file</i> is -, then the output of <b>e2image</b> will be sent to standard output, so that the output can be piped to another program, such as <b>gzip</b>(1). (Note that this is currently only supported when creating a raw image file using the <b>-r</b> option, since the process of creating a normal image file, or QCOW2 image currently requires random access to the file, which cannot be done using a pipe.  This restriction will hopefully be lifted in a future version of <b>e2image</b>.)<div class="spacer">
+</div>
+It is a very good idea to create image files for all of filesystems on a system and save the partition layout (which can be generated using the <b>fdisk -l</b> command) at regular intervals --- at boot time, and/or every week or so. The image file should be stored on some filesystem other than the filesystem whose data it contains, to ensure that this data is accessible in the case where the filesystem has been badly damaged.<div class="spacer">
+</div>
+To save disk space, <b>e2image</b> creates the image file as a sparse file, or in QCOW2 format. Hence, if the sparse image file needs to be copied to another location, it should either be compressed first or copied using the <b>--sparse=always</b> option to the GNU version of <b>cp</b>. This does not apply to the QCOW2 image, which is not sparse.<div class="spacer">
+</div>
+The size of an ext2 image file depends primarily on the size of the filesystems and how many inodes are in use.  For a typical 10 gigabyte filesystem, with 200,000 inodes in use out of 1.2 million inodes, the image file will be approximately 35 megabytes; a 4 gigabyte filesystem with 15,000 inodes in use out of 550,000 inodes will result in a 3 megabyte image file.  Image files tend to be quite compressible; an image file taking up 32 megabytes of space on disk will generally compress down to 3 or 4 megabytes.</div>
+<div class="section">
+<h1>RESTORING FILESYSTEM METADATA USING AN IMAGE FILE</h1> The <b>-I</b> option will cause e2image to install the metadata stored in the image file back to the device.    It can be used to restore the filesystem metadata back to the device in emergency situations.<div class="spacer">
+</div>
+<b>WARNING!!!!</b> The <b>-I</b> option should only be used as a desperation measure when other alternatives have failed.  If the filesystem has changed since the image file was created, data <b>will</b> be lost.  In general, you should make a full image backup of the filesystem first, in case you wish to try other recovery strategies afterwards.</div>
+<div class="section">
+<h1>RAW IMAGE FILES</h1> The <b>-r</b> option will create a raw image file instead of a normal image file. A raw image file differs from a normal image file in two ways.  First, the filesystem metadata is placed in the proper position so that e2fsck, dumpe2fs, debugfs, etc. can be run directly on the raw image file.  In order to minimize the amount of disk space consumed by a raw image file, the file is created as a sparse file.  (Beware of copying or compressing/decompressing this file with utilities that don't understand how to create sparse files; the file will become as large as the filesystem itself!)  Secondly, the raw image file also includes indirect blocks and directory blocks, which the standard image file does not have, although this may change in the future.<div class="spacer">
+</div>
+Raw image files are sometimes used when sending filesystems to the maintainer as part of bug reports to e2fsprogs.  When used in this capacity, the recommended command is as follows (replace hda1 with the appropriate device):<div class="spacer">
+</div>
+<div style="height: 0.00em;">
+&#160;</div>
+	<b>e2image -r /dev/hda1 - | bzip2 &gt; hda1.e2i.bz2</b><div class="spacer">
+</div>
+This will only send the metadata information, without any data blocks. However, the filenames in the directory blocks can still reveal information about the contents of the filesystem that the bug reporter may wish to keep confidential.  To address this concern, the <b>-s</b> option can be specified.  This will cause <b>e2image</b> to scramble directory entries and zero out any unused portions of the directory blocks before writing the image file.  However, the <b>-s</b> option will prevent analysis of problems related to hash-tree indexed directories.<div class="spacer">
+</div>
+Note that this will work even if you substitute &quot;/dev/hda1&quot; for another raw disk image, or QCOW2 image previously created by <b>e2image</b>.</div>
+<div class="section">
+<h1>QCOW2 IMAGE FILES</h1> The <b>-Q</b> option will create a QCOW2 image file instead of a normal, or raw image file. A QCOW2 image contains all the information the raw image does, however unlike the raw image it is not sparse. The QCOW2 image minimize the amount of disk space by storing data in special format with pack data closely together, hence avoiding holes while still minimizing size.<div class="spacer">
+</div>
+In order to send filesystem to the maintainer as a part of bug report to e2fsprogs, use following commands (replace hda1 with the appropriate device):<div class="spacer">
+</div>
+<div style="height: 0.00em;">
+&#160;</div>
+	<b>e2image -Q /dev/hda1 hda1.qcow2</b><div style="height: 0.00em;">
+&#160;</div>
+	<b>bzip2 -z hda1.qcow2</b><div class="spacer">
+</div>
+This will only send the metadata information, without any data blocks. However, the filenames in the directory blocks can still reveal information about the contents of the filesystem that the bug reporter may wish to keep confidential.  To address this concern, the <b>-s</b> option can be specified.  This will cause <b>e2image</b> to scramble directory entries and zero out any unused portions of the directory blocks before writing the image file.  However, the <b>-s</b> option will prevent analysis of problems related to hash-tree indexed directories.<div class="spacer">
+</div>
+Note that QCOW2 image created by <b>e2image</b> is regular QCOW2 image and can be processed by tools aware of QCOW2 format such as for example <b>qemu-img</b>.</div>
+<div class="section">
+<h1>AUTHOR</h1> <b>e2image</b> was written by Theodore Ts'o (tytso@mit.edu).</div>
+<div class="section">
+<h1>AVAILABILITY</h1> <b>e2image</b> is part of the e2fsprogs package and is available from http://e2fsprogs.sourceforge.net.</div>
+<div class="section">
+<h1>SEE ALSO</h1> <b>dumpe2fs</b>(8), <b>debugfs</b>(8)<div style="height: 1.00em;">
+&#160;</div>
+</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+November 2011</td>
+<td class="foot-os">
+E2fsprogs version 1.42</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+
