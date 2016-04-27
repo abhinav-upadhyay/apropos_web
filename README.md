@@ -9,4 +9,5 @@ It also does a basic spell check for queries and offers suggestions. For example
 ### See it in action here: [man-k.org] (https://man-k.org)
 Currently it supports searching two distributions of man pages:
 * ```NetBSD``` man pages: https://man-k.org/netbsd/ or https://man-k.org
+* ```Linux``` man pages: https://man-k.org/linux/
 * ```posix``` man pages: https://man-k.org/posix/
