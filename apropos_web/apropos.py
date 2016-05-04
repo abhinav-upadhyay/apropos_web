@@ -44,7 +44,7 @@ def dist_index(dist):
     language = user_agent.language
     referrer = request.referrer
     dblogger.log_page_visit(1, ip, platform, browser, version, language, referrer,
-                            int(time.time()), dist)
+                            int(time.time()), user_agent.string, dist)
     return render_template('index.html',
                            netbsd_logo_url=netbsd_logo_url)
 
@@ -70,7 +70,7 @@ def manpage_arch(dist, section, arch, name):
     if query is None or query == '':
         query = _get_previous_query(referrer)
     _log_click(name, section, rank, query, ip, platform, browser, version,
-               language, referrer, int(time.time()), dist)
+               language, referrer, int(time.time()), user_agent.string, dist)
 
     if arch is not None:
         path = '/static/man_pages/' + dist + '/html' + section + '/' + arch + '/' + name + '.html'
@@ -112,7 +112,8 @@ def dist_specific_search(dist):
         language = user_agent.language
         referrer = request.referrer
         previous_query = _get_previous_query(referrer)
-        _log_query(query, previous_query, ip, platform, browser, version, language, referrer, dist)
+        _log_query(query, previous_query, ip, platform, browser, version,
+                  language, referrer, user_agent.string, dist)
 
     dist_results_cache = caches.get(dist)
     if dist_results_cache is None:
@@ -159,9 +160,9 @@ def dist_specific_search(dist):
 def search():
     return dist_specific_search('netbsd')
 
-def _log_query(query, previous_query, ip, platform, browser, version, language, referrer, dist):
+def _log_query(query, previous_query, ip, platform, browser, version, language, referrer, useragent, dist):
     dblogger.log_query(query, previous_query, ip, platform, browser, version,
-                       language, referrer, int(time.time()), dist)
+                       language, referrer, int(time.time()), useragent, dist)
 
 def _get_previous_query(referrer):
     if referrer is None or referrer == '':
@@ -178,9 +179,9 @@ def _get_previous_query(referrer):
     return None
 
 def _log_click(page_name, section, rank, query, ip, platform, browser, version,
-               language, referrer, click_time, dist):
+               language, referrer, click_time, useragent, dist):
     dblogger.log_click(page_name, section, rank, query, ip, platform, browser, version,
-                       language, referrer, click_time, dist)
+                       language, referrer, click_time, useragent, dist)
 
 def _search(query, db_path=None):
     command = config.APROPOS_PATH + ' -j %s' % query.replace('-', '')
