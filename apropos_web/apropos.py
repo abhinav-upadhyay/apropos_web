@@ -1,4 +1,5 @@
 import json
+import shlex
 import subprocess
 import time
 from urlparse import urlparse
@@ -188,7 +189,7 @@ def _search(query, db_path=None):
     if db_path is not None:
         command += ' -d %s' % db_path
 
-    args = command.split()
+    args = shlex.split(command)
     proc = subprocess.Popen(args,
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
