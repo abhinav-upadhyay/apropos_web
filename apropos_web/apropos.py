@@ -3,8 +3,9 @@ import shlex
 import subprocess
 import time
 from urlparse import urlparse
-from flask import Flask, url_for, render_template
+from flask import Flask, url_for, render_template, jsonify
 from flask import request
+from flask import Response
 from flask import redirect
 from flask import make_response
 from werkzeug.contrib.fixers import ProxyFix
@@ -32,6 +33,19 @@ def linux_index():
 @app.route('/posix/')
 def netbsd_index():
     return dist_index('posix')
+
+@app.route('/ac/')
+def auto_complete():
+    search_term = request.args.get('term').split()[-1]
+    cmd = config.DISTANCE_PATH + ' ' + config.VEC_FILE + ' ' + search_term
+    distance_proc = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    out,err = distance_proc.communicate()
+    if distance_proc.returncode != 0:
+        _logger.exception('Failed to get autocomplete data: %s', err)
+    similar_words = []
+    for line in out.split('\n'):
+        similar_words.append(line)
+    return Response(json.dumps(similar_words), mimetype='application/json')
 
 def dist_index(dist):
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
