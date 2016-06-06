@@ -35,7 +35,7 @@ def netbsd_index():
     return dist_index('posix')
 
 @app.route('/bow/')
-def auto_complete():
+def bow_auto_complete():
     search_term = request.args.get('term').split()[-1]
     cmd = config.DISTANCE_PATH + ' ' + config.BOW_FILE + ' ' + search_term
     distance_proc = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -48,7 +48,7 @@ def auto_complete():
     return Response(json.dumps(similar_words), mimetype='application/json')
 
 @app.route('/sgram/')
-def auto_complete():
+def sgram_auto_complete():
     search_term = request.args.get('term').split()[-1]
     cmd = config.DISTANCE_PATH + ' ' + config.SGRAM_FILE + ' ' + search_term
     distance_proc = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
