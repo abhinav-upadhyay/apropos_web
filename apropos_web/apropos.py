@@ -36,6 +36,7 @@ def netbsd_index():
 
 @app.route('/wvc')
 def wvc():
+    netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     action_type = request.args.get('action')
     action ='/wvc'
     if action_type == 'bow':
@@ -44,7 +45,7 @@ def wvc():
         binfile = config.SGRAM_FILE 
     search_term = request.args.get('term')
     if search_term is None:
-        return render_template('words.html', results=[], action=action)
+        return render_template('words.html', results=[], action=action, netbsd_logo_url=netbsd_logo_url)
     cmd = config.DISTANCE_PATH + ' ' + binfile + ' ' + search_term
     distance_proc = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     out,err = distance_proc.communicate()
@@ -53,7 +54,7 @@ def wvc():
     similar_words = []
     for line in out.split('\n'):
         similar_words.append(line)
-    return render_template('words.html', results=similar_words, action=action)
+    return render_template('words.html', results=similar_words, action=action, netbsd_logo_url=netbsd_logo_url)
 
 
 def dist_index(dist):
