@@ -34,10 +34,23 @@ def linux_index():
 def netbsd_index():
     return dist_index('posix')
 
-@app.route('/ac/')
+@app.route('/bow/')
 def auto_complete():
     search_term = request.args.get('term').split()[-1]
-    cmd = config.DISTANCE_PATH + ' ' + config.VEC_FILE + ' ' + search_term
+    cmd = config.DISTANCE_PATH + ' ' + config.BOW_FILE + ' ' + search_term
+    distance_proc = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    out,err = distance_proc.communicate()
+    if distance_proc.returncode != 0:
+        _logger.exception('Failed to get autocomplete data: %s', err)
+    similar_words = []
+    for line in out.split('\n'):
+        similar_words.append(line)
+    return Response(json.dumps(similar_words), mimetype='application/json')
+
+@app.route('/sgram/')
+def auto_complete():
+    search_term = request.args.get('term').split()[-1]
+    cmd = config.DISTANCE_PATH + ' ' + config.SGRAM_FILE + ' ' + search_term
     distance_proc = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     out,err = distance_proc.communicate()
     if distance_proc.returncode != 0:
