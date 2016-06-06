@@ -34,10 +34,18 @@ def linux_index():
 def netbsd_index():
     return dist_index('posix')
 
-@app.route('/bow/')
-def bow_auto_complete():
-    search_term = request.args.get('term').split()[-1]
-    cmd = config.DISTANCE_PATH + ' ' + config.BOW_FILE + ' ' + search_term
+@app.route('/wvc')
+def wvc():
+    action_type = request.args.get('action')
+    action ='/wvc'
+    if action_type == 'bow':
+        binfile = config.BOW_FILE
+    else:
+        binfile = config.SGRAM_FILE 
+    search_term = request.args.get('term')
+    if search_term is None:
+        return render_template('words.html', results=[], action=action)
+    cmd = config.DISTANCE_PATH + ' ' + binfile + ' ' + search_term
     distance_proc = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     out,err = distance_proc.communicate()
     if distance_proc.returncode != 0:
@@ -45,20 +53,8 @@ def bow_auto_complete():
     similar_words = []
     for line in out.split('\n'):
         similar_words.append(line)
-    return Response(json.dumps(similar_words), mimetype='application/json')
+    return render_template('words.html', results=similar_words, action=action)
 
-@app.route('/sgram/')
-def sgram_auto_complete():
-    search_term = request.args.get('term').split()[-1]
-    cmd = config.DISTANCE_PATH + ' ' + config.SGRAM_FILE + ' ' + search_term
-    distance_proc = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    out,err = distance_proc.communicate()
-    if distance_proc.returncode != 0:
-        _logger.exception('Failed to get autocomplete data: %s', err)
-    similar_words = []
-    for line in out.split('\n'):
-        similar_words.append(line)
-    return Response(json.dumps(similar_words), mimetype='application/json')
 
 def dist_index(dist):
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
