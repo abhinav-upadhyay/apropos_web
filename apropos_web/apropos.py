@@ -38,7 +38,7 @@ def netbsd_index():
 def wvc():
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     action_type = request.args.get('action')
-    action ='/wvc'
+    action ='/words/'
     if action_type == 'bow':
         binfile = config.BOW_FILE
     else:
