@@ -34,7 +34,7 @@ def linux_index():
 def netbsd_index():
     return dist_index('posix')
 
-@app.route('/wvc')
+@app.route('/words/')
 def wvc():
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     action_type = request.args.get('action')
