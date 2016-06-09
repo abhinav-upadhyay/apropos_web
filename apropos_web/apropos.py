@@ -54,7 +54,8 @@ def wvc():
     similar_words = []
     for line in out.split('\n'):
         similar_words.append(line)
-    return render_template('words.html', results=similar_words, action=action, netbsd_logo_url=netbsd_logo_url)
+    return render_template('words.html', action_type=action_type, results=similar_words,
+            action=action, netbsd_logo_url=netbsd_logo_url)
 
 
 def dist_index(dist):
