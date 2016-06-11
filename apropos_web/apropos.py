@@ -54,7 +54,7 @@ def wvc():
     similar_words = []
     for line in out.split('\n'):
         similar_words.append(line)
-    return render_template('words.html', action_type=action_type, results=similar_words,
+    return render_template('words.html', term=search_term, action_type=action_type, results=similar_words,
             action=action, netbsd_logo_url=netbsd_logo_url)
 
 
