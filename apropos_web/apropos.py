@@ -44,6 +44,7 @@ def wvc():
     else:
         binfile = config.SGRAM_FILE 
     search_term = request.args.get('term')
+    search_term = search_term.lower()
     if search_term is None:
         return render_template('words.html', results=[], action=action, netbsd_logo_url=netbsd_logo_url)
     cmd = config.DISTANCE_PATH + ' ' + binfile + ' ' + search_term
@@ -51,6 +52,9 @@ def wvc():
     out,err = distance_proc.communicate()
     if distance_proc.returncode != 0:
         _logger.exception('Failed to get autocomplete data: %s', err)
+        error = 'Please enter single word queries in singular form, like: bug, kernel, driver'
+        return render_template('words.html', term=search_term, action_type=action_type, error=error,
+            action=action, netbsd_logo_url=netbsd_logo_url)
     similar_words = []
     for line in out.split('\n'):
         similar_words.append(line)
