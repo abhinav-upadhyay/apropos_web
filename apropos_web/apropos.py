@@ -44,9 +44,9 @@ def wvc():
     else:
         binfile = config.SGRAM_FILE 
     search_term = request.args.get('term')
-    search_term = search_term.lower()
     if search_term is None:
         return render_template('words.html', results=[], action=action, netbsd_logo_url=netbsd_logo_url)
+    search_term = search_term.lower()
     cmd = config.DISTANCE_PATH + ' ' + binfile + ' ' + search_term
     distance_proc = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     out,err = distance_proc.communicate()
