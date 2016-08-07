@@ -22,10 +22,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app)
 caches = {}
 _logger = logger.get_logger()
 dblogger = apropos_db_logger.AproposDBLogger()
-lsi_index = similarities.MatrixSimilarity.load('man.index')
-lsi_model = models.LsiModel.load('man.lsi')
 man_df = pd.read_csv('man.csv.gz', delimiter='\t', compression='gzip')
-dictionary =  corpora.Dictionary.load('man.dict')
 
 
 @app.route('/')
@@ -214,6 +211,9 @@ def similar():
         data = man_page_name
     else:
         data = data.iloc[0]['data']
+    dictionary =  corpora.Dictionary.load('man.dict')
+    lsi_index = similarities.MatrixSimilarity.load('man.index')
+    lsi_model = models.LsiModel.load('man.lsi')
     vec_bow = dictionary.doc2bow(porter2.stem(word) for word in data.lower().split())
     vec_lsi = lsi_model[vec_bow]
     sims = lsi_index[vec_lsi]
