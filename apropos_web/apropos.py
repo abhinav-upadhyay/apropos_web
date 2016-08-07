@@ -24,7 +24,7 @@ _logger = logger.get_logger()
 dblogger = apropos_db_logger.AproposDBLogger()
 lsi_index = similarities.MatrixSimilarity.load('man.index')
 lsi_model = models.LsiModel.load('man.lsi')
-man_df = pd.read_csv('man.csv', delimiter='\t')
+man_df = pd.read_csv('man.csv', delimiter='\t', compression='gzip')
 dictionary =  corpora.Dictionary.load('man.dict')
 
 
