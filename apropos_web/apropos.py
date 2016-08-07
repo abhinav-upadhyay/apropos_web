@@ -22,7 +22,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app)
 caches = {}
 _logger = logger.get_logger()
 dblogger = apropos_db_logger.AproposDBLogger()
-man_df = pd.read_csv('man.csv.gz', delimiter='\t', compression='gzip')
+man_df = pd.read_csv('man.csv', delimiter='\t')
 
 
 @app.route('/')
