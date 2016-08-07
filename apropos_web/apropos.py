@@ -1,4 +1,6 @@
+from gensim import similarities, corpora, models
 import json
+import pandas as pd
 import shlex
 import subprocess
 import time
@@ -10,6 +12,7 @@ from flask import redirect
 from flask import make_response
 from werkzeug.contrib.fixers import ProxyFix
 from lrupy.lrupy import LRUCache
+from stemming import porter2
 from . import apropos_db_logger
 from . import config
 from . import logger
@@ -19,6 +22,10 @@ app.wsgi_app = ProxyFix(app.wsgi_app)
 caches = {}
 _logger = logger.get_logger()
 dblogger = apropos_db_logger.AproposDBLogger()
+lsi_index = similarities.MatrixSimilarity.load('man.index')
+lsi_model = models.LsiModel.load('man.lsi')
+man_df = pd.read_csv('man.csv', delimiter='\t')
+dictionary =  corpora.Dictionary.load('man.dict')
 
 
 @app.route('/')
@@ -189,6 +196,47 @@ def dist_specific_search(dist):
 @app.route("/search")
 def search():
     return dist_specific_search('netbsd')
+
+@app.route("/similar")
+def similar():
+    netbsd_logo_url = url_for('static', filename='images/netbsd.png')
+    man_page_name = request.args.get('n')
+    section = request.args.get('s')
+    if man_page_name is None: 
+        return render_template('similar.html', 
+                netbsd_logo_url=netbsd_logo_url)
+    if section is not None and section != '':
+        data = man_df[(man_df['name'] == man_page_name) & (man_df['section'] == section)]
+    else:
+        data = man_df[man_df['name'] == man_page_name]
+
+    if data is None or len(data) == 0:
+        data = man_page_name
+    else:
+        data = data.iloc[0]['data']
+    vec_bow = dictionary.doc2bow(porter2.stem(word) for word in data.lower().split())
+    vec_lsi = lsi_model[vec_bow]
+    sims = lsi_index[vec_lsi]
+    sims = sorted(enumerate(sims), key=lambda item: -item[1])
+    results = []
+    duplicates = {}
+    for i, prob in sims[:20]:
+        result_name = man_df['name'][i]
+        result_section = man_df['section'][i]
+        if man_page_name == result_name and section == result_section:
+            continue
+        d = {}
+        d['name'] = result_name
+        d['section'] = result_section
+        d['score'] = prob
+        if duplicates.get((result_name, result_section)) is not None:
+                continue
+        results.append(d)
+        duplicates[(result_name, result_section)] = prob
+    return render_template('similar.html', results=results, name=man_page_name, section=section,
+            netbsd_logo_url=netbsd_logo_url)
+
+
 
 def _log_query(query, previous_query, ip, platform, browser, version, language, referrer, useragent, dist):
     dblogger.log_query(query, previous_query, ip, platform, browser, version,
