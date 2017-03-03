@@ -15,22 +15,22 @@ Currently it supports searching two distributions of man pages:
 
 ###Deployment Instructions
 
-Install all the required Python packages as mentioned in the requirements.txt file
+* Install all the required Python packages as mentioned in the requirements.txt file
 (You may either setup a virtual environment with all those packages or just install them
  globally, whatever works)
 
-Download mdocml-1.13.4 from http://mdocml.bsd.lv, and install it in /usr/local.
+* Download mdocml-1.13.4 from http://mdocml.bsd.lv, and install it in /usr/local.
 
-git clone the apropos_replacement repository from my github repo and checkout the
-merge_netbsd_linux branch. On linux `make -f Makefile.linux`, on NetBSD run `make`
-to compile it. Run make install (or just copy the apropos binary to /usr/bin).
+* Clone the `apropos_replacement` repository from my github and checkout the
+`merge_netbsd_linux` branch. On linux `make -f Makefile.linux`, on NetBSD run `make`
+to compile it. Run `make install` to install the binaries or just copy the `apropos` binary to `/usr/bin`)
 
-Run makemandb -fv after building apropos in the above step. On NetBSD it should generate
-the man.db database in /var/db/man.db. On Linux it should be in /var/man.db. Copy this file
-to /usr/local/apropos_web/<netbsd|linux> (depending on NetBSD or Linux).
+Run `makemandb -fv` after building `apropos` in the above step. On NetBSD it should generate
+the man.db database in `/var/db/man.db`. On Linux it should be in `/var/man.db`. Copy this file
+to `/usr/local/apropos_web/<netbsd|linux>/man.db` (depending on NetBSD or Linux).
 
 Run gunicorn to serve the flask app, with something like:
-gunicorn --workers 2 --bind unix:apropos_web.sock -m 500 --timeout 120 wsgi:app
+`gunicorn --workers 2 --bind unix:apropos_web.sock -m 500 --timeout 120 wsgi:app`
 
 (Consider making it an rc/init script to start it automatically on server startup).
 
