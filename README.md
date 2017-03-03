@@ -31,9 +31,7 @@ to `/usr/local/apropos_web/<netbsd|linux>/man.db` (depending on NetBSD or Linux)
 
 * Run gunicorn to serve the flask app, with something like:
 `gunicorn --workers 2 --bind unix:apropos_web.sock -m 500 --timeout 120 wsgi:app`
-
 (Consider making it an rc/init script to start it automatically on server startup).
-
 You can either make gunicorn serve the site directly, or setup a proxy with Nginx.
 
 * In case of issues, look into the config.py file, to see if any path is wrong for your
