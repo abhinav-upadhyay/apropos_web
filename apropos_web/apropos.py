@@ -262,9 +262,10 @@ def _log_click(page_name, section, rank, query, ip, platform, browser, version,
                        language, referrer, click_time, useragent, dist)
 
 def _search(query, db_path=None):
-    command = config.APROPOS_PATH + ' -j %s' % query.replace('-', '')
+    command = config.APROPOS_PATH
     if db_path is not None:
         command += ' -d %s' % db_path
+    command += ' -j %s' % query.replace('-', '')
 
     args = shlex.split(command)
     proc = subprocess.Popen(args,
@@ -279,7 +280,7 @@ def _search(query, db_path=None):
         out = '[]'
     try:
         out = filter(lambda x: x != '\n' and x != '\t' and ord(x) <= 127, out)
-        return json.loads(out.replace('\\', '\\\\'))
+        return json.loads(out.replace('\\', '\\\\').replace('\r\n', ''), strict=False)
     except Exception:
         _logger.exception('Failed to parse JSON output: %s', out)
         return None
