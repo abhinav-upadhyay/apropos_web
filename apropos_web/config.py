@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-MAN_DB_PATH = '/var/man.db'
+MAN_DB_PATH = '/var/db/man.db'
 APROPOS_WEB_DB_PATH = '/usr/local/apropos_web/apropos_web.db'
-APROPOS_PATH='/usr/local/bin/apropos' #set a symlink to the compiled apropos
+APROPOS_PATH='/usr/bin/apropos' #set a symlink to the compiled apropos
 DEFAULT_CACHE_SIZE=10240
 DISTANCE_PATH='/usr/local/bin/similar_words'
 BOW_FILE='/usr/local/apropos_web/bow.bin'
