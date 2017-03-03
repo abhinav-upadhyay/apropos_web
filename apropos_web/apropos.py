@@ -22,7 +22,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app)
 caches = {}
 _logger = logger.get_logger()
 dblogger = apropos_db_logger.AproposDBLogger()
-man_df = pd.read_csv('man.csv', delimiter='\t')
+man_df = None
 
 
 @app.route('/')
@@ -199,9 +199,11 @@ def similar():
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     man_page_name = request.args.get('n')
     section = request.args.get('s')
-    if man_page_name is None: 
+    if man_page_name is None:
         return render_template('similar.html', 
                 netbsd_logo_url=netbsd_logo_url)
+    if man_df is None:
+        man_df = pd.read_csv('man.csv', delimiter='\t')
     if section is not None and section != '':
         data = man_df[(man_df['name'] == man_page_name) & (man_df['section'] == section)]
     else:
