@@ -1,0 +1,277 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+AUTHPF(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">authpf</b>, <b class="name">authpf-noip</b> &#8212; <span class="desc">authenticating gateway user shell</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1><table class="synopsis">
+<col style="width: 6.00ex;"/>
+<col/>
+<tbody>
+<tr>
+<td>
+authpf</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<br/>
+<table class="synopsis">
+<col style="width: 6.00ex;"/>
+<col/>
+<tbody>
+<tr>
+<td>
+authpf-noip</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="name">authpf</b> is a user shell for authenticating gateways. It is used to change <a class="link-man" href="../html4/pf.html">pf(4)</a> rules when a user authenticates and starts a session with <a class="link-man" href="../html8/sshd.html">sshd(8)</a> and to undo these changes when the user's session exits. Typical use would be for a gateway that authenticates users before allowing them Internet use, or a gateway that allows different users into different places. Combined with properly set up filter rules and secure switches, <b class="name">authpf</b> can be used to ensure users are held accountable for their network traffic. It is meant to be used with users who can connect via <a class="link-man" href="../html1/ssh.html">ssh(1)</a> only, and requires the <a class="link-man" href="../html4/pf.html">pf(4)</a> subsystem to be enabled.<div class="spacer">
+</div>
+<b class="name">authpf-noip</b> is a user shell which allows multiple connections to take place from the same IP address. It is useful primarily in cases where connections are tunneled via the gateway system, and can be directly associated with the user name. It cannot ensure accountability when classifying connections by IP address; in this case the client's IP address is not provided to the packet filter via the <i class="arg">client_ip</i> macro or the <i class="arg">authpf_users</i> table. Additionally, states associated with the client IP address are not purged when the session is ended.<div class="spacer">
+</div>
+To use either <b class="name">authpf</b> or <b class="name">authpf-noip</b>, the user's shell needs to be set to <i class="file">/usr/sbin/authpf</i> or <i class="file">/usr/sbin/authpf-noip</i>.<div class="spacer">
+</div>
+<b class="name">authpf</b> uses the <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a> syntax to change rules for an individual user or client IP address as long as a user maintains an active <a class="link-man" href="../html1/ssh.html">ssh(1)</a> session, and logs the successful start and end of a session to <a class="link-man" href="../html8/syslogd.html">syslogd(8)</a>. <b class="name">authpf</b> retrieves the client's connecting IP address via the <span class="env">SSH_CLIENT</span> environment variable and, after performing additional access checks, reads a template file to determine what rules (if any) to add, and maintains the list of IP addresses of connected users in the <i class="arg">authpf_users</i> table. On session exit the same rules and table entries that were added at startup are removed, and all states associated with the client's IP address are purged.<div class="spacer">
+</div>
+Each <b class="name">authpf</b> process stores its rules in a separate ruleset inside a <a class="link-man" href="../html4/pf.html">pf(4)</a> <i class="file">anchor</i> shared by all <b class="name">authpf</b> processes. By default, the <i class="file">anchor</i> name &quot;authpf&quot; is used, and the ruleset names equal the username and PID of the <b class="name">authpf</b> processes as &quot;username(pid)&quot;. The following needs to be added to the main ruleset <i class="file">/etc/pf.conf</i> in order to cause evaluation of any <b class="name">authpf</b> rules:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+anchor &quot;authpf/*&quot;</pre>
+<div class="spacer">
+</div>
+The &quot;/*&quot; at the end of the anchor name is required for <a class="link-man" href="../html4/pf.html">pf(4)</a> to process the rulesets attached to the anchor by <b class="name">authpf</b>.</div>
+<div class="section">
+<h1 id="x46494c5445522052554c4553">FILTER RULES</h1> Filter rules for <b class="name">authpf</b> use the same format described in <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a>. The only difference is that these rules may (and probably should) use the macro <span class="emph">user_ip</span>, which is assigned the connecting IP address whenever <b class="name">authpf</b> is run. Additionally, the macro <span class="emph">user_id</span> is assigned the user name.<div class="spacer">
+</div>
+Rules are stored in a file called <i class="file">authpf.rules</i>. This file will first be searched for in <i class="file">/etc/authpf/users/$USER/</i>, then in <i class="file">/etc/authpf/groups/$GROUP/</i> and finally in <i class="file">/etc/authpf/</i>. Only the first found file will be used.<div class="spacer">
+</div>
+Per-user rules from the <i class="file">/etc/authpf/users/$USER/</i> directory are intended to be used when non-default rules are needed on an individual user basis. Per-group rules from the <i class="file">/etc/authpf/groups/$GROUP/</i> directory are intended to be used when non-default rules are needed on a group basis. It is important to ensure that a user cannot write or change these configuration files.<div class="spacer">
+</div>
+The <i class="file">authpf.rules</i> file must exist in one of the above locations for <b class="name">authpf</b> to run.</div>
+<div class="section">
+<h1 id="x434f4e46494755524154494f4e">CONFIGURATION</h1> Options are controlled by the <i class="file">/etc/authpf/authpf.conf</i> file. If the file is empty, defaults are used for all configuration options. The file consists of pairs of the form <code class="lit">name=value</code>, one per line. Currently, the allowed values are as follows:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+anchor=name</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Use the specified <i class="file">anchor</i> name instead of &quot;authpf&quot;.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+table=name</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Use the specified <i class="file">table</i> name instead of &quot;authpf_users&quot;.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x55534552204d45535341474553">USER MESSAGES</h1> On successful invocation, <b class="name">authpf</b> displays a message telling the user he or she has been authenticated. It will additionally display the contents of the file called <i class="file">authpf.message</i>. This file will first be searched for in <i class="file">/etc/authpf/users/$USER/</i> and then in <i class="file">/etc/authpf/</i>. Only one of these files will be used if both are present.<div class="spacer">
+</div>
+There exist two methods for providing additional granularity to the control offered by <b class="name">authpf</b> - it is possible to set the gateway to explicitly allow users who have authenticated to <a class="link-man" href="../html1/ssh.html">ssh(1)</a> and deny access to only a few troublesome individuals. This is done by creating a file with the banned user's login name as the filename in <i class="file">/etc/authpf/banned/</i>. The contents of this file will be displayed to a banned user, thus providing a method for informing the user that they have been banned, and where they can go and how to get there if they want to have their service restored. This is the default behaviour.<div class="spacer">
+</div>
+It is also possible to configure <b class="name">authpf</b> to only allow specific users access. This is done by listing their login names, one per line, in <i class="file">/etc/authpf/authpf.allow</i>. A group of users can also be indicated by prepending &quot;%&quot; to the group name, and all members of a login class can be indicated by prepending &quot;@&quot; to the login class name. If &quot;*&quot; is found on a line, then all usernames match. If <b class="name">authpf</b> is unable to verify the user's permission to use the gateway, it will print a brief message and die. It should be noted that a ban takes precedence over an allow.<div class="spacer">
+</div>
+On failure, messages will be logged to <a class="link-man" href="../html8/syslogd.html">syslogd(8)</a> for the system administrator. The user does not see these, but will be told the system is unavailable due to technical difficulties. The contents of the file <i class="file">/etc/authpf/authpf.problem</i> will also be displayed if the file exists and is readable.</div>
+<div class="section">
+<h1 id="x434f4e46494755524154494f4e20495353554553">CONFIGURATION ISSUES</h1> <b class="name">authpf</b> maintains the changed rules as long as the user maintains an active session. It is important to remember however, that the existence of this session means the user is authenticated. Because of this, it is important to configure <a class="link-man" href="../html8/sshd.html">sshd(8)</a> to ensure the security of the session, and to ensure that the network through which users connect is secure. <a class="link-man" href="../html8/sshd.html">sshd(8)</a> should be configured to use the <i class="arg">ClientAliveInterval</i> and <i class="arg">ClientAliveCountMax</i> parameters to ensure that a ssh session is terminated quickly if it becomes unresponsive, or if arp or address spoofing is used to hijack the session. Note that TCP keepalives are not sufficient for this, since they are not secure. Also note that the various SSH tunnelling mechanisms, such as <i class="arg">AllowTcpForwarding</i> and <i class="arg">PermitTunnel</i>, should be disabled for <b class="name">authpf</b> users to prevent them from circumventing restrictions imposed by the packet filter ruleset.<div class="spacer">
+</div>
+<b class="name">authpf</b> will remove state table entries that were created during a user's session. This ensures that there will be no unauthenticated traffic allowed to pass after the controlling <a class="link-man" href="../html1/ssh.html">ssh(1)</a> session has been closed.<div class="spacer">
+</div>
+<b class="name">authpf</b> is designed for gateway machines which typically do not have regular (non-administrative) users using the machine. An administrator must remember that <b class="name">authpf</b> can be used to modify the <a class="link-man" href="../html4/pf.html">pf(4)</a> rules through the environment in which it is run, and as such could be used to modify the rules (based on the contents of the configuration files) by regular users. In the case where a machine has regular users using it, as well as users with <b class="name">authpf</b> as their shell, the regular users should be prevented from running <b class="name">authpf</b> by using the <i class="file">/etc/authpf/authpf.allow</i> or <i class="file">/etc/authpf/banned/</i> facilities.<div class="spacer">
+</div>
+<b class="name">authpf</b> modifies the packet filter rules, and because of this it needs to be configured carefully. <b class="name">authpf</b> will not run and will exit silently if the <i class="file">/etc/authpf/authpf.conf</i> file does not exist. After considering the effect <b class="name">authpf</b> may have on the main packet filter rules, the system administrator may enable <b class="name">authpf</b> by creating an appropriate <i class="file">/etc/authpf/authpf.conf</i> file.</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> <span class="symb">Control Files</span> - To illustrate the user-specific access control mechanisms, let us consider a typical user named bob. Normally, as long as bob can authenticate himself, the <b class="name">authpf</b> program will load the appropriate rules. Enter the <i class="file">/etc/authpf/banned/</i> directory. If bob has somehow fallen from grace in the eyes of the powers-that-be, they can prohibit him from using the gateway by creating the file <i class="file">/etc/authpf/banned/bob</i> containing a message about why he has been banned from using the network. Once bob has done suitable penance, his access may be restored by moving or removing the file <i class="file">/etc/authpf/banned/bob</i>.<div class="spacer">
+</div>
+Now consider a workgroup containing alice, bob, carol and dave. They have a wireless network which they would like to protect from unauthorized use. To accomplish this, they create the file <i class="file">/etc/authpf/authpf.allow</i> which lists their login ids, group prepended with &quot;%&quot;, or login class prepended with &quot;@&quot;, one per line. At this point, even if eve could authenticate to <a class="link-man" href="../html8/sshd.html">sshd(8)</a>, she would not be allowed to use the gateway. Adding and removing users from the work group is a simple matter of maintaining a list of allowed userids. If bob once again manages to annoy the powers-that-be, they can ban him from using the gateway by creating the familiar <i class="file">/etc/authpf/banned/bob</i> file. Though bob is listed in the allow file, he is prevented from using this gateway due to the existence of a ban file.<div class="spacer">
+</div>
+<span class="symb">Distributed Authentication</span> - It is often desirable to interface with a distributed password system rather than forcing the sysadmins to keep a large number of local password files in sync. The <a class="link-man" href="../html5/login.conf.html">login.conf(5)</a> mechanism in <span class="unix">OpenBSD</span> can be used to fork the right shell. To make that happen, <a class="link-man" href="../html5/login.conf.html">login.conf(5)</a> should have entries that look something like this:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+shell-default:shell=/bin/csh 
+ 
+default:\ 
+	... 
+	:shell=/usr/sbin/authpf 
+ 
+daemon:\ 
+	... 
+	:shell=/bin/csh:\ 
+	:tc=default: 
+ 
+staff:\ 
+	... 
+	:shell=/bin/csh:\ 
+	:tc=default:</pre>
+<div class="spacer">
+</div>
+Using a default password file, all users will get <b class="name">authpf</b> as their shell except for root who will get <i class="file">/bin/csh</i>.<div class="spacer">
+</div>
+<span class="symb">SSH Configuration</span> - As stated earlier, <a class="link-man" href="../html8/sshd.html">sshd(8)</a> must be properly configured to detect and defeat network attacks. To that end, the following options should be added to <a class="link-man" href="../html5/sshd_config.html">sshd_config(5)</a>:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+Protocol 2 
+ClientAliveInterval 15 
+ClientAliveCountMax 3</pre>
+<div class="spacer">
+</div>
+This ensures that unresponsive or spoofed sessions are terminated within a minute, since a hijacker should not be able to spoof ssh keepalive messages.<div class="spacer">
+</div>
+<span class="symb">Banners</span> - Once authenticated, the user is shown the contents of <i class="file">/etc/authpf/authpf.message</i>. This message may be a screen-full of the appropriate use policy, the contents of <i class="file">/etc/motd</i> or something as simple as the following:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+This means you will be held accountable by the powers that be 
+for traffic originating from your machine, so please play nice.</pre>
+<div class="spacer">
+</div>
+To tell the user where to go when the system is broken, <i class="file">/etc/authpf/authpf.problem</i> could contain something like this:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+Sorry, there appears to be some system problem. To report this 
+problem so we can fix it, please phone 1-900-314-1597 or send 
+an email to remove@bulkmailerz.net.</pre>
+<div class="spacer">
+</div>
+<span class="symb">Packet Filter Rules</span> - In areas where this gateway is used to protect a wireless network (a hub with several hundred ports), the default rule set as well as the per-user rules should probably allow very few things beyond encrypted protocols like <a class="link-man" href="../html1/ssh.html">ssh(1)</a>, <a class="link-man" href="../html8/ssl.html">ssl(8)</a>, or <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a>. On a securely switched network, with plug-in jacks for visitors who are given authentication accounts, you might want to allow out everything. In this context, a secure switch is one that tries to prevent address table overflow attacks.<div class="spacer">
+</div>
+Example <i class="file">/etc/pf.conf</i>:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+# by default we allow internal clients to talk to us using 
+# ssh and use us as a dns server. 
+internal_if=&quot;fxp1&quot; 
+gateway_addr=&quot;10.0.1.1&quot; 
+block in on $internal_if from any to any 
+pass in quick on $internal_if proto tcp from any to $gateway_addr \ 
+      port = ssh 
+pass in quick on $internal_if proto udp from any to $gateway_addr \ 
+      port = domain 
+anchor &quot;authpf/*&quot;</pre>
+<div class="spacer">
+</div>
+<span class="symb">For a switched, wired net</span> - This example <i class="file">/etc/authpf/authpf.rules</i> makes no real restrictions; it turns the IP address on and off, logging TCP connections.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+external_if = &quot;xl0&quot; 
+internal_if = &quot;fxp0&quot; 
+ 
+pass in log quick on $internal_if proto tcp from $user_ip to any 
+pass in quick on $internal_if from $user_ip to any</pre>
+<div class="spacer">
+</div>
+<span class="symb">For a wireless or shared net</span> - This example <i class="file">/etc/authpf/authpf.rules</i> could be used for an insecure network (such as a public wireless network) where we might need to be a bit more restrictive.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+internal_if=&quot;fxp1&quot; 
+ipsec_gw=&quot;10.2.3.4&quot; 
+ 
+# rdr ftp for proxying by ftp-proxy(8) 
+match in on $internal_if proto tcp from $user_ip to any port 21 \ 
+      rdr-to 127.0.0.1 port 8021 
+ 
+# allow out ftp, ssh, www and https only, and allow user to negotiate 
+# ipsec with the ipsec server. 
+pass in log quick on $internal_if proto tcp from $user_ip to any \ 
+      port { 21, 22, 80, 443 } 
+pass in quick on $internal_if proto tcp from $user_ip to any \ 
+      port { 21, 22, 80, 443 } 
+pass in quick proto udp from $user_ip to $ipsec_gw port = isakmp 
+pass in quick proto esp from $user_ip to $ipsec_gw</pre>
+<div class="spacer">
+</div>
+<span class="symb">Dealing with NAT</span> - The following <i class="file">/etc/authpf/authpf.rules</i> shows how to deal with NAT, using tags:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+ext_if = &quot;fxp1&quot; 
+ext_addr = 129.128.11.10 
+int_if = &quot;fxp0&quot; 
+# nat and tag connections... 
+match out on $ext_if from $user_ip to any tag $user_ip nat-to $ext_addr 
+pass in quick on $int_if from $user_ip to any 
+pass out log quick on $ext_if tagged $user_ip</pre>
+<div class="spacer">
+</div>
+With the above rules added by <b class="name">authpf</b>, outbound connections corresponding to each users NAT'ed connections will be logged as in the example below, where the user may be identified from the ruleset name.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+# tcpdump -n -e -ttt -i pflog0 
+Oct 31 19:42:30.296553 rule 0.bbeck(20267).1/0(match): pass out on fxp1: \ 
+129.128.11.10.60539 &gt; 198.137.240.92.22: S 2131494121:2131494121(0) win \ 
+16384 &lt;mss 1460,nop,nop,sackOK&gt; (DF)</pre>
+<div class="spacer">
+</div>
+<span class="symb">Using the authpf_users table</span> - Simple <b class="name">authpf</b> settings can be implemented without an anchor by just using the &quot;authpf_users&quot; <i class="file">table</i>. For example, the following <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a> lines will give SMTP and IMAP access to logged in users:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+table &lt;authpf_users&gt; persist 
+pass in on $ext_if proto tcp from &lt;authpf_users&gt; \ 
+        to port { smtp imap }</pre>
+<div class="spacer">
+</div>
+It is also possible to use the &quot;authpf_users&quot; <i class="file">table</i> in combination with anchors. For example, <a class="link-man" href="../html4/pf.html">pf(4)</a> processing can be sped up by looking up the anchor only for packets coming from logged in users:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+table &lt;authpf_users&gt; persist 
+anchor &quot;authpf/*&quot; from &lt;authpf_users&gt;</pre>
+<div class="spacer">
+</div>
+<span class="symb">Tunneled users</span> - normally <b class="name">authpf</b> allows only one session per client IP address. However in some cases, such as when connections are tunneled via <a class="link-man" href="../html1/ssh.html">ssh(1)</a> or <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a>, the connections can be authorized based on the userid of the user instead of the client IP address. In this case it is appropriate to use <b class="name">authpf-noip</b> to allow multiple users behind a NAT gateway to connect. In the <i class="file">/etc/authpf/authpf.rules</i> example below, the remote user could tunnel a remote desktop session to their workstation:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+internal_if=&quot;bge0&quot; 
+workstation_ip=&quot;10.2.3.4&quot; 
+ 
+pass out on $internal_if from (self) to $workstation_ip port 3389 \ 
+       user $user_id</pre>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/authpf/authpf.conf</i></dt>
+<dd class="list-tag" style="margin-left: 23.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/authpf/authpf.allow</i></dt>
+<dd class="list-tag" style="margin-left: 23.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/authpf/authpf.rules</i></dt>
+<dd class="list-tag" style="margin-left: 23.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/authpf/authpf.message</i></dt>
+<dd class="list-tag" style="margin-left: 23.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/authpf/authpf.problem</i></dt>
+<dd class="list-tag" style="margin-left: 23.00ex;">
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html4/pf.html">pf(4)</a>, <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a>, <a class="link-man" href="../html7/securelevel.html">securelevel(7)</a>, <a class="link-man" href="../html8/ftp-proxy.html">ftp-proxy(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">authpf</b> program first appeared in <span class="unix">OpenBSD&#160;3.1</span>.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> Configuration issues are tricky. The authenticating <a class="link-man" href="../html1/ssh.html">ssh(1)</a> connection may be secured, but if the network is not secured the user may expose insecure protocols to attackers on the same network, or enable other attackers on the network to pretend to be the user by spoofing their IP address.<div class="spacer">
+</div>
+<b class="name">authpf</b> is not designed to prevent users from denying service to other users.</div>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,235 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+RE_FORMAT(7)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">re_format</b> &#8212; <span class="desc">POSIX regular expressions</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> Regular expressions (REs), as defined in IEEE Std 1003.1-2004 (&#8220;POSIX.1&#8221;), come in two forms: basic regular expressions (BREs) and extended regular expressions (EREs). Both forms of regular expressions are supported by the interfaces described in <a class="link-man" href="../html3/regex.html">regex(3)</a>. Applications dealing with regular expressions may use one or the other form (or indeed both). For example, <a class="link-man" href="../html1/ed.html">ed(1)</a> uses BREs, whilst <a class="link-man" href="../html1/egrep.html">egrep(1)</a> talks EREs. Consult the manual page for the specific application to find out which it uses.<div class="spacer">
+</div>
+POSIX leaves some aspects of RE syntax and semantics open; &#8216;**&#8217; marks decisions on these aspects that may not be fully portable to other POSIX implementations.<div class="spacer">
+</div>
+This manual page first describes regular expressions in general, specifically extended regular expressions, and then discusses differences between them and basic regular expressions.</div>
+<div class="section">
+<h1 id="x455854454e44454420524547554c41522045585052455353494f4e53">EXTENDED REGULAR EXPRESSIONS</h1> An ERE is one** or more non-empty** <span class="emph">branches</span>, separated by &#8216;|&#8217;. It matches anything that matches one of the branches.<div class="spacer">
+</div>
+A branch is one** or more <span class="emph">pieces</span>, concatenated. It matches a match for the first, followed by a match for the second, etc.<div class="spacer">
+</div>
+A piece is an <span class="emph">atom</span> possibly followed by a single** &#8216;*&#8217;, &#8216;+&#8217;, &#8216;?&#8217;, or <span class="emph">bound</span>. An atom followed by &#8216;*&#8217; matches a sequence of 0 or more matches of the atom. An atom followed by &#8216;+&#8217; matches a sequence of 1 or more matches of the atom. An atom followed by &#8216;?&#8217; matches a sequence of 0 or 1 matches of the atom.<div class="spacer">
+</div>
+A bound is &#8216;{&#8217; followed by an unsigned decimal integer, possibly followed by &#8216;,&#8217; possibly followed by another unsigned decimal integer, always followed by &#8216;}&#8217;. The integers must lie between 0 and <span class="define">RE_DUP_MAX</span> (255**) inclusive, and if there are two of them, the first may not exceed the second. An atom followed by a bound containing one integer <i class="arg">i</i> and no comma matches a sequence of exactly <i class="arg">i</i> matches of the atom. An atom followed by a bound containing one integer <i class="arg">i</i> and a comma matches a sequence of <i class="arg">i</i> or more matches of the atom. An atom followed by a bound containing two integers <i class="arg">i</i> and <i class="arg">j</i> matches a sequence of <i class="arg">i</i> through <i class="arg">j</i> (inclusive) matches of the atom.<div class="spacer">
+</div>
+An atom is a regular expression enclosed in &#8216;()&#8217; (matching a part of the regular expression), an empty set of &#8216;()&#8217; (matching the null string)**, a <span class="emph">bracket expression</span> (see below), &#8216;.&#8217; (matching any single character), &#8216;^&#8217; (matching the null string at the beginning of a line), &#8216;$&#8217; (matching the null string at the end of a line), a &#8216;\&#8217; followed by one of the characters &#8216;^.[$()|*+?{\&#8217; (matching that character taken as an ordinary character), a &#8216;\&#8217; followed by any other character** (matching that character taken as an ordinary character, as if the &#8216;\&#8217; had not been present**), or a single character with no other significance (matching that character). A &#8216;{&#8217; followed by a character other than a digit is an ordinary character, not the beginning of a bound**. It is illegal to end an RE with &#8216;\&#8217;.<div class="spacer">
+</div>
+A bracket expression is a list of characters enclosed in &#8216;[]&#8217;. It normally matches any single character from the list (but see below). If the list begins with &#8216;^&#8217;, it matches any single character <span class="emph">not</span> from the rest of the list (but see below). If two characters in the list are separated by &#8216;-&#8217;, this is shorthand for the full <span class="emph">range</span> of characters between those two (inclusive) in the collating sequence, e.g. &#8216;[0-9]&#8217; in ASCII matches any decimal digit. It is illegal** for two ranges to share an endpoint, e.g. &#8216;a-c-e&#8217;. Ranges are very collating-sequence-dependent, and portable programs should avoid relying on them.<div class="spacer">
+</div>
+To include a literal &#8216;]&#8217; in the list, make it the first character (following a possible &#8216;^&#8217;). To include a literal &#8216;-&#8217;, make it the first or last character, or the second endpoint of a range. To use a literal &#8216;-&#8217; as the first endpoint of a range, enclose it in &#8216;[.&#8217; and &#8216;.]&#8217; to make it a collating element (see below). With the exception of these and some combinations using &#8216;[&#8217; (see next paragraphs), all other special characters, including &#8216;\&#8217;, lose their special significance within a bracket expression.<div class="spacer">
+</div>
+Within a bracket expression, a collating element (a character, a multi-character sequence that collates as if it were a single character, or a collating-sequence name for either) enclosed in &#8216;[.&#8217; and &#8216;.]&#8217; stands for the sequence of characters of that collating element. The sequence is a single element of the bracket expression's list. A bracket expression containing a multi-character collating element can thus match more than one character, e.g. if the collating sequence includes a &#8216;ch&#8217; collating element, then the RE &#8216;[[.ch.]]*c&#8217; matches the first five characters of &#8216;chchcc&#8217;.<div class="spacer">
+</div>
+Within a bracket expression, a collating element enclosed in &#8216;[=&#8217; and &#8216;=]&#8217; is an equivalence class, standing for the sequences of characters of all collating elements equivalent to that one, including itself. (If there are no other equivalent collating elements, the treatment is as if the enclosing delimiters were &#8216;[.&#8217; and &#8216;.]&#8217;.) For example, if &#8216;x&#8217; and &#8216;y&#8217; are the members of an equivalence class, then &#8216;[[=x=]]&#8217;, &#8216;[[=y=]]&#8217;, and &#8216;[xy]&#8217; are all synonymous. An equivalence class may not** be an endpoint of a range.<div class="spacer">
+</div>
+Within a bracket expression, the name of a <span class="emph">character class</span> enclosed in &#8216;[:&#8217; and &#8216;:]&#8217; stands for the list of all characters belonging to that class. Standard character class names are:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+alnum	digit	punct 
+alpha	graph	space 
+blank	lower	upper 
+cntrl	print	xdigit</pre>
+<div class="spacer">
+</div>
+These stand for the character classes defined in <a class="link-man" href="../html3/isalnum.html">isalnum(3)</a>, <a class="link-man" href="../html3/isalpha.html">isalpha(3)</a>, and so on. A character class may not be used as an endpoint of a range.<div class="spacer">
+</div>
+There are two special cases** of bracket expressions: the bracket expressions &#8216;[[:&lt;:]]&#8217; and &#8216;[[:&gt;:]]&#8217; match the null string at the beginning and end of a word, respectively. A word is defined as a sequence of characters starting and ending with a word character which is neither preceded nor followed by word characters. A word character is an <span class="emph">alnum</span> character (as defined by <a class="link-man" href="../html3/isalnum.html">isalnum(3)</a>) or an underscore. This is an extension, compatible with but not specified by POSIX, and should be used with caution in software intended to be portable to other systems. The additional word delimiters &#8216;<code class="lit">\&lt;</code>&#8217; and &#8216;<code class="lit">\&gt;</code>&#8217; are provided to ease compatibility with traditional SVR4 systems but are not portable and should be avoided.<div class="spacer">
+</div>
+In the event that an RE could match more than one substring of a given string, the RE matches the one starting earliest in the string. If the RE could match more than one substring starting at that point, it matches the longest. Subexpressions also match the longest possible substrings, subject to the constraint that the whole match be as long as possible, with subexpressions starting earlier in the RE taking priority over ones starting later. Note that higher-level subexpressions thus take priority over their lower-level component subexpressions.<div class="spacer">
+</div>
+Match lengths are measured in characters, not collating elements. A null string is considered longer than no match at all. For example, &#8216;bb*&#8217; matches the three middle characters of &#8216;abbbc&#8217;; &#8216;(wee|week)(knights|nights)&#8217; matches all ten characters of &#8216;weeknights&#8217;; when &#8216;(.*).*&#8217; is matched against &#8216;abc&#8217;, the parenthesized subexpression matches all three characters; and when &#8216;(a*)*&#8217; is matched against &#8216;bc&#8217;, both the whole RE and the parenthesized subexpression match the null string.<div class="spacer">
+</div>
+If case-independent matching is specified, the effect is much as if all case distinctions had vanished from the alphabet. When an alphabetic that exists in multiple cases appears as an ordinary character outside a bracket expression, it is effectively transformed into a bracket expression containing both cases, e.g. &#8216;x&#8217; becomes &#8216;[xX]&#8217;. When it appears inside a bracket expression, all case counterparts of it are added to the bracket expression, so that, for example, &#8216;[x]&#8217; becomes &#8216;[xX]&#8217; and &#8216;[^x]&#8217; becomes &#8216;[^xX]&#8217;.<div class="spacer">
+</div>
+No particular limit is imposed on the length of REs**. Programs intended to be portable should not employ REs longer than 256 bytes, as an implementation can refuse to accept such REs and remain POSIX-compliant.<div class="spacer">
+</div>
+The following is a list of extended regular expressions:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">c</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Any character <i class="arg">c</i> not listed below matches itself.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+\<i class="arg">c</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Any backslash-escaped character <i class="arg">c</i> matches itself.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+.</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Matches any single character that is not a newline (&#8216;\n&#8217;).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<i class="arg">char-class</i>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Matches any single character in <i class="arg">char-class</i>. To include a &#8216;<code class="lit">]</code>&#8217; in <i class="arg">char-class</i>, it must be the first character. A range of characters may be specified by separating the end characters of the range with a &#8216;<code class="lit">-</code>&#8217;; e.g. <i class="arg">a-z</i> specifies the lower case characters. The following literal expressions can also be used in <i class="arg">char-class</i> to specify sets of characters:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+[:alnum:] [:cntrl:] [:lower:] [:space:] 
+[:alpha:] [:digit:] [:print:] [:upper:] 
+[:blank:] [:graph:] [:punct:] [:xdigit:]</pre>
+<div class="spacer">
+</div>
+If &#8216;<code class="lit">-</code>&#8217; appears as the first or last character of <i class="arg">char-class</i>, then it matches itself. All other characters in <i class="arg">char-class</i> match themselves.<div class="spacer">
+</div>
+Patterns in <i class="arg">char-class</i> of the form [.<i class="arg">col-elm</i>.] or [=<i class="arg">col-elm</i>=], where <i class="arg">col-elm</i> is a collating element, are interpreted according to <a class="link-man" href="../html3/setlocale.html">setlocale(3)</a> (not currently supported).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[^<i class="arg">char-class</i>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Matches any single character, other than newline, not in <i class="arg">char-class</i>. <i class="arg">char-class</i> is defined as above.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+^</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+If &#8216;^&#8217; is the first character of a regular expression, then it anchors the regular expression to the beginning of a line. Otherwise, it matches itself.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+$</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+If &#8216;$&#8217; is the last character of a regular expression, it anchors the regular expression to the end of a line. Otherwise, it matches itself.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[[:&lt;:]]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Anchors the single character regular expression or subexpression immediately following it to the beginning of a word.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[[:&gt;:]]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Anchors the single character regular expression or subexpression immediately preceding it to the end of a word.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+(<i class="arg">re</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Defines a subexpression <i class="arg">re</i>. Any set of characters enclosed in parentheses matches whatever the set of characters without parentheses matches (that is a long-winded way of saying the constructs &#8216;(re)&#8217; and &#8216;re&#8217; match identically).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+*</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Matches the single character regular expression or subexpression immediately preceding it zero or more times. If &#8216;*&#8217; is the first character of a regular expression or subexpression, then it matches itself. The &#8216;*&#8217; operator sometimes yields unexpected results. For example, the regular expression <i class="arg">b*</i> matches the beginning of the string &#8220;abbb&#8221; (as opposed to the substring &#8220;bbb&#8221;), since a null match is the only leftmost match.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
++</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Matches the singular character regular expression or subexpression immediately preceding it one or more times.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+?</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Matches the singular character regular expression or subexpression immediately preceding it 0 or 1 times.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+{<i class="arg">n</i>,<i class="arg">m</i><code class="none">}&#160;</code>{<i class="arg">n</i>,<code class="none">}&#160;</code>{<i class="arg">n</i><code class="none">}</code></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+ Matches the single character regular expression or subexpression immediately preceding it at least <i class="arg">n</i> and at most <i class="arg">m</i> times. If <i class="arg">m</i> is omitted, then it matches at least <i class="arg">n</i> times. If the comma is also omitted, then it matches exactly <i class="arg">n</i> times.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+|</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Used to separate patterns. For example, the pattern &#8216;cat|dog&#8217; matches either &#8216;cat&#8217; or &#8216;dog&#8217;.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x424153494320524547554c41522045585052455353494f4e53">BASIC REGULAR EXPRESSIONS</h1> Basic regular expressions differ in several respects:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 3.00ex;" class="list list-bul">
+<li class="list-bul" style="margin-top: 1.00em;">
+&#8216;|&#8217;, &#8216;+&#8217;, and &#8216;?&#8217; are ordinary characters and there is no equivalent for their functionality.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+The delimiters for bounds are &#8216;\{&#8217; and &#8216;\}&#8217;, with &#8216;{&#8217; and &#8216;}&#8217; by themselves ordinary characters.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+The parentheses for nested subexpressions are &#8216;\(&#8217; and &#8216;\)&#8217;, with &#8216;(&#8217; and &#8216;)&#8217; by themselves ordinary characters.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+&#8216;^&#8217; is an ordinary character except at the beginning of the RE or** the beginning of a parenthesized subexpression.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+&#8216;$&#8217; is an ordinary character except at the end of the RE or** the end of a parenthesized subexpression.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+&#8216;*&#8217; is an ordinary character if it appears at the beginning of the RE or the beginning of a parenthesized subexpression (after a possible leading &#8216;^&#8217;).</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+Finally, there is one new type of atom, a <span class="emph">back-reference</span>: &#8216;\&#8217; followed by a non-zero decimal digit <i class="arg">d</i> matches the same sequence of characters matched by the <i class="arg">d</i>th parenthesized subexpression (numbering subexpressions by the positions of their opening parentheses, left to right), so that, for example, &#8216;\([bc]\)\1&#8217; matches &#8216;bb&#8217; or &#8216;cc&#8217; but not &#8216;bc&#8217;.</li>
+</ul>
+<div class="spacer">
+</div>
+The following is a list of basic regular expressions:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">c</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Any character <i class="arg">c</i> not listed below matches itself.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+\<i class="arg">c</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Any backslash-escaped character <i class="arg">c</i>, except for &#8216;{&#8217;, &#8216;}&#8217;, &#8216;(&#8217;, and &#8216;)&#8217;, matches itself.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+.</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Matches any single character that is not a newline (&#8216;\n&#8217;).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<i class="arg">char-class</i>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Matches any single character in <i class="arg">char-class</i>. To include a &#8216;<code class="lit">]</code>&#8217; in <i class="arg">char-class</i>, it must be the first character. A range of characters may be specified by separating the end characters of the range with a &#8216;<code class="lit">-</code>&#8217;; e.g. <i class="arg">a-z</i> specifies the lower case characters. The following literal expressions can also be used in <i class="arg">char-class</i> to specify sets of characters:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+[:alnum:] [:cntrl:] [:lower:] [:space:] 
+[:alpha:] [:digit:] [:print:] [:upper:] 
+[:blank:] [:graph:] [:punct:] [:xdigit:]</pre>
+<div class="spacer">
+</div>
+If &#8216;<code class="lit">-</code>&#8217; appears as the first or last character of <i class="arg">char-class</i>, then it matches itself. All other characters in <i class="arg">char-class</i> match themselves.<div class="spacer">
+</div>
+Patterns in <i class="arg">char-class</i> of the form [.<i class="arg">col-elm</i>.] or [=<i class="arg">col-elm</i>=], where <i class="arg">col-elm</i> is a collating element, are interpreted according to <a class="link-man" href="../html3/setlocale.html">setlocale(3)</a> (not currently supported).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[^<i class="arg">char-class</i>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Matches any single character, other than newline, not in <i class="arg">char-class</i>. <i class="arg">char-class</i> is defined as above.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+^</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+If &#8216;^&#8217; is the first character of a regular expression, then it anchors the regular expression to the beginning of a line. Otherwise, it matches itself.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+$</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+If &#8216;$&#8217; is the last character of a regular expression, it anchors the regular expression to the end of a line. Otherwise, it matches itself.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[[:&lt;:]]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Anchors the single character regular expression or subexpression immediately following it to the beginning of a word.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[[:&gt;:]]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Anchors the single character regular expression or subexpression immediately following it to the end of a word.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+\(<i class="arg">re</i>\)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Defines a subexpression <i class="arg">re</i>. Subexpressions may be nested. A subsequent backreference of the form \<i class="arg">n</i>, where <i class="arg">n</i> is a number in the range [1,9], expands to the text matched by the <i class="arg">n</i>th subexpression. For example, the regular expression <i class="arg">\(.*\)\1</i> matches any string consisting of identical adjacent substrings. Subexpressions are ordered relative to their left delimiter.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+*</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Matches the single character regular expression or subexpression immediately preceding it zero or more times. If &#8216;*&#8217; is the first character of a regular expression or subexpression, then it matches itself. The &#8216;*&#8217; operator sometimes yields unexpected results. For example, the regular expression <i class="arg">b*</i> matches the beginning of the string &#8220;abbb&#8221; (as opposed to the substring &#8220;bbb&#8221;), since a null match is the only leftmost match.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+\{<i class="arg">n</i>,<i class="arg">m</i><code class="none">\}&#160;</code>\{<i class="arg">n</i>,<code class="none">\}&#160;</code>\{<i class="arg">n</i><code class="none">\}</code></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+ Matches the single character regular expression or subexpression immediately preceding it at least <i class="arg">n</i> and at most <i class="arg">m</i> times. If <i class="arg">m</i> is omitted, then it matches at least <i class="arg">n</i> times. If the comma is also omitted, then it matches exactly <i class="arg">n</i> times.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html3/regex.html">regex(3)</a></div>
+<div class="section">
+<h1 id="x5354414e4441524453">STANDARDS</h1> IEEE Std 1003.1-2004 (&#8220;POSIX.1&#8221;): Base Definitions, Chapter 9 (Regular Expressions).</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> Having two kinds of REs is a botch.<div class="spacer">
+</div>
+The current POSIX spec says that &#8216;)&#8217; is an ordinary character in the absence of an unmatched &#8216;(&#8217;; this was an unintentional result of a wording error, and change is likely. Avoid relying on it.<div class="spacer">
+</div>
+Back-references are a dreadful botch, posing major problems for efficient implementations. They are also somewhat vaguely defined (does &#8216;a\(\(b\)*\2\)*d&#8217; match &#8216;abbbd&#8217;?). Avoid using them.<div class="spacer">
+</div>
+POSIX's specification of case-independent matching is vague. The &#8220;one case implies all cases&#8221; definition given above is the current consensus among implementors as to the right interpretation.<div class="spacer">
+</div>
+The syntax for word boundaries is incredibly ugly.</div>
+</div>
+</body>
+</html>
+

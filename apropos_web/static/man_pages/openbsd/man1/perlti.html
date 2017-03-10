@@ -1,0 +1,1118 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+PERLTIE(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERLTIE(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+PERLTIE(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perltie - how to hide an object class in a simple variable</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ tie VARIABLE, CLASSNAME, LIST<br/>
+<br/>
+ $object = tied VARIABLE<br/>
+<br/>
+ untie VARIABLE<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1> Prior to release 5.0 of Perl, a programmer could use  <i>dbmopen()</i> to connect an on-disk database in the standard Unix  <i>dbm</i>(3x) format magically to a %HASH in their program.  However, their Perl was either built with one particular dbm library or another, but not both, and you couldn't extend this mechanism to other packages or types of variables.<div class="spacer">
+</div>
+Now you can.<div class="spacer">
+</div>
+The <i>tie()</i> function binds a variable to a class (package) that will provide the implementation for access methods for that variable.  Once this magic has been performed, accessing a tied variable automatically triggers method calls in the proper class.  The complexity of the class is hidden behind magic methods calls.  The method names are in ALL CAPS, which is a convention that Perl uses to indicate that they're called implicitly rather than explicitly--just like the  <i>BEGIN()</i> and <i>END()</i> functions.<div class="spacer">
+</div>
+In the <i>tie()</i> call, &quot;VARIABLE&quot; is the name of the variable to be enchanted.  &quot;CLASSNAME&quot; is the name of a class implementing objects of the correct type.  Any additional arguments in the &quot;LIST&quot; are passed to the appropriate constructor method for that class--meaning  <i>TIESCALAR()</i>,  <i>TIEARRAY()</i>, <i>TIEHASH()</i>, or <i>TIEHANDLE()</i>.  (Typically these are arguments such as might be passed to the  <i>dbminit()</i> function of C.) The object returned by the &quot;new&quot; method is also returned by the  <i>tie()</i> function, which would be useful if you wanted to access other methods in &quot;CLASSNAME&quot;. (You don't actually have to return a reference to a right &quot;type&quot; (e.g., HASH or &quot;CLASSNAME&quot;) so long as it's a properly blessed object.)  You can also retrieve a reference to the underlying object using the  <i>tied()</i> function.<div class="spacer">
+</div>
+Unlike <i>dbmopen()</i>, the <i>tie()</i> function will not &quot;use&quot; or &quot;require&quot; a module for you--you need to do that explicitly yourself.<div class="subsection">
+<h2>Tying Scalars</h2> A class implementing a tied scalar should define the following methods: TIESCALAR, FETCH, STORE, and possibly UNTIE and/or DESTROY.<div class="spacer">
+</div>
+Let's look at each in turn, using as an example a tie class for scalars that allows the user to do something like:<div class="spacer">
+</div>
+<br/>
+    tie $his_speed, 'Nice', getppid();<br/>
+    tie $my_speed,  'Nice', $$;<br/>
+<div class="spacer">
+</div>
+And now whenever either of those variables is accessed, its current system priority is retrieved and returned.  If those variables are set, then the process's priority is changed!<div class="spacer">
+</div>
+We'll use Jarkko Hietaniemi &lt;<i>jhi@iki.fi</i>&gt;'s BSD::Resource class (not included) to access the PRIO_PROCESS, PRIO_MIN, and PRIO_MAX constants from your system, as well as the  <i>getpriority()</i> and <i>setpriority()</i> system calls.  Here's the preamble of the class.<div class="spacer">
+</div>
+<br/>
+    package Nice;<br/>
+    use Carp;<br/>
+    use BSD::Resource;<br/>
+    use strict;<br/>
+    $Nice::DEBUG = 0 unless defined $Nice::DEBUG;<br/>
+<dl>
+<dt>
+TIESCALAR classname, LIST </dt>
+<dd>
+This is the constructor for the class.  That means it is expected to return a blessed reference to a new scalar (probably anonymous) that it's creating.  For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub TIESCALAR {<br/>
+        my $class = shift;<br/>
+        my $pid = shift || $$; # 0 means me<br/>
+<br/>
+        if ($pid !~ /^\d+$/) {<br/>
+            carp &quot;Nice::Tie::Scalar got non-numeric pid $pid&quot; if $^W;<br/>
+            return undef;<br/>
+        }<br/>
+<br/>
+        unless (kill 0, $pid) { # EPERM or ERSCH, no doubt<br/>
+            carp &quot;Nice::Tie::Scalar got bad pid $pid: $!&quot; if $^W;<br/>
+            return undef;<br/>
+        }<br/>
+<br/>
+        return bless \$pid, $class;<br/>
+    }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This tie class has chosen to return an error rather than raising an exception if its constructor should fail.  While this is how  <i>dbmopen()</i> works, other classes may well not wish to be so forgiving.  It checks the global variable $^W to see whether to emit a bit of noise anyway.</dd>
+</dl>
+<dl>
+<dt>
+FETCH this</dt>
+<dd>
+This method will be triggered every time the tied variable is accessed (read).  It takes no arguments beyond its self reference, which is the object representing the scalar we're dealing with.  Because in this case we're using just a SCALAR ref for the tied scalar object, a simple $$self allows the method to get at the real value stored there.  In our example below, that real value is the process ID to which we've tied our variable.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub FETCH {<br/>
+        my $self = shift;<br/>
+        confess &quot;wrong type&quot; unless ref $self;<br/>
+        croak &quot;usage error&quot; if @_;<br/>
+        my $nicety;<br/>
+        local($!) = 0;<br/>
+        $nicety = getpriority(PRIO_PROCESS, $$self);<br/>
+        if ($!) { croak &quot;getpriority failed: $!&quot; }<br/>
+        return $nicety;<br/>
+    }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This time we've decided to blow up (raise an exception) if the renice fails--there's no place for us to return an error otherwise, and it's probably the right thing to do.</dd>
+</dl>
+<dl>
+<dt>
+STORE this, value</dt>
+<dd>
+This method will be triggered every time the tied variable is set (assigned).  Beyond its self reference, it also expects one (and only one) argument: the new value the user is trying to assign. Don't worry about returning a value from STORE; the semantic of assignment returning the assigned value is implemented with FETCH.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub STORE {<br/>
+        my $self = shift;<br/>
+        confess &quot;wrong type&quot; unless ref $self;<br/>
+        my $new_nicety = shift;<br/>
+        croak &quot;usage error&quot; if @_;<br/>
+<br/>
+        if ($new_nicety &lt; PRIO_MIN) {<br/>
+            carp sprintf<br/>
+              &quot;WARNING: priority %d less than minimum system priority %d&quot;,<br/>
+                  $new_nicety, PRIO_MIN if $^W;<br/>
+            $new_nicety = PRIO_MIN;<br/>
+        }<br/>
+<br/>
+        if ($new_nicety &gt; PRIO_MAX) {<br/>
+            carp sprintf<br/>
+              &quot;WARNING: priority %d greater than maximum system priority %d&quot;,<br/>
+                  $new_nicety, PRIO_MAX if $^W;<br/>
+            $new_nicety = PRIO_MAX;<br/>
+        }<br/>
+<br/>
+        unless (defined setpriority(PRIO_PROCESS, $$self, $new_nicety)) {<br/>
+            confess &quot;setpriority failed: $!&quot;;<br/>
+        }<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+UNTIE this</dt>
+<dd>
+This method will be triggered when the &quot;untie&quot; occurs. This can be useful if the class needs to know when no further calls will be made. (Except DESTROY of course.) See &quot;The &quot;untie&quot; Gotcha&quot; below for more details.</dd>
+</dl>
+<dl>
+<dt>
+DESTROY this</dt>
+<dd>
+This method will be triggered when the tied variable needs to be destructed. As with other object classes, such a method is seldom necessary, because Perl deallocates its moribund object's memory for you automatically--this isn't C++, you know.  We'll use a DESTROY method here for debugging purposes only.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub DESTROY {<br/>
+        my $self = shift;<br/>
+        confess &quot;wrong type&quot; unless ref $self;<br/>
+        carp &quot;[ Nice::DESTROY pid $$self ]&quot; if $Nice::DEBUG;<br/>
+    }<br/>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+That's about all there is to it.  Actually, it's more than all there is to it, because we've done a few nice things here for the sake of completeness, robustness, and general aesthetics.  Simpler TIESCALAR classes are certainly possible.</div>
+<div class="subsection">
+<h2>Tying Arrays</h2> A class implementing a tied ordinary array should define the following methods: TIEARRAY, FETCH, STORE, FETCHSIZE, STORESIZE, CLEAR and perhaps UNTIE and/or DESTROY.<div class="spacer">
+</div>
+FETCHSIZE and STORESIZE are used to provide $#array and equivalent &quot;scalar(@array)&quot; access.<div class="spacer">
+</div>
+The methods POP, PUSH, SHIFT, UNSHIFT, SPLICE, DELETE, and EXISTS are required if the perl operator with the corresponding (but lowercase) name is to operate on the tied array. The  <b>Tie::Array</b> class can be used as a base class to implement the first five of these in terms of the basic methods above.  The default implementations of DELETE and EXISTS in  <b>Tie::Array</b> simply &quot;croak&quot;.<div class="spacer">
+</div>
+In addition EXTEND will be called when perl would have pre-extended allocation in a real array.<div class="spacer">
+</div>
+For this discussion, we'll implement an array whose elements are a fixed size at creation.  If you try to create an element larger than the fixed size, you'll take an exception.  For example:<div class="spacer">
+</div>
+<br/>
+    use FixedElem_Array;<br/>
+    tie @array, 'FixedElem_Array', 3;<br/>
+    $array[0] = 'cat';  # ok.<br/>
+    $array[1] = 'dogs'; # exception, length('dogs') &gt; 3.<br/>
+<div class="spacer">
+</div>
+The preamble code for the class is as follows:<div class="spacer">
+</div>
+<br/>
+    package FixedElem_Array;<br/>
+    use Carp;<br/>
+    use strict;<br/>
+<dl>
+<dt>
+TIEARRAY classname, LIST </dt>
+<dd>
+This is the constructor for the class.  That means it is expected to return a blessed reference through which the new array (probably an anonymous ARRAY ref) will be accessed.<div style="height: 1.00em;">
+&#160;</div>
+In our example, just to show you that you don't <i>really</i> have to return an ARRAY reference, we'll choose a HASH reference to represent our object. A HASH works out well as a generic record type: the &quot;{ELEMSIZE}&quot; field will store the maximum element size allowed, and the &quot;{ARRAY}&quot; field will hold the true ARRAY ref.  If someone outside the class tries to dereference the object returned (doubtless thinking it an ARRAY ref), they'll blow up. This just goes to show you that you should respect an object's privacy.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub TIEARRAY {<br/>
+      my $class    = shift;<br/>
+      my $elemsize = shift;<br/>
+      if ( @_ || $elemsize =~ /\D/ ) {<br/>
+        croak &quot;usage: tie ARRAY, '&quot; . __PACKAGE__ . &quot;', elem_size&quot;;<br/>
+      }<br/>
+      return bless {<br/>
+        ELEMSIZE =&gt; $elemsize,<br/>
+        ARRAY    =&gt; [],<br/>
+      }, $class;<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+FETCH this, index</dt>
+<dd>
+This method will be triggered every time an individual element the tied array is accessed (read).  It takes one argument beyond its self reference: the index whose value we're trying to fetch.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub FETCH {<br/>
+      my $self  = shift;<br/>
+      my $index = shift;<br/>
+      return $self-&gt;{ARRAY}-&gt;[$index];<br/>
+    }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If a negative array index is used to read from an array, the index will be translated to a positive one internally by calling FETCHSIZE before being passed to FETCH.  You may disable this feature by assigning a true value to the variable $NEGATIVE_INDICES in the tied array class.<div style="height: 1.00em;">
+&#160;</div>
+As you may have noticed, the name of the FETCH method (et al.) is the same for all accesses, even though the constructors differ in names (TIESCALAR vs TIEARRAY).  While in theory you could have the same class servicing several tied types, in practice this becomes cumbersome, and it's easiest to keep them at simply one tie type per class.</dd>
+</dl>
+<dl>
+<dt>
+STORE this, index, value</dt>
+<dd>
+This method will be triggered every time an element in the tied array is set (written).  It takes two arguments beyond its self reference: the index at which we're trying to store something and the value we're trying to put there.<div style="height: 1.00em;">
+&#160;</div>
+In our example, &quot;undef&quot; is really &quot;$self-&gt;{ELEMSIZE}&quot; number of spaces so we have a little more work to do here:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub STORE {<br/>
+      my $self = shift;<br/>
+      my( $index, $value ) = @_;<br/>
+      if ( length $value &gt; $self-&gt;{ELEMSIZE} ) {<br/>
+        croak &quot;length of $value is greater than $self-&gt;{ELEMSIZE}&quot;;<br/>
+      }<br/>
+      # fill in the blanks<br/>
+      $self-&gt;EXTEND( $index ) if $index &gt; $self-&gt;FETCHSIZE();<br/>
+      # right justify to keep element size for smaller elements<br/>
+      $self-&gt;{ARRAY}-&gt;[$index] = sprintf &quot;%$self-&gt;{ELEMSIZE}s&quot;, $value;<br/>
+    }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Negative indexes are treated the same as with FETCH.</dd>
+</dl>
+<dl>
+<dt>
+FETCHSIZE this</dt>
+<dd>
+Returns the total number of items in the tied array associated with object  <i>this</i>. (Equivalent to &quot;scalar(@array)&quot;).  For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub FETCHSIZE {<br/>
+      my $self = shift;<br/>
+      return scalar @{$self-&gt;{ARRAY}};<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+STORESIZE this, count</dt>
+<dd>
+Sets the total number of items in the tied array associated with object  <i>this</i> to be <i>count</i>. If this makes the array larger then class's mapping of &quot;undef&quot; should be returned for new positions. If the array becomes smaller then entries beyond count should be deleted.<div style="height: 1.00em;">
+&#160;</div>
+In our example, 'undef' is really an element containing &quot;$self-&gt;{ELEMSIZE}&quot; number of spaces.  Observe:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub STORESIZE {<br/>
+      my $self  = shift;<br/>
+      my $count = shift;<br/>
+      if ( $count &gt; $self-&gt;FETCHSIZE() ) {<br/>
+        foreach ( $count - $self-&gt;FETCHSIZE() .. $count ) {<br/>
+          $self-&gt;STORE( $_, '' );<br/>
+        }<br/>
+      } elsif ( $count &lt; $self-&gt;FETCHSIZE() ) {<br/>
+        foreach ( 0 .. $self-&gt;FETCHSIZE() - $count - 2 ) {<br/>
+          $self-&gt;POP();<br/>
+        }<br/>
+      }<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+EXTEND this, count</dt>
+<dd>
+Informative call that array is likely to grow to have <i>count</i> entries. Can be used to optimize allocation. This method need do nothing.<div style="height: 1.00em;">
+&#160;</div>
+In our example, we want to make sure there are no blank (&quot;undef&quot;) entries, so &quot;EXTEND&quot; will make use of &quot;STORESIZE&quot; to fill elements as needed:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub EXTEND {   <br/>
+      my $self  = shift;<br/>
+      my $count = shift;<br/>
+      $self-&gt;STORESIZE( $count );<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+EXISTS this, key</dt>
+<dd>
+Verify that the element at index <i>key</i> exists in the tied array <i>this</i>.<div style="height: 1.00em;">
+&#160;</div>
+In our example, we will determine that if an element consists of &quot;$self-&gt;{ELEMSIZE}&quot; spaces only, it does not exist:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub EXISTS {<br/>
+      my $self  = shift;<br/>
+      my $index = shift;<br/>
+      return 0 if ! defined $self-&gt;{ARRAY}-&gt;[$index] ||<br/>
+                  $self-&gt;{ARRAY}-&gt;[$index] eq ' ' x $self-&gt;{ELEMSIZE};<br/>
+      return 1;<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+DELETE this, key</dt>
+<dd>
+Delete the element at index <i>key</i> from the tied array <i>this</i>.<div style="height: 1.00em;">
+&#160;</div>
+In our example, a deleted item is &quot;$self-&gt;{ELEMSIZE}&quot; spaces:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub DELETE {<br/>
+      my $self  = shift;<br/>
+      my $index = shift;<br/>
+      return $self-&gt;STORE( $index, '' );<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+CLEAR this</dt>
+<dd>
+Clear (remove, delete, ...) all values from the tied array associated with object  <i>this</i>.  For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub CLEAR {<br/>
+      my $self = shift;<br/>
+      return $self-&gt;{ARRAY} = [];<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+PUSH this, LIST </dt>
+<dd>
+Append elements of <i>LIST</i> to the array.  For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub PUSH {  <br/>
+      my $self = shift;<br/>
+      my @list = @_;<br/>
+      my $last = $self-&gt;FETCHSIZE();<br/>
+      $self-&gt;STORE( $last + $_, $list[$_] ) foreach 0 .. $#list;<br/>
+      return $self-&gt;FETCHSIZE();<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+POP this</dt>
+<dd>
+Remove last element of the array and return it.  For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub POP {<br/>
+      my $self = shift;<br/>
+      return pop @{$self-&gt;{ARRAY}};<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+SHIFT this</dt>
+<dd>
+Remove the first element of the array (shifting other elements down) and return it.  For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub SHIFT {<br/>
+      my $self = shift;<br/>
+      return shift @{$self-&gt;{ARRAY}};<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+UNSHIFT this, LIST </dt>
+<dd>
+Insert LIST elements at the beginning of the array, moving existing elements up to make room.  For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub UNSHIFT {<br/>
+      my $self = shift;<br/>
+      my @list = @_;<br/>
+      my $size = scalar( @list );<br/>
+      # make room for our list<br/>
+      @{$self-&gt;{ARRAY}}[ $size .. $#{$self-&gt;{ARRAY}} + $size ]<br/>
+       = @{$self-&gt;{ARRAY}};<br/>
+      $self-&gt;STORE( $_, $list[$_] ) foreach 0 .. $#list;<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+SPLICE this, offset, length, LIST </dt>
+<dd>
+Perform the equivalent of &quot;splice&quot; on the array.<div style="height: 1.00em;">
+&#160;</div>
+<i>offset</i> is optional and defaults to zero, negative values count back from the end of the array.<div style="height: 1.00em;">
+&#160;</div>
+<i>length</i> is optional and defaults to rest of the array.<div style="height: 1.00em;">
+&#160;</div>
+<i>LIST</i> may be empty.<div style="height: 1.00em;">
+&#160;</div>
+Returns a list of the original <i>length</i> elements at <i>offset</i>.<div style="height: 1.00em;">
+&#160;</div>
+In our example, we'll use a little shortcut if there is a <i>LIST</i>:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub SPLICE {<br/>
+      my $self   = shift;<br/>
+      my $offset = shift || 0;<br/>
+      my $length = shift || $self-&gt;FETCHSIZE() - $offset;<br/>
+      my @list   = (); <br/>
+      if ( @_ ) {<br/>
+        tie @list, __PACKAGE__, $self-&gt;{ELEMSIZE};<br/>
+        @list   = @_;<br/>
+      }<br/>
+      return splice @{$self-&gt;{ARRAY}}, $offset, $length, @list;<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+UNTIE this</dt>
+<dd>
+Will be called when &quot;untie&quot; happens. (See &quot;The &quot;untie&quot; Gotcha&quot; below.)</dd>
+</dl>
+<dl>
+<dt>
+DESTROY this</dt>
+<dd>
+This method will be triggered when the tied variable needs to be destructed. As with the scalar tie class, this is almost never needed in a language that does its own garbage collection, so this time we'll just leave it out.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Tying Hashes</h2> Hashes were the first Perl data type to be tied (see  <i>dbmopen()</i>).  A class implementing a tied hash should define the following methods: TIEHASH is the constructor.  FETCH and STORE access the key and value pairs.  EXISTS reports whether a key is present in the hash, and DELETE deletes one. CLEAR empties the hash by deleting all the key and value pairs.  FIRSTKEY and NEXTKEY implement the  <i>keys()</i> and <i>each()</i> functions to iterate over all the keys. SCALAR is triggered when the tied hash is evaluated in scalar context. UNTIE is called when &quot;untie&quot; happens, and DESTROY is called when the tied variable is garbage collected.<div class="spacer">
+</div>
+If this seems like a lot, then feel free to inherit from merely the standard Tie::StdHash module for most of your methods, redefining only the interesting ones.  See Tie::Hash for details.<div class="spacer">
+</div>
+Remember that Perl distinguishes between a key not existing in the hash, and the key existing in the hash but having a corresponding value of &quot;undef&quot;.  The two possibilities can be tested with the &quot;exists()&quot; and &quot;defined()&quot; functions.<div class="spacer">
+</div>
+Here's an example of a somewhat interesting tied hash class:  it gives you a hash representing a particular user's dot files.  You index into the hash with the name of the file (minus the dot) and you get back that dot file's contents.  For example:<div class="spacer">
+</div>
+<br/>
+    use DotFiles;<br/>
+    tie %dot, 'DotFiles';<br/>
+    if ( $dot{profile} =~ /MANPATH/ ||<br/>
+         $dot{login}   =~ /MANPATH/ ||<br/>
+         $dot{cshrc}   =~ /MANPATH/    )<br/>
+    {<br/>
+        print &quot;you seem to set your MANPATH\n&quot;;<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Or here's another sample of using our tied class:<div class="spacer">
+</div>
+<br/>
+    tie %him, 'DotFiles', 'daemon';<br/>
+    foreach $f ( keys %him ) {<br/>
+        printf &quot;daemon dot file %s is size %d\n&quot;,<br/>
+            $f, length $him{$f};<br/>
+    }<br/>
+<div class="spacer">
+</div>
+In our tied hash DotFiles example, we use a regular hash for the object containing several important fields, of which only the &quot;{LIST}&quot; field will be what the user thinks of as the real hash.<dl>
+<dt>
+USER</dt>
+<dd>
+whose dot files this object represents</dd>
+</dl>
+<dl>
+<dt>
+HOME</dt>
+<dd>
+where those dot files live</dd>
+</dl>
+<dl>
+<dt>
+CLOBBER</dt>
+<dd>
+whether we should try to change or remove those dot files</dd>
+</dl>
+<dl>
+<dt>
+LIST</dt>
+<dd>
+the hash of dot file names and content mappings</dd>
+</dl>
+<div class="spacer">
+</div>
+Here's the start of <i>Dotfiles.pm</i>:<div class="spacer">
+</div>
+<br/>
+    package DotFiles;<br/>
+    use Carp;<br/>
+    sub whowasi { (caller(1))[3] . '()' }<br/>
+    my $DEBUG = 0;<br/>
+    sub debug { $DEBUG = @_ ? shift : 1 }<br/>
+<div class="spacer">
+</div>
+For our example, we want to be able to emit debugging info to help in tracing during development.  We keep also one convenience function around internally to help print out warnings;  <i>whowasi()</i> returns the function name that calls it.<div class="spacer">
+</div>
+Here are the methods for the DotFiles tied hash.<dl>
+<dt>
+TIEHASH classname, LIST </dt>
+<dd>
+This is the constructor for the class.  That means it is expected to return a blessed reference through which the new object (probably but not necessarily an anonymous hash) will be accessed.<div style="height: 1.00em;">
+&#160;</div>
+Here's the constructor:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub TIEHASH {<br/>
+        my $self = shift;<br/>
+        my $user = shift || $&gt;;<br/>
+        my $dotdir = shift || '';<br/>
+        croak &quot;usage: @{[&amp;whowasi]} [USER [DOTDIR]]&quot; if @_;<br/>
+        $user = getpwuid($user) if $user =~ /^\d+$/;<br/>
+        my $dir = (getpwnam($user))[7]<br/>
+                || croak &quot;@{[&amp;whowasi]}: no user $user&quot;;<br/>
+        $dir .= &quot;/$dotdir&quot; if $dotdir;<br/>
+<br/>
+        my $node = {<br/>
+            USER    =&gt; $user,<br/>
+            HOME    =&gt; $dir,<br/>
+            LIST    =&gt; {},<br/>
+            CLOBBER =&gt; 0,<br/>
+        };<br/>
+<br/>
+        opendir(DIR, $dir)<br/>
+                || croak &quot;@{[&amp;whowasi]}: can't opendir $dir: $!&quot;;<br/>
+        foreach $dot ( grep /^\./ &amp;&amp; -f &quot;$dir/$_&quot;, readdir(DIR)) {<br/>
+            $dot =~ s/^\.//;<br/>
+            $node-&gt;{LIST}{$dot} = undef;<br/>
+        }<br/>
+        closedir DIR;<br/>
+        return bless $node, $self;<br/>
+    }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+It's probably worth mentioning that if you're going to filetest the return values out of a readdir, you'd better prepend the directory in question.  Otherwise, because we didn't  <i>chdir()</i> there, it would have been testing the wrong file.</dd>
+</dl>
+<dl>
+<dt>
+FETCH this, key</dt>
+<dd>
+This method will be triggered every time an element in the tied hash is accessed (read).  It takes one argument beyond its self reference: the key whose value we're trying to fetch.<div style="height: 1.00em;">
+&#160;</div>
+Here's the fetch for our DotFiles example.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub FETCH {<br/>
+        carp &amp;whowasi if $DEBUG;<br/>
+        my $self = shift;<br/>
+        my $dot = shift;<br/>
+        my $dir = $self-&gt;{HOME};<br/>
+        my $file = &quot;$dir/.$dot&quot;;<br/>
+<br/>
+        unless (exists $self-&gt;{LIST}-&gt;{$dot} || -f $file) {<br/>
+            carp &quot;@{[&amp;whowasi]}: no $dot file&quot; if $DEBUG;<br/>
+            return undef;<br/>
+        }<br/>
+<br/>
+        if (defined $self-&gt;{LIST}-&gt;{$dot}) {<br/>
+            return $self-&gt;{LIST}-&gt;{$dot};<br/>
+        } else {<br/>
+            return $self-&gt;{LIST}-&gt;{$dot} = `cat $dir/.$dot`;<br/>
+        }<br/>
+    }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+It was easy to write by having it call the Unix <i>cat</i>(1) command, but it would probably be more portable to open the file manually (and somewhat more efficient).  Of course, because dot files are a Unixy concept, we're not that concerned.</dd>
+</dl>
+<dl>
+<dt>
+STORE this, key, value</dt>
+<dd>
+This method will be triggered every time an element in the tied hash is set (written).  It takes two arguments beyond its self reference: the index at which we're trying to store something, and the value we're trying to put there.<div style="height: 1.00em;">
+&#160;</div>
+Here in our DotFiles example, we'll be careful not to let them try to overwrite the file unless they've called the  <i>clobber()</i> method on the original object reference returned by  <i>tie()</i>.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub STORE {<br/>
+        carp &amp;whowasi if $DEBUG;<br/>
+        my $self = shift;<br/>
+        my $dot = shift;<br/>
+        my $value = shift;<br/>
+        my $file = $self-&gt;{HOME} . &quot;/.$dot&quot;;<br/>
+        my $user = $self-&gt;{USER};<br/>
+<br/>
+        croak &quot;@{[&amp;whowasi]}: $file not clobberable&quot;<br/>
+            unless $self-&gt;{CLOBBER};<br/>
+<br/>
+        open(my $f, '&gt;', $file) || croak &quot;can't open $file: $!&quot;;<br/>
+        print $f $value;<br/>
+        close($f);<br/>
+    }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If they wanted to clobber something, they might say:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    $ob = tie %daemon_dots, 'daemon';<br/>
+    $ob-&gt;clobber(1);<br/>
+    $daemon_dots{signature} = &quot;A true daemon\n&quot;;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Another way to lay hands on a reference to the underlying object is to use the  <i>tied()</i> function, so they might alternately have set clobber using:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    tie %daemon_dots, 'daemon';<br/>
+    tied(%daemon_dots)-&gt;clobber(1);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The clobber method is simply:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub clobber {<br/>
+        my $self = shift;<br/>
+        $self-&gt;{CLOBBER} = @_ ? shift : 1;<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+DELETE this, key</dt>
+<dd>
+This method is triggered when we remove an element from the hash, typically by using the  <i>delete()</i> function.  Again, we'll be careful to check whether they really want to clobber files.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub DELETE   {<br/>
+        carp &amp;whowasi if $DEBUG;<br/>
+<br/>
+        my $self = shift;<br/>
+        my $dot = shift;<br/>
+        my $file = $self-&gt;{HOME} . &quot;/.$dot&quot;;<br/>
+        croak &quot;@{[&amp;whowasi]}: won't remove file $file&quot;<br/>
+            unless $self-&gt;{CLOBBER};<br/>
+        delete $self-&gt;{LIST}-&gt;{$dot};<br/>
+        my $success = unlink($file);<br/>
+        carp &quot;@{[&amp;whowasi]}: can't unlink $file: $!&quot; unless $success;<br/>
+        $success;<br/>
+    }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The value returned by DELETE becomes the return value of the call to  <i>delete()</i>.  If you want to emulate the normal behavior of <i>delete()</i>, you should return whatever FETCH would have returned for this key. In this example, we have chosen instead to return a value which tells the caller whether the file was successfully deleted.</dd>
+</dl>
+<dl>
+<dt>
+CLEAR this</dt>
+<dd>
+This method is triggered when the whole hash is to be cleared, usually by assigning the empty list to it.<div style="height: 1.00em;">
+&#160;</div>
+In our example, that would remove all the user's dot files!  It's such a dangerous thing that they'll have to set CLOBBER to something higher than 1 to make it happen.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub CLEAR    {<br/>
+        carp &amp;whowasi if $DEBUG;<br/>
+        my $self = shift;<br/>
+        croak &quot;@{[&amp;whowasi]}: won't remove all dot files for $self-&gt;{USER}&quot;<br/>
+            unless $self-&gt;{CLOBBER} &gt; 1;<br/>
+        my $dot;<br/>
+        foreach $dot ( keys %{$self-&gt;{LIST}}) {<br/>
+            $self-&gt;DELETE($dot);<br/>
+        }<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+EXISTS this, key</dt>
+<dd>
+This method is triggered when the user uses the <i>exists()</i> function on a particular hash.  In our example, we'll look at the &quot;{LIST}&quot; hash element for this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub EXISTS   {<br/>
+        carp &amp;whowasi if $DEBUG;<br/>
+        my $self = shift;<br/>
+        my $dot = shift;<br/>
+        return exists $self-&gt;{LIST}-&gt;{$dot};<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+FIRSTKEY this</dt>
+<dd>
+This method will be triggered when the user is going to iterate through the hash, such as via a  <i>keys()</i> or <i>each()</i> call.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub FIRSTKEY {<br/>
+        carp &amp;whowasi if $DEBUG;<br/>
+        my $self = shift;<br/>
+        my $a = keys %{$self-&gt;{LIST}};          # reset each() iterator<br/>
+        each %{$self-&gt;{LIST}}<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+NEXTKEY this, lastkey</dt>
+<dd>
+This method gets triggered during a <i>keys()</i> or <i>each()</i> iteration.  It has a second argument which is the last key that had been accessed.  This is useful if you're carrying about ordering or calling the iterator from more than one sequence, or not really storing things in a hash anywhere.<div style="height: 1.00em;">
+&#160;</div>
+For our example, we're using a real hash so we'll do just the simple thing, but we'll have to go through the LIST field indirectly.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub NEXTKEY  {<br/>
+        carp &amp;whowasi if $DEBUG;<br/>
+        my $self = shift;<br/>
+        return each %{ $self-&gt;{LIST} }<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+SCALAR this</dt>
+<dd>
+This is called when the hash is evaluated in scalar context. In order to mimic the behaviour of untied hashes, this method should return a false value when the tied hash is considered empty. If this method does not exist, perl will make some educated guesses and return true when the hash is inside an iteration. If this isn't the case, FIRSTKEY is called, and the result will be a false value if FIRSTKEY returns the empty list, true otherwise.<div style="height: 1.00em;">
+&#160;</div>
+However, you should <b>not</b> blindly rely on perl always doing the right thing. Particularly, perl will mistakenly return true when you clear the hash by repeatedly calling DELETE until it is empty. You are therefore advised to supply your own SCALAR method when you want to be absolutely sure that your hash behaves nicely in scalar context.<div style="height: 1.00em;">
+&#160;</div>
+In our example we can just call &quot;scalar&quot; on the underlying hash referenced by &quot;$self-&gt;{LIST}&quot;:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub SCALAR {<br/>
+        carp &amp;whowasi if $DEBUG;<br/>
+        my $self = shift;<br/>
+        return scalar %{ $self-&gt;{LIST} }<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+UNTIE this</dt>
+<dd>
+This is called when &quot;untie&quot; occurs.  See &quot;The &quot;untie&quot; Gotcha&quot; below.</dd>
+</dl>
+<dl>
+<dt>
+DESTROY this</dt>
+<dd>
+This method is triggered when a tied hash is about to go out of scope.  You don't really need it unless you're trying to add debugging or have auxiliary state to clean up.  Here's a very simple function:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub DESTROY  {<br/>
+        carp &amp;whowasi if $DEBUG;<br/>
+    }<br/>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+Note that functions such as <i>keys()</i> and <i>values()</i> may return huge lists when used on large objects, like DBM files.  You may prefer to use the  <i>each()</i> function to iterate over such.  Example:<div class="spacer">
+</div>
+<br/>
+    # print out history file offsets<br/>
+    use NDBM_File;<br/>
+    tie(%HIST, 'NDBM_File', '/usr/lib/news/history', 1, 0);<br/>
+    while (($key,$val) = each %HIST) {<br/>
+        print $key, ' = ', unpack('L',$val), &quot;\n&quot;;<br/>
+    }<br/>
+    untie(%HIST);<br/>
+</div>
+<div class="subsection">
+<h2>Tying FileHandles</h2> This is partially implemented now.<div class="spacer">
+</div>
+A class implementing a tied filehandle should define the following methods: TIEHANDLE, at least one of PRINT, PRINTF, WRITE, READLINE, GETC, READ, and possibly CLOSE, UNTIE and DESTROY.  The class can also provide: BINMODE, OPEN, EOF, FILENO, SEEK, TELL - if the corresponding perl operators are used on the handle.<div class="spacer">
+</div>
+When STDERR is tied, its PRINT method will be called to issue warnings and error messages.  This feature is temporarily disabled during the call, which means you can use &quot;warn()&quot; inside PRINT without starting a recursive loop.  And just like &quot;__WARN__&quot; and &quot;__DIE__&quot; handlers, STDERR's PRINT method may be called to report parser errors, so the caveats mentioned under &quot;%SIG&quot; in perlvar apply.<div class="spacer">
+</div>
+All of this is especially useful when perl is embedded in some other program, where output to STDOUT and STDERR may have to be redirected in some special way.  See nvi and the Apache module for examples.<div class="spacer">
+</div>
+When tying a handle, the first argument to &quot;tie&quot; should begin with an asterisk.  So, if you are tying STDOUT, use *STDOUT.  If you have assigned it to a scalar variable, say $handle, use *$handle. &quot;tie $handle&quot; ties the scalar variable $handle, not the handle inside it.<div class="spacer">
+</div>
+In our example we're going to create a shouting handle.<div class="spacer">
+</div>
+<br/>
+    package Shout;<br/>
+<dl>
+<dt>
+TIEHANDLE classname, LIST </dt>
+<dd>
+This is the constructor for the class.  That means it is expected to return a blessed reference of some sort. The reference can be used to hold some internal information.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub TIEHANDLE { print &quot;&lt;shout&gt;\n&quot;; my $i; bless \$i, shift }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+WRITE this, LIST </dt>
+<dd>
+This method will be called when the handle is written to via the &quot;syswrite&quot; function.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub WRITE {<br/>
+        $r = shift;<br/>
+        my($buf,$len,$offset) = @_;<br/>
+        print &quot;WRITE called, \$buf=$buf, \$len=$len, \$offset=$offset&quot;;<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+PRINT this, LIST </dt>
+<dd>
+This method will be triggered every time the tied handle is printed to with the &quot;print()&quot; or &quot;say()&quot; functions.  Beyond its self reference it also expects the list that was passed to the print function.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub PRINT { $r = shift; $$r++; print join($,,map(uc($_),@_)),$\ }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+&quot;say()&quot; acts just like &quot;print()&quot; except $\ will be localized to &quot;\n&quot; so you need do nothing special to handle &quot;say()&quot; in &quot;PRINT()&quot;.</dd>
+</dl>
+<dl>
+<dt>
+PRINTF this, LIST </dt>
+<dd>
+This method will be triggered every time the tied handle is printed to with the &quot;printf()&quot; function. Beyond its self reference it also expects the format and list that was passed to the printf function.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub PRINTF {<br/>
+        shift;<br/>
+        my $fmt = shift;<br/>
+        print sprintf($fmt, @_);<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+READ this, LIST </dt>
+<dd>
+This method will be called when the handle is read from via the &quot;read&quot; or &quot;sysread&quot; functions.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub READ {<br/>
+        my $self = shift;<br/>
+        my $bufref = \$_[0];<br/>
+        my(undef,$len,$offset) = @_;<br/>
+        print &quot;READ called, \$buf=$bufref, \$len=$len, \$offset=$offset&quot;;<br/>
+        # add to $$bufref, set $len to number of characters read<br/>
+        $len;<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+READLINE this</dt>
+<dd>
+This method is called when the handle is read via &quot;&lt;HANDLE&gt;&quot; or &quot;readline HANDLE&quot;.<div style="height: 1.00em;">
+&#160;</div>
+As per &quot;readline&quot;, in scalar context it should return the next line, or &quot;undef&quot; for no more data.  In list context it should return all remaining lines, or an empty list for no more data.  The strings returned should include the input record separator $/ (see perlvar), unless it is &quot;undef&quot; (which means &quot;slurp&quot; mode).<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub READLINE {<br/>
+      my $r = shift;<br/>
+      if (wantarray) {<br/>
+        return (&quot;all remaining\n&quot;,<br/>
+                &quot;lines up\n&quot;,<br/>
+                &quot;to eof\n&quot;);<br/>
+      } else {<br/>
+        return &quot;READLINE called &quot; . ++$$r . &quot; times\n&quot;;<br/>
+      }<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+GETC this</dt>
+<dd>
+This method will be called when the &quot;getc&quot; function is called.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub GETC { print &quot;Don't GETC, Get Perl&quot;; return &quot;a&quot;; }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+EOF this</dt>
+<dd>
+This method will be called when the &quot;eof&quot; function is called.<div style="height: 1.00em;">
+&#160;</div>
+Starting with Perl 5.12, an additional integer parameter will be passed.  It will be zero if &quot;eof&quot; is called without parameter; 1 if &quot;eof&quot; is given a filehandle as a parameter, e.g. &quot;eof(FH)&quot;; and 2 in the very special case that the tied filehandle is &quot;ARGV&quot; and &quot;eof&quot; is called with an empty parameter list, e.g. &quot;eof()&quot;.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub EOF { not length $stringbuf }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+CLOSE this</dt>
+<dd>
+This method will be called when the handle is closed via the &quot;close&quot; function.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub CLOSE { print &quot;CLOSE called.\n&quot; }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+UNTIE this</dt>
+<dd>
+As with the other types of ties, this method will be called when &quot;untie&quot; happens. It may be appropriate to &quot;auto CLOSE&quot; when this occurs.  See &quot;The &quot;untie&quot; Gotcha&quot; below.</dd>
+</dl>
+<dl>
+<dt>
+DESTROY this</dt>
+<dd>
+As with the other types of ties, this method will be called when the tied handle is about to be destroyed. This is useful for debugging and possibly cleaning up.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub DESTROY { print &quot;&lt;/shout&gt;\n&quot; }<br/>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+Here's how to use our little example:<div class="spacer">
+</div>
+<br/>
+    tie(*FOO,'Shout');<br/>
+    print FOO &quot;hello\n&quot;;<br/>
+    $a = 4; $b = 6;<br/>
+    print FOO $a, &quot; plus &quot;, $b, &quot; equals &quot;, $a + $b, &quot;\n&quot;;<br/>
+    print &lt;FOO&gt;;<br/>
+</div>
+<div class="subsection">
+<h2>UNTIE this</h2> You can define for all tie types an UNTIE method that will be called at  <i>untie()</i>.  See &quot;The &quot;untie&quot; Gotcha&quot; below.</div>
+<div class="subsection">
+<h2>The &quot;untie&quot; Gotcha</h2> If you intend making use of the object returned from either  <i>tie()</i> or  <i>tied()</i>, and if the tie's target class defines a destructor, there is a subtle gotcha you  <i>must</i> guard against.<div class="spacer">
+</div>
+As setup, consider this (admittedly rather contrived) example of a tie; all it does is use a file to keep a log of the values assigned to a scalar.<div class="spacer">
+</div>
+<br/>
+    package Remember;<br/>
+<br/>
+    use strict;<br/>
+    use warnings;<br/>
+    use IO::File;<br/>
+<br/>
+    sub TIESCALAR {<br/>
+        my $class = shift;<br/>
+        my $filename = shift;<br/>
+        my $handle = IO::File-&gt;new( &quot;&gt; $filename&quot; )<br/>
+                         or die &quot;Cannot open $filename: $!\n&quot;;<br/>
+<br/>
+        print $handle &quot;The Start\n&quot;;<br/>
+        bless {FH =&gt; $handle, Value =&gt; 0}, $class;<br/>
+    }<br/>
+<br/>
+    sub FETCH {<br/>
+        my $self = shift;<br/>
+        return $self-&gt;{Value};<br/>
+    }<br/>
+<br/>
+    sub STORE {<br/>
+        my $self = shift;<br/>
+        my $value = shift;<br/>
+        my $handle = $self-&gt;{FH};<br/>
+        print $handle &quot;$value\n&quot;;<br/>
+        $self-&gt;{Value} = $value;<br/>
+    }<br/>
+<br/>
+    sub DESTROY {<br/>
+        my $self = shift;<br/>
+        my $handle = $self-&gt;{FH};<br/>
+        print $handle &quot;The End\n&quot;;<br/>
+        close $handle;<br/>
+    }<br/>
+<br/>
+    1;<br/>
+<div class="spacer">
+</div>
+Here is an example that makes use of this tie:<div class="spacer">
+</div>
+<br/>
+    use strict;<br/>
+    use Remember;<br/>
+<br/>
+    my $fred;<br/>
+    tie $fred, 'Remember', 'myfile.txt';<br/>
+    $fred = 1;<br/>
+    $fred = 4;<br/>
+    $fred = 5;<br/>
+    untie $fred;<br/>
+    system &quot;cat myfile.txt&quot;;<br/>
+<div class="spacer">
+</div>
+This is the output when it is executed:<div class="spacer">
+</div>
+<br/>
+    The Start<br/>
+    1<br/>
+    4<br/>
+    5<br/>
+    The End<br/>
+<div class="spacer">
+</div>
+So far so good.  Those of you who have been paying attention will have spotted that the tied object hasn't been used so far.  So lets add an extra method to the Remember class to allow comments to be included in the file; say, something like this:<div class="spacer">
+</div>
+<br/>
+    sub comment {<br/>
+        my $self = shift;<br/>
+        my $text = shift;<br/>
+        my $handle = $self-&gt;{FH};<br/>
+        print $handle $text, &quot;\n&quot;;<br/>
+    }<br/>
+<div class="spacer">
+</div>
+And here is the previous example modified to use the &quot;comment&quot; method (which requires the tied object):<div class="spacer">
+</div>
+<br/>
+    use strict;<br/>
+    use Remember;<br/>
+<br/>
+    my ($fred, $x);<br/>
+    $x = tie $fred, 'Remember', 'myfile.txt';<br/>
+    $fred = 1;<br/>
+    $fred = 4;<br/>
+    comment $x &quot;changing...&quot;;<br/>
+    $fred = 5;<br/>
+    untie $fred;<br/>
+    system &quot;cat myfile.txt&quot;;<br/>
+<div class="spacer">
+</div>
+When this code is executed there is no output.  Here's why:<div class="spacer">
+</div>
+When a variable is tied, it is associated with the object which is the return value of the TIESCALAR, TIEARRAY, or TIEHASH function.  This object normally has only one reference, namely, the implicit reference from the tied variable.  When  <i>untie()</i> is called, that reference is destroyed.  Then, as in the first example above, the object's destructor (DESTROY) is called, which is normal for objects that have no more valid references; and thus the file is closed.<div class="spacer">
+</div>
+In the second example, however, we have stored another reference to the tied object in $x.  That means that when  <i>untie()</i> gets called there will still be a valid reference to the object in existence, so the destructor is not called at that time, and thus the file is not closed.  The reason there is no output is because the file buffers have not been flushed to disk.<div class="spacer">
+</div>
+Now that you know what the problem is, what can you do to avoid it? Prior to the introduction of the optional UNTIE method the only way was the good old &quot;-w&quot; flag. Which will spot any instances where you call  <i>untie()</i> and there are still valid references to the tied object.  If the second script above this near the top &quot;use warnings 'untie'&quot; or was run with the &quot;-w&quot; flag, Perl prints this warning message:<div class="spacer">
+</div>
+<br/>
+    untie attempted while 1 inner references still exist<br/>
+<div class="spacer">
+</div>
+To get the script to work properly and silence the warning make sure there are no valid references to the tied object  <i>before</i> <i>untie()</i> is called:<div class="spacer">
+</div>
+<br/>
+    undef $x;<br/>
+    untie $fred;<br/>
+<div class="spacer">
+</div>
+Now that UNTIE exists the class designer can decide which parts of the class functionality are really associated with &quot;untie&quot; and which with the object being destroyed. What makes sense for a given class depends on whether the inner references are being kept so that non-tie-related methods can be called on the object. But in most cases it probably makes sense to move the functionality that would have been in DESTROY to the UNTIE method.<div class="spacer">
+</div>
+If the UNTIE method exists then the warning above does not occur. Instead the UNTIE method is passed the count of &quot;extra&quot; references and can issue its own warning if appropriate. e.g. to replicate the no UNTIE case this method can be used:<div class="spacer">
+</div>
+<br/>
+    sub UNTIE<br/>
+    {<br/>
+     my ($obj,$count) = @_;<br/>
+     carp &quot;untie attempted while $count inner references still exist&quot; if $count;<br/>
+    }<br/>
+</div>
+</div>
+<div class="section">
+<h1>SEE ALSO</h1> See DB_File or Config for some interesting  <i>tie()</i> implementations. A good starting point for many  <i>tie()</i> implementations is with one of the modules Tie::Scalar, Tie::Array, Tie::Hash, or Tie::Handle.</div>
+<div class="section">
+<h1>BUGS</h1> The bucket usage information provided by &quot;scalar(%hash)&quot; is not available.  What this means is that using %tied_hash in boolean context doesn't work right (currently this always tests false, regardless of whether the hash is empty or hash elements).<div class="spacer">
+</div>
+Localizing tied arrays or hashes does not work.  After exiting the scope the arrays or the hashes are not restored.<div class="spacer">
+</div>
+Counting the number of entries in a hash via &quot;scalar(keys(%hash))&quot; or &quot;scalar(values(%hash)&quot;) is inefficient since it needs to iterate through all the entries with FIRSTKEY/NEXTKEY.<div class="spacer">
+</div>
+Tied hash/array slices cause multiple FETCH/STORE pairs, there are no tie methods for slice operations.<div class="spacer">
+</div>
+You cannot easily tie a multilevel data structure (such as a hash of hashes) to a dbm file.  The first problem is that all but GDBM and Berkeley DB have size limitations, but beyond that, you also have problems with how references are to be represented on disk.  One module that does attempt to address this need is DBM::Deep.  Check your nearest CPAN site as described in perlmodlib for source code.  Note that despite its name, DBM::Deep does not use dbm.  Another earlier attempt at solving the problem is MLDBM, which is also available on the CPAN, but which has some fairly serious limitations.<div class="spacer">
+</div>
+Tied filehandles are still incomplete.  <i>sysopen()</i>, <i>truncate()</i>,  <i>flock()</i>, <i>fcntl()</i>, <i>stat()</i> and -X can't currently be trapped.</div>
+<div class="section">
+<h1>AUTHOR</h1> Tom Christiansen<div class="spacer">
+</div>
+TIEHANDLE by Sven Verdoolaege &lt;<i>skimo@dns.ufsia.ac.be</i>&gt; and Doug MacEachern &lt;<i>dougm@osf.org</i>&gt;<div class="spacer">
+</div>
+UNTIE by Nick Ing-Simmons &lt;<i>nick@ing-simmons.net</i>&gt;<div class="spacer">
+</div>
+SCALAR by Tassilo von Parseval &lt;<i>tassilo.von.parseval@rwth-aachen.de</i>&gt;<div class="spacer">
+</div>
+Tying Arrays by Casey West &lt;<i>casey@geeknest.com</i>&gt;</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2014-11-17</td>
+<td class="foot-os">
+perl v5.20.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

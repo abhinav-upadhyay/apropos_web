@@ -1,0 +1,95 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+VFS_CACHE(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">vfs_cache</b>, <b class="name">cache_enter</b>, <b class="name">cache_lookup</b>, <b class="name">cache_purge</b>, <b class="name">cache_purgevfs</b>, <b class="name">cache_revlookup</b> &#8212; <span class="desc">name lookup cache</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/vnode.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">sys/namei.h</a>&gt;</b><div class="spacer">
+</div>
+<br/>
+<i class="ftype">int</i><br/>
+<b class="fname">cache_lookup</b>(<i class="farg" style="white-space:nowrap;">struct vnode *dvp</i>, <i class="farg" style="white-space:nowrap;">struct vnode **vpp</i>, <i class="farg" style="white-space:nowrap;">struct componentname *cnp</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">cache_enter</b>(<i class="farg" style="white-space:nowrap;">struct vnode *dvp</i>, <i class="farg" style="white-space:nowrap;">struct vnode *vp</i>, <i class="farg" style="white-space:nowrap;">struct componentname *cnp</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">cache_purge</b>(<i class="farg" style="white-space:nowrap;">struct vnode *vp</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">cache_purgevfs</b>(<i class="farg" style="white-space:nowrap;">struct mount *mp</i>);<div class="spacer">
+</div>
+<i class="ftype">int</i><br/>
+<b class="fname">cache_revlookup</b>(<i class="farg" style="white-space:nowrap;">struct vnode *vp</i>, <i class="farg" style="white-space:nowrap;">struct vnode **dvpp</i>, <i class="farg" style="white-space:nowrap;">char **bpp</i>, <i class="farg" style="white-space:nowrap;">char *bufp</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> In order to speed up file name look-up operations (see <a class="link-man" href="../html9/VOP_LOOKUP.html">VOP_LOOKUP(9)</a>), the kernel provides an interface for maintaining a cache of the most recently looked-up file name translations. Entries in this cache have the following definition:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct	namecache { 
+	LIST_ENTRY(namecache) nc_hash;	/* hash chain */ 
+	LIST_ENTRY(namecache) nc_vhash;	/* (reverse) dir hash chain */ 
+	TAILQ_ENTRY(namecache) nc_lru;	/* LRU chain */ 
+	struct	vnode *nc_dvp;		/* vnode of parent of name */ 
+	u_long	nc_dvpid;		/* capability number of nc_dvp */ 
+	struct	vnode *nc_vp;		/* vnode the name refers to */ 
+	u_long	nc_vpid;		/* capability number of nc_vp */ 
+	char	nc_nlen;		/* length of name */ 
+	char	nc_name[NCHNAMLEN];	/* segment name */ 
+};</pre>
+<div class="spacer">
+</div>
+The cache is indexed by a hash value based on the file's base name and its encompassing directory's vnode generation number. Negative caching is also performed so that frequently accessed path names of files that do not exist do not result in expensive lookups.<div class="spacer">
+</div>
+File names with length longer than <span class="define">NCHNAMLEN</span> are not cached to simplify lookups and to save space. Such names are rare and are generally not worth caching.<div class="spacer">
+</div>
+The <b class="name">vfs_cache</b> API contains the following routines:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">cache_lookup</b>(<i class="farg">dvp</i>, <i class="farg">vpp</i>, <i class="farg">cnp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Look up the given name in the cache. <i class="farg">dvp</i> points to the directory to search, <i class="farg">vpp</i> points to a pointer where the vnode of the name being sought will be stored, and <i class="farg">cnp</i> contains the last component of the path name. <i class="farg">cnp</i> must have the <b class="var">cn_nameptr</b>, <b class="var">cn_namelen</b>, and <b class="var">cn_hash</b> fields filled in. If no entry is found for the given name, a new one will be created, even if the path name fails (i.e. it will be negative cached), unless the <a class="link-man" href="../html9/namei.html">namei(9)</a> lookup operation was <span class="define">DELETE</span> or the <span class="define">NOCACHE</span> flag was set for the call to <a class="link-man" href="../html9/namei.html">namei(9)</a>.<div class="spacer">
+</div>
+Upon success, a pointer to a locked vnode is stored in <i class="farg">vpp</i> and a zero value is returned. If locking the vnode fails, the vnode will remain unlocked, <i class="farg">*vpp</i> will be set to <span class="define">NULL</span>, and the corresponding error will be returned. If the cache entry is negative cached, meaning the name is no longer valid, <span class="errno">ENOENT</span> is returned. Otherwise, the cache lookup has failed and a -1 value is returned.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">cache_enter</b>(<i class="farg">dvp</i>, <i class="farg">vp</i>, <i class="farg">cnp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Add a new entry for the translation in the directory <i class="farg">dvp</i> for the vnode <i class="farg">vp</i> with name <i class="farg">cnp</i> to the cache. <i class="farg">cnp</i> must have the <b class="var">cn_nameptr</b>, <b class="var">cn_namelen</b>, and <b class="var">cn_hash</b> fields filled in.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">cache_purge</b>(<i class="farg">vp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Flush all cache entries corresponding with the given vnode <i class="farg">vp</i>. This is called after rename operations to hide entries that would no longer be valid.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">cache_purgevfs</b>(<i class="farg">mp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Flush all cache entries for name translations associated with the file system mount described by <i class="farg">mp</i>. This is called when unmounting file systems, which would make all name translations pertaining to the mount invalid.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">cache_revlookup</b>(<i class="farg">vp</i>, <i class="farg">dvpp</i>, <i class="farg">bpp</i>, <i class="farg">bufp</i>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Scan the cache for the name of the directory entry that points to <i class="farg">vp</i>. <i class="farg">dvpp</i> points to where a pointer to the encompassing directory will be stored. If <i class="farg">bufp</i> is not <span class="define">NULL</span>, the name will be written to the end of the space between this pointer and the value in <i class="farg">bpp</i>, and <i class="farg">bpp</i> will be updated on return to point to the start of the copied name.<div class="spacer">
+</div>
+On success, <i class="farg">*dvpp</i> will be set to point to the encompassing directory and zero will be returned. If the cache misses, <i class="farg">dvpp</i> will be set to <span class="define">NULL</span> and -1 will be returned. Otherwise, failure has occurred, <i class="farg">dvpp</i> will be set to <span class="define">NULL</span>, and an appropriate error code will be returned.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x434f4445205245464552454e434553">CODE REFERENCES</h1> The <b class="name">vfs_cache</b> API is implemented in the file <i class="file">sys/kern/vfs_cache.c</i>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html8/vmstat.html">vmstat(8)</a>, <a class="link-man" href="../html9/namei.html">namei(9)</a>, <a class="link-man" href="../html9/vfs.html">vfs(9)</a>, <a class="link-man" href="../html9/vnode.html">vnode(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">vfs_cache</b> API first appeared in <span class="unix">4.2BSD</span>.</div>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,168 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+CRASH(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">crash</b> &#8212; <span class="desc">system failure and diagnosis</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> This section explains what happens when the system crashes and (very briefly) how to analyze crash dumps.<div class="spacer">
+</div>
+When the system crashes voluntarily it prints a message of the form<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+panic: why i gave up the ghost</pre>
+<div class="spacer">
+</div>
+on the console and enters the kernel debugger, <a class="link-man" href="../html4/ddb.html">ddb(4)</a>.<div class="spacer">
+</div>
+If you wish to report this panic, you should include the output of the <b class="cmd">ps</b> and <b class="cmd">trace</b> commands. Unless the &#8216;ddb.log&#8217; sysctl has been disabled, anything output to screen will be appended to the system message buffer, from where it may be possible to retrieve it through the <a class="link-man" href="../html8/dmesg.html">dmesg(8)</a> command after a warm reboot. If the debugger command <b class="cmd">boot dump</b> is entered, or if the debugger was not compiled into the kernel, or the debugger was disabled with <a class="link-man" href="../html8/sysctl.html">sysctl(8)</a>, then the system dumps the contents of physical memory onto a mass storage peripheral device. The particular device used is determined by the &#8216;dumps on&#8217; directive in the <a class="link-man" href="../html8/config.html">config(8)</a> file used to build the kernel.<div class="spacer">
+</div>
+After the dump has been written, the system then invokes the automatic reboot procedure as described in <a class="link-man" href="../html8/reboot.html">reboot(8)</a>. If auto-reboot is disabled (in a machine dependent way) the system will simply halt at this point.<div class="spacer">
+</div>
+Upon rebooting, and unless some unexpected inconsistency is encountered in the state of the file systems due to hardware or software failure, the system will copy the previously written dump into <i class="file">/var/crash</i> using <a class="link-man" href="../html8/savecore.html">savecore(8)</a>, before resuming multi-user operations.<div class="subsection">
+<h2 id="x436175736573206f662073797374656d206661696c757265">Causes of system failure</h2> The system has a large number of internal consistency checks; if one of these fails, then it will panic with a very short message indicating which one failed. In many instances, this will be the name of the routine which detected the error, or a two-word description of the inconsistency. A full understanding of most panic messages requires perusal of the source code for the system.<div class="spacer">
+</div>
+The most common cause of system failures is hardware failure (e.g., bad memory) which can reflect itself in different ways. Here are the messages which are most likely, with some hints as to causes. Left unstated in all cases is the possibility that a hardware or software error produced the message in some unexpected way.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+no init</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This panic message indicates filesystem problems, and reboots are likely to be futile. Late in the bootstrap procedure, the system was unable to locate and execute the initialization process, <a class="link-man" href="../html8/init.html">init(8)</a>. The root filesystem is incorrect or has been corrupted, or the mode or type of <i class="file">/sbin/init</i> forbids execution.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+trap type %d, code=%x, pc=%x</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+A unexpected trap has occurred within the system; the trap types are machine dependent and can be found listed in <i class="file">/sys/arch/ARCH/include/trap.h</i>.<div class="spacer">
+</div>
+The code is the referenced address, and the pc is the program counter at the time of the fault is printed. Hardware flakiness will sometimes generate this panic, but if the cause is a kernel bug, the kernel debugger <a class="link-man" href="../html4/ddb.html">ddb(4)</a> can be used to locate the instruction and subroutine inside the kernel corresponding to the PC value. If that is insufficient to suggest the nature of the problem, more detailed examination of the system status at the time of the trap usually can produce an explanation.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+init died</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The system initialization process has exited. This is bad news, as no new users will then be able to log in. Rebooting is the only fix, so the system just does it right away.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+out of mbufs: map full</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The network has exhausted its private page map for network buffers. This usually indicates that buffers are being lost, and rather than allow the system to slowly degrade, it reboots immediately. The map may be made larger if necessary.</dd>
+</dl>
+<div class="spacer">
+</div>
+That completes the list of panic types you are likely to see.</div>
+<div class="subsection">
+<h2 id="x416e616c797a696e6720612064756d70">Analyzing a dump</h2> When the system crashes it writes (or at least attempts to write) an image of memory, including the kernel image, onto the dump device. On reboot, the kernel image and memory image are separated and preserved in the directory <i class="file">/var/crash</i>.<div class="spacer">
+</div>
+To analyze the kernel and memory images preserved as <i class="file">bsd.0</i> and <i class="file">bsd.0.core</i>, you should run <a class="link-man" href="../html1/gdb.html">gdb(1)</a>, loading in the images with the following commands:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# gdb 
+GNU gdb 6.3 
+Copyright 2004 Free Software Foundation, Inc. 
+GDB is free software, covered by the GNU General Public License, and you are 
+welcome to change it and/or distribute copies of it under certain conditions. 
+Type &quot;show copying&quot; to see the conditions. 
+There is absolutely no warranty for GDB.  Type &quot;show warranty&quot; for details. 
+This GDB was configured as &quot;i386-unknown-openbsd4.6&quot;. 
+(gdb) file /var/crash/bsd.0 
+Reading symbols from /var/crash/bsd.0...(no debugging symbols found)...done. 
+(gdb) target kvm /var/crash/bsd.0.core</pre>
+<div class="spacer">
+</div>
+[Note that the &#8220;kvm&#8221; target is currently only supported by <a class="link-man" href="../html1/gdb.html">gdb(1)</a> on some architectures.]<div class="spacer">
+</div>
+After this, you can use the <b class="cmd">where</b> command to show trace of procedure calls that led to the crash.<div class="spacer">
+</div>
+For custom-built kernels, it is helpful if you had previously configured your kernel to include debugging symbols with &#8216;makeoptions DEBUG=&quot;-g&quot;&#8217; (see <a class="link-man" href="../html4/options.html">options(4)</a>) (though you will not be able to boot an unstripped kernel since it uses too much memory). In this case, you should use <i class="file">bsd.gdb</i> instead of <i class="file">bsd.0</i>, thus allowing <a class="link-man" href="../html1/gdb.html">gdb(1)</a> to show symbolic names for addresses and line numbers from the source.<div class="spacer">
+</div>
+Analyzing saved system images is sometimes called post-mortem debugging. There are a class of analysis tools designed to work on both live systems and saved images, most of them are linked with the <a class="link-man" href="../html3/kvm.html">kvm(3)</a> library and share option flags to specify the kernel and memory image. These tools typically take the following flags:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-M</b> <i class="arg">core</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Normally this <i class="arg">core</i> is an image produced by <a class="link-man" href="../html8/savecore.html">savecore(8)</a> but it can be <i class="file">/dev/mem</i> too, if you are looking at the live system.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-N</b> <i class="arg">system</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Takes a kernel <i class="arg">system</i> image as an argument. This is where the symbolic information is gotten from, which means the image cannot be stripped. In some cases, using a <i class="file">bsd.gdb</i> version of the kernel can assist even more.</dd>
+</dl>
+<div class="spacer">
+</div>
+The following commands understand these options: <a class="link-man" href="../html1/fstat.html">fstat(1)</a>, <a class="link-man" href="../html1/netstat.html">netstat(1)</a>, <a class="link-man" href="../html1/nfsstat.html">nfsstat(1)</a>, <a class="link-man" href="../html1/ps.html">ps(1)</a>, <a class="link-man" href="../html1/w.html">w(1)</a>, <a class="link-man" href="../html8/dmesg.html">dmesg(8)</a>, <a class="link-man" href="../html8/iostat.html">iostat(8)</a>, <a class="link-man" href="../html8/kgmon.html">kgmon(8)</a>, <a class="link-man" href="../html8/pstat.html">pstat(8)</a>, <a class="link-man" href="../html8/trpt.html">trpt(8)</a>, <a class="link-man" href="../html8/vmstat.html">vmstat(8)</a> and many others. There are exceptions, however. For instance, <a class="link-man" href="../html1/ipcs.html">ipcs(1)</a> has renamed the <b class="flag">-M</b> argument to be <b class="flag">-C</b> instead.<div class="spacer">
+</div>
+Examples of use:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# ps -N /var/crash/bsd.0 -M /var/crash/bsd.0.core -O paddr</pre>
+<div class="spacer">
+</div>
+The <b class="flag">-O</b> <i class="arg">paddr</i> option prints each process' <code class="lit">struct proc</code> address. This is very useful information if you are analyzing process contexts in <a class="link-man" href="../html1/gdb.html">gdb(1)</a>.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# vmstat -N /var/crash/bsd.0 -M /var/crash/bsd.0.core -m</pre>
+<div class="spacer">
+</div>
+This analyzes memory allocations at the time of the crash. Perhaps some resource was starving the system?</div>
+<div class="subsection">
+<h2 id="x416e616c797a696e672061206c697665206b65726e656c">Analyzing a live kernel</h2> Like the tools mentioned above, <a class="link-man" href="../html1/gdb.html">gdb(1)</a> can be used to analyze a live system as well. This can be accomplished by not specifying a crash dump when selecting the &#8220;kvm&#8221; target:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+(gdb) target kvm</pre>
+<div class="spacer">
+</div>
+It is possible to inspect processes that entered the kernel by specifying a process' <code class="lit">struct proc</code> address to the <b class="cmd">kvm proc</b> command:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+(gdb) kvm proc 0xd69dada0 
+#0  0xd0355d91 in sleep_finish (sls=0x0, do_sleep=0) 
+    at ../../../../kern/kern_synch.c:217 
+217                     mi_switch();</pre>
+<div class="spacer">
+</div>
+After this, the <b class="cmd">where</b> command will show a trace of procedure calls, right back to where the selected process entered the kernel.</div>
+</div>
+<div class="section">
+<h1 id="x4352415348204c4f434154494f4e2044455445524d494e4154494f4e">CRASH LOCATION DETERMINATION</h1> The following example should make it easier for a novice kernel developer to find out where the kernel crashed.<div class="spacer">
+</div>
+First, in <a class="link-man" href="../html4/ddb.html">ddb(4)</a> find the function that caused the crash. It is either the function at the top of the traceback or the function under the call to <b class="fname">panic</b>() or <b class="fname">uvm_fault</b>().<div class="spacer">
+</div>
+The point of the crash usually looks something like this &quot;function+0x4711&quot;.<div class="spacer">
+</div>
+Find the function in the sources, let's say that the function is in &quot;foo.c&quot;.<div class="spacer">
+</div>
+Go to the kernel build directory, e.g., <i class="file">/sys/arch/ARCH/compile/GENERIC</i>.<div class="spacer">
+</div>
+Do the following:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# rm foo.o 
+# make DEBUG=-g foo.o 
+# objdump -S foo.o | less</pre>
+<div class="spacer">
+</div>
+Find the function in the output. The function will look something like this:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+0: 17 47 11 42         foo %x, bar, %y 
+4: foo bar             allan %kaka 
+8: XXXX                boink %bloyt 
+etc.</pre>
+<div class="spacer">
+</div>
+The first number is the offset. Find the offset that you got in the ddb trace (in this case it's 4711).<div class="spacer">
+</div>
+When reporting data collected in this way, include ~20 lines before and ~10 lines after the offset from the objdump output in the crash report, as well as the output of <a class="link-man" href="../html4/ddb.html">ddb(4)</a>'s &quot;show registers&quot; command. It's important that the output from objdump includes at least two or three lines of C code.</div>
+<div class="section">
+<h1 id="x5245504f5254494e47">REPORTING</h1> If you are sure you have found a reproducible software bug in the kernel, and need help in further diagnosis, or already have a fix, use <a class="link-man" href="../html1/sendbug.html">sendbug(1)</a> to send the developers a detailed description including the entire session from <a class="link-man" href="../html1/gdb.html">gdb(1)</a>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html1/gdb.html">gdb(1)</a>, <a class="link-man" href="../html1/sendbug.html">sendbug(1)</a>, <a class="link-man" href="../html4/ddb.html">ddb(4)</a>, <a class="link-man" href="../html8/reboot.html">reboot(8)</a>, <a class="link-man" href="../html8/savecore.html">savecore(8)</a></div>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,224 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+DISK_INIT(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">disk_init</b>, <b class="name">disk_attach</b>, <b class="name">disk_detach</b>, <b class="name">disk_busy</b>, <b class="name">disk_unbusy</b> &#8212; <span class="desc">generic disk framework</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/types.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">sys/disklabel.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">sys/disk.h</a>&gt;</b><div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">disk_init</b>(<i class="farg" style="white-space:nowrap;">void</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">disk_attach</b>(<i class="farg" style="white-space:nowrap;">struct disk *</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">disk_detach</b>(<i class="farg" style="white-space:nowrap;">struct disk *</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">disk_busy</b>(<i class="farg" style="white-space:nowrap;">struct disk *</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">disk_unbusy</b>(<i class="farg" style="white-space:nowrap;">struct disk *</i>, <i class="farg" style="white-space:nowrap;">long bcount</i>, <i class="farg" style="white-space:nowrap;">int read</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <span class="unix">OpenBSD</span> generic disk framework is designed to provide flexible, scalable, and consistent handling of disk state and metrics information. The fundamental component of this framework is the <b class="name">disk_init</b> structure, which is defined as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct disk { 
+	TAILQ_ENTRY(disk) dk_link;	/* link in global disklist */ 
+	struct rwlock   dk_lock;        /* disk lock */ 
+	struct mutex	dk_mtx;		/* busy/unbusy mtx */ 
+	char	        *dk_name;	/* disk name */ 
+	struct device	*dk_device;	/* disk device structure. */ 
+	dev_t		dk_devno;	/* disk device number. */ 
+	int             dk_flags;       /* disk flags */ 
+#define DKF_CONSTRUCTED  0x0001 
+#define DKF_OPENED       0x0002 
+#define DKF_NOLABELREAD  0x0004 
+ 
+	/* 
+	 * Metrics data; note that some metrics may have no meaning 
+	 * on certain types of disks. 
+	 */ 
+	int	  dk_busy;	/* busy counter */ 
+	u_int64_t dk_rxfer;	/* total number of read transfers */ 
+	u_int64_t dk_wxfer;	/* total number of write transfers */ 
+	u_int64_t dk_seek;	/* total independent seek operations */ 
+	u_int64_t dk_rbytes;	/* total bytes read */ 
+	u_int64_t dk_wbytes;	/* total bytes written */ 
+	struct timeval	dk_attachtime;	/* time disk was attached */ 
+	struct timeval	dk_timestamp; /*time of first busy or any unbusy*/ 
+	struct timeval	dk_time;	/* total time spent busy */ 
+ 
+        int             dk_bopenmask;   /* block devices open */ 
+        int             dk_copenmask;   /* character devices open */ 
+        int             dk_openmask;    /* composite (bopen|copen) */ 
+        int             dk_state;       /* label state   ### */ 
+        int             dk_blkshift; /*shift to convert DEV_BSIZE to blks*/ 
+        int             dk_byteshift; /* shift to convert bytes to blks */ 
+ 
+	/* 
+	 * Disk label information.  Storage for the in-core disk label 
+	 * must be dynamically allocated, otherwise the size of this 
+	 * structure becomes machine-dependent. 
+	 */ 
+	struct disklabel *dk_label; 
+};</pre>
+<div class="spacer">
+</div>
+The system maintains a global linked-list of all disks attached to the system. This list, called <b class="name">disklist</b>, may grow or shrink over time as disks are dynamically added and removed from the system. An example of a driver which currently makes use of the detachment capability of the framework is the <a class="link-man" href="../html4/vnd.html">vnd(4)</a> pseudo-device driver.<div class="spacer">
+</div>
+The following is a brief description of each function in the framework:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_init</b>()</dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Initialize the disklist and other data structures used by the framework. Called by <b class="fname">main</b>() before autoconfiguration.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_attach</b>()</dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Attach a disk; allocate storage for the disklabel, set the &#8220;attached time&#8221; timestamp, insert the disk into the disklist, and increment the system disk count.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_detach</b>()</dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Detach a disk; free storage for the disklabel, remove the disk from the disklist, and decrement the system disk count. If the count drops below zero, panic.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_busy</b>()</dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Increment the disk's &#8220;busy counter&#8221;. If this counter goes from 0 to 1, set the timestamp corresponding to this transfer.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="fname">disk_unbusy</b>()</dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Decrement a disk's busy counter. If the count drops below zero, print a warning message. Get the current time, subtract it from the disk's timestamp, and add the difference to the disk's running total. Set the disk's timestamp to the current time. If the provided byte count is greater than 0, add it to the disk's running total and increment the number of transfers performed by the disk. The third argument <i class="arg">read</i> specifies the direction of I/O; if non-zero it means reading from the disk, otherwise it means writing to the disk.</dd>
+</dl>
+<div class="spacer">
+</div>
+The functions typically called by device drivers are <b class="fname">disk_attach</b>(), <b class="fname">disk_detach</b>(), <b class="fname">disk_busy</b>() and <b class="fname">disk_unbusy</b>().</div>
+<div class="section">
+<h1 id="x5553494e4720544845204652414d45574f524b">USING THE FRAMEWORK</h1> This section includes a description on basic use of the framework and example usage of its functions. Actual implementation of a device driver which utilizes the framework may vary.<div class="spacer">
+</div>
+A special routine, <b class="fname">disk_init</b>(), is provided to perform basic initialization of data structures used by the framework. It is called exactly once by the system, in <b class="fname">main</b>(), before device autoconfiguration.<div class="spacer">
+</div>
+Each device in the system uses a &#8220;softc&#8221; structure which contains autoconfiguration and state information for that device. In the case of disks, the softc should also contain one instance of the disk structure, e.g.:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct foo_softc { 
+	struct	device *sc_dev;		/* generic device information */ 
+	struct	disk *sc_dk;		/* generic disk information */ 
+	[ . . . more . . . ] 
+};</pre>
+<div class="spacer">
+</div>
+In order for the system to gather metrics data about a disk, the disk must be registered with the system. The <b class="fname">disk_attach</b>() routine performs all of the functions currently required to register a disk with the system including allocation of disklabel storage space, recording of the time since boot that the disk was attached, and insertion into the disklist. Note that since this function allocates storage space for the disklabel, it must be called before the disklabel is read from the media or used in any other way. Before <b class="fname">disk_attach</b>() is called, a portion of the disk structure must be initialized with data specific to that disk. For example, in the &#8220;foo&#8221; disk driver, the following would be performed in the autoconfiguration &#8220;attach&#8221; routine:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+void 
+fooattach(parent, self, aux) 
+	struct device *parent, *self; 
+	void *aux; 
+{ 
+	struct foo_softc *sc = (struct foo_softc *)self; 
+	[ . . . ] 
+ 
+	/* Initialize and attach the disk structure. */ 
+	sc-&gt;sc_dk.dk_driver = &amp;foodkdriver; 
+	sc-&gt;sc_dk.dk_name = sc-&gt;sc_dev.dv_xname; 
+	disk_attach(&amp;sc-&gt;sc_dk); 
+ 
+	/* Read geometry and fill in pertinent parts of disklabel. */ 
+	[ . . . ] 
+}</pre>
+<div class="spacer">
+</div>
+The <b class="name">foodkdriver</b> above is the disk's &#8220;driver&#8221; switch. This switch currently includes a pointer to the disk's &#8220;strategy&#8221; routine. This switch needs to have global scope and should be initialized as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+void	foostrategy(struct buf *); 
+struct	dkdriver foodkdriver = { foostrategy };</pre>
+<div class="spacer">
+</div>
+Once the disk is attached, metrics may be gathered on that disk. In order to gather metrics data, the driver must tell the framework when the disk starts and stops operations. This functionality is provided by the <b class="fname">disk_busy</b>() and <b class="fname">disk_unbusy</b>() routines. The <b class="fname">disk_busy</b>() routine should be called immediately before a command to the disk is sent, e.g.:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+void 
+foostart(sc) 
+	struct foo_softc *sc; 
+{ 
+	[ . . . ] 
+ 
+	/* Get buffer from drive's transfer queue. */ 
+	[ . . . ] 
+ 
+	/* Build command to send to drive. */ 
+	[ . . . ] 
+ 
+	/* Tell the disk framework we're going busy. */ 
+	disk_busy(&amp;sc-&gt;sc_dk); 
+ 
+	/* Send command to the drive. */ 
+	[ . . . ] 
+}</pre>
+<div class="spacer">
+</div>
+When <b class="fname">disk_busy</b>() is called, a timestamp is taken if the disk's busy counter moves from 0 to 1, indicating the disk has gone from an idle to non-idle state. Note that <b class="fname">disk_busy</b>() must be called at <b class="fname">splbio</b>(). At the end of a transaction, the <b class="fname">disk_unbusy</b>() routine should be called. This routine performs some consistency checks, such as ensuring that the calls to <b class="fname">disk_busy</b>() and <b class="fname">disk_unbusy</b>() are balanced. This routine also performs the actual metrics calculation. A timestamp is taken, and the difference from the timestamp taken in <b class="fname">disk_busy</b>() is added to the disk's total running time. The disk's timestamp is then updated in case there is more than one pending transfer on the disk. A byte count is also added to the disk's running total, and if greater than zero, the number of transfers the disk has performed is incremented.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+void 
+foodone(xfer) 
+	struct foo_xfer *xfer; 
+{ 
+	struct foo_softc = (struct foo_softc *)xfer-&gt;xf_softc; 
+	struct buf *bp = xfer-&gt;xf_buf; 
+	long nbytes; 
+	[ . . . ] 
+ 
+	/* 
+	 * Get number of bytes transferred.  If there is no buf 
+	 * associated with the xfer, we are being called at the 
+	 * end of a non-I/O command. 
+	 */ 
+	if (bp == NULL) 
+		nbytes = 0; 
+	else 
+		nbytes = bp-&gt;b_bcount - bp-&gt;b_resid; 
+ 
+	[ . . . ] 
+ 
+	/* Notify the disk framework that we've completed the transfer. */ 
+	disk_unbusy(&amp;sc-&gt;sc_dk, nbytes); 
+ 
+	[ . . . ] 
+}</pre>
+<div class="spacer">
+</div>
+Like <b class="fname">disk_busy</b>(), <b class="fname">disk_unbusy</b>() must be called at <b class="fname">splbio</b>().</div>
+<div class="section">
+<h1 id="x434f4445205245464552454e434553">CODE REFERENCES</h1> The disk framework itself is implemented within the file <i class="file">sys/kern/subr_disk.c</i>. Data structures and function prototypes for the framework are located in <i class="file">sys/sys/disk.h</i>.<div class="spacer">
+</div>
+The <span class="unix">OpenBSD</span> machine-independent SCSI disk and CD-ROM drivers utilize the disk framework. They are located in <i class="file">sys/scsi/sd.c</i> and <i class="file">sys/scsi/cd.c</i>.<div class="spacer">
+</div>
+The <span class="unix">OpenBSD</span> <a class="link-man" href="../html4/vnd.html">vnd(4)</a> driver utilizes the detachment capability of the framework. This is located in <i class="file">sys/dev/vnd.c</i>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html4/vnd.html">vnd(4)</a>, <a class="link-man" href="../html9/spl.html">spl(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <span class="unix">OpenBSD</span> generic disk framework first appeared in <span class="unix">NetBSD&#160;1.2</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> The <span class="unix">OpenBSD</span> generic disk framework was architected and implemented within <span class="unix">NetBSD</span> by <span class="author">Jason R. Thorpe</span> &lt;<a class="link-mail" href="mailto:thorpej@NetBSD.ORG">thorpej@NetBSD.ORG</a>&gt;.</div>
+</div>
+</body>
+</html>
+

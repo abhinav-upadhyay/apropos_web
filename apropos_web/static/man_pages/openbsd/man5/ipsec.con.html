@@ -1,0 +1,758 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+IPSEC.CONF(5)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">ipsec.conf</b> &#8212; <span class="desc">IPsec configuration file</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">ipsec.conf</b> file specifies rules and definitions for IPsec, which provides security services for IP datagrams. IPsec itself is a pair of protocols: Encapsulating Security Payload (ESP), which provides integrity and confidentiality; and Authentication Header (AH), which provides integrity. The IPsec protocol itself is described in <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a>.<div class="spacer">
+</div>
+In its most basic form, a <span class="emph">flow</span> is established between hosts and/or networks, and then Security Associations (<span class="emph">SA</span>) are established, which detail how the desired protection will be achieved. IPsec uses flows to determine whether to apply security services to an IP packet or not.<div class="spacer">
+</div>
+Generally speaking an automated keying daemon, such as <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a>, is used to set up flows and establish SAs, by specifying an &#8216;ike&#8217; line in <b class="name">ipsec.conf</b> (see <i class="link-sec"><a class="link-sec" href="#x4155544f4d41544943204b4559494e47">AUTOMATIC KEYING</a></i>, below). An authentication method, such as public key authentication, will also have to be set up: see the PKI section of <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a> for information on the types of authentication available, and the procedures for setting them up.<div class="spacer">
+</div>
+The keying daemon, <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a>, can be enabled to run at boot time via the <b class="var">isakmpd_flags</b> variable in <a class="link-man" href="../html8/rc.conf.local.html">rc.conf.local(8)</a>. Note that it will probably need to be run with at least the <b class="flag">-K</b> option, to avoid <a class="link-man" href="../html4/keynote.html">keynote(4)</a> policy checking. The <b class="name">ipsec.conf</b> configuration itself is loaded at boot time if the variable <b class="var">ipsec</b> is set to <span class="define">YES</span> in <a class="link-man" href="../html8/rc.conf.local.html">rc.conf.local(8)</a>. A utility called <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a> is also available to load <b class="name">ipsec.conf</b> configurations, and can additionally be used to view and modify IPsec flows.<div class="spacer">
+</div>
+An alternative method of setting up SAs is also possible using manual keying. Manual keying is not recommended, but can be convenient for quick setups and testing. Those procedures are documented within this page.</div>
+<div class="section">
+<h1 id="x49505345432e434f4e462046494c4520464f524d4154">IPSEC.CONF FILE FORMAT</h1> The current line can be extended over multiple lines using a backslash (&#8216;\&#8217;). Comments can be put anywhere in the file using a hash mark (&#8216;#&#8217;), and extend to the end of the current line. Care should be taken when commenting out multi-line text: the comment is effective until the end of the entire block.<div class="spacer">
+</div>
+Argument names not beginning with a letter, digit, or underscore must be quoted.<div class="spacer">
+</div>
+Addresses can be specified in CIDR notation (matching netblocks), as symbolic host names, interface names, or interface group names.<div class="spacer">
+</div>
+Certain parameters can be expressed as lists, in which case <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a> generates all the necessary combinations. For example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+ike esp from {192.168.1.1, 192.168.1.2} to \ 
+	{10.0.0.17, 10.0.0.18} peer 192.168.10.1</pre>
+<div class="spacer">
+</div>
+Will expand to:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+ike esp from 192.168.1.1 to 10.0.0.17 peer 192.168.10.1 
+ike esp from 192.168.1.1 to 10.0.0.18 peer 192.168.10.1 
+ike esp from 192.168.1.2 to 10.0.0.17 peer 192.168.10.1 
+ike esp from 192.168.1.2 to 10.0.0.18 peer 192.168.10.1</pre>
+<div class="spacer">
+</div>
+Macros can be defined that will later be expanded in context. Macro names must start with a letter, digit, or underscore, and may contain any of those characters. Macro names may not be reserved words (for example <b class="cmd">flow</b>, <b class="cmd">from</b>, <b class="cmd">esp</b>). Macros are not expanded inside quotes.<div class="spacer">
+</div>
+For example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+remote_gw = &quot;192.168.3.12&quot; 
+flow esp from 192.168.7.0/24 to 192.168.8.0/24 peer $remote_gw</pre>
+<div class="spacer">
+</div>
+Additional configuration files can be included with the <b class="cmd">include</b> keyword, for example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+include &quot;/etc/macros.conf&quot;</pre>
+</div>
+<div class="section">
+<h1 id="x4155544f4d41544943204b4559494e47">AUTOMATIC KEYING</h1> In this scenario, <b class="name">ipsec.conf</b> is used to set up flows and SAs automatically using <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a> with the ISAKMP/Oakley a.k.a. IKEv1 protocol. To configure automatic keying using the IKEv2 protocol, see <a class="link-man" href="../html5/iked.conf.html">iked.conf(5)</a> instead. Some examples of setting up automatic keying:<div class="spacer">
+</div>
+<pre style="margin-left: 3.00ex;" class="lit display">
+# Set up a VPN: 
+# First between the gateway machines 192.168.3.1 and 192.168.3.2 
+# Second between the networks 10.1.1.0/24 and 10.1.2.0/24 
+ike esp from 192.168.3.1 to 192.168.3.2 
+ike esp from 10.1.1.0/24 to 10.1.2.0/24 peer 192.168.3.2</pre>
+<div class="spacer">
+</div>
+The commands are as follows:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">ike</b> [<span class="opt"><i class="arg">mode</i></span>] [<span class="opt"><i class="arg">encap</i></span>] [<span class="opt"><i class="arg">tmode</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<i class="arg">mode</i> specifies the IKEv1 mode to use: one of <i class="arg">passive</i>, <i class="arg">active</i>, or <i class="arg">dynamic</i>. When <i class="arg">passive</i> is specified, <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a> will not immediately start negotiation of this tunnel, but wait for an incoming request from the remote peer. When <i class="arg">active</i> or <i class="arg">dynamic</i> is specified, negotiation will be started at once. The <i class="arg">dynamic</i> mode will additionally enable Dead Peer Detection (DPD) and use the local hostname as the identity of the local peer, if not specified by the <b class="cmd">srcid</b> parameter. <i class="arg">dynamic</i> mode should be used for hosts with dynamic IP addresses like road warriors or dialup hosts. If omitted, <i class="arg">active</i> mode will be used.<div class="spacer">
+</div>
+<i class="arg">encap</i> specifies the encapsulation protocol to be used. Possible protocols are <i class="arg">esp</i> and <i class="arg">ah</i>; the default is <i class="arg">esp</i>.<div class="spacer">
+</div>
+<i class="arg">tmode</i> describes the encapsulation mode to be used. Possible modes are <i class="arg">tunnel</i> and <i class="arg">transport</i>; the default is <i class="arg">tunnel</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">proto</b> <i class="arg">protocol</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The optional <b class="cmd">proto</b> parameter restricts the flow to a specific IP protocol. Common protocols are <a class="link-man" href="../html4/icmp.html">icmp(4)</a>, <a class="link-man" href="../html4/tcp.html">tcp(4)</a>, and <a class="link-man" href="../html4/udp.html">udp(4)</a>. For a list of all the protocol name to number mappings used by <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a>, see the file <i class="file">/etc/protocols</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">from</b> <i class="arg">src</i> [<span class="opt"><b class="cmd">port</b> <i class="arg">sport</i></span>] [<span class="opt">(<i class="arg">srcnat</i>)</span>] <b class="cmd">to</b> <i class="arg">dst</i> [<span class="opt"><b class="cmd">port</b> <i class="arg">dport</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+This rule applies for packets with source address <i class="arg">src</i> and destination address <i class="arg">dst</i>. The keyword <i class="arg">any</i> will match any address (i.e. 0.0.0.0/0). If the <i class="arg">src</i> argument specifies a fictional source ID, the <i class="arg">srcnat</i> parameter can be used to specify the actual source address. This can be used in outgoing NAT/BINAT scenarios as described below in <i class="link-sec"><a class="link-sec" href="#x4f5554474f494e47204e4554574f524b2041444452455353205452414e534c4154494f4e">OUTGOING NETWORK ADDRESS TRANSLATION</a></i>. Host addresses are parsed as type &#8220;IPV4_ADDR&#8221;; adding the suffix /32 will change the type to &#8220;IPV4_ADDR_SUBNET&#8221;, which can improve interoperability with some IKEv1 implementations.<div class="spacer">
+</div>
+The optional <b class="cmd">port</b> modifiers restrict the flows to the specified ports. They are only valid in conjunction with the <a class="link-man" href="../html4/tcp.html">tcp(4)</a> and <a class="link-man" href="../html4/udp.html">udp(4)</a> protocols. Ports can be specified by number or by name. For a list of all port name to number mappings used by <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a>, see the file <i class="file">/etc/services</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">local</b> <i class="arg">localip</i> <b class="cmd">peer</b> <i class="arg">remote</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The <b class="cmd">local</b> parameter specifies the address or FQDN of the local endpoint. Unless we are multi-homed or have aliases, this option is generally not needed.<div class="spacer">
+</div>
+The <b class="cmd">peer</b> parameter specifies the address or FQDN of the remote endpoint. For host-to-host connections where <i class="arg">dst</i> is identical to <i class="arg">remote</i>, this option is generally not needed as it will be set to <i class="arg">dst</i> automatically. If it is not specified or if the keyword <i class="arg">any</i> is given, the default peer is used.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">mode</i> <b class="cmd">auth</b> <i class="arg">algorithm</i> <b class="cmd">enc</b> <i class="arg">algorithm</i> <b class="cmd">group</b> <i class="arg">group</i> <b class="cmd">lifetime</b> <i class="arg">time</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+These parameters define the mode and cryptographic transforms to be used for the phase 1 negotiation. During phase 1 the machines authenticate and set up an encrypted channel.<div class="spacer">
+</div>
+The mode can be either <i class="arg">main</i>, which specifies main mode, or <i class="arg">aggressive</i>, which specifies aggressive mode. Possible values for <b class="cmd">auth</b>, <b class="cmd">enc</b>, and <b class="cmd">group</b> are described below in <i class="link-sec"><a class="link-sec" href="#x43525950544f205452414e53464f524d53">CRYPTO TRANSFORMS</a></i>.<div class="spacer">
+</div>
+The <b class="cmd">lifetime</b> parameter specifies the phase 1 lifetime in seconds. Two unit specifiers are recognized (ignoring case): &#8216;<code class="lit">m</code>&#8217; and &#8216;<code class="lit">h</code>&#8217; for minutes and hours, respectively.<div class="spacer">
+</div>
+If omitted, <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a> will use the default values <i class="arg">main</i>, <i class="arg">hmac-sha1</i>, <i class="arg">aes</i>, <i class="arg">modp3072</i>, and <i class="arg">3600</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">quick auth</b> <i class="arg">algorithm</i> <b class="cmd">enc</b> <i class="arg">algorithm</i> <b class="cmd">group</b> <i class="arg">group</i> <b class="cmd">lifetime</b> <i class="arg">time</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+These parameters define the cryptographic transforms to be used for the phase 2 negotiation. During phase 2 the actual IPsec negotiations happen.<div class="spacer">
+</div>
+Possible values for <b class="cmd">auth</b>, <b class="cmd">enc</b>, and <b class="cmd">group</b> are described below in <i class="link-sec"><a class="link-sec" href="#x43525950544f205452414e53464f524d53">CRYPTO TRANSFORMS</a></i>. Perfect Forward Secrecy (PFS) is enabled unless <b class="cmd">group</b> <i class="arg">none</i> is specified.<div class="spacer">
+</div>
+The <b class="cmd">lifetime</b> parameter specifies the phase 2 lifetime in seconds. Two unit specifiers are recognized (ignoring case): &#8216;<code class="lit">m</code>&#8217; and &#8216;<code class="lit">h</code>&#8217; for minutes and hours, respectively.<div class="spacer">
+</div>
+If omitted, <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a> will use the default values <i class="arg">hmac-sha2-256</i> and <i class="arg">aes</i>; PFS will only be used if the remote side requests it. The default phase 2 lifetime value is <i class="arg">1200</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">srcid</b> <i class="arg">string</i> <b class="cmd">dstid</b> <i class="arg">string</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<b class="cmd">srcid</b> defines an ID of type &#8220;USER_FQDN&#8221; or &#8220;FQDN&#8221; that will be used by <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a> as the identity of the local peer. If the argument is an email address (bob@example.com), <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a> will use USER_FQDN as the ID type. Anything else is considered to be an FQDN. If <b class="cmd">srcid</b> is omitted, the default is to use the IP address of the connecting machine.<div class="spacer">
+</div>
+<b class="cmd">dstid</b> is similar to <b class="cmd">srcid</b>, but instead specifies the ID to be used by the remote peer.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">psk</b> <i class="arg">string</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Use a pre-shared key <i class="arg">string</i> for authentication. If this option is not specified, public key authentication is used (see <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a>).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">tag</b> <i class="arg">string</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Add a <a class="link-man" href="../html4/pf.html">pf(4)</a> tag to all packets of phase 2 SAs created for this connection. This will allow matching packets for this connection by defining rules in <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a> using the <b class="flag">tagged</b> keyword.<div class="spacer">
+</div>
+The following variables can be used in tags to include information from the remote peer on runtime:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="arg">$id</i></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+The remote phase 1 ID. It will be expanded to <i class="arg">id-type/id-value</i>, e.g. <i class="arg">fqdn/foo.bar.org</i>.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="arg">$domain</i></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Extract the domain from IDs of type FQDN or UFQDN.</dd>
+</dl>
+<div class="spacer">
+</div>
+For example, if the ID is <i class="arg">fqdn/foo.bar.org</i> or <i class="arg">ufqdn/user@bar.org</i>, &#8220;ipsec-$domain&#8221; expands to &#8220;ipsec-bar.org&#8221;. The variable expansion for the <i class="arg">tag</i> directive occurs only at runtime, not during configuration file parse time.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x5041434b45542046494c544552494e47">PACKET FILTERING</h1> IPsec traffic appears unencrypted on the <a class="link-man" href="../html4/enc.html">enc(4)</a> interface and can be filtered accordingly using the <span class="unix">OpenBSD</span> packet filter, <a class="link-man" href="../html4/pf.html">pf(4)</a>. The grammar for the packet filter is described in <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a>.<div class="spacer">
+</div>
+The following components are relevant to filtering IPsec traffic:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-ohang">
+<dt class="list-ohang" style="margin-top: 1.00em;">
+external interface</dt>
+<dd class="list-ohang">
+Interface for ISAKMP traffic and encapsulated IPsec traffic.</dd>
+<dt class="list-ohang" style="margin-top: 1.00em;">
+proto udp port 500</dt>
+<dd class="list-ohang">
+ISAKMP traffic on the external interface.</dd>
+<dt class="list-ohang" style="margin-top: 1.00em;">
+proto udp port 4500</dt>
+<dd class="list-ohang">
+ISAKMP NAT-Traversal traffic on the external interface.</dd>
+<dt class="list-ohang" style="margin-top: 1.00em;">
+proto ah | esp</dt>
+<dd class="list-ohang">
+Encapsulated IPsec traffic on the external interface.</dd>
+<dt class="list-ohang" style="margin-top: 1.00em;">
+enc0</dt>
+<dd class="list-ohang">
+Interface for outgoing traffic before it's been encapsulated, and incoming traffic after it's been decapsulated. State on this interface should be interface bound; see <a class="link-man" href="../html4/enc.html">enc(4)</a> for further information.</dd>
+<dt class="list-ohang" style="margin-top: 1.00em;">
+proto ipencap</dt>
+<dd class="list-ohang">
+[tunnel mode only] IP-in-IP traffic flowing between gateways on the enc0 interface.</dd>
+<dt class="list-ohang" style="margin-top: 1.00em;">
+tagged ipsec-example.org</dt>
+<dd class="list-ohang">
+Match traffic of phase 2 SAs using the <b class="cmd">tag</b> keyword.</dd>
+</dl>
+<div class="spacer">
+</div>
+If the filtering rules specify to block everything by default, the following rule would ensure that IPsec traffic never hits the packet filtering engine, and is therefore passed:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+set skip on enc0</pre>
+<div class="spacer">
+</div>
+In the following example, all traffic is blocked by default. IPsec-related traffic from gateways {192.168.3.1, 192.168.3.2} and networks {10.0.1.0/24, 10.0.2.0/24} is permitted.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+block on sk0 
+block on enc0 
+ 
+pass  in on sk0 proto udp from 192.168.3.2 to 192.168.3.1 \ 
+	port {500, 4500} 
+pass out on sk0 proto udp from 192.168.3.1 to 192.168.3.2 \ 
+	port {500, 4500} 
+ 
+pass  in on sk0 proto esp from 192.168.3.2 to 192.168.3.1 
+pass out on sk0 proto esp from 192.168.3.1 to 192.168.3.2 
+ 
+pass  in on enc0 proto ipencap from 192.168.3.2 to 192.168.3.1 \ 
+	keep state (if-bound) 
+pass out on enc0 proto ipencap from 192.168.3.1 to 192.168.3.2 \ 
+	keep state (if-bound) 
+pass  in on enc0 from 10.0.2.0/24 to 10.0.1.0/24 \ 
+	keep state (if-bound) 
+pass out on enc0 from 10.0.1.0/24 to 10.0.2.0/24 \ 
+	keep state (if-bound)</pre>
+<div class="spacer">
+</div>
+<a class="link-man" href="../html4/pf.html">pf(4)</a> has the ability to filter IPsec-related packets based on an arbitrary <span class="emph">tag</span> specified within a ruleset. The tag is used as an internal marker which can be used to identify the packets later on. This could be helpful, for example, in scenarios where users are connecting in from differing IP addresses, or to support queue-based bandwidth control, since the enc0 interface does not support it.<div class="spacer">
+</div>
+The following <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a> fragment uses queues for all IPsec traffic with special handling for developers and employees:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+queue std on sk0 bandwidth 100M 
+queue   deflt parent std bandwidth 10M default 
+queue   developers parent std bandwidth 75M 
+queue   employees parent std bandwidth 5M 
+queue   ipsec parent std bandwidth 10M 
+ 
+pass out on sk0 proto esp set queue ipsec 
+ 
+pass out on sk0 tagged ipsec-developers.bar.org set queue developers 
+pass out on sk0 tagged ipsec-employees.bar.org set queue employees</pre>
+<div class="spacer">
+</div>
+The tags will be assigned by the following <b class="name">ipsec.conf</b> example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+ike esp from 10.1.1.0/24 to 10.1.2.0/24 peer 192.168.3.2 \ 
+	tag ipsec-$domain</pre>
+</div>
+<div class="section">
+<h1 id="x4f5554474f494e47204e4554574f524b2041444452455353205452414e534c4154494f4e">OUTGOING NETWORK ADDRESS TRANSLATION</h1> In some network topologies it is desirable to perform NAT on traffic leaving through the VPN tunnel. In order to achieve that, the <i class="arg">src</i> argument is used to negotiate the desired network ID with the peer and the <i class="arg">srcnat</i> parameter defines the true local subnet, so that a correct SA can be installed on the local side.<div class="spacer">
+</div>
+For example, if the local subnet is 192.168.1.0/24 and all the traffic for a specific VPN peer should appear as coming from 10.10.10.1, the following configuration is used:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+ike esp from 10.10.10.1 (192.168.1.0/24) to 192.168.2.0/24 \ 
+	peer 10.10.20.1</pre>
+<div class="spacer">
+</div>
+Naturally, a relevant NAT rule is required in <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a>. For the example above, this would be:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+match out on enc0 from 192.168.1.0/24 to 192.168.2.0/24 \ 
+	nat-to 10.10.10.1</pre>
+<div class="spacer">
+</div>
+From the peer's point of view, the local end of the VPN tunnel is declared to be 10.10.10.1 and all the traffic arrives with that source address.</div>
+<div class="section">
+<h1 id="x43525950544f205452414e53464f524d53">CRYPTO TRANSFORMS</h1> It is very important that keys are not guessable. One practical way of generating keys is to use <a class="link-man" href="../html1/openssl.html">openssl(1)</a>. The following generates a 160-bit (20-byte) key:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+$ openssl rand -hex 20</pre>
+<div class="spacer">
+</div>
+The following authentication types are permitted with the <b class="cmd">auth</b> keyword:<table style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-col">
+<col style="width: 14.00ex;"/>
+<col style="width: 10.00ex;"/>
+<col style="min-width: 11.00ex;"/>
+<tbody>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<span class="emph">Authentication</span></td>
+<td class="list-col" style="margin-top: 1.00em;">
+<span class="emph">Key Length</span></td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">hmac-md5</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+128 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">hmac-ripemd160</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+160 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">hmac-sha1</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+160 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">hmac-sha2-256</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+256 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">hmac-sha2-384</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+384 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">hmac-sha2-512</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+512 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+</tbody>
+</table>
+<div class="spacer">
+</div>
+The following cipher types are permitted with the <b class="cmd">enc</b> keyword:<table style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-col">
+<col style="width: 12.00ex;"/>
+<col style="width: 10.00ex;"/>
+<col style="min-width: 11.00ex;"/>
+<tbody>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<span class="emph">Cipher</span></td>
+<td class="list-col" style="margin-top: 1.00em;">
+<span class="emph">Key Length</span></td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">3des</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+168 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+128 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes-128</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+128 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes-192</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+192 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes-256</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+256 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aesctr</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+160 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only, IKE only]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes-128-ctr</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+160 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only, IKE only]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes-192-ctr</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+224 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only, IKE only]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes-256-ctr</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+288 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only, IKE only]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes-128-gcm</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+160 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only, IKE only]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes-192-gcm</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+224 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only, IKE only]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes-256-gcm</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+288 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only, IKE only]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes-128-gmac</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+160 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only, IKE only]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes-192-gmac</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+224 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only, IKE only]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">aes-256-gmac</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+288 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only, IKE only]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">blowfish</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+160 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">cast</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+128 bits</td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">null</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+(none)</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only]</td>
+</tr>
+</tbody>
+</table>
+<div class="spacer">
+</div>
+3DES requires 24 bytes to form its 168-bit key. This is because the most significant bit of each byte is used for parity.<div class="spacer">
+</div>
+The keysize of AES-CTR can be 128, 192, or 256 bits. However as well as the key, a 32-bit nonce has to be supplied. Thus 160, 224, or 288 bits of key material, respectively, have to be supplied. The same applies to AES-GCM and AES-GMAC.<div class="spacer">
+</div>
+Using AES-GMAC or NULL with ESP will only provide authentication. This is useful in setups where AH cannot be used, e.g. when NAT is involved.<div class="spacer">
+</div>
+The following group types are permitted with the <b class="cmd">group</b> keyword:<table style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-col">
+<col style="width: 8.00ex;"/>
+<col style="width: 4.00ex;"/>
+<col style="min-width: 11.00ex;"/>
+<tbody>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<span class="emph">Group</span></td>
+<td class="list-col" style="margin-top: 1.00em;">
+<span class="emph">Size</span></td>
+<td class="list-col" style="margin-top: 1.00em;">
+</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">modp768</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+768</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[DH group 1]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">modp1024</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+1024</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[DH group 2]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">modp1536</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+1536</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[DH group 5]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">modp2048</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+2048</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[DH group 14]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">modp3072</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+3072</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[DH group 15]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">modp4096</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+4096</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[DH group 16]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">modp6144</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+6144</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[DH group 17]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">modp8192</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+8192</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[DH group 18]</td>
+</tr>
+<tr class="list-col">
+<td class="list-col" style="margin-top: 1.00em;">
+<code class="lit">none</code></td>
+<td class="list-col" style="margin-top: 1.00em;">
+0</td>
+<td class="list-col" style="margin-top: 1.00em;">
+[phase 2 only]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section">
+<h1 id="x4d414e55414c20464c4f5753">MANUAL FLOWS</h1> In this scenario, <b class="name">ipsec.conf</b> is used to set up flows manually. IPsec uses flows to determine whether to apply security services to an IP packet or not. Some examples of setting up flows:<div class="spacer">
+</div>
+<pre style="margin-left: 3.00ex;" class="lit display">
+# Set up two flows: 
+# First between the machines 192.168.3.14 and 192.168.3.100 
+# Second between the networks 192.168.7.0/24 and 192.168.8.0/24 
+flow esp from 192.168.3.14 to 192.168.3.100 
+flow esp from 192.168.7.0/24 to 192.168.8.0/24 peer 192.168.3.12</pre>
+<div class="spacer">
+</div>
+The following types of flow are available:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">flow esp</b></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+ESP can provide the following properties: authentication, integrity, replay protection, and confidentiality of the data. If no flow type is specified, this is the default.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">flow ah</b></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+AH provides authentication, integrity, and replay protection, but not confidentiality.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">flow ipip</b></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+IPIP does not provide authentication, integrity, replay protection, or confidentiality. However, it does allow tunnelling of IP traffic over IP, without setting up <a class="link-man" href="../html4/gif.html">gif(4)</a> interfaces.</dd>
+</dl>
+<div class="spacer">
+</div>
+The commands are as follows:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">in</b> <code class="none">or</code> <b class="cmd">out</b></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+This rule applies to incoming or outgoing packets. If neither <b class="cmd">in</b> nor <b class="cmd">out</b> are specified, <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a> will assume the direction <b class="cmd">out</b> for this rule and will construct a proper <b class="cmd">in</b> rule. Thus packets in both directions will be matched.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">proto</b> <i class="arg">protocol</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The optional <b class="cmd">proto</b> parameter restricts the flow to a specific IP protocol. Common protocols are <a class="link-man" href="../html4/icmp.html">icmp(4)</a>, <a class="link-man" href="../html4/tcp.html">tcp(4)</a>, and <a class="link-man" href="../html4/udp.html">udp(4)</a>. For a list of all the protocol name to number mappings used by <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a>, see the file <i class="file">/etc/protocols</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">from</b> <i class="arg">src</i> [<span class="opt"><b class="cmd">port</b> <i class="arg">sport</i></span>] <b class="cmd">to</b> <i class="arg">dst</i> [<span class="opt"><b class="cmd">port</b> <i class="arg">dport</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+This rule applies for packets with source address <i class="arg">src</i> and destination address <i class="arg">dst</i>. The keyword <i class="arg">any</i> will match any address (i.e. 0.0.0.0/0). The optional <b class="cmd">port</b> modifiers restrict the flows to the specified ports. They are only valid in conjunction with the <a class="link-man" href="../html4/tcp.html">tcp(4)</a> and <a class="link-man" href="../html4/udp.html">udp(4)</a> protocols. Ports can be specified by number or by name. For a list of all port name to number mappings used by <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a>, see the file <i class="file">/etc/services</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">local</b> <i class="arg">localip</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The <b class="cmd">local</b> parameter specifies the address or FQDN of the local endpoint of this flow and can be usually left out.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">peer</b> <i class="arg">remote</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The <b class="cmd">peer</b> parameter specifies the address or FQDN of the remote endpoint of this flow. For host-to-host connections where <i class="arg">dst</i> is identical to <i class="arg">remote</i>, the <b class="cmd">peer</b> specification can be left out as it will be set to <i class="arg">dst</i> automatically. Only if the keyword <i class="arg">any</i> is given is a flow without peer created.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">type</b> <i class="arg">modifier</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+This optional parameter sets up special flows using modifiers. By default, <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a> will automatically set up normal flows with the corresponding type. <i class="arg">modifier</i> may be one of the following:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+acquire</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Use IPsec and establish SAs dynamically. Unencrypted traffic is permitted until it is protected by IPsec.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+bypass</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Matching packets are not processed by IPsec.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+deny</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Matching packets are dropped.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+dontacq</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Use IPsec. If no SAs are available, does not trigger <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a>.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+require</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Use IPsec and establish SAs dynamically. Unencrypted traffic is not permitted until it is protected by IPsec.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+use</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Use IPsec. Unencrypted traffic is permitted. Does not trigger <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a>.</dd>
+</dl>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4d414e55414c205345435552495459204153534f43494154494f4e53202853417329">MANUAL SECURITY ASSOCIATIONS (SAs)</h1> In this scenario, <b class="name">ipsec.conf</b> is used to set up SAs manually. The security parameters for a flow are stored in the Security Association Database (SADB). An example of setting up an SA:<div class="spacer">
+</div>
+<pre style="margin-left: 3.00ex;" class="lit display">
+# Set up an IPsec SA for flows between 192.168.3.14 and 192.168.3.12 
+esp from 192.168.3.14 to 192.168.3.12 spi 0xdeadbeef:0xbeefdead \ 
+	authkey file &quot;auth14:auth12&quot; enckey file &quot;enc14:enc12&quot;</pre>
+<div class="spacer">
+</div>
+Parameters specify the peers, Security Parameter Index (SPI), cryptographic transforms, and key material to be used. The following rules enter SAs in the SADB:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">esp</b></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Enter an ESP SA.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">ah</b></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Enter an AH SA.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">ipcomp</b></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Enter an IPCOMP SA.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">ipip</b></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Enter an IPIP pseudo SA.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">tcpmd5</b></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+Enter a TCP MD5 SA.</dd>
+</dl>
+<div class="spacer">
+</div>
+The commands are as follows:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">mode</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+For ESP and AH the encapsulation mode can be specified. Possible modes are <i class="arg">tunnel</i> and <i class="arg">transport</i>. When left out, <i class="arg">tunnel</i> is chosen. For details on modes see <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">from</b> <i class="arg">src</i> <b class="cmd">to</b> <i class="arg">dst</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+This SA is for a <i class="arg">flow</i> between the peers <i class="arg">src</i> and <i class="arg">dst</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">spi</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The SPI identifies a specific SA. <i class="arg">number</i> is a 32-bit value and needs to be unique.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">auth</b> <i class="arg">algorithm</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+For ESP and AH an authentication algorithm can be specified. Possible values are described above in <i class="link-sec"><a class="link-sec" href="#x43525950544f205452414e53464f524d53">CRYPTO TRANSFORMS</a></i>.<div class="spacer">
+</div>
+If no algorithm is specified, <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a> will choose <i class="arg">hmac-sha2-256</i> by default.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">enc</b> <i class="arg">algorithm</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+For ESP an encryption algorithm can be specified. Possible values are described above in <i class="link-sec"><a class="link-sec" href="#x43525950544f205452414e53464f524d53">CRYPTO TRANSFORMS</a></i>.<div class="spacer">
+</div>
+If no algorithm is specified, <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a> will choose <i class="arg">aes</i> by default.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">authkey</b> <i class="arg">keyspec</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+<i class="arg">keyspec</i> defines the authentication key to be used. It is either a hexadecimal string or a path to a file containing the key. The filename may be given as either an absolute path to the file or a relative pathname, and is specified as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+authkey file &quot;filename&quot;</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">enckey</b> <i class="arg">keyspec</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The encryption key is defined similarly to <b class="cmd">authkey</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">tcpmd5</b> <b class="cmd">from</b> <i class="arg">src</i> <b class="cmd">to</b> <i class="arg">dst</i> <b class="cmd">spi</b> <i class="arg">number</i> <b class="cmd">authkey</b> <i class="arg">keyspec</i></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+TCP MD5 signatures are generally used between BGP daemons, such as <a class="link-man" href="../html8/bgpd.html">bgpd(8)</a>. Since <a class="link-man" href="../html8/bgpd.html">bgpd(8)</a> itself already provides this functionality, this option is generally not needed. More information on TCP MD5 signatures can be found in <a class="link-man" href="../html4/tcp.html">tcp(4)</a>, <a class="link-man" href="../html5/bgpd.conf.html">bgpd.conf(5)</a>, and RFC 2385.<div class="spacer">
+</div>
+This rule applies for packets with source address <i class="arg">src</i> and destination address <i class="arg">dst</i>. The parameter <b class="cmd">spi</b> is a 32-bit value defining the Security Parameter Index (SPI) for this SA. The encryption key is defined similarly to <b class="cmd">authkey</b>.</dd>
+</dl>
+<div class="spacer">
+</div>
+Since an SA is directional, a second SA is normally configured in the reverse direction. This is done by adding a second, colon-separated, value to <b class="cmd">spi</b>, <b class="cmd">authkey</b>, and <b class="cmd">enckey</b>.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html1/openssl.html">openssl(1)</a>, <a class="link-man" href="../html4/enc.html">enc(4)</a>, <a class="link-man" href="../html4/ipcomp.html">ipcomp(4)</a>, <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a>, <a class="link-man" href="../html4/tcp.html">tcp(4)</a>, <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a>, <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a>, <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">ipsec.conf</b> file format first appeared in <span class="unix">OpenBSD&#160;3.8</span>.</div>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,92 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+ENC(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">enc</b> &#8212; <span class="desc">encapsulating interface</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">pseudo-device enc</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">enc</b> interface is a virtual interface for <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a> traffic. It allows packet filtering using <a class="link-man" href="../html4/pf.html">pf(4)</a>; prior to encapsulation and after decapsulation, packets may be monitored using <a class="link-man" href="../html8/tcpdump.html">tcpdump(8)</a>.<div class="spacer">
+</div>
+An <b class="name">enc</b> interface can be created at runtime using the <b class="cmd">ifconfig enc</b><i class="arg">N</i> <b class="cmd">create</b> command or by setting up a <a class="link-man" href="../html5/hostname.if.html">hostname.if(5)</a> configuration file for <a class="link-man" href="../html8/netstart.html">netstart(8)</a>. The <b class="name">enc0</b> interface will always exist and cannot be destroyed using <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a>.<div class="spacer">
+</div>
+Packet filtering is documented in greater detail in <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a>, however some details relevant to filtering on the <b class="name">enc</b> interface are documented below.<div class="spacer">
+</div>
+Firstly, <a class="link-man" href="../html4/pf.html">pf(4)</a> is a stateful packet filter, which means it can track the state of a connection. It does this <span class="emph">automatically</span>. States are normally <span class="emph">floating</span>, which means they can match packets on any interface. However this is a potential problem for filtering IPsec traffic: states need to be interface bound, to avoid permitting unencrypted traffic should the SAs expire and not be replaced. Therefore all rules on the <b class="name">enc</b> interface should explicitly set &#8220;keep state (if-bound)&#8221;. For example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+pass in on enc0 proto ipencap from 172.25.0.45 to 1.2.3.4 \ 
+	keep state (if-bound)</pre>
+<div class="spacer">
+</div>
+Secondly, the <b class="name">enc</b> interface does not directly support bandwidth control via <a class="link-man" href="../html4/pf.html">pf(4)</a> queueing. Instead, IPsec packets must be tagged and the tagged packets are assigned to queues. <a class="link-man" href="../html5/ipsec.conf.html">ipsec.conf(5)</a> provides an example of tag-based queueing and further information on packet tagging.<div class="spacer">
+</div>
+Finally, the use of translation rules to map and redirect network traffic requires some care. Packets destined to be IPsec processed are seen by the filter/translation engine twice, both before and after being IPsec processed. If a packet's translated address on the way back fails to match an existing IPsec flow, from the translated address to the original source address, it will be discarded by the filter. It is best to avoid this situation where possible, though a flow may be explicitly created to work around it.<div class="spacer">
+</div>
+As noted above, <a class="link-man" href="../html8/tcpdump.html">tcpdump(8)</a> may be invoked on the <b class="name">enc</b> interface to see packets prior to encapsulation and after decapsulation. For example:<div class="spacer">
+</div>
+<pre style="margin-left: 3.00ex;" class="lit display">
+# tcpdump -envps 1500 -i enc0 -l | grep 10.0.0.33 
+tcpdump: WARNING: enc0: no IPv4 address assigned 
+tcpdump: listening on enc0, link-type ENC 
+15:05:08.934708 (authentic,confidential): SPI 0x6bcac587: \ 
+	172.25.0.45 &gt; 1.2.3.4: 10.9.9.28.7001 &gt; 10.0.0.33.7000: \ 
+	[udp sum ok] udp 52 (ttl 64, id 5672, len 80) \ 
+	(ttl 64, id 30009, len 100, bad cksum 0!) 
+15:05:09.063517 (authentic,confidential): SPI 0x4b70c05a: \ 
+	1.2.3.4 &gt; 172.25.0.45: 10.0.0.33.7000 &gt; 10.9.9.28.7001: \ 
+	[udp sum ok] udp 156 (ttl 63, id 14880, len 184) \ 
+	(ttl 51, id 19689, len 204)</pre>
+<div class="spacer">
+</div>
+The packets above show (for each direction): date, ESP (not AH), SPI, direction, and encapsulated part. The first packet is headed from 172.25.0.45 to 1.2.3.4 and the encapsulated part from 10.9.9.28 to 10.0.0.33.<div class="spacer">
+</div>
+Negotiations can be watched on the physical interface too:<div class="spacer">
+</div>
+<pre style="margin-left: 3.00ex;" class="lit display">
+# tcpdump -envps 1500 -i wi0 port 500 or port 4500 
+tcpdump: listening on wi0, link-type EN10MB 
+15:15:58.188747 0:2:6f:3a:3f:3e 0:10:f3:3:bd:8a 0800 226: \ 
+    172.25.0.45.500 &gt; 1.2.3.4.500: [udp sum ok] \ 
+[...] 
+	attribute ENCRYPTION_ALGORITHM = AES_CBC 
+	attribute HASH_ALGORITHM = SHA 
+	attribute AUTHENTICATION_METHOD = RSA_SIG 
+	attribute GROUP_DESCRIPTION = MODP_1024 
+	attribute LIFE_TYPE = SECONDS 
+	attribute LIFE_DURATION = 3600 
+	attribute KEY_LENGTH = 128 
+[...] 
+15:15:59.080058 0:10:f3:3:bd:8a 0:2:6f:3a:3f:3e 0800 226: \ 
+    1.2.3.4.500 &gt; 172.25.0.45.500: [udp sum ok] \ 
+[...] 
+	attribute ENCRYPTION_ALGORITHM = AES_CBC 
+	attribute HASH_ALGORITHM = SHA 
+	attribute AUTHENTICATION_METHOD = RSA_SIG 
+	attribute GROUP_DESCRIPTION = MODP_1024 
+	attribute LIFE_TYPE = SECONDS 
+	attribute LIFE_DURATION = 3600 
+	attribute KEY_LENGTH = 128 
+[...]</pre>
+<div class="spacer">
+</div>
+The attribute lines for the negotiation must match.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a>, <a class="link-man" href="../html4/pf.html">pf(4)</a>, <a class="link-man" href="../html5/ipsec.conf.html">ipsec.conf(5)</a>, <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a>, <a class="link-man" href="../html8/tcpdump.html">tcpdump(8)</a></div>
+</div>
+</body>
+</html>
+

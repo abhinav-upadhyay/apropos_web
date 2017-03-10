@@ -1,0 +1,100 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+PKCS7_VERIFY(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PKCS7_VERIFY(3)</td>
+<td class="head-vol">
+OpenSSL</td>
+<td class="head-rtitle">
+PKCS7_VERIFY(3)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> PKCS7_verify, PKCS7_get0_signers - verify a PKCS#7 signedData structure</div>
+<div class="section">
+<h1>SYNOPSIS</h1><br/>
+ #include &lt;openssl/pkcs7.h&gt;<br/>
+<br/>
+ int PKCS7_verify(PKCS7 *p7, STACK_OF(X509) *certs, X509_STORE *store, BIO *indata, BIO *out, int flags);<br/>
+<br/>
+ STACK_OF(X509) *PKCS7_get0_signers(PKCS7 *p7, STACK_OF(X509) *certs, int flags);<br/>
+</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <i>PKCS7_verify()</i> verifies a PKCS#7 signedData structure. <b>p7</b> is the PKCS7 structure to verify.  <b>certs</b> is a set of certificates in which to search for the signer's certificate.  <b>store</b> is a trusted certificate store (used for chain verification).  <b>indata</b> is the signed data if the content is not present in  <b>p7</b> (that is it is detached). The content is written to <b>out</b> if it is not NULL.<div class="spacer">
+</div>
+<b>flags</b> is an optional set of flags, which can be used to modify the verify operation.<div class="spacer">
+</div>
+<i>PKCS7_get0_signers()</i> retrieves the signer's certificates from <b>p7</b>, it does  <b>not</b> check their validity or whether any signatures are valid. The <b>certs</b> and  <b>flags</b> parameters have the same meanings as in <i>PKCS7_verify()</i>.</div>
+<div class="section">
+<h1>VERIFY PROCESS</h1> Normally the verify process proceeds as follows.<div class="spacer">
+</div>
+Initially some sanity checks are performed on <b>p7</b>. The type of <b>p7</b> must be signedData. There must be at least one signature on the data and if the content is detached  <b>indata</b> cannot be <b>NULL</b>.<div class="spacer">
+</div>
+An attempt is made to locate all the signer's certificates, first looking in the  <b>certs</b> parameter (if it is not <b>NULL</b>) and then looking in any certificates contained in the  <b>p7</b> structure itself. If any signer's certificates cannot be located the operation fails.<div class="spacer">
+</div>
+Each signer's certificate is chain verified using the <b>smimesign</b> purpose and the supplied trusted certificate store. Any internal certificates in the message are used as untrusted CAs. If any chain verify fails an error code is returned.<div class="spacer">
+</div>
+Finally the signed content is read (and written to <b>out</b> is it is not NULL) and the signature's checked.<div class="spacer">
+</div>
+If all signature's verify correctly then the function is successful.<div class="spacer">
+</div>
+Any of the following flags (ored together) can be passed in the <b>flags</b> parameter to change the default verify behaviour. Only the flag  <b>PKCS7_NOINTERN</b> is meaningful to <i>PKCS7_get0_signers()</i>.<div class="spacer">
+</div>
+If <b>PKCS7_NOINTERN</b> is set the certificates in the message itself are not searched when locating the signer's certificate. This means that all the signers certificates must be in the  <b>certs</b> parameter.<div class="spacer">
+</div>
+If the <b>PKCS7_TEXT</b> flag is set MIME headers for type <b>text/plain</b> are deleted from the content. If the content is not of type  <b>text/plain</b> then an error is returned.<div class="spacer">
+</div>
+If <b>PKCS7_NOVERIFY</b> is set the signer's certificates are not chain verified.<div class="spacer">
+</div>
+If <b>PKCS7_NOCHAIN</b> is set then the certificates contained in the message are not used as untrusted CAs. This means that the whole verify chain (apart from the signer's certificate) must be contained in the trusted store.<div class="spacer">
+</div>
+If <b>PKCS7_NOSIGS</b> is set then the signatures on the data are not checked.</div>
+<div class="section">
+<h1>NOTES</h1> One application of  <b>PKCS7_NOINTERN</b> is to only accept messages signed by a small number of certificates. The acceptable certificates would be passed in the  <b>certs</b> parameter. In this case if the signer is not one of the certificates supplied in  <b>certs</b> then the verify will fail because the signer cannot be found.<div class="spacer">
+</div>
+Care should be taken when modifying the default verify behaviour, for example setting  <b>PKCS7_NOVERIFY|PKCS7_NOSIGS</b> will totally disable all verification and any signed message will be considered valid. This combination is however useful if one merely wishes to write the content to  <b>out</b> and its validity is not considered important.<div class="spacer">
+</div>
+Chain verification should arguably be performed  using the signing time rather than the current time. However since the signing time is supplied by the signer it cannot be trusted without additional evidence (such as a trusted timestamp).</div>
+<div class="section">
+<h1>RETURN VALUES</h1>  <i>PKCS7_verify()</i> returns 1 for a successful verification and zero or a negative value if an error occurs.<div class="spacer">
+</div>
+<i>PKCS7_get0_signers()</i> returns all signers or <b>NULL</b> if an error occurred.<div class="spacer">
+</div>
+The error can be obtained from <i>ERR_get_error</i>(3)</div>
+<div class="section">
+<h1>BUGS</h1> The trusted certificate store is not searched for the signers certificate, this is primarily due to the inadequacies of the current  <b>X509_STORE</b> functionality.<div class="spacer">
+</div>
+The lack of single pass processing and need to hold all data in memory as mentioned in  <i>PKCS7_sign()</i> also applies to <i>PKCS7_verify()</i>.</div>
+<div class="section">
+<h1>SEE ALSO</h1>  <i>ERR_get_error</i>(3), <i>PKCS7_sign</i>(3)</div>
+<div class="section">
+<h1>HISTORY</h1>  <i>PKCS7_verify()</i> was added to OpenSSL 0.9.5</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2015-09-22</td>
+<td class="foot-os">
+OpenBSD 6.0</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

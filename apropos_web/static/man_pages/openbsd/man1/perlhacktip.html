@@ -1,0 +1,1257 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+PERLHACKTIPS(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERLHACKTIPS(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+PERLHACKTIPS(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perlhacktips - Tips for Perl core C code hacking</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This document will help you learn the best way to go about hacking on the Perl core C code.  It covers common problems, debugging, profiling, and more.<div class="spacer">
+</div>
+If you haven't read perlhack and perlhacktut yet, you might want to do that first.</div>
+<div class="section">
+<h1>COMMON PROBLEMS</h1> Perl source plays by ANSI C89 rules: no C99 (or C++) extensions.  In some cases we have to take pre-ANSI requirements into consideration. You don't care about some particular platform having broken Perl? I hear there is still a strong demand for J2EE programmers.<div class="subsection">
+<h2>Perl environment problems</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Not compiling with threading<div style="height: 1.00em;">
+&#160;</div>
+Compiling with threading (-Duseithreads) completely rewrites the function prototypes of Perl.  You better try your changes with that. Related to this is the difference between &quot;Perl_-less&quot; and &quot;Perl_-ly&quot; APIs, for example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  Perl_sv_setiv(aTHX_ ...);<br/>
+  sv_setiv(...);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The first one explicitly passes in the context, which is needed for e.g. threaded builds.  The second one does that implicitly; do not get them mixed.  If you are not passing in a aTHX_, you will need to do a dTHX (or a dVAR) as the first thing in the function.<div style="height: 1.00em;">
+&#160;</div>
+See &quot;How multiple interpreters and concurrency are supported&quot; in perlguts for further discussion about context.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Not compiling with -DDEBUGGING<div style="height: 1.00em;">
+&#160;</div>
+The DEBUGGING define exposes more code to the compiler, therefore more ways for things to go wrong.  You should try it.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Introducing (non-read-only) globals<div style="height: 1.00em;">
+&#160;</div>
+Do not introduce any modifiable globals, truly global or file static. They are bad form and complicate multithreading and other forms of concurrency.  The right way is to introduce them as new interpreter variables, see  <i>intrpvar.h</i> (at the very end for binary compatibility).<div style="height: 1.00em;">
+&#160;</div>
+Introducing read-only (const) globals is okay, as long as you verify with e.g. &quot;nm libperl.a|egrep -v ' [TURtr] '&quot; (if your &quot;nm&quot; has BSD-style output) that the data you added really is read-only.  (If it is, it shouldn't show up in the output of that command.)<div style="height: 1.00em;">
+&#160;</div>
+If you want to have static strings, make them constant:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  static const char etc[] = &quot;...&quot;;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If you want to have arrays of constant strings, note carefully the right combination of &quot;const&quot;s:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    static const char * const yippee[] =<br/>
+        {&quot;hi&quot;, &quot;ho&quot;, &quot;silver&quot;};<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+There is a way to completely hide any modifiable globals (they are all moved to heap), the compilation setting &quot;-DPERL_GLOBAL_STRUCT_PRIVATE&quot;.  It is not normally used, but can be used for testing, read more about it in &quot;Background and PERL_IMPLICIT_CONTEXT&quot; in perlguts.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Not exporting your new function<div style="height: 1.00em;">
+&#160;</div>
+Some platforms (Win32, AIX, VMS, OS/2, to name a few) require any function that is part of the public API (the shared Perl library) to be explicitly marked as exported.  See the discussion about  <i>embed.pl</i> in perlguts.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Exporting your new function<div style="height: 1.00em;">
+&#160;</div>
+The new shiny result of either genuine new functionality or your arduous refactoring is now ready and correctly exported.  So what could possibly go wrong?<div style="height: 1.00em;">
+&#160;</div>
+Maybe simply that your function did not need to be exported in the first place.  Perl has a long and not so glorious history of exporting functions that it should not have.<div style="height: 1.00em;">
+&#160;</div>
+If the function is used only inside one source code file, make it static.  See the discussion about  <i>embed.pl</i> in perlguts.<div style="height: 1.00em;">
+&#160;</div>
+If the function is used across several files, but intended only for Perl's internal use (and this should be the common case), do not export it to the public API.  See the discussion about  <i>embed.pl</i> in perlguts.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Portability problems</h2> The following are common causes of compilation and/or execution failures, not common to Perl as such.  The C FAQ is good bedtime reading.  Please test your changes with as many C compilers and platforms as possible; we will, anyway, and it's nice to save oneself from public embarrassment.<div class="spacer">
+</div>
+If using gcc, you can add the &quot;-std=c89&quot; option which will hopefully catch most of these unportabilities.  (However it might also catch incompatibilities in your system's header files.)<div class="spacer">
+</div>
+Use the Configure &quot;-Dgccansipedantic&quot; flag to enable the gcc &quot;-ansi -pedantic&quot; flags which enforce stricter ANSI rules.<div class="spacer">
+</div>
+If using the &quot;gcc -Wall&quot; note that not all the possible warnings (like &quot;-Wunitialized&quot;) are given unless you also compile with &quot;-O&quot;.<div class="spacer">
+</div>
+Note that if using gcc, starting from Perl 5.9.5 the Perl core source code files (the ones at the top level of the source code distribution, but not e.g. the extensions under ext/) are automatically compiled with as many as possible of the &quot;-std=c89&quot;, &quot;-ansi&quot;, &quot;-pedantic&quot;, and a selection of &quot;-W&quot; flags (see cflags.SH).<div class="spacer">
+</div>
+Also study perlport carefully to avoid any bad assumptions about the operating system, filesystems, and so forth.<div class="spacer">
+</div>
+You may once in a while try a &quot;make microperl&quot; to see whether we can still compile Perl with just the bare minimum of interfaces.  (See README.micro.)<div class="spacer">
+</div>
+Do not assume an operating system indicates a certain compiler.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Casting pointers to integers or casting integers to pointers<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    void castaway(U8* p)<br/>
+    {<br/>
+      IV i = p;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+or<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    void castaway(U8* p)<br/>
+    {<br/>
+      IV i = (IV)p;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Both are bad, and broken, and unportable.  Use the <i>PTR2IV()</i> macro that does it right.  (Likewise, there are  <i>PTR2UV()</i>, <i>PTR2NV()</i>, <i>INT2PTR()</i>, and  <i>NUM2PTR()</i>.)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Casting between data function pointers and data pointers<div style="height: 1.00em;">
+&#160;</div>
+Technically speaking casting between function pointers and data pointers is unportable and undefined, but practically speaking it seems to work, but you should use the  <i>FPTR2DPTR()</i> and <i>DPTR2FPTR()</i> macros. Sometimes you can also play games with unions.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assuming sizeof(int) == sizeof(long)<div style="height: 1.00em;">
+&#160;</div>
+There are platforms where longs are 64 bits, and platforms where ints are 64 bits, and while we are out to shock you, even platforms where shorts are 64 bits.  This is all legal according to the C standard.  (In other words, &quot;long long&quot; is not a portable way to specify 64 bits, and &quot;long long&quot; is not even guaranteed to be any wider than &quot;long&quot;.)<div style="height: 1.00em;">
+&#160;</div>
+Instead, use the definitions IV, UV, IVSIZE, I32SIZE, and so forth. Avoid things like I32 because they are  <b>not</b> guaranteed to be  <i>exactly</i> 32 bits, they are <i>at least</i> 32 bits, nor are they guaranteed to be  <b>int</b> or <b>long</b>.  If you really explicitly need 64-bit variables, use I64 and U64, but only if guarded by HAS_QUAD.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assuming one can dereference any type of pointer for any type of data<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  char *p = ...;<br/>
+  long pony = *p;    /* BAD */<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Many platforms, quite rightly so, will give you a core dump instead of a pony if the p happens not to be correctly aligned.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Lvalue casts<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (int)*p = ...;    /* BAD */<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Simply not portable.  Get your lvalue to be of the right type, or maybe use temporary variables, or dirty tricks with unions.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assume <b>anything</b> about structs (especially the ones you don't control, like the ones coming from the system headers)</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+That a certain field exists in a struct</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+That no other fields exist besides the ones you know of</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+That a field is of certain signedness, sizeof, or type</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+That the fields are in a certain order<div style="margin-left: 8.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+While C guarantees the ordering specified in the struct definition, between different platforms the definitions might differ</dd>
+</dl>
+</div>
+<div style="margin-left: 8.00ex;">
+</div>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+That the sizeof(struct) or the alignments are the same everywhere<div style="margin-left: 8.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+There might be padding bytes between the fields to align the fields - the bytes can be anything</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Structs are required to be aligned to the maximum alignment required by the fields - which for native types is for usually equivalent to  <i>sizeof()</i> of the field</dd>
+</dl>
+</div>
+<div style="margin-left: 8.00ex;">
+</div>
+</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+</div>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assuming the character set is ASCIIish<div style="height: 1.00em;">
+&#160;</div>
+Perl can compile and run under EBCDIC platforms.  See perlebcdic. This is transparent for the most part, but because the character sets differ, you shouldn't use numeric (decimal, octal, nor hex) constants to refer to characters.  You can safely say 'A', but not 0x41.  You can safely say '\n', but not \012.  If a character doesn't have a trivial input form, you should add it to the list in  <i>regen/unicode_constants.pl</i>, and have Perl create #defines for you, based on the current platform.<div style="height: 1.00em;">
+&#160;</div>
+Also, the range 'A' - 'Z' in ASCII is an unbroken sequence of 26 upper case alphabetic characters.  That is not true in EBCDIC.  Nor for 'a' to 'z'.  But '0' - '9' is an unbroken range in both systems.  Don't assume anything about other ranges.<div style="height: 1.00em;">
+&#160;</div>
+Many of the comments in the existing code ignore the possibility of EBCDIC, and may be wrong therefore, even if the code works.  This is actually a tribute to the successful transparent insertion of being able to handle EBCDIC without having to change pre-existing code.<div style="height: 1.00em;">
+&#160;</div>
+UTF-8 and UTF-EBCDIC are two different encodings used to represent Unicode code points as sequences of bytes.  Macros  with the same names (but different definitions) in &quot;utf8.h&quot; and &quot;utfebcdic.h&quot; are used to allow the calling code to think that there is only one such encoding. This is almost always referred to as &quot;utf8&quot;, but it means the EBCDIC version as well.  Again, comments in the code may well be wrong even if the code itself is right.  For example, the concept of &quot;invariant characters&quot; differs between ASCII and EBCDIC.  On ASCII platforms, only characters that do not have the high-order bit set (i.e.  whose ordinals are strict ASCII, 0 - 127) are invariant, and the documentation and comments in the code may assume that, often referring to something like, say, &quot;hibit&quot;.  The situation differs and is not so simple on EBCDIC machines, but as long as the code itself uses the &quot;NATIVE_IS_INVARIANT()&quot; macro appropriately, it works, even if the comments are wrong.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assuming the character set is just ASCII<div style="height: 1.00em;">
+&#160;</div>
+ASCII is a 7 bit encoding, but bytes have 8 bits in them.  The 128 extra characters have different meanings depending on the locale.  Absent a locale, currently these extra characters are generally considered to be unassigned, and this has presented some problems.  This is being changed starting in 5.12 so that these characters will be considered to be Latin-1 (ISO-8859-1).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Mixing #define and #ifdef<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  #define BURGLE(x) ... \<br/>
+  #ifdef BURGLE_OLD_STYLE        /* BAD */<br/>
+  ... do it the old way ... \<br/>
+  #else<br/>
+  ... do it the new way ... \<br/>
+  #endif<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+You cannot portably &quot;stack&quot; cpp directives.  For example in the above you need two separate  <i>BURGLE()</i> #defines, one for each #ifdef branch.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Adding non-comment stuff after #endif or #else<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  #ifdef SNOSH<br/>
+  ...<br/>
+  #else !SNOSH    /* BAD */<br/>
+  ...<br/>
+  #endif SNOSH    /* BAD */<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The #endif and #else cannot portably have anything non-comment after them.  If you want to document what is going (which is a good idea especially if the branches are long), use (C) comments:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  #ifdef SNOSH<br/>
+  ...<br/>
+  #else /* !SNOSH */<br/>
+  ...<br/>
+  #endif /* SNOSH */<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The gcc option &quot;-Wendif-labels&quot; warns about the bad variant (by default on starting from Perl 5.9.4).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Having a comma after the last element of an enum list<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  enum color {<br/>
+    CERULEAN,<br/>
+    CHARTREUSE,<br/>
+    CINNABAR,     /* BAD */<br/>
+  };<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+is not portable.  Leave out the last comma.<div style="height: 1.00em;">
+&#160;</div>
+Also note that whether enums are implicitly morphable to ints varies between compilers, you might need to (int).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Using //-comments<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  // This function bamfoodles the zorklator.   /* BAD */<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+That is C99 or C++.  Perl is C89.  Using the //-comments is silently allowed by many C compilers but cranking up the ANSI C89 strictness (which we like to do) causes the compilation to fail.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Mixing declarations and code<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  void zorklator()<br/>
+  {<br/>
+    int n = 3;<br/>
+    set_zorkmids(n);    /* BAD */<br/>
+    int q = 4;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+That is C99 or C++.  Some C compilers allow that, but you shouldn't.<div style="height: 1.00em;">
+&#160;</div>
+The gcc option &quot;-Wdeclaration-after-statements&quot; scans for such problems (by default on starting from Perl 5.9.4).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Introducing variables inside <i>for()</i><div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  for(int i = ...; ...; ...) {    /* BAD */<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+That is C99 or C++.  While it would indeed be awfully nice to have that also in C89, to limit the scope of the loop variable, alas, we cannot.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Mixing signed char pointers with unsigned char pointers<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  int foo(char *s) { ... }<br/>
+  ...<br/>
+  unsigned char *t = ...; /* Or U8* t = ... */<br/>
+  foo(t);   /* BAD */<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+While this is legal practice, it is certainly dubious, and downright fatal in at least one platform: for example VMS cc considers this a fatal error.  One cause for people often making this mistake is that a &quot;naked char&quot; and therefore dereferencing a &quot;naked char pointer&quot; have an undefined signedness: it depends on the compiler and the flags of the compiler and the underlying platform whether the result is signed or unsigned.  For this very same reason using a 'char' as an array index is bad.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Macros that have string constants and their arguments as substrings of the string constants<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  #define FOO(n) printf(&quot;number = %d\n&quot;, n)    /* BAD */<br/>
+  FOO(10);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Pre-ANSI semantics for that was equivalent to<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  printf(&quot;10umber = %d\10&quot;);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+which is probably not what you were expecting.  Unfortunately at least one reasonably common and modern C compiler does &quot;real backward compatibility&quot; here, in AIX that is what still happens even though the rest of the AIX compiler is very happily C89.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Using printf formats for non-basic C types<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   IV i = ...;<br/>
+   printf(&quot;i = %d\n&quot;, i);    /* BAD */<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+While this might by accident work in some platform (where IV happens to be an &quot;int&quot;), in general it cannot.  IV might be something larger.  Even worse the situation is with more specific types (defined by Perl's configuration step in  <i>config.h</i>):<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   Uid_t who = ...;<br/>
+   printf(&quot;who = %d\n&quot;, who);    /* BAD */<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The problem here is that Uid_t might be not only not &quot;int&quot;-wide but it might also be unsigned, in which case large uids would be printed as negative values.<div style="height: 1.00em;">
+&#160;</div>
+There is no simple solution to this because of <i>printf()</i>'s limited intelligence, but for many types the right format is available as with either 'f' or '_f' suffix, for example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   IVdf /* IV in decimal */<br/>
+   UVxf /* UV is hexadecimal */<br/>
+<br/>
+   printf(&quot;i = %&quot;IVdf&quot;\n&quot;, i); /* The IVdf is a string constant. */<br/>
+<br/>
+   Uid_t_f /* Uid_t in decimal */<br/>
+<br/>
+   printf(&quot;who = %&quot;Uid_t_f&quot;\n&quot;, who);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Or you can try casting to a &quot;wide enough&quot; type:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   printf(&quot;i = %&quot;IVdf&quot;\n&quot;, (IV)something_very_small_and_signed);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Also remember that the %p format really does require a void pointer:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   U8* p = ...;<br/>
+   printf(&quot;p = %p\n&quot;, (void*)p);<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The gcc option &quot;-Wformat&quot; scans for such problems.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Blindly using variadic macros<div style="height: 1.00em;">
+&#160;</div>
+gcc has had them for a while with its own syntax, and C99 brought them with a standardized syntax.  Don't use the former, and use the latter only if the HAS_C99_VARIADIC_MACROS is defined.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Blindly passing va_list<div style="height: 1.00em;">
+&#160;</div>
+Not all platforms support passing va_list to further varargs (stdarg) functions.  The right thing to do is to copy the va_list using the  <i>Perl_va_copy()</i> if the NEED_VA_COPY is defined.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Using gcc statement expressions<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   val = ({...;...;...});    /* BAD */<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+While a nice extension, it's not portable.  The Perl code does admittedly use them if available to gain some extra speed (essentially as a funky form of inlining), but you shouldn't.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Binding together several statements in a macro<div style="height: 1.00em;">
+&#160;</div>
+Use the macros STMT_START and STMT_END.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   STMT_START {<br/>
+      ...<br/>
+   } STMT_END<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Testing for operating systems or versions when should be testing for features<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  #ifdef __FOONIX__    /* BAD */<br/>
+  foo = quux();<br/>
+  #endif<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Unless you know with 100% certainty that <i>quux()</i> is only ever available for the &quot;Foonix&quot; operating system  <b>and</b> that is available <b>and</b> correctly working for  <b>all</b> past, present, <b>and</b> future versions of &quot;Foonix&quot;, the above is very wrong.  This is more correct (though still not perfect, because the below is a compile-time check):<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  #ifdef HAS_QUUX<br/>
+  foo = quux();<br/>
+  #endif<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+How does the HAS_QUUX become defined where it needs to be?  Well, if Foonix happens to be Unixy enough to be able to run the Configure script, and Configure has been taught about detecting and testing  <i>quux()</i>, the HAS_QUUX will be correctly defined.  In other platforms, the corresponding configuration step will hopefully do the same.<div style="height: 1.00em;">
+&#160;</div>
+In a pinch, if you cannot wait for Configure to be educated, or if you have a good hunch of where  <i>quux()</i> might be available, you can temporarily try the following:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  #if (defined(__FOONIX__) || defined(__BARNIX__))<br/>
+  # define HAS_QUUX<br/>
+  #endif<br/>
+<br/>
+  ...<br/>
+<br/>
+  #ifdef HAS_QUUX<br/>
+  foo = quux();<br/>
+  #endif<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+But in any case, try to keep the features and operating systems separate.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Problematic System Interfaces</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>malloc</i>(0), <i>realloc</i>(0), calloc(0, 0) are non-portable.  To be portable allocate at least one byte.  (In general you should rarely need to work at this low level, but instead use the various malloc wrappers.)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>snprintf()</i> - the return type is unportable.  Use <i>my_snprintf()</i> instead.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Security problems</h2> Last but not least, here are various tips for safer coding. See also perlclib for libc/stdio replacements one should use.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Do not use <i>gets()</i><div style="height: 1.00em;">
+&#160;</div>
+Or we will publicly ridicule you.  Seriously.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Do not use <i>tmpfile()</i><div style="height: 1.00em;">
+&#160;</div>
+Use <i>mkstemp()</i> instead.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Do not use <i>strcpy()</i> or <i>strcat()</i> or <i>strncpy()</i> or <i>strncat()</i><div style="height: 1.00em;">
+&#160;</div>
+Use <i>my_strlcpy()</i> and <i>my_strlcat()</i> instead: they either use the native implementation, or Perl's own implementation (borrowed from the public domain implementation of INN).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Do not use <i>sprintf()</i> or <i>vsprintf()</i><div style="height: 1.00em;">
+&#160;</div>
+If you really want just plain byte strings, use <i>my_snprintf()</i> and  <i>my_vsnprintf()</i> instead, which will try to use <i>snprintf()</i> and  <i>vsnprintf()</i> if those safer APIs are available.  If you want something fancier than a plain byte string, use &quot;Perl_form&quot;() or SVs and &quot;Perl_sv_catpvf()&quot;.<div style="height: 1.00em;">
+&#160;</div>
+Note that glibc &quot;printf()&quot;, &quot;sprintf()&quot;, etc. are buggy before glibc version 2.17.  They won't allow a &quot;%.s&quot; format with a precision to create a string that isn't valid UTF-8 if the current underlying locale of the program is UTF-8.  What happens is that the %s and its operand are simply skipped without any notice. &lt;https://sourceware.org/bugzilla/show_bug.cgi?id=6530&gt;.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>DEBUGGING</h1> You can compile a special debugging version of Perl, which allows you to use the &quot;-D&quot; option of Perl to tell more about what Perl is doing. But sometimes there is no alternative than to dive in with a debugger, either to see the stack trace of a core dump (very useful in a bug report), or trying to figure out what went wrong before the core dump happened, or how did we end up having wrong or unexpected results.<div class="subsection">
+<h2>Poking at Perl</h2> To really poke around with Perl, you'll probably want to build Perl for debugging, like this:<div class="spacer">
+</div>
+<br/>
+    ./Configure -d -D optimize=-g<br/>
+    make<br/>
+<div class="spacer">
+</div>
+&quot;-g&quot; is a flag to the C compiler to have it produce debugging information which will allow us to step through a running program, and to see in which C function we are at (without the debugging information we might see only the numerical addresses of the functions, which is not very helpful).<div class="spacer">
+</div>
+<i>Configure</i> will also turn on the &quot;DEBUGGING&quot; compilation symbol which enables all the internal debugging code in Perl.  There are a whole bunch of things you can debug with this: perlrun lists them all, and the best way to find out about them is to play about with them.  The most useful options are probably<div class="spacer">
+</div>
+<br/>
+    l  Context (loop) stack processing<br/>
+    t  Trace execution<br/>
+    o  Method and overloading resolution<br/>
+    c  String/numeric conversions<br/>
+<div class="spacer">
+</div>
+Some of the functionality of the debugging code can be achieved using XS modules.<div class="spacer">
+</div>
+<br/>
+    -Dr =&gt; use re 'debug'<br/>
+    -Dx =&gt; use O 'Debug'<br/>
+</div>
+<div class="subsection">
+<h2>Using a source-level debugger</h2> If the debugging output of &quot;-D&quot; doesn't help you, it's time to step through perl's execution with a source-level debugger.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+We'll use &quot;gdb&quot; for our examples here; the principles will apply to any debugger (many vendors call their debugger &quot;dbx&quot;), but check the manual of the one you're using.</dd>
+</dl>
+<div class="spacer">
+</div>
+To fire up the debugger, type<div class="spacer">
+</div>
+<br/>
+    gdb ./perl<br/>
+<div class="spacer">
+</div>
+Or if you have a core dump:<div class="spacer">
+</div>
+<br/>
+    gdb ./perl core<br/>
+<div class="spacer">
+</div>
+You'll want to do that in your Perl source tree so the debugger can read the source code.  You should see the copyright message, followed by the prompt.<div class="spacer">
+</div>
+<br/>
+    (gdb)<br/>
+<div class="spacer">
+</div>
+&quot;help&quot; will get you into the documentation, but here are the most useful commands:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+run [args]<div style="height: 1.00em;">
+&#160;</div>
+Run the program with the given arguments.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+break function_name</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+break source.c:xxx<div style="height: 1.00em;">
+&#160;</div>
+Tells the debugger that we'll want to pause execution when we reach either the named function (but see &quot;Internal Functions&quot; in perlguts!) or the given line in the named source file.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+step<div style="height: 1.00em;">
+&#160;</div>
+Steps through the program a line at a time.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+next<div style="height: 1.00em;">
+&#160;</div>
+Steps through the program a line at a time, without descending into functions.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+continue<div style="height: 1.00em;">
+&#160;</div>
+Run until the next breakpoint.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+finish<div style="height: 1.00em;">
+&#160;</div>
+Run until the end of the current function, then stop again.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+'enter'<div style="height: 1.00em;">
+&#160;</div>
+Just pressing Enter will do the most recent operation again - it's a blessing when stepping through miles of source code.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+ptype<div style="height: 1.00em;">
+&#160;</div>
+Prints the C definition of the argument given.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  (gdb) ptype PL_op<br/>
+  type = struct op {<br/>
+      OP *op_next;<br/>
+      OP *op_sibling;<br/>
+      OP *(*op_ppaddr)(void);<br/>
+      PADOFFSET op_targ;<br/>
+      unsigned int op_type : 9;<br/>
+      unsigned int op_opt : 1;<br/>
+      unsigned int op_slabbed : 1;<br/>
+      unsigned int op_savefree : 1;<br/>
+      unsigned int op_static : 1;<br/>
+      unsigned int op_folded : 1;<br/>
+      unsigned int op_spare : 2;<br/>
+      U8 op_flags;<br/>
+      U8 op_private;<br/>
+  } *<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+print<div style="height: 1.00em;">
+&#160;</div>
+Execute the given C code and print its results.  <b>WARNING</b>: Perl makes heavy use of macros, and  <i>gdb</i> does not necessarily support macros (see later &quot;gdb macro support&quot;).  You'll have to substitute them yourself, or to invoke cpp on the source code files (see &quot;The .i Targets&quot;) So, for instance, you can't say<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    print SvPV_nolen(sv)<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+but you have to say<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    print Perl_sv_2pv_nolen(sv)<br/>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+You may find it helpful to have a &quot;macro dictionary&quot;, which you can produce by saying &quot;cpp -dM perl.c | sort&quot;.  Even then,  <i>cpp</i> won't recursively apply those macros for you.</div>
+<div class="subsection">
+<h2>gdb macro support</h2> Recent versions of  <i>gdb</i> have fairly good macro support, but in order to use it you'll need to compile perl with macro definitions included in the debugging information.  Using  <i>gcc</i> version 3.1, this means configuring with &quot;-Doptimize=-g3&quot;.  Other compilers might use a different switch (if they support debugging macros at all).</div>
+<div class="subsection">
+<h2>Dumping Perl Data Structures</h2> One way to get around this macro hell is to use the dumping functions in  <i>dump.c</i>; these work a little like an internal Devel::Peek, but they also cover OPs and other structures that you can't get at from Perl.  Let's take an example. We'll use the &quot;$a = $b + $c&quot; we used before, but give it a bit of context: &quot;$b = &quot;6XXXX&quot;; $c = 2.3;&quot;.  Where's a good place to stop and poke around?<div class="spacer">
+</div>
+What about &quot;pp_add&quot;, the function we examined earlier to implement the &quot;+&quot; operator:<div class="spacer">
+</div>
+<br/>
+    (gdb) break Perl_pp_add<br/>
+    Breakpoint 1 at 0x46249f: file pp_hot.c, line 309.<br/>
+<div class="spacer">
+</div>
+Notice we use &quot;Perl_pp_add&quot; and not &quot;pp_add&quot; - see &quot;Internal Functions&quot; in perlguts.  With the breakpoint in place, we can run our program:<div class="spacer">
+</div>
+<br/>
+    (gdb) run -e '$b = &quot;6XXXX&quot;; $c = 2.3; $a = $b + $c'<br/>
+<div class="spacer">
+</div>
+Lots of junk will go past as gdb reads in the relevant source files and libraries, and then:<div class="spacer">
+</div>
+<br/>
+    Breakpoint 1, Perl_pp_add () at pp_hot.c:309<br/>
+    309         dSP; dATARGET; tryAMAGICbin(add,opASSIGN);<br/>
+    (gdb) step<br/>
+    311           dPOPTOPnnrl_ul;<br/>
+    (gdb)<br/>
+<div class="spacer">
+</div>
+We looked at this bit of code before, and we said that &quot;dPOPTOPnnrl_ul&quot; arranges for two &quot;NV&quot;s to be placed into &quot;left&quot; and &quot;right&quot; - let's slightly expand it:<div class="spacer">
+</div>
+<br/>
+ #define dPOPTOPnnrl_ul  NV right = POPn; \<br/>
+                         SV *leftsv = TOPs; \<br/>
+                         NV left = USE_LEFT(leftsv) ? SvNV(leftsv) : 0.0<br/>
+<div class="spacer">
+</div>
+&quot;POPn&quot; takes the SV from the top of the stack and obtains its NV either directly (if &quot;SvNOK&quot; is set) or by calling the &quot;sv_2nv&quot; function.  &quot;TOPs&quot; takes the next SV from the top of the stack - yes, &quot;POPn&quot; uses &quot;TOPs&quot; - but doesn't remove it.  We then use &quot;SvNV&quot; to get the NV from &quot;leftsv&quot; in the same way as before - yes, &quot;POPn&quot; uses &quot;SvNV&quot;.<div class="spacer">
+</div>
+Since we don't have an NV for $b, we'll have to use &quot;sv_2nv&quot; to convert it.  If we step again, we'll find ourselves there:<div class="spacer">
+</div>
+<br/>
+    (gdb) step<br/>
+    Perl_sv_2nv (sv=0xa0675d0) at sv.c:1669<br/>
+    1669        if (!sv)<br/>
+    (gdb)<br/>
+<div class="spacer">
+</div>
+We can now use &quot;Perl_sv_dump&quot; to investigate the SV:<div class="spacer">
+</div>
+<br/>
+    (gdb) print Perl_sv_dump(sv)<br/>
+    SV = PV(0xa057cc0) at 0xa0675d0<br/>
+    REFCNT = 1<br/>
+    FLAGS = (POK,pPOK)<br/>
+    PV = 0xa06a510 &quot;6XXXX&quot;\0<br/>
+    CUR = 5<br/>
+    LEN = 6<br/>
+    $1 = void<br/>
+<div class="spacer">
+</div>
+We know we're going to get 6 from this, so let's finish the subroutine:<div class="spacer">
+</div>
+<br/>
+    (gdb) finish<br/>
+    Run till exit from #0  Perl_sv_2nv (sv=0xa0675d0) at sv.c:1671<br/>
+    0x462669 in Perl_pp_add () at pp_hot.c:311<br/>
+    311           dPOPTOPnnrl_ul;<br/>
+<div class="spacer">
+</div>
+We can also dump out this op: the current op is always stored in &quot;PL_op&quot;, and we can dump it with &quot;Perl_op_dump&quot;.  This'll give us similar output to B::Debug.<div class="spacer">
+</div>
+<br/>
+    (gdb) print Perl_op_dump(PL_op)<br/>
+    {<br/>
+    13  TYPE = add  ===&gt; 14<br/>
+        TARG = 1<br/>
+        FLAGS = (SCALAR,KIDS)<br/>
+        {<br/>
+            TYPE = null  ===&gt; (12)<br/>
+              (was rv2sv)<br/>
+            FLAGS = (SCALAR,KIDS)<br/>
+            {<br/>
+    11          TYPE = gvsv  ===&gt; 12<br/>
+                FLAGS = (SCALAR)<br/>
+                GV = main::b<br/>
+            }<br/>
+        }<br/>
+<div class="spacer">
+</div>
+# finish this later #</div>
+<div class="subsection">
+<h2>Using gdb to look at specific parts of a program</h2> With the example above, you knew to look for &quot;Perl_pp_add&quot;, but what if there were multiple calls to it all over the place, or you didn't know what the op was you were looking for?<div class="spacer">
+</div>
+One way to do this is to inject a rare call somewhere near what you're looking for.  For example, you could add &quot;study&quot; before your method:<div class="spacer">
+</div>
+<br/>
+    study;<br/>
+<div class="spacer">
+</div>
+And in gdb do:<div class="spacer">
+</div>
+<br/>
+    (gdb) break Perl_pp_study<br/>
+<div class="spacer">
+</div>
+And then step until you hit what you're looking for.  This works well in a loop if you want to only break at certain iterations:<div class="spacer">
+</div>
+<br/>
+    for my $c (1..100) {<br/>
+        study if $c == 50;<br/>
+    }<br/>
+</div>
+<div class="subsection">
+<h2>Using gdb to look at what the parser/lexer are doing</h2> If you want to see what perl is doing when parsing/lexing your code, you can use &quot;BEGIN {}&quot;:<div class="spacer">
+</div>
+<br/>
+    print &quot;Before\n&quot;;<br/>
+    BEGIN { study; }<br/>
+    print &quot;After\n&quot;;<br/>
+<div class="spacer">
+</div>
+And in gdb:<div class="spacer">
+</div>
+<br/>
+    (gdb) break Perl_pp_study<br/>
+<div class="spacer">
+</div>
+If you want to see what the parser/lexer is doing inside of &quot;if&quot; blocks and the like you need to be a little trickier:<div class="spacer">
+</div>
+<br/>
+    if ($a &amp;&amp; $b &amp;&amp; do { BEGIN { study } 1 } &amp;&amp; $c) { ... }<br/>
+</div>
+</div>
+<div class="section">
+<h1>SOURCE CODE STATIC ANALYSIS</h1> Various tools exist for analysing C source code  <b>statically</b>, as opposed to  <b>dynamically</b>, that is, without executing the code.  It is possible to detect resource leaks, undefined behaviour, type mismatches, portability problems, code paths that would cause illegal memory accesses, and other similar problems by just parsing the C code and looking at the resulting graph, what does it tell about the execution and data flows.  As a matter of fact, this is exactly how C compilers know to give warnings about dubious code.<div class="subsection">
+<h2>lint, splint</h2> The good old C code quality inspector, &quot;lint&quot;, is available in several platforms, but please be aware that there are several different implementations of it by different vendors, which means that the flags are not identical across different platforms.<div class="spacer">
+</div>
+There is a lint variant called &quot;splint&quot; (Secure Programming Lint) available from http://www.splint.org/ that should compile on any Unix-like platform.<div class="spacer">
+</div>
+There are &quot;lint&quot; and &lt;splint&gt; targets in Makefile, but you may have to diddle with the flags (see above).</div>
+<div class="subsection">
+<h2>Coverity</h2> Coverity (http://www.coverity.com/) is a product similar to lint and as a testbed for their product they periodically check several open source projects, and they give out accounts to open source developers to the defect databases.</div>
+<div class="subsection">
+<h2>cpd (cut-and-paste detector)</h2> The cpd tool detects cut-and-paste coding.  If one instance of the cut-and-pasted code changes, all the other spots should probably be changed, too.  Therefore such code should probably be turned into a subroutine or a macro.<div class="spacer">
+</div>
+cpd (http://pmd.sourceforge.net/cpd.html) is part of the pmd project (http://pmd.sourceforge.net/).  pmd was originally written for static analysis of Java code, but later the cpd part of it was extended to parse also C and C++.<div class="spacer">
+</div>
+Download the pmd-bin-X.Y.zip () from the SourceForge site, extract the pmd-X.Y.jar from it, and then run that on source code thusly:<div class="spacer">
+</div>
+<br/>
+  java -cp pmd-X.Y.jar net.sourceforge.pmd.cpd.CPD \<br/>
+   --minimum-tokens 100 --files /some/where/src --language c &gt; cpd.txt<br/>
+<div class="spacer">
+</div>
+You may run into memory limits, in which case you should use the -Xmx option:<div class="spacer">
+</div>
+<br/>
+  java -Xmx512M ...<br/>
+</div>
+<div class="subsection">
+<h2>gcc warnings</h2> Though much can be written about the inconsistency and coverage problems of gcc warnings (like &quot;-Wall&quot; not meaning &quot;all the warnings&quot;, or some common portability problems not being covered by &quot;-Wall&quot;, or &quot;-ansi&quot; and &quot;-pedantic&quot; both being a poorly defined collection of warnings, and so forth), gcc is still a useful tool in keeping our coding nose clean.<div class="spacer">
+</div>
+The &quot;-Wall&quot; is by default on.<div class="spacer">
+</div>
+The &quot;-ansi&quot; (and its sidekick, &quot;-pedantic&quot;) would be nice to be on always, but unfortunately they are not safe on all platforms, they can for example cause fatal conflicts with the system headers (Solaris being a prime example).  If Configure &quot;-Dgccansipedantic&quot; is used, the &quot;cflags&quot; frontend selects &quot;-ansi -pedantic&quot; for the platforms where they are known to be safe.<div class="spacer">
+</div>
+Starting from Perl 5.9.4 the following extra flags are added:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;-Wendif-labels&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;-Wextra&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;-Wdeclaration-after-statement&quot;</dd>
+</dl>
+<div class="spacer">
+</div>
+The following flags would be nice to have but they would first need their own Augean stablemaster:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;-Wpointer-arith&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;-Wshadow&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;-Wstrict-prototypes&quot;</dd>
+</dl>
+<div class="spacer">
+</div>
+The &quot;-Wtraditional&quot; is another example of the annoying tendency of gcc to bundle a lot of warnings under one switch (it would be impossible to deploy in practice because it would complain a lot) but it does contain some warnings that would be beneficial to have available on their own, such as the warning about string constants inside macros containing the macro arguments: this behaved differently pre-ANSI than it does in ANSI, and some C compilers are still in transition, AIX being an example.</div>
+<div class="subsection">
+<h2>Warnings of other C compilers</h2> Other C compilers (yes, there  <b>are</b> other C compilers than gcc) often have their &quot;strict ANSI&quot; or &quot;strict ANSI with some portability extensions&quot; modes on, like for example the Sun Workshop has its &quot;-Xa&quot; mode on (though implicitly), or the DEC (these days, HP...) has its &quot;-std1&quot; mode on.</div>
+</div>
+<div class="section">
+<h1>MEMORY DEBUGGERS</h1>  <b>NOTE 1</b>: Running under older memory debuggers such as Purify, valgrind or Third Degree greatly slows down the execution: seconds become minutes, minutes become hours.  For example as of Perl 5.8.1, the ext/Encode/t/Unicode.t takes extraordinarily long to complete under e.g. Purify, Third Degree, and valgrind.  Under valgrind it takes more than six hours, even on a snappy computer.  The said test must be doing something that is quite unfriendly for memory debuggers.  If you don't feel like waiting, that you can simply kill away the perl process. Roughly valgrind slows down execution by factor 10, AddressSanitizer by factor 2.<div class="spacer">
+</div>
+<b>NOTE 2</b>: To minimize the number of memory leak false alarms (see &quot;PERL_DESTRUCT_LEVEL&quot; for more information), you have to set the environment variable PERL_DESTRUCT_LEVEL to 2.  For example, like this:<div class="spacer">
+</div>
+<br/>
+    env PERL_DESTRUCT_LEVEL=2 valgrind ./perl -Ilib ...<br/>
+<div class="spacer">
+</div>
+<b>NOTE 3</b>: There are known memory leaks when there are compile-time errors within eval or require, seeing &quot;S_doeval&quot; in the call stack is a good sign of these.  Fixing these leaks is non-trivial, unfortunately, but they must be fixed eventually.<div class="spacer">
+</div>
+<b>NOTE 4</b>: DynaLoader will not clean up after itself completely unless Perl is built with the Configure option &quot;-Accflags=-DDL_UNLOAD_ALL_AT_EXIT&quot;.<div class="subsection">
+<h2>valgrind</h2> The valgrind tool can be used to find out both memory leaks and illegal heap memory accesses.  As of version 3.3.0, Valgrind only supports Linux on x86, x86-64 and PowerPC and Darwin (OS X) on x86 and x86-64).  The special &quot;test.valgrind&quot; target can be used to run the tests under valgrind.  Found errors and memory leaks are logged in files named  <i>testfile.valgrind</i>.<div class="spacer">
+</div>
+Valgrind also provides a cachegrind tool, invoked on perl as:<div class="spacer">
+</div>
+<br/>
+    VG_OPTS=--tool=cachegrind make test.valgrind<br/>
+<div class="spacer">
+</div>
+As system libraries (most notably glibc) are also triggering errors, valgrind allows to suppress such errors using suppression files.  The default suppression file that comes with valgrind already catches a lot of them.  Some additional suppressions are defined in  <i>t/perl.supp</i>.<div class="spacer">
+</div>
+To get valgrind and for more information see<div class="spacer">
+</div>
+<br/>
+    http://valgrind.org/<br/>
+</div>
+<div class="subsection">
+<h2>AddressSanitizer</h2> AddressSanitizer is a clang and gcc extension, included in clang since v3.1 and gcc since v4.8.  It checks illegal heap pointers, global pointers, stack pointers and use after free errors, and is fast enough that you can easily compile your debugging or optimized perl with it. It does not check memory leaks though.  AddressSanitizer is available for Linux, Mac OS X and soon on Windows.<div class="spacer">
+</div>
+To build perl with AddressSanitizer, your Configure invocation should look like:<div class="spacer">
+</div>
+<br/>
+    sh Configure -des -Dcc=clang \<br/>
+       -Accflags=-faddress-sanitizer -Aldflags=-faddress-sanitizer \<br/>
+       -Alddlflags=-shared\ -faddress-sanitizer<br/>
+<div class="spacer">
+</div>
+where these arguments mean:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+-Dcc=clang<div style="height: 1.00em;">
+&#160;</div>
+This should be replaced by the full path to your clang executable if it is not in your path.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+-Accflags=-faddress-sanitizer<div style="height: 1.00em;">
+&#160;</div>
+Compile perl and extensions sources with AddressSanitizer.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+-Aldflags=-faddress-sanitizer<div style="height: 1.00em;">
+&#160;</div>
+Link the perl executable with AddressSanitizer.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+-Alddlflags=-shared\ -faddress-sanitizer<div style="height: 1.00em;">
+&#160;</div>
+Link dynamic extensions with AddressSanitizer.  You must manually specify &quot;-shared&quot; because using &quot;-Alddlflags=-shared&quot; will prevent Configure from setting a default value for &quot;lddlflags&quot;, which usually contains &quot;-shared&quot; (at least on Linux).</dd>
+</dl>
+<div class="spacer">
+</div>
+See also &lt;http://code.google.com/p/address-sanitizer/wiki/AddressSanitizer&gt;.</div>
+</div>
+<div class="section">
+<h1>PROFILING</h1> Depending on your platform there are various ways of profiling Perl.<div class="spacer">
+</div>
+There are two commonly used techniques of profiling executables:  <i>statistical time-sampling</i> and <i>basic-block counting</i>.<div class="spacer">
+</div>
+The first method takes periodically samples of the CPU program counter, and since the program counter can be correlated with the code generated for functions, we get a statistical view of in which functions the program is spending its time.  The caveats are that very small/fast functions have lower probability of showing up in the profile, and that periodically interrupting the program (this is usually done rather frequently, in the scale of milliseconds) imposes an additional overhead that may skew the results.  The first problem can be alleviated by running the code for longer (in general this is a good idea for profiling), the second problem is usually kept in guard by the profiling tools themselves.<div class="spacer">
+</div>
+The second method divides up the generated code into <i>basic blocks</i>. Basic blocks are sections of code that are entered only in the beginning and exited only at the end.  For example, a conditional jump starts a basic block.  Basic block profiling usually works by  <i>instrumenting</i> the code by adding <i>enter basic block #nnnn</i> book-keeping code to the generated code.  During the execution of the code the basic block counters are then updated appropriately.  The caveat is that the added extra code can skew the results: again, the profiling tools usually try to factor their own effects out of the results.<div class="subsection">
+<h2>Gprof Profiling</h2>  <i>gprof</i> is a profiling tool available in many Unix platforms which uses  <i>statistical time-sampling</i>.  You can build a profiled version of  <i>perl</i> by compiling using gcc with the flag &quot;-pg&quot;.  Either edit  <i>config.sh</i> or re-run <i>Configure</i>.  Running the profiled version of Perl will create an output file called  <i>gmon.out</i> which contains the profiling data collected during the execution.<div class="spacer">
+</div>
+quick hint:<div class="spacer">
+</div>
+<br/>
+    $ sh Configure -des -Dusedevel -Accflags='-pg' \<br/>
+        -Aldflags='-pg' -Alddlflags='-pg -shared' \<br/>
+        &amp;&amp; make perl<br/>
+    $ ./perl ... # creates gmon.out in current directory<br/>
+    $ gprof ./perl &gt; out<br/>
+    $ less out<br/>
+<div class="spacer">
+</div>
+(you probably need to add &quot;-shared&quot; to the &lt;-Alddlflags&gt; line until RT #118199 is resolved)<div class="spacer">
+</div>
+The <i>gprof</i> tool can then display the collected data in various ways. Usually  <i>gprof</i> understands the following options:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+-a<div style="height: 1.00em;">
+&#160;</div>
+Suppress statically defined functions from the profile.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+-b<div style="height: 1.00em;">
+&#160;</div>
+Suppress the verbose descriptions in the profile.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+-e routine<div style="height: 1.00em;">
+&#160;</div>
+Exclude the given routine and its descendants from the profile.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+-f routine<div style="height: 1.00em;">
+&#160;</div>
+Display only the given routine and its descendants in the profile.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+-s<div style="height: 1.00em;">
+&#160;</div>
+Generate a summary file called <i>gmon.sum</i> which then may be given to subsequent gprof runs to accumulate data over several runs.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+-z<div style="height: 1.00em;">
+&#160;</div>
+Display routines that have zero usage.</dd>
+</dl>
+<div class="spacer">
+</div>
+For more detailed explanation of the available commands and output formats, see your own local documentation of  <i>gprof</i>.</div>
+<div class="subsection">
+<h2>GCC gcov Profiling</h2>  <i>basic block profiling</i> is officially available in gcc 3.0 and later. You can build a profiled version of  <i>perl</i> by compiling using gcc with the flags &quot;-fprofile-arcs -ftest-coverage&quot;.  Either edit  <i>config.sh</i> or re-run  <i>Configure</i>.<div class="spacer">
+</div>
+quick hint:<div class="spacer">
+</div>
+<br/>
+    $ sh Configure -des -Dusedevel -Doptimize='-g' \<br/>
+        -Accflags='-fprofile-arcs -ftest-coverage' \<br/>
+        -Aldflags='-fprofile-arcs -ftest-coverage' \<br/>
+        -Alddlflags='-fprofile-arcs -ftest-coverage -shared' \<br/>
+        &amp;&amp; make perl<br/>
+    $ rm -f regexec.c.gcov regexec.gcda<br/>
+    $ ./perl ...<br/>
+    $ gcov regexec.c<br/>
+    $ less regexec.c.gcov<br/>
+<div class="spacer">
+</div>
+(you probably need to add &quot;-shared&quot; to the &lt;-Alddlflags&gt; line until RT #118199 is resolved)<div class="spacer">
+</div>
+Running the profiled version of Perl will cause profile output to be generated.  For each source file an accompanying  <i>.gcda</i> file will be created.<div class="spacer">
+</div>
+To display the results you use the <i>gcov</i> utility (which should be installed if you have gcc 3.0 or newer installed).   <i>gcov</i> is run on source code files, like this<div class="spacer">
+</div>
+<br/>
+    gcov sv.c<br/>
+<div class="spacer">
+</div>
+which will cause <i>sv.c.gcov</i> to be created.  The <i>.gcov</i> files contain the source code annotated with relative frequencies of execution indicated by &quot;#&quot; markers.  If you want to generate  <i>.gcov</i> files for all profiled object files, you can run something like this:<div class="spacer">
+</div>
+<br/>
+    for file in `find . -name \*.gcno`<br/>
+    do sh -c &quot;cd `dirname $file` &amp;&amp; gcov `basename $file .gcno`&quot;<br/>
+    done<br/>
+<div class="spacer">
+</div>
+Useful options of <i>gcov</i> include &quot;-b&quot; which will summarise the basic block, branch, and function call coverage, and &quot;-c&quot; which instead of relative frequencies will use the actual counts.  For more information on the use of  <i>gcov</i> and basic block profiling with gcc, see the latest GNU CC manual.  As of gcc 4.8, this is at &lt;http://gcc.gnu.org/onlinedocs/gcc/Gcov-Intro.html#Gcov-Intro&gt;</div>
+</div>
+<div class="section">
+<h1>MISCELLANEOUS TRICKS</h1><div class="subsection">
+<h2>PERL_DESTRUCT_LEVEL</h2> If you want to run any of the tests yourself manually using e.g. valgrind, please note that by default perl  <b>does not</b> explicitly cleanup all the memory it has allocated (such as global memory arenas) but instead lets the  <i>exit()</i> of the whole program &quot;take care&quot; of such allocations, also known as &quot;global destruction of objects&quot;.<div class="spacer">
+</div>
+There is a way to tell perl to do complete cleanup: set the environment variable PERL_DESTRUCT_LEVEL to a non-zero value.  The t/TEST wrapper does set this to 2, and this is what you need to do too, if you don't want to see the &quot;global leaks&quot;: For example, for running under valgrind<div class="spacer">
+</div>
+<br/>
+        env PERL_DESTRUCT_LEVEL=2 valgrind ./perl -Ilib t/foo/bar.t<br/>
+<div class="spacer">
+</div>
+(Note: the mod_perl apache module uses also this environment variable for its own purposes and extended its semantics.  Refer to the mod_perl documentation for more information.  Also, spawned threads do the equivalent of setting this variable to the value 1.)<div class="spacer">
+</div>
+If, at the end of a run you get the message <i>N scalars leaked</i>, you can recompile with &quot;-DDEBUG_LEAKING_SCALARS&quot;, which will cause the addresses of all those leaked SVs to be dumped along with details as to where each SV was originally allocated.  This information is also displayed by Devel::Peek.  Note that the extra details recorded with each SV increases memory usage, so it shouldn't be used in production environments.  It also converts &quot;new_SV()&quot; from a macro into a real function, so you can use your favourite debugger to discover where those pesky SVs were allocated.<div class="spacer">
+</div>
+If you see that you're leaking memory at runtime, but neither valgrind nor &quot;-DDEBUG_LEAKING_SCALARS&quot; will find anything, you're probably leaking SVs that are still reachable and will be properly cleaned up during destruction of the interpreter.  In such cases, using the &quot;-Dm&quot; switch can point you to the source of the leak.  If the executable was built with &quot;-DDEBUG_LEAKING_SCALARS&quot;, &quot;-Dm&quot; will output SV allocations in addition to memory allocations.  Each SV allocation has a distinct serial number that will be written on creation and destruction of the SV.  So if you're executing the leaking code in a loop, you need to look for SVs that are created, but never destroyed between each cycle.  If such an SV is found, set a conditional breakpoint within &quot;new_SV()&quot; and make it break only when &quot;PL_sv_serial&quot; is equal to the serial number of the leaking SV.  Then you will catch the interpreter in exactly the state where the leaking SV is allocated, which is sufficient in many cases to find the source of the leak.<div class="spacer">
+</div>
+As &quot;-Dm&quot; is using the PerlIO layer for output, it will by itself allocate quite a bunch of SVs, which are hidden to avoid recursion.  You can bypass the PerlIO layer if you use the SV logging provided by &quot;-DPERL_MEM_LOG&quot; instead.</div>
+<div class="subsection">
+<h2>PERL_MEM_LOG</h2> If compiled with &quot;-DPERL_MEM_LOG&quot;, both memory and SV allocations go through logging functions, which is handy for breakpoint setting.<div class="spacer">
+</div>
+Unless &quot;-DPERL_MEM_LOG_NOIMPL&quot; is also compiled, the logging functions read $ENV{PERL_MEM_LOG} to determine whether to log the event, and if so how:<div class="spacer">
+</div>
+<br/>
+    $ENV{PERL_MEM_LOG} =~ /m/           Log all memory ops<br/>
+    $ENV{PERL_MEM_LOG} =~ /s/           Log all SV ops<br/>
+    $ENV{PERL_MEM_LOG} =~ /t/           include timestamp in Log<br/>
+    $ENV{PERL_MEM_LOG} =~ /^(\d+)/      write to FD given (default is 2)<br/>
+<div class="spacer">
+</div>
+Memory logging is somewhat similar to &quot;-Dm&quot; but is independent of &quot;-DDEBUGGING&quot;, and at a higher level; all uses of  <i>Newx()</i>, <i>Renew()</i>, and  <i>Safefree()</i> are logged with the caller's source code file and line number (and C function name, if supported by the C compiler).  In contrast, &quot;-Dm&quot; is directly at the point of &quot;malloc()&quot;.  SV logging is similar.<div class="spacer">
+</div>
+Since the logging doesn't use PerlIO, all SV allocations are logged and no extra SV allocations are introduced by enabling the logging.  If compiled with &quot;-DDEBUG_LEAKING_SCALARS&quot;, the serial number for each SV allocation is also logged.</div>
+<div class="subsection">
+<h2>DDD over gdb</h2> Those debugging perl with the DDD frontend over gdb may find the following useful:<div class="spacer">
+</div>
+You can extend the data conversion shortcuts menu, so for example you can display an SV's IV value with one click, without doing any typing. To do that simply edit ~/.ddd/init file and add after:<div class="spacer">
+</div>
+<br/>
+  ! Display shortcuts.<br/>
+  Ddd*gdbDisplayShortcuts: \<br/>
+  /t ()   // Convert to Bin\n\<br/>
+  /d ()   // Convert to Dec\n\<br/>
+  /x ()   // Convert to Hex\n\<br/>
+  /o ()   // Convert to Oct(\n\<br/>
+<div class="spacer">
+</div>
+the following two lines:<div class="spacer">
+</div>
+<br/>
+  ((XPV*) (())-&gt;sv_any )-&gt;xpv_pv  // 2pvx\n\<br/>
+  ((XPVIV*) (())-&gt;sv_any )-&gt;xiv_iv // 2ivx<br/>
+<div class="spacer">
+</div>
+so now you can do ivx and pvx lookups or you can plug there the sv_peek &quot;conversion&quot;:<div class="spacer">
+</div>
+<br/>
+  Perl_sv_peek(my_perl, (SV*)()) // sv_peek<br/>
+<div class="spacer">
+</div>
+(The my_perl is for threaded builds.)  Just remember that every line, but the last one, should end with \n\<div class="spacer">
+</div>
+Alternatively edit the init file interactively via: 3rd mouse button -&gt; New Display -&gt; Edit Menu<div class="spacer">
+</div>
+Note: you can define up to 20 conversion shortcuts in the gdb section.</div>
+<div class="subsection">
+<h2>Poison</h2> If you see in a debugger a memory area mysteriously full of 0xABABABAB or 0xEFEFEFEF, you may be seeing the effect of the  <i>Poison()</i> macros, see perlclib.</div>
+<div class="subsection">
+<h2>Read-only optrees</h2> Under ithreads the optree is read only.  If you want to enforce this, to check for write accesses from buggy code, compile with &quot;-Accflags=-DPERL_DEBUG_READONLY_OPS&quot; to enable code that allocates op memory via &quot;mmap&quot;, and sets it read-only when it is attached to a subroutine. Any write access to an op results in a &quot;SIGBUS&quot; and abort.<div class="spacer">
+</div>
+This code is intended for development only, and may not be portable even to all Unix variants.  Also, it is an 80% solution, in that it isn't able to make all ops read only.  Specifically it does not apply to op slabs belonging to &quot;BEGIN&quot; blocks.<div class="spacer">
+</div>
+However, as an 80% solution it is still effective, as it has caught bugs in the past.</div>
+<div class="subsection">
+<h2>When is a bool not a bool?</h2> On pre-C99 compilers, &quot;bool&quot; is defined as equivalent to &quot;char&quot;. Consequently assignment of any larger type to a &quot;bool&quot; is unsafe and may be truncated.  The &quot;cBOOL&quot; macro exists to cast it correctly.<div class="spacer">
+</div>
+On those platforms and compilers where &quot;bool&quot; really is a boolean (C++, C99), it is easy to forget the cast.  You can force &quot;bool&quot; to be a &quot;char&quot; by compiling with &quot;-Accflags=-DPERL_BOOL_AS_CHAR&quot;.  You may also wish to run &quot;Configure&quot; with something like<div class="spacer">
+</div>
+<br/>
+    -Accflags='-Wconversion -Wno-sign-conversion -Wno-shorten-64-to-32'<br/>
+<div class="spacer">
+</div>
+or your compiler's equivalent to make it easier to spot any unsafe truncations that show up.</div>
+<div class="subsection">
+<h2>The .i Targets</h2> You can expand the macros in a  <i>foo.c</i> file by saying<div class="spacer">
+</div>
+<br/>
+    make foo.i<br/>
+<div class="spacer">
+</div>
+which will expand the macros using cpp.  Don't be scared by the results.</div>
+</div>
+<div class="section">
+<h1>AUTHOR</h1> This document was originally written by Nathan Torkington, and is maintained by the perl5-porters mailing list.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2014-11-17</td>
+<td class="foot-os">
+perl v5.20.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

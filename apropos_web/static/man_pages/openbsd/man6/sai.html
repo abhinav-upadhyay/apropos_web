@@ -1,0 +1,687 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+SAIL(6)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">sail</b> &#8212; <span class="desc">multi-user wooden ships and iron men</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1><table class="synopsis">
+<col style="width: 4.00ex;"/>
+<col/>
+<tbody>
+<tr>
+<td>
+sail</td>
+<td>
+[<span class="opt"><b class="flag">-bx</b></span>] [<span class="opt"><b class="flag">-s</b> [<span class="opt"><b class="flag">-l</b></span>]</span>] [<span class="opt"><i class="arg">number</i></span>]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="name">sail</b> is a computer version of Avalon Hill's game of fighting sail originally developed by S. Craig Taylor.<div class="spacer">
+</div>
+Players of <b class="name">sail</b> take command of an old-fashioned Man of War and fight other players or the computer. They may re-enact one of the many historical sea battles recorded in the game, or they can choose a fictional battle.<div class="spacer">
+</div>
+As a sea captain in the <b class="name">sail</b> Navy, the player has complete control over the workings of his ship. He must order every maneuver, change the set of his sails, and judge the right moment to let loose the terrible destruction of his broadsides. In addition to fighting the enemy, he must harness the powers of the wind and sea to make them work for him. The outcome of many battles during the age of sail was decided by the ability of one captain to hold the &#8216;weather gage&#8217;.<div class="spacer">
+</div>
+The flags are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-b</b></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+No bells.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-l</b></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Show the login name. Only effective with <b class="flag">-s</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-s</b></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Print the names and ships of the top ten sailors.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-x</b></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Play the first available ship instead of prompting for a choice.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x494d504c454d454e544154494f4e">IMPLEMENTATION</h1> <b class="name">sail</b> is really two programs in one. Each player starts up a process which runs his own ship. In addition, a <span class="emph">driver</span> process is forked (by the first player) to run the computer ships and take care of global bookkeeping.<div class="spacer">
+</div>
+Because the driver must calculate moves for each ship it controls, the more ships the computer is playing, the slower the game will appear.<div class="spacer">
+</div>
+If a player joins a game in progress, he will synchronize with the other players (a rather slow process for everyone), and then he may play along with the rest.<div class="spacer">
+</div>
+To implement a multi-user game in <span class="unix">UNIX</span> Version 7, which was the operating system <b class="name">sail</b> was first written under, the communicating processes must use a common temporary file as a place to read and write messages. In addition, a locking mechanism must be provided to ensure exclusive access to the shared file. For example, <b class="name">sail</b> uses a temporary file named <i class="file">/tmp/#sailsink.21</i> for scenario 21, and corresponding file names for the other scenarios. To provide exclusive access to the temporary file, <b class="name">sail</b> uses a technique stolen from an old game called <b class="cmd">pubcaves</b> by Jeff Cohen. Processes do a busy wait in the loop<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+for (n = 0; link(sync_file, sync_lock) == -1 &amp;&amp; n &lt; 30; n++) 
+	sleep(2);</pre>
+<div class="spacer">
+</div>
+until they are able to create a link to a file named <i class="file">/tmp/#saillock.??</i>. The &#8220;??&#8221; correspond to the scenario number of the game. Since <span class="unix">UNIX</span> guarantees that a link will point to only one file, the process that succeeds in linking will have exclusive access to the temporary file.<div class="subsection">
+<h2 id="x434f4e53455155454e434553204f4620534550415241544520504c4159455220414e44204452495645522050524f434553534553">CONSEQUENCES OF SEPARATE PLAYER AND DRIVER PROCESSES</h2> When players do something of global interest, such as moving or firing, the driver must coordinate the action with the other ships in the game. For example, if a player wants to move in a certain direction, he writes a message into the temporary file requesting that the driver move his ship. Each &#8220;turn&#8221;, the driver reads all the messages sent from the players and decides what happened. It then writes back into the temporary file new values of variables, etc.<div class="spacer">
+</div>
+The most noticeable effect this communication has on the game is the delay in moving. Suppose a player types a move for his ship and hits return. What happens then? The player process saves up messages to be written to the temporary file in a buffer. Every 7 seconds or so, the player process gets exclusive access to the temporary file and writes out its buffer to the file. The driver, running asynchronously, must read in the movement command, process it, and write out the results. This takes two exclusive accesses to the temporary file. Finally, when the player process gets around to doing another 7-second update, the results of the move are displayed on the screen. Hence, every movement requires four exclusive accesses to the temporary file (anywhere from 7 to 21 seconds depending upon asynchrony) before the player sees the results of his moves.<div class="spacer">
+</div>
+In practice, the delays are not as annoying as they would appear. There is room for &#8220;pipelining&#8221; in the movement. After the player writes out a first movement message, a second movement command can then be issued. The first message will be in the temporary file waiting for the driver, and the second will be in the file buffer waiting to be written to the file. Thus, by always typing moves a turn ahead of the time, the player can sail around quite quickly.<div class="spacer">
+</div>
+If the player types several movement commands between two 7-second updates, only the last movement command typed will be seen by the driver. Movement commands within the same update &quot;overwrite&quot; each other, in a sense.</div>
+<div class="subsection">
+<h2 id="x484953544f524943414c20494e464f">HISTORICAL INFO</h2> Old Square Riggers were very maneuverable ships capable of intricate sailing. Their only disadvantage was an inability to sail very close to the wind. The design of a wooden ship allowed only for the guns to bear to the left and right sides. A few guns of small aspect (usually 6 or 9 pounders) could point forward, but their effect was small compared to a 68-gun broadside of 24 or 32 pounders. The guns bear approximately like so:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+       \ 
+        b---------------- 
+    ---0 
+        \ 
+         \ 
+          \     up to a range of ten (for round shot) 
+           \ 
+            \ 
+             \</pre>
+<div class="spacer">
+</div>
+An interesting phenomenon occurred when a broadside was fired down the length of an enemy ship. The shot tended to bounce along the deck and did several times more damage. This phenomenon was called a rake. Because the bows of a ship are very strong and present a smaller target than the stern, a stern rake (firing from the stern to the bow) causes more damage than a bow rake.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+                        b 
+                       00   ----  Stern rake! 
+                         a</pre>
+<div class="spacer">
+</div>
+Most ships were equipped with carronades, which were very large, close-range cannons. American ships from the revolution until the War of 1812 were almost entirely armed with carronades.<div class="spacer">
+</div>
+The period of history covered in <b class="name">sail</b> is approximately from the 1770s until the end of Napoleonic France in 1815. There are many excellent books about the age of sail (see <i class="link-sec"><a class="link-sec" href="#x5245464552454e434553">REFERENCES</a></i>).<div class="spacer">
+</div>
+Fighting ships came in several sizes classed by armament. The mainstays of any fleet were its &#8220;Ships of the Line&#8221;, or &#8220;Line of Battle Ships&#8221;. They were so named because these ships fought together in great lines. They were close enough for mutual support, yet every ship could fire both its broadsides. We get the modern words &#8220;ocean liner&#8221;, or &#8220;liner&#8221;, and &#8220;battleship&#8221; from &#8220;ship of the line&#8221;. The most common size was the 74-gun two-decked ship of the line. The two gun decks usually mounted 18 and 24 pounder guns.<div class="spacer">
+</div>
+The pride of the fleet were the first rates. These were huge three decked ships of the line mounting 80 to 136 guns. The guns in the three tiers were usually 18, 24, and 32 pounders in that order from top to bottom.<div class="spacer">
+</div>
+Various other ships came next. They were almost all &#8220;razees&#8221;, or ships of the line with one deck sawed off. They mounted 40-64 guns and were a poor cross between a frigate and a line of battle ship. They neither had the speed of the former nor the firepower of the latter.<div class="spacer">
+</div>
+Next came the &#8220;eyes of the fleet&#8221;. Frigates came in many sizes mounting anywhere from 32 to 44 guns. They were very handy vessels. They could outsail anything bigger and outshoot anything smaller. Frigates didn't fight in lines of battle as the much bigger 74's did. Instead, they harassed the enemy's rear or captured crippled ships. They were much more useful in missions away from the fleet, such as cutting out expeditions or boat actions. They could hit hard and get away fast.<div class="spacer">
+</div>
+Lastly, there were the corvettes, sloops, and brigs. These were smaller ships mounting typically fewer than 20 guns. A corvette was only slightly smaller than a frigate, so one might have up to 30 guns. Sloops were used for carrying dispatches or passengers. Brigs were something you built for land-locked lakes.</div>
+<div class="subsection">
+<h2 id="x5341494c20504152544943554c415253">SAIL PARTICULARS</h2> Ships in <b class="name">sail</b> are represented by two characters. One character represents the bow of the ship, and the other represents the stern. Ships have nationalities and numbers. The first ship of a nationality is number 0, the second number 1, etc. Therefore, the first British ship in a game would be printed as &#8216;b0&#8217;. The second Brit would be &#8216;b1&#8217;, and the fifth Don would be &#8216;s4&#8217;.<div class="spacer">
+</div>
+Ships can set normal sails, called Battle Sails, or bend on extra canvas called Full Sails. A ship under full sail is a beautiful sight indeed, and it can move much faster than a ship under Battle Sails. The only trouble is, with full sails set, there is so much tension on sail and rigging that a well aimed round shot can burst a sail into ribbons where it would only cause a little hole in a loose sail. For this reason, rigging damage is doubled on a ship with full sails set. Don't let that discourage you from using full sails: I like to keep them up right into the heat of battle. A ship with full sails set has a capital letter for its nationality. E.g., a Frog, &#8216;f0&#8217;, with full sails set would be printed as &#8216;F0&#8217;.<div class="spacer">
+</div>
+When a ship is battered into a listing hulk, the last man aboard &#8220;strikes the colors&#8221;. This ceremony is the ship's formal surrender. The nationality character of a surrendered ship is printed as &#8216;!&#8217;. E.g., the Frog of our last example would soon be &#8216;!0&#8217;.<div class="spacer">
+</div>
+A ship has a random chance of catching fire or sinking when it reaches the stage of listing hulk. A sinking ship has a tilde &#8216;~&#8217; printed for its nationality, and a ship on fire and about to explode has a &#8216;#&#8217; printed.<div class="spacer">
+</div>
+Captured ships become the nationality of the prize crew. Therefore, if an American ship captures a British ship, the British ship will have an &#8216;a&#8217; printed for its nationality. In addition, the ship number is changed to &#8216;&amp;&#8217;, &#8216;'&#8217;, &#8216;(&#8217;, &#8216;)&#8217;, &#8216;*&#8217;, or &#8216;+&#8217; depending upon the original number, be it 0, 1, 2, 3, 4, or 5. E.g., the &#8216;b0&#8217; captured by an American becomes the &#8216;a&amp;&#8217;. The &#8216;s4&#8217; captured by a Frog becomes the &#8216;f*&#8217;.<div class="spacer">
+</div>
+The ultimate example is, of course, an exploding Brit captured by an American: &#8216;#&amp;&#8217;.</div>
+<div class="subsection">
+<h2 id="x4d4f56454d454e54">MOVEMENT</h2> Movement is the most confusing part of <b class="name">sail</b> to many. Ships can head in 8 directions:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+                                 0      0      0 
+        b       b       b0      b       b       b       0b      b 
+        0        0                                             0</pre>
+<div class="spacer">
+</div>
+The stern of a ship moves when it turns. The bow remains stationary. Ships can always turn, regardless of the wind (unless they are becalmed). All ships drift when they lose headway. If a ship doesn't move forward at all for two turns, it will begin to drift. If a ship has begun to drift, then it must move forward before it turns, if it plans to do more than make a right or left turn, which is always possible.<div class="spacer">
+</div>
+Movement commands to <b class="name">sail</b> are a string of forward moves and turns. An example is &#8216;l3&#8217;. It will turn a ship left and then move it ahead 3 spaces. In the drawing above, the &#8216;b0&#8217; made 7 successive left turns. When <b class="name">sail</b> prompts you for a move, it prints three characters of import. E.g.,<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">move (7, 4):</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+The first number is the maximum number of moves you can make, including turns. The second number is the maximum number of turns you can make. Between the numbers is sometimes printed a quote &#8216;'&#8217;. If the quote is present, it means that your ship has been drifting, and you must move ahead to regain headway before you turn (see note above). Some of the possible moves for the example above are as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+move (7, 4): 7 
+move (7, 4): 1 
+move (7, 4): d		/* drift, or do nothing */ 
+move (7, 4): 6r 
+move (7, 4): 5r1 
+move (7, 4): 4r1r 
+move (7, 4): l1r1r2 
+move (7, 4): 1r1r1r1</pre>
+<div class="spacer">
+</div>
+Because square riggers performed so poorly sailing into the wind, if at any point in a movement command you turn into the wind, the movement stops there. E.g.,<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+move (7, 4): l1l4 
+Movement Error; 
+Helm: l1l</pre>
+<div class="spacer">
+</div>
+Moreover, whenever you make a turn, your movement allowance drops to the lesser of what's left or what you would have at the new attitude. In short, if you turn closer to the wind, you most likely won't be able to sail the full allowance printed in the &quot;move&quot; prompt.<div class="spacer">
+</div>
+Old sailing captains had to keep an eye constantly on the wind. Captains in <b class="name">sail</b> are no different. A ship's ability to move depends on its attitude to the wind. The best angle possible is to have the wind off your quarter, that is, just off the stern. The direction rose on the side of the screen gives the possible movements for your ship at all positions to the wind. Battle sail speeds are given first, and full sail speeds are given in parentheses.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+				 0 1(2) 
+				\|/ 
+				-^-3(6) 
+				/|\ 
+				 | 4(7) 
+				3(6)</pre>
+<div class="spacer">
+</div>
+Pretend the bow of your ship (the &#8216;^&#8217;) is pointing upward and the wind is blowing from the bottom to the top of the page. The numbers at the bottom &#8216;3(6)&#8217; will be your speed under battle or full sails in such a situation. If the wind is off your quarter, then you can move &#8216;4(7)&#8217;. If the wind is off your beam, &#8216;3(6)&#8217;. If the wind is off your bow, then you can only move &#8216;1(2)&#8217;. If you are facing into the wind, you can't move at all; ships facing into the wind were said to be &#8220;in irons&#8221;.</div>
+<div class="subsection">
+<h2 id="x57494e44535045454420414e4420444952454354494f4e">WINDSPEED AND DIRECTION</h2> The windspeed and direction is displayed as a little weather vane on the side of the screen. The number in the middle of the vane indicates the wind speed, and the + to - indicates the wind direction. The wind blows from the + sign (high pressure) to the - sign (low pressure). E.g.,<div class="spacer">
+</div>
+<pre style="margin-left: 10.00ex;" class="lit display">
+| 
+3 
++</pre>
+<div class="spacer">
+</div>
+The wind speeds are 0 = becalmed, 1 = light breeze, 2 = moderate breeze, 3 = fresh breeze, 4 = strong breeze, 5 = gale, 6 = full gale, 7 = hurricane. If a hurricane shows up, all ships are destroyed.</div>
+<div class="subsection">
+<h2 id="x47524150504c494e4720414e4420464f554c494e47">GRAPPLING AND FOULING</h2> If two ships collide, they run the risk of becoming tangled together. This is called &#8220;fouling&#8221;. Fouled ships are stuck together, and neither can move. They can unfoul each other if they want to. Boarding parties can only be sent across to ships when the antagonists are either fouled or grappled.<div class="spacer">
+</div>
+Ships can grapple each other by throwing grapnels into the rigging of the other.<div class="spacer">
+</div>
+The number of fouls and grapples you have are displayed on the upper right of the screen.</div>
+<div class="subsection">
+<h2 id="x424f415244494e47">BOARDING</h2> Boarding was a very costly venture in terms of human life. Boarding parties may be formed in <b class="name">sail</b> to either board an enemy ship or to defend your own ship against attack. Men organized as Defensive Boarding Parties fight twice as hard to save their ship as men left unorganized.<div class="spacer">
+</div>
+The boarding strength of a crew depends upon its quality and upon the number of men sent.</div>
+<div class="subsection">
+<h2 id="x43524557205155414c495459">CREW QUALITY</h2> The British seaman was world renowned for his sailing abilities. American sailors, however, were actually the best seamen in the world. Because the American Navy offered twice the wages of the Royal Navy, British seamen who liked the sea defected to America by the thousands.<div class="spacer">
+</div>
+In <b class="name">sail</b>, crew quality is quantized into 5 energy levels. <span class="emph">Elite</span> crews can outshoot and outfight all other sailors. <span class="emph">Crack</span> crews are next. <span class="emph">Mundane</span> crews are average, and <span class="emph">Green</span> and <span class="emph">Mutinous</span> crews are below average. A good rule of thumb is that <span class="emph">Crack</span> or <span class="emph">Elite</span> crews get one extra hit per broadside compared to <span class="emph">Mundane</span> crews. Don't expect too much from <span class="emph">Green</span> crews.</div>
+<div class="subsection">
+<h2 id="x42524f41445349444553">BROADSIDES</h2> Your two broadsides may be loaded with four kinds of shot: grape, chain, round, and double. You have guns and carronades in both the port and starboard batteries. Carronades only have a range of two, so you have to get in close to be able to fire them. You have the choice of firing at the hull or rigging of another ship. If the range of the ship is greater than 6, then you may only shoot at the rigging.<div class="spacer">
+</div>
+The types of shot and their advantages are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+ROUND</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Range of 10. Good for hull or rigging hits.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+DOUBLE</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Range of 1. Extra good for hull or rigging hits. Double takes two turns to load.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+CHAIN</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Range of 3. Excellent for tearing down rigging. Cannot damage hull or guns, though.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+GRAPE</dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Range of 1. Sometimes devastating against enemy crews.</dd>
+</dl>
+<div class="spacer">
+</div>
+On the side of the screen is displayed some vital information about your ship:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+Load  D! R! 
+Hull  9 
+Crew  4  4  2 
+Guns  4  4 
+Carr  2  2 
+Rigg  5 5 5 5</pre>
+<div class="spacer">
+</div>
+&quot;Load&quot; shows what your port (left) and starboard (right) broadsides are loaded with. A &#8216;!&#8217; after the type of shot indicates that it is an initial broadside. Initial broadside were loaded with care before battle and before the decks ran red with blood. As a consequence, initial broadsides are a little more effective than broadsides loaded later. A &#8216;*&#8217; after the type of shot indicates that the gun crews are still loading it, and you cannot fire yet. &quot;Hull&quot; shows how much hull you have left. &quot;Crew&quot; shows your three sections of crew. As your crew dies off, your ability to fire decreases. &quot;Guns&quot; and &quot;Carr&quot; show your port and starboard guns. As you lose guns, your ability to fire decreases. &quot;Rigg&quot; shows how much rigging you have on your 3 or 4 masts. As rigging is shot away, you lose mobility.</div>
+<div class="subsection">
+<h2 id="x4546464543544956454e455353204f462046495245">EFFECTIVENESS OF FIRE</h2> It is very dramatic when a ship fires its thunderous broadsides, but the mere opportunity to fire them does not guarantee any hits. Many factors influence the destructive force of a broadside. First of all, and the chief factor, is distance. It is harder to hit a ship at range ten than it is to hit one sloshing alongside. Next is raking. Raking fire, as mentioned before, can sometimes dismast a ship at range ten. Next, crew size and quality affects the damage done by a broadside. The number of guns firing also bears on the point, so to speak. Lastly, weather affects the accuracy of a broadside. If the seas are high (5 or 6), then the lower gunports of ships of the line can't even be opened to run out the guns. This gives frigates and other flush decked vessels an advantage in a storm. The scenario <span class="emph">Pellew vs. The Droits de L'Homme</span> takes advantage of this peculiar circumstance.</div>
+<div class="subsection">
+<h2 id="x52455041495253">REPAIRS</h2> Repairs may be made to your Hull, Guns, and Rigging at the slow rate of two points per three turns. The message &quot;Repairs Completed&quot; will be printed if no more repairs can be made.</div>
+<div class="subsection">
+<h2 id="x504543554c4941524954494553204f4620434f4d5055544552205348495053">PECULIARITIES OF COMPUTER SHIPS</h2> Computer ships in <b class="name">sail</b> follow all the rules above with a few exceptions. Computer ships never repair damage. If they did, the players could never beat them. They play well enough as it is. As a consolation, the computer ships can fire double shot every turn. That fluke is a good reason to keep your distance. The driver figures out the moves of the computer ships. It computes them with a typical A.I. distance function and a depth-first search to find the maximum &#8220;score&#8221;. It seems to work fairly well, although it isn't perfect.</div>
+</div>
+<div class="section">
+<h1 id="x484f5720544f20504c4159">HOW TO PLAY</h1> Commands are given to <b class="name">sail</b> by typing a single character. You will then be prompted for further input. A brief summary of the commands follows.<div class="subsection">
+<h2 id="x434f4d4d414e442053554d4d415259">COMMAND SUMMARY</h2><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+f</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Fire broadsides if they bear</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+l</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Reload</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+L</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Unload broadsides (to change ammo)</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+m</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Move</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+i</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Print the closest ship</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+I</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Print all ships</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+F</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Find a particular ship or ships (e.g. &#8216;a?&#8217; for all Americans)</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+s</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Send a message around the fleet</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+b</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Attempt to board an enemy ship</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+B</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Recall boarding parties</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+c</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Change set of sail</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+r</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Repair</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+u</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Attempt to unfoul</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+g</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Grapple/ungrapple</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+v</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Print version number of game</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+^L</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Redraw screen</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+Q</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Quit</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+C</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Center your ship in the window</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+U</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Move window up</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+D,N</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Move window down</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+H</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Move window left</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+J</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Move window right</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+S</dt>
+<dd class="list-tag" style="margin-left: 3.00ex;">
+Toggle window to follow your ship or stay where it is</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1 id="x5343454e4152494f53">SCENARIOS</h1> Here is a summary of the scenarios in <b class="name">sail</b>:<div class="subsection">
+<h2 id="x52616e6765722076732e204472616b653a">Ranger vs. Drake:</h2> Wind from the N, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Ranger            19 gun Sloop (crack crew) (7 pts) 
+(b) Drake             17 gun Sloop (crack crew) (6 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x54686520426174746c65206f6620466c616d626f726f75676820486561643a">The Battle of Flamborough Head:</h2> Wind from the S, blowing a fresh breeze.<div class="spacer">
+</div>
+This is John Paul Jones' first famous battle. Aboard the Bonhomme Richard, he was able to overcome the Serapis's greater firepower by quickly boarding her.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Bonhomme Rich     42 gun Corvette (crack crew) (11 pts) 
+(b) Serapis           44 gun Frigate (crack crew) (12 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x4172627574686e6f7420616e642044657320546f75636865733a">Arbuthnot and Des Touches:</h2> Wind from the N, blowing a gale.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(b) America           64 gun Ship of the Line (crack crew) (20 pts) 
+(b) Befford           74 gun Ship of the Line (crack crew) (26 pts) 
+(b) Adamant           50 gun Ship of the Line (crack crew) (17 pts) 
+(b) London            98 gun 3 Decker SOL (crack crew) (28 pts) 
+(b) Royal Oak         74 gun Ship of the Line (crack crew) (26 pts) 
+(f) Neptune           74 gun Ship of the Line (average crew) (24 pts) 
+(f) Duc de Bourgogne  80 gun 3 Decker SOL (average crew) (27 pts) 
+(f) Conquerant        74 gun Ship of the Line (average crew) (24 pts) 
+(f) Provence          64 gun Ship of the Line (average crew) (18 pts) 
+(f) Romulus           44 gun Ship of the Line (average crew) (10 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x5375666672656e20616e64204875676865733a">Suffren and Hughes:</h2> Wind from the S, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(b) Monmouth          74 gun Ship of the Line (average crew) (24 pts) 
+(b) Hero              74 gun Ship of the Line (crack crew) (26 pts) 
+(b) Isis              50 gun Ship of the Line (crack crew) (17 pts) 
+(b) Superb            74 gun Ship of the Line (crack crew) (27 pts) 
+(b) Burford           74 gun Ship of the Line (average crew) (24 pts) 
+(f) Flamband          50 gun Ship of the Line (average crew) (14 pts) 
+(f) Annibal           74 gun Ship of the Line (average crew) (24 pts) 
+(f) Severe            64 gun Ship of the Line (average crew) (18 pts) 
+(f) Brilliant         80 gun Ship of the Line (crack crew) (31 pts) 
+(f) Sphinx            80 gun Ship of the Line (average crew) (27 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x4e796d7068652076732e20436c656f70617472653a">Nymphe vs. Cleopatre:</h2> Wind from the S, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(b) Nymphe            36 gun Frigate (crack crew) (11 pts) 
+(f) Cleopatre         36 gun Frigate (average crew) (10 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x4d6172732076732e2048657263756c653a">Mars vs. Hercule:</h2> Wind from the S, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(b) Mars              74 gun Ship of the Line (crack crew) (26 pts) 
+(f) Hercule           74 gun Ship of the Line (average crew) (23 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x416d627573636164652076732e204261696f6e6e616973653a">Ambuscade vs. Baionnaise:</h2> Wind from the N, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(b) Ambuscade         32 gun Frigate (average crew) (9 pts) 
+(f) Baionnaise        24 gun Corvette (average crew) (9 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x436f6e7374656c6c6174696f6e2076732e20496e73757267656e743a">Constellation vs. Insurgent:</h2> Wind from the S, blowing a gale.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Constellation     38 gun Corvette (elite crew) (17 pts) 
+(f) Insurgent         36 gun Corvette (average crew) (11 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x436f6e7374656c6c6174696f6e2076732e2056656e6765616e63653a">Constellation vs. Vengeance:</h2> Wind from the S, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Constellation     38 gun Corvette (elite crew) (17 pts) 
+(f) Vengeance         40 gun Frigate (average crew) (15 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x54686520426174746c65206f66204c697373613a">The Battle of Lissa:</h2> Wind from the S, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(b) Amphion           32 gun Frigate (elite crew) (13 pts) 
+(b) Active            38 gun Frigate (elite crew) (18 pts) 
+(b) Volage            22 gun Frigate (elite crew) (11 pts) 
+(b) Cerberus          32 gun Frigate (elite crew) (13 pts) 
+(f) Favorite          40 gun Frigate (average crew) (15 pts) 
+(f) Flore             40 gun Frigate (average crew) (15 pts) 
+(f) Danae             40 gun Frigate (crack crew) (17 pts) 
+(f) Bellona           32 gun Frigate (green crew) (9 pts) 
+(f) Corona            40 gun Frigate (green crew) (12 pts) 
+(f) Carolina          32 gun Frigate (green crew) (7 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x436f6e737469747574696f6e2076732e204775657272696572653a">Constitution vs. Guerriere:</h2> Wind from the SW, blowing a gale.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Constitution      44 gun Corvette (elite crew) (24 pts) 
+(b) Guerriere         38 gun Frigate (crack crew) (15 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x556e69746564205374617465732076732e204d616365646f6e69616e3a">United States vs. Macedonian:</h2> Wind from the S, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) United States     44 gun Frigate (elite crew) (24 pts) 
+(b) Macedonian        38 gun Frigate (crack crew) (16 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x436f6e737469747574696f6e2076732e204a6176613a">Constitution vs. Java:</h2> Wind from the S, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Constitution      44 gun Corvette (elite crew) (24 pts) 
+(b) Java              38 gun Corvette (crack crew) (19 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x43686573617065616b652076732e205368616e6e6f6e3a">Chesapeake vs. Shannon:</h2> Wind from the S, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Chesapeake        38 gun Frigate (average crew) (14 pts) 
+(b) Shannon           38 gun Frigate (elite crew) (17 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x54686520426174746c65206f66204c616b6520457269653a">The Battle of Lake Erie:</h2> Wind from the S, blowing a light breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Lawrence          20 gun Sloop (crack crew) (9 pts) 
+(a) Niagara           20 gun Sloop (elite crew) (12 pts) 
+(b) Lady Prevost      13 gun Brig (crack crew) (5 pts) 
+(b) Detroit           19 gun Sloop (crack crew) (7 pts) 
+(b) Q. Charlotte      17 gun Sloop (crack crew) (6 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x576173702076732e205265696e646565723a">Wasp vs. Reindeer:</h2> Wind from the S, blowing a light breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Wasp              20 gun Sloop (elite crew) (12 pts) 
+(b) Reindeer          18 gun Sloop (elite crew) (9 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x436f6e737469747574696f6e2076732e204379616e6520616e64204c6576616e743a">Constitution vs. Cyane and Levant:</h2> Wind from the S, blowing a moderate breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Constitution      44 gun Corvette (elite crew) (24 pts) 
+(b) Cyane             24 gun Sloop (crack crew) (11 pts) 
+(b) Levant            20 gun Sloop (crack crew) (10 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x50656c6c65772076732e2044726f697473206465204c27486f6d6d653a">Pellew vs. Droits de L'Homme:</h2> Wind from the N, blowing a gale.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(b) Indefatigable     44 gun Frigate (elite crew) (14 pts) 
+(b) Amazon            36 gun Frigate (crack crew) (14 pts) 
+(f) Droits L'Hom      74 gun Ship of the Line (average crew) (24 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x416c676563697261733a">Algeciras:</h2> Wind from the SW, blowing a moderate breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(b) Caesar            80 gun Ship of the Line (crack crew) (31 pts) 
+(b) Pompee            74 gun Ship of the Line (crack crew) (27 pts) 
+(b) Spencer           74 gun Ship of the Line (crack crew) (26 pts) 
+(b) Hannibal          98 gun 3 Decker SOL (crack crew) (28 pts) 
+(s) Real-Carlos       112 gun 3 Decker SOL (green crew) (27 pts) 
+(s) San Fernando      96 gun 3 Decker SOL (green crew) (24 pts) 
+(s) Argonauta         80 gun Ship of the Line (green crew) (23 pts) 
+(s) San Augustine     74 gun Ship of the Line (green crew) (20 pts) 
+(f) Indomptable       80 gun Ship of the Line (average crew) (27 pts) 
+(f) Desaix            74 gun Ship of the Line (average crew) (24 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x4c616b65204368616d706c61696e3a">Lake Champlain:</h2> Wind from the N, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Saratoga          26 gun Sloop (crack crew) (12 pts) 
+(a) Eagle             20 gun Sloop (crack crew) (11 pts) 
+(a) Ticonderoga       17 gun Sloop (crack crew) (9 pts) 
+(a) Preble            7 gun Brig (crack crew) (4 pts) 
+(b) Confiance         37 gun Frigate (crack crew) (14 pts) 
+(b) Linnet            16 gun Sloop (elite crew) (10 pts) 
+(b) Chubb             11 gun Brig (crack crew) (5 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x4c61737420566f79616765206f66207468652055535320507265736964656e743a">Last Voyage of the USS President:</h2> Wind from the N, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) President         44 gun Frigate (elite crew) (24 pts) 
+(b) Endymion          40 gun Frigate (crack crew) (17 pts) 
+(b) Pomone            44 gun Frigate (crack crew) (20 pts) 
+(b) Tenedos           38 gun Frigate (crack crew) (15 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x486f726e626c6f77657220616e6420746865204e61746976696461643a">Hornblower and the Natividad:</h2> Wind from the E, blowing a gale.<div class="spacer">
+</div>
+A scenario for you Horny fans. Remember, he sank the Natividad against heavy odds and winds. Hint: don't try to board the Natividad; her crew is much bigger, albeit green.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(b) Lydia             36 gun Frigate (elite crew) (13 pts) 
+(s) Natividad         50 gun Ship of the Line (green crew) (14 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x4375727365206f662074686520466c79696e672044757463686d616e3a">Curse of the Flying Dutchman:</h2> Wind from the S, blowing a fresh breeze.<div class="spacer">
+</div>
+Just for fun, take the Piece of cake.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(s) Piece of Cake     24 gun Corvette (average crew) (9 pts) 
+(f) Flying Dutchy     120 gun 3 Decker SOL (elite crew) (43 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x54686520536f75746820506163696669633a">The South Pacific:</h2> Wind from the S, blowing a strong breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) USS Scurvy        136 gun 3 Decker SOL (mutinous crew) (27 pts) 
+(b) HMS Tahiti        120 gun 3 Decker SOL (elite crew) (43 pts) 
+(s) Australian        32 gun Frigate (average crew) (9 pts) 
+(f) Bikini Atoll      7 gun Brig (crack crew) (4 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x486f726e626c6f77657220616e642074686520626174746c65206f6620526f736173206261793a">Hornblower and the battle of Rosas bay:</h2> Wind from the E, blowing a fresh breeze.<div class="spacer">
+</div>
+The only battle Hornblower ever lost. He was able to dismast one ship and stern rake the others though. See if you can do as well.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(b) Sutherland        74 gun Ship of the Line (crack crew) (26 pts) 
+(f) Turenne           80 gun 3 Decker SOL (average crew) (27 pts) 
+(f) Nightmare         74 gun Ship of the Line (average crew) (24 pts) 
+(f) Paris             112 gun 3 Decker SOL (green crew) (27 pts) 
+(f) Napoleon          74 gun Ship of the Line (green crew) (20 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x4361706520486f726e3a">Cape Horn:</h2> Wind from the NE, blowing a strong breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Concord           80 gun Ship of the Line (average crew) (27 pts) 
+(a) Berkeley          98 gun 3 Decker SOL (crack crew) (28 pts) 
+(b) Thames            120 gun 3 Decker SOL (elite crew) (43 pts) 
+(s) Madrid            112 gun 3 Decker SOL (green crew) (27 pts) 
+(f) Musket            80 gun 3 Decker SOL (average crew) (27 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x4e6577204f726c65616e733a">New Orleans:</h2> Wind from the SE, blowing a fresh breeze.<div class="spacer">
+</div>
+Watch that little Cypress go!<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Alligator         120 gun 3 Decker SOL (elite crew) (43 pts) 
+(b) Firefly           74 gun Ship of the Line (crack crew) (27 pts) 
+(b) Cypress           44 gun Frigate (elite crew) (14 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x426f74616e79204261793a">Botany Bay:</h2> Wind from the N, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(b) Shark             64 gun Ship of the Line (average crew) (18 pts) 
+(f) Coral Snake       44 gun Corvette (elite crew) (24 pts) 
+(f) Sea Lion          44 gun Frigate (elite crew) (24 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x566f7961676520746f2074686520426f74746f6d206f6620746865205365613a">Voyage to the Bottom of the Sea:</h2> Wind from the NW, blowing a fresh breeze.<div class="spacer">
+</div>
+This one is dedicated to Richard Basehart and David Hedison.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Seaview           120 gun 3 Decker SOL (elite crew) (43 pts) 
+(a) Flying Sub        40 gun Frigate (crack crew) (17 pts) 
+(b) Mermaid           136 gun 3 Decker SOL (mutinous crew) (27 pts) 
+(s) Giant Squid       112 gun 3 Decker SOL (green crew) (27 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x4672696761746520416374696f6e3a">Frigate Action:</h2> Wind from the E, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Killdeer          40 gun Frigate (average crew) (15 pts) 
+(b) Sandpiper         40 gun Frigate (average crew) (15 pts) 
+(s) Curlew            38 gun Frigate (crack crew) (16 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x54686520426174746c65206f66204d69647761793a">The Battle of Midway:</h2> Wind from the E, blowing a moderate breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Enterprise        80 gun Ship of the Line (crack crew) (31 pts) 
+(a) Yorktown          80 gun Ship of the Line (average crew) (27 pts) 
+(a) Hornet            74 gun Ship of the Line (average crew) (24 pts) 
+(j) Akagi             112 gun 3 Decker SOL (green crew) (27 pts) 
+(j) Kaga              96 gun 3 Decker SOL (green crew) (24 pts) 
+(j) Soryu             80 gun Ship of the Line (green crew) (23 pts)</pre>
+</div>
+<div class="subsection">
+<h2 id="x53746172205472656b3a">Star Trek:</h2> Wind from the S, blowing a fresh breeze.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+(a) Enterprise        450 gun Ship of the Line (elite crew) (75 pts) 
+(a) Yorktown          450 gun Ship of the Line (elite crew) (75 pts) 
+(a) Reliant           450 gun Ship of the Line (elite crew) (75 pts) 
+(a) Galileo           450 gun Ship of the Line (elite crew) (75 pts) 
+(k) Kobayashi Maru    450 gun Ship of the Line (elite crew) (75 pts) 
+(k) Klingon II        450 gun Ship of the Line (elite crew) (75 pts) 
+(o) Red Orion         450 gun Ship of the Line (elite crew) (75 pts) 
+(o) Blue Orion        450 gun Ship of the Line (elite crew) (75 pts)</pre>
+</div>
+</div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> Dave Riggle wrote the first version of <b class="name">sail</b> on a PDP 11/70 in the fall of 1980. Needless to say, says Dave, the code was horrendous, not portable in any sense of the word, and didn't work. The program was not very modular and had <b class="fname">fseek</b>()s and <b class="fname">fwrites</b>()s every few lines. After a tremendous rewrite from the top down, he got the first working version up by 1981. There were several annoying bugs concerning firing broadsides and finding angles. <b class="name">sail</b> uses no floating point, by the way, so the direction routines are rather tricky. Ed Wang rewrote the <b class="fname">angle</b>() routine in 1981 to be less incorrect, and he added code to let a player select which ship he wanted at the start of the game.<div class="spacer">
+</div>
+Captain Happy (Craig Leres) is responsible for making <b class="name">sail</b> portable for the first time. This was no easy task, by the way.<div class="spacer">
+</div>
+<b class="name">sail</b> received its fourth and most thorough rewrite in the summer and fall of 1983: Ed Wang rewrote and modularized the code (a monumental feat) almost from scratch. Although he introduced many new bugs, the final result was very much cleaner and (?) faster. He added window movement commands and find ship commands.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> <b class="name">sail</b> has been a group effort of <span class="author">Dave Riggle</span>, <span class="author">Ed Wang</span> (co-author) and <span class="author">Craig Leres</span> (refitting), with consulting from <span class="author">Chris Guthrie</span>, <span class="author">Captain Happy</span>, <span class="author">Horatio Nelson</span>, and many valiant others.</div>
+<div class="section">
+<h1 id="x5245464552454e434553">REFERENCES</h1> <span class="ref"><span class="ref-auth">Avalon Hill</span>, <i class="ref-book">Wooden Ships &amp; Iron Men</i>.</span><div class="spacer">
+</div>
+<span class="ref"><span class="ref-auth">C.S. Forester</span>, <i class="ref-book">Captain Horatio Hornblower Novels</i>, <span class="ref-opt">(13 of them)</span>.</span><div class="spacer">
+</div>
+<span class="ref"><span class="ref-auth">Alexander Kent</span>, <i class="ref-book">Captain Richard Bolitho Novels</i>, <span class="ref-opt">(12 of them)</span>.</span><div class="spacer">
+</div>
+<span class="ref"><i class="ref-book">The Complete Works of Captain Frederick Marryat</i>.</span> Of these, especially<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-item">
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="ref-book">Mr. Midshipman Easy</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="ref-book">Peter Simple</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="ref-book">Jacob Faithful</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="ref-book">Japhet in Search of a Father</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="ref-book">Snarleyyow, or The Dog Fiend</i></li>
+<li class="list-item" style="margin-top: 0.00em;">
+<i class="ref-book">Frank Mildmay, or The Naval Officer</i></li>
+</ul>
+</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> Probably a few.</div>
+</div>
+</body>
+</html>
+

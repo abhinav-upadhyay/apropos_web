@@ -1,0 +1,305 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+KQUEUE(2)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">kqueue</b>, <b class="name">kevent</b>, <b class="name">EV_SET</b> &#8212; <span class="desc">kernel event notification mechanism</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/types.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">sys/event.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">sys/time.h</a>&gt;</b><div class="spacer">
+</div>
+<i class="ftype">int</i><br/>
+<b class="fname">kqueue</b>(<i class="farg" style="white-space:nowrap;">void</i>);<div class="spacer">
+</div>
+<i class="ftype">int</i><br/>
+<b class="fname">kevent</b>(<i class="farg" style="white-space:nowrap;">int kq</i>, <i class="farg" style="white-space:nowrap;">const struct kevent *changelist</i>, <i class="farg" style="white-space:nowrap;">int nchanges</i>, <i class="farg" style="white-space:nowrap;">struct kevent *eventlist</i>, <i class="farg" style="white-space:nowrap;">int nevents</i>, <i class="farg" style="white-space:nowrap;">const struct timespec *timeout</i>);<div class="spacer">
+</div>
+<b class="fname">EV_SET</b>(<i class="farg" style="white-space:nowrap;">&amp;kev</i>, <i class="farg" style="white-space:nowrap;">ident</i>, <i class="farg" style="white-space:nowrap;">filter</i>, <i class="farg" style="white-space:nowrap;">flags</i>, <i class="farg" style="white-space:nowrap;">fflags</i>, <i class="farg" style="white-space:nowrap;">data</i>, <i class="farg" style="white-space:nowrap;">udata</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="fname">kqueue</b>() provides a generic method of notifying the user when an event happens or a condition holds, based on the results of small pieces of kernel code termed &#8220;filters&#8221;. A kevent is identified by the (ident, filter) pair; there may only be one unique kevent per kqueue.<div class="spacer">
+</div>
+The filter is executed upon the initial registration of a kevent in order to detect whether a preexisting condition is present, and is also executed whenever an event is passed to the filter for evaluation. If the filter determines that the condition should be reported, then the kevent is placed on the kqueue for the user to retrieve.<div class="spacer">
+</div>
+The filter is also run when the user attempts to retrieve the kevent from the kqueue. If the filter indicates that the condition that triggered the event no longer holds, the kevent is removed from the kqueue and is not returned.<div class="spacer">
+</div>
+Multiple events which trigger the filter do not result in multiple kevents being placed on the kqueue; instead, the filter will aggregate the events into a single <code class="lit">struct kevent</code>. Calling <b class="fname">close</b>() on a file descriptor will remove any kevents that reference the descriptor.<div class="spacer">
+</div>
+<b class="fname">kqueue</b>() creates a new kernel event queue and returns a descriptor. The queue is not inherited by a child created with <a class="link-man" href="../html2/fork.html">fork(2)</a>. Similarly, kqueues cannot be passed across UNIX-domain sockets.<div class="spacer">
+</div>
+<b class="fname">kevent</b>() is used to register events with the queue, and return any pending events to the user. <i class="farg">changelist</i> is a pointer to an array of <b class="var">kevent</b> structures, as defined in <b class="includes">&lt;<a class="link-includes">sys/event.h</a>&gt;</b>. All changes contained in the <i class="farg">changelist</i> are applied before any pending events are read from the queue. <i class="farg">nchanges</i> gives the size of <i class="farg">changelist</i>. <i class="farg">eventlist</i> is a pointer to an array of kevent structures. <i class="farg">nevents</i> determines the size of <i class="farg">eventlist</i>. When <i class="farg">nevents</i> is zero, <b class="fname">kevent</b>() will return immediately even if there is a <i class="farg">timeout</i> specified unlike <a class="link-man" href="../html2/select.html">select(2)</a>. If <i class="farg">timeout</i> is a non-null pointer, it specifies a maximum interval to wait for an event, which will be interpreted as a <code class="lit">struct timespec</code>. If <i class="farg">timeout</i> is a null pointer, <b class="fname">kevent</b>() waits indefinitely. To effect a poll, the <i class="farg">timeout</i> argument should be non-null, pointing to a zero-valued <b class="var">timespec</b> structure. The same array may be used for the <i class="farg">changelist</i> and <i class="farg">eventlist</i>.<div class="spacer">
+</div>
+<b class="fname">EV_SET</b>() is a macro which is provided for ease of initializing a kevent structure.<div class="spacer">
+</div>
+The <b class="var">kevent</b> structure is defined as:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct kevent { 
+	uintptr_t  ident;	/* identifier for this event */ 
+	short	   filter;	/* filter for event */ 
+	u_short	   flags;	/* action flags for kqueue */ 
+	u_int	   fflags;	/* filter flag value */ 
+	quad_t	   data;	/* filter data value */ 
+	void	   *udata;	/* opaque user data identifier */ 
+};</pre>
+<div class="spacer">
+</div>
+The fields of <code class="lit">struct kevent</code> are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+ident</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Value used to identify this event. The exact interpretation is determined by the attached filter, but often is a file descriptor.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+filter</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Identifies the kernel filter used to process this event. The pre-defined system filters are described below.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+flags</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Actions to perform on the event.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+fflags</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Filter-specific flags.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+data</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Filter-specific data value.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+udata</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Opaque user-defined value passed through the kernel unchanged.</dd>
+</dl>
+<div class="spacer">
+</div>
+The <b class="var">flags</b> field can contain the following values:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EV_ADD</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Adds the event to the kqueue. Re-adding an existing event will modify the parameters of the original event, and not result in a duplicate entry. Adding an event automatically enables it, unless overridden by the <span class="define">EV_DISABLE</span> flag.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EV_ENABLE</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Permit <b class="fname">kevent</b>() to return the event if it is triggered.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EV_DISABLE</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Disable the event so <b class="fname">kevent</b>() will not return it. The filter itself is not disabled.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EV_DELETE</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Removes the event from the kqueue. Events which are attached to file descriptors are automatically deleted on the last close of the descriptor.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EV_ONESHOT</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Causes the event to return only the first occurrence of the filter being triggered. After the user retrieves the event from the kqueue, it is deleted.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EV_CLEAR</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+After the event is retrieved by the user, its state is reset. This is useful for filters which report state transitions instead of the current state. Note that some filters may automatically set this flag internally.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EV_EOF</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Filters may set this flag to indicate filter-specific EOF condition.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EV_ERROR</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+See <i class="link-sec"><a class="link-sec" href="#x52455455524e2056414c554553">RETURN VALUES</a></i> below.</dd>
+</dl>
+<div class="spacer">
+</div>
+The predefined system filters are listed below. Arguments may be passed to and from the filter via the <b class="var">fflags</b> and <b class="var">data</b> fields in the kevent structure.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EVFILT_READ</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Takes a descriptor as the identifier, and returns whenever there is data available to read. The behavior of the filter is slightly different depending on the descriptor type.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+Sockets</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Sockets which have previously been passed to <b class="fname">listen</b>() return when there is an incoming connection pending. <b class="var">data</b> contains the size of the listen backlog.<div class="spacer">
+</div>
+Other socket descriptors return when there is data to be read, subject to the <span class="define">SO_RCVLOWAT</span> value of the socket buffer. This may be overridden with a per-filter low water mark at the time the filter is added by setting the <span class="define">NOTE_LOWAT</span> flag in <b class="var">fflags</b>, and specifying the new low water mark in <b class="var">data</b>. On return, <b class="var">data</b> contains the number of bytes in the socket buffer.<div class="spacer">
+</div>
+If the read direction of the socket has shutdown, then the filter also sets <span class="define">EV_EOF</span> in <b class="var">flags</b>, and returns the socket error (if any) in <b class="var">fflags</b>. It is possible for EOF to be returned (indicating the connection is gone) while there is still data pending in the socket buffer.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+Vnodes</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Returns when the file pointer is not at the end of file. <b class="var">data</b> contains the offset from current position to end of file, and may be negative. If <span class="define">NOTE_EOF</span> is set in <b class="var">fflags</b>, <b class="fname">kevent</b>() will also return when the file pointer is at the end of file. The end of file condition is indicated by the presence of <span class="define">NOTE_EOF</span> in <b class="var">fflags</b> on return.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+Fifos, Pipes</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Returns when there is data to read; <b class="var">data</b> contains the number of bytes available.<div class="spacer">
+</div>
+When the last writer disconnects, the filter will set <span class="define">EV_EOF</span> in <b class="var">flags</b>. This may be cleared by passing in <span class="define">EV_CLEAR</span>, at which point the filter will resume waiting for data to become available before returning.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+BPF devices</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Returns when the BPF buffer is full, the BPF timeout has expired, or when the BPF has &#8220;immediate mode&#8221; enabled and there is any data to read; <b class="var">data</b> contains the number of bytes available.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EVFILT_WRITE</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Takes a descriptor as the identifier, and returns whenever it is possible to write to the descriptor. For sockets, pipes, and FIFOs, <b class="var">data</b> will contain the amount of space remaining in the write buffer. The filter will set <span class="define">EV_EOF</span> when the reader disconnects, and for the FIFO case, this may be cleared by use of <span class="define">EV_CLEAR</span>. Note that this filter is not supported for vnodes or BPF devices.<div class="spacer">
+</div>
+For sockets, the low water mark and socket error handling is identical to the <span class="define">EVFILT_READ</span> case.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EVFILT_VNODE</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Takes a file descriptor as the identifier and the events to watch for in <b class="var">fflags</b>, and returns when one or more of the requested events occurs on the descriptor. The events to monitor are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_DELETE</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+<b class="fname">unlink</b>() was called on the file referenced by the descriptor.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_WRITE</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+A write occurred on the file referenced by the descriptor.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_EXTEND</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+The file referenced by the descriptor was extended.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_TRUNCATE</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+The file referenced by the descriptor was truncated.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_ATTRIB</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+The file referenced by the descriptor had its attributes changed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_LINK</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+The link count on the file changed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_RENAME</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+The file referenced by the descriptor was renamed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_REVOKE</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Access to the file was revoked via <a class="link-man" href="../html2/revoke.html">revoke(2)</a> or the underlying file system was unmounted.</dd>
+</dl>
+<div class="spacer">
+</div>
+On return, <b class="var">fflags</b> contains the events which triggered the filter.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EVFILT_PROC</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Takes the process ID to monitor as the identifier and the events to watch for in <b class="var">fflags</b>, and returns when the process performs one or more of the requested events. If a process can normally see another process, it can attach an event to it. The events to monitor are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_EXIT</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+The process has exited. The exit status will be stored in <b class="var">data</b> in the same format as the status set by <a class="link-man" href="../html2/wait.html">wait(2)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_FORK</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+The process has called <b class="fname">fork</b>().</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_EXEC</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+The process has executed a new process via <a class="link-man" href="../html2/execve.html">execve(2)</a> or similar call.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_TRACK</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+Follow a process across <b class="fname">fork</b>() calls. The parent process will return with <span class="define">NOTE_FORK</span> set in the <b class="var">fflags</b> field, while the child process will return with <span class="define">NOTE_CHILD</span> set in <b class="var">fflags</b> and the parent PID in <b class="var">data</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">NOTE_TRACKERR</span></dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+This flag is returned if the system was unable to attach an event to the child process, usually due to resource limitations.</dd>
+</dl>
+<div class="spacer">
+</div>
+On return, <b class="var">fflags</b> contains the events which triggered the filter.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EVFILT_SIGNAL</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Takes the signal number to monitor as the identifier and returns when the given signal is delivered to the process. This coexists with the <b class="fname">signal</b>() and <b class="fname">sigaction</b>() facilities, and has a lower precedence. The filter will record all attempts to deliver a signal to a process, even if the signal has been marked as <span class="define">SIG_IGN</span>. Event notification happens after normal signal delivery processing. <b class="var">data</b> returns the number of times the signal has occurred since the last call to <b class="fname">kevent</b>(). This filter automatically sets the <span class="define">EV_CLEAR</span> flag internally.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">EVFILT_TIMER</span></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Establishes an arbitrary timer identified by <b class="var">ident</b>. When adding a timer, <b class="var">data</b> specifies the timeout period in milliseconds. The timer will be periodic unless <span class="define">EV_ONESHOT</span> is specified. On return, <b class="var">data</b> contains the number of times the timeout has expired since the last call to <b class="fname">kevent</b>(). This filter automatically sets the <span class="define">EV_CLEAR</span> flag internally.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> <b class="fname">kqueue</b>() creates a new kernel event queue and returns a file descriptor. If there was an error creating the kernel event queue, a value of -1 is returned and errno set.<div class="spacer">
+</div>
+<b class="fname">kevent</b>() returns the number of events placed in the <i class="farg">eventlist</i>, up to the value given by <i class="farg">nevents</i>. If an error occurs while processing an element of the <i class="farg">changelist</i> and there is enough room in the <i class="farg">eventlist</i>, then the event will be placed in the <i class="farg">eventlist</i> with <span class="define">EV_ERROR</span> set in <b class="var">flags</b> and the system error in <b class="var">data</b>. Otherwise, <span class="define">-1</span> will be returned, and <span class="define">errno</span> will be set to indicate the error condition. If the time limit expires, then <b class="fname">kevent</b>() returns 0.</div>
+<div class="section">
+<h1 id="x4552524f5253">ERRORS</h1> The <b class="fname">kqueue</b>() function fails if:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">ENOMEM</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The kernel failed to allocate enough memory for the kernel queue.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EMFILE</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The per-process descriptor table is full.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">ENFILE</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The system file table is full.</dd>
+</dl>
+<div class="spacer">
+</div>
+The <b class="fname">kevent</b>() function fails if:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EACCES</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The process does not have permission to register a filter.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EFAULT</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+There was an error reading or writing the <b class="var">kevent</b> structure.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EBADF</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The specified descriptor is invalid.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EINTR</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+A signal was delivered before the timeout expired and before any events were placed on the kqueue for return.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EINVAL</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The specified time limit or filter is invalid.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">ENOENT</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The event could not be found to be modified or deleted.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">ENOMEM</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+No memory was available to register the event.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">ESRCH</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The specified process to attach to does not exist.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html2/poll.html">poll(2)</a>, <a class="link-man" href="../html2/read.html">read(2)</a>, <a class="link-man" href="../html2/select.html">select(2)</a>, <a class="link-man" href="../html2/sigaction.html">sigaction(2)</a>, <a class="link-man" href="../html2/wait.html">wait(2)</a>, <a class="link-man" href="../html2/write.html">write(2)</a>, <a class="link-man" href="../html3/signal.html">signal(3)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="fname">kqueue</b>() and <b class="fname">kevent</b>() functions first appeared in <span class="unix">FreeBSD&#160;4.1</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> The <b class="fname">kqueue</b>() system and this manual page were written by <span class="author">Jonathan Lemon</span> &lt;<a class="link-mail" href="mailto:jlemon@FreeBSD.org">jlemon@FreeBSD.org</a>&gt;.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> It is currently not possible to watch FIFOs or AIO that reside on anything but a UFS file system. Watching a vnode is possible on UFS, NFS and MS-DOS file systems.<div class="spacer">
+</div>
+The <i class="farg">timeout</i> value is limited to 24 hours; longer timeouts will be silently reinterpreted as 24 hours.</div>
+</div>
+</body>
+</html>
+

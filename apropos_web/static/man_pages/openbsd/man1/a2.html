@@ -1,0 +1,152 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+A2P(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+A2P(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+A2P(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> a2p - Awk to Perl translator</div>
+<div class="section">
+<h1>SYNOPSIS</h1>  <b>a2p</b> [<i>options</i>] [<i>filename</i>]</div>
+<div class="section">
+<h1>DESCRIPTION</h1>  <i>A2p</i> takes an awk script specified on the command line (or from standard input) and produces a comparable  <i>perl</i> script on the standard output.<div class="subsection">
+<h2>OPTIONS</h2> Options include:<dl>
+<dt>
+<b>-D&lt;number&gt;</b></dt>
+<dd>
+sets debugging flags.</dd>
+</dl>
+<dl>
+<dt>
+<b>-F&lt;character&gt;</b></dt>
+<dd>
+tells a2p that this awk script is always invoked with this <b>-F</b> switch.</dd>
+</dl>
+<dl>
+<dt>
+<b>-n&lt;fieldlist&gt;</b></dt>
+<dd>
+specifies the names of the input fields if input does not have to be split into an array.  If you were translating an awk script that processes the password file, you might say:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        a2p -7 -nlogin.password.uid.gid.gcos.shell.home<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Any delimiter can be used to separate the field names.</dd>
+</dl>
+<dl>
+<dt>
+<b>-&lt;number&gt;</b></dt>
+<dd>
+causes a2p to assume that input will always have that many fields.</dd>
+</dl>
+<dl>
+<dt>
+<b>-o</b></dt>
+<dd>
+tells a2p to use old awk behavior.  The only current differences are:</dd>
+</dl>
+<div style="margin-left: 5.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Old awk always has a line loop, even if there are no line actions, whereas new awk does not.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+In old awk, sprintf is extremely greedy about its arguments. For example, given the statement<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+        print sprintf(some_args), extra_args;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+old awk considers <i>extra_args</i> to be arguments to &quot;sprintf&quot;; new awk considers them arguments to &quot;print&quot;.</dd>
+</dl>
+</div>
+<div style="margin-left: 5.00ex;">
+</div>
+</div>
+<div class="subsection">
+<h2>&quot;Considerations&quot;</h2> A2p cannot do as good a job translating as a human would, but it usually does pretty well.  There are some areas where you may want to examine the perl script produced and tweak it some.  Here are some of them, in no particular order.<div class="spacer">
+</div>
+There is an awk idiom of putting <i>int()</i> around a string expression to force numeric interpretation, even though the argument is always integer anyway.  This is generally unneeded in perl, but a2p can't tell if the argument is always going to be integer, so it leaves it in.  You may wish to remove it.<div class="spacer">
+</div>
+Perl differentiates numeric comparison from string comparison.  Awk has one operator for both that decides at run time which comparison to do.  A2p does not try to do a complete job of awk emulation at this point.  Instead it guesses which one you want.  It's almost always right, but it can be spoofed.  All such guesses are marked with the comment &quot;&quot;#???&quot;&quot;.  You should go through and check them.  You might want to run at least once with the  <b>-w</b> switch to perl, which will warn you if you use == where you should have used eq.<div class="spacer">
+</div>
+Perl does not attempt to emulate the behavior of awk in which nonexistent array elements spring into existence simply by being referenced.  If somehow you are relying on this mechanism to create null entries for a subsequent for...in, they won't be there in perl.<div class="spacer">
+</div>
+If a2p makes a split line that assigns to a list of variables that looks like (Fld1, Fld2, Fld3...) you may want to rerun a2p using the  <b>-n</b> option mentioned above.  This will let you name the fields throughout the script.  If it splits to an array instead, the script is probably referring to the number of fields somewhere.<div class="spacer">
+</div>
+The exit statement in awk doesn't necessarily exit; it goes to the END block if there is one.  Awk scripts that do contortions within the END block to bypass the block under such circumstances can be simplified by removing the conditional in the END block and just exiting directly from the perl script.<div class="spacer">
+</div>
+Perl has two kinds of array, numerically-indexed and associative. Perl associative arrays are called &quot;hashes&quot;.  Awk arrays are usually translated to hashes, but if you happen to know that the index is always going to be numeric you could change the {...} to [...]. Iteration over a hash is done using the  <i>keys()</i> function, but iteration over an array is NOT.  You might need to modify any loop that iterates over such an array.<div class="spacer">
+</div>
+Awk starts by assuming OFMT has the value %.6g.  Perl starts by assuming its equivalent, $#, to have the value %.20g.  You'll want to set $# explicitly if you use the default value of OFMT.<div class="spacer">
+</div>
+Near the top of the line loop will be the split operation that is implicit in the awk script.  There are times when you can move this down past some conditionals that test the entire record so that the split is not done as often.<div class="spacer">
+</div>
+For aesthetic reasons you may wish to change index variables from being 1-based (awk style) to 0-based (Perl style).  Be sure to change all operations the variable is involved in to match.<div class="spacer">
+</div>
+Cute comments that say &quot;# Here is a workaround because awk is dumb&quot; are passed through unmodified.<div class="spacer">
+</div>
+Awk scripts are often embedded in a shell script that pipes stuff into and out of awk.  Often the shell script wrapper can be incorporated into the perl script, since perl can start up pipes into and out of itself, and can do other things that awk can't do by itself.<div class="spacer">
+</div>
+Scripts that refer to the special variables RSTART and RLENGTH can often be simplified by referring to the variables $`, $&amp; and $', as long as they are within the scope of the pattern match that sets them.<div class="spacer">
+</div>
+The produced perl script may have subroutines defined to deal with awk's semantics regarding getline and print.  Since a2p usually picks correctness over efficiency.  it is almost always possible to rewrite such code to be more efficient by discarding the semantic sugar.<div class="spacer">
+</div>
+For efficiency, you may wish to remove the keyword from any return statement that is the last statement executed in a subroutine.  A2p catches the most common case, but doesn't analyze embedded blocks for subtler cases.<div class="spacer">
+</div>
+ARGV[0] translates to $ARGV0, but ARGV[n] translates to $ARGV[$n-1].  A loop that tries to iterate over ARGV[0] won't find it.</div>
+</div>
+<div class="section">
+<h1>ENVIRONMENT</h1> A2p uses no environment variables.</div>
+<div class="section">
+<h1>AUTHOR</h1> Larry Wall &lt; <i>larry@wall.org</i>&gt;</div>
+<div class="section">
+<h1>SEE ALSO</h1><br/>
+ perl   The perl compiler/interpreter<br/>
+<br/>
+ s2p    sed to perl translator<br/>
+</div>
+<div class="section">
+<h1>BUGS</h1> It would be possible to emulate awk's behavior in selecting string versus numeric operations at run time by inspection of the operands, but it would be gross and inefficient.  Besides, a2p almost always guesses right.<div class="spacer">
+</div>
+Storage for the awk syntax tree is currently static, and can run out.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2014-11-17</td>
+<td class="foot-os">
+perl v5.20.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,254 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+FB_SETUP(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">fb_setup</b>, <b class="name">fb_queue</b>, <b class="name">fb_delete</b> &#8212; <span class="desc">kernel messaging mechanism for file system in userland (FUSE)</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/fusebuf.h</a>&gt;</b><div class="spacer">
+</div>
+<i class="ftype">struct fusebuf *</i><br/>
+<b class="fname">fb_setup</b>(<i class="farg" style="white-space:nowrap;">size_t size</i>, <i class="farg" style="white-space:nowrap;">ino_t inode</i>, <i class="farg" style="white-space:nowrap;">int type</i>, <i class="farg" style="white-space:nowrap;">struct proc *p</i>);<div class="spacer">
+</div>
+<i class="ftype">int</i><br/>
+<b class="fname">fb_queue</b>(<i class="farg" style="white-space:nowrap;">dev_t dev</i>, <i class="farg" style="white-space:nowrap;">struct fusebuf *fbuf</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">fb_delete</b>(<i class="farg" style="white-space:nowrap;">struct fusebuf *fbuf</i>);<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define FUSEBUFMAXSIZE	(4096*1024) 
+#define	FUSEBUFSIZE	(sizeof(struct fusebuf)) 
+ 
+struct fb_hdr { 
+	SIMPLEQ_ENTRY(fusebuf)	fh_next; 
+	size_t			fh_len; 
+	int			fh_err; 
+	int			fh_type; 
+	ino_t			fh_ino; 
+	uint64_t		fh_uuid; 
+}; 
+ 
+struct fb_io { 
+	uint64_t	fi_fd; 
+	ino_t		fi_ino; 
+	off_t		fi_off; 
+	size_t		fi_len; 
+	mode_t		fi_mode; 
+	uint32_t	fi_flags; 
+}; 
+ 
+struct fusebuf { 
+	struct fb_hdr	fb_hdr; 
+	union { 
+		struct statvfs	FD_stat; 
+		struct vattr	FD_vattr; 
+		struct fb_io	FD_io; 
+ 
+	} FD; 
+	uint8_t	*F_databuf; 
+}; 
+ 
+#define fb_next		fb_hdr.fh_next 
+#define fb_len		fb_hdr.fh_len 
+#define fb_err		fb_hdr.fh_err 
+#define fb_type		fb_hdr.fh_type 
+#define fb_ino		fb_hdr.fh_ino 
+#define fb_uuid		fb_hdr.fh_uuid 
+ 
+#define fb_stat		FD.FD_stat 
+#define fb_vattr	FD.FD_vattr 
+#define fb_io_fd	FD.FD_io.fi_fd 
+#define fb_io_ino	FD.FD_io.fi_ino 
+#define fb_io_off	FD.FD_io.fi_off 
+#define fb_io_len	FD.FD_io.fi_len 
+#define fb_io_mode	FD.FD_io.fi_mode 
+#define fb_io_flags	FD.FD_io.fi_flags 
+#define	fb_dat		F_databuf</pre>
+</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> These functions provide a way to manage the kernel messaging mechanism for <a class="link-man" href="../html4/fuse.html">fuse(4)</a> file systems. It is based on <a class="link-man" href="../html9/mbuf.html">mbuf(9)</a>.<div class="spacer">
+</div>
+Each FUSE operation fits in a fusebuf except for read, write, and readdirs, which are split into several fusebufs with a changing value in <i class="farg">fb_io_off</i> for each. The size of a fusebuf is <i class="farg">FUSEBUFSIZE</i>.<div class="spacer">
+</div>
+A fusebuf structure is defined as an <i class="farg">fb_hdr</i> followed by a structure containing a union and a buffer <i class="farg">F_Dat</i>. The header contains the following elements:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">fh_next</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+A <a class="link-man" href="../html3/SIMPLEQ_ENTRY.html">SIMPLEQ_ENTRY(3)</a> needed to store the different fusebufs stored with <b class="fname">fb_queue</b>().</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">fh_len</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Indicates the amount of data in <i class="farg">F_dat</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">fh_resid</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Used for partial <a class="link-man" href="../html4/fuse.html">fuse(4)</a> reads. If the read does not fill the fusebuf, the number of bytes of <i class="farg">F_dat</i> written in this field are stored.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">fh_err</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Indicates the <a class="link-man" href="../html2/errno.html">errno(2)</a> failure of a fusebuf.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">fh_type</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Indicates the type of fusebuf transaction (see below).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">fh_ino</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Indicates the inode on which the <a class="link-man" href="../html4/fuse.html">fuse(4)</a> operation is done.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">fh_uuid</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+UUID to track the answer. This number is generated with <a class="link-man" href="../html9/arc4random.html">arc4random(9)</a>.</dd>
+</dl>
+<div class="spacer">
+</div>
+The <i class="farg">fh_type</i> variable can take the following values:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_LOOKUP</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a lookup operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_GETATTR</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a gettattr operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_SETATTR</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a setattr operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_READLINK</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a readlink operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_SYMLINK</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a symlink operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_MKNOD</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a mknod operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_MKDIR</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a mkdir operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_UNLINK</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is an unlink operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_RMDIR</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is an rmdir operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_RENAME</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a rename operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_LINK</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a link operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_OPEN</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is an open operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_READ</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a read operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_WRITE</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a write operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_STATFS</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a statfs operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_RELEASE</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a file close operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_FSYNC</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a file sync operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_FLUSH</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a flush operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_INIT</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf initializes the FUSE connection.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_OPENDIR</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is an opendir operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_READDIR</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a readdir operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_RELEASEDIR</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a close dir operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_FSYNCDIR</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a dir sync operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_ACCESS</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is an access operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_CREATE</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf is a create file operation.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">FBT_DESTROY</span></dt>
+<dd class="list-tag" style="margin-left: 18.00ex;">
+The fusebuf closes the FUSE connection.</dd>
+</dl>
+<div class="spacer">
+</div>
+All the data needed by the FUSE clients is contained in the <i class="farg">F_dat</i> structure. This structure contains a union <i class="farg">FD</i> of frequently used type and a buffer <i class="farg">F_databuf</i> to send data to libfuse. The union contains the following elements:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">FD_stat</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+A struct <a class="link-man" href="../html3/statvfs.html">statvfs(3)</a> filled in by the FUSE client statfs for the FUSE VFS statfs code.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">FD_vattr</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Used by the getattr and setattr calls.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="farg">FD_io</i></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+Contains all fields commonly used by FUSE client callbacks to provide information to FUSE vnops. It is used by access, readdir, release, releasedir, read, write, create, mkdir, and setattr.</dd>
+</dl>
+<div class="spacer">
+</div>
+Setattr uses a struct fb_io and a struct vattr. Settattr uses <i class="farg">FD_stat</i> and encapsulates a struct fb_io in <i class="farg">F_databuf</i> with <i class="farg">fbtod</i>.<div class="spacer">
+</div>
+Fusebufs can be deleted with the <b class="fname">fb_delete</b>() helper.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html2/errno.html">errno(2)</a>, <a class="link-man" href="../html3/fuse_main.html">fuse_main(3)</a>, <a class="link-man" href="../html3/queue.html">queue(3)</a>, <a class="link-man" href="../html3/statvfs.html">statvfs(3)</a>, <a class="link-man" href="../html4/fuse.html">fuse(4)</a>, <a class="link-man" href="../html9/arc4random.html">arc4random(9)</a>, <a class="link-man" href="../html9/mbuf.html">mbuf(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">fb_setup</b> API first appeared in <span class="unix">OpenBSD&#160;5.4</span>.</div>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,140 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+SSL(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">ssl</b> &#8212; <span class="desc">details for libssl and libcrypto</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> This document describes some of the issues relating to the use of the OpenSSL libssl and libcrypto libraries. This document is intended as an overview of what the libraries do, and what uses them.<div class="spacer">
+</div>
+The libssl and libcrypto libraries implement the TLS version 1 protocol. It is most commonly used by the HTTPS protocol for encrypted web transactions, as can be done with <a class="link-man" href="../html8/httpd.html">httpd(8)</a>. The libcrypto library is also used by various programs such as <a class="link-man" href="../html1/ssh.html">ssh(1)</a>, <a class="link-man" href="../html8/sshd.html">sshd(8)</a>, and <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a>.</div>
+<div class="section">
+<h1 id="x53455256455220434552544946494341544553">SERVER CERTIFICATES</h1> The most common uses of TLS will require you to generate a server certificate, which is provided by your host as evidence of its identity when clients make new connections. The certificates reside in the <i class="file">/etc/ssl</i> directory, with the keys in the <i class="file">/etc/ssl/private</i> directory.<div class="spacer">
+</div>
+Private keys can be encrypted using AES and a passphrase to protect their integrity should the encrypted file be disclosed. However, it is important to note that encrypted server keys mean that the passphrase needs to be typed in every time the server is started. If a passphrase is not used, you will need to be absolutely sure your key file is kept secure.</div>
+<div class="section">
+<h1 id="x47454e45524154494e4720525341205345525645522043455254494649434154455320464f52205745422053455256455253">GENERATING RSA SERVER CERTIFICATES FOR WEB SERVERS</h1> To support HTTPS transactions in <a class="link-man" href="../html8/httpd.html">httpd(8)</a> you will need to generate an RSA certificate.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl genrsa -out /etc/ssl/private/server.key 2048</pre>
+<div class="spacer">
+</div>
+Or, if you wish the key to be encrypted with a passphrase that you will have to type in when starting servers<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl genrsa -aes256 -out /etc/ssl/private/server.key 2048</pre>
+<div class="spacer">
+</div>
+The next step is to generate a Certificate Signing Request (CSR) which is used to get a Certificate Authority (CA) to sign your certificate. To do this use the command:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl req -new -key /etc/ssl/private/server.key \ 
+  -out /etc/ssl/private/server.csr</pre>
+<div class="spacer">
+</div>
+This <i class="file">server.csr</i> file can then be given to a Certificate Authority who will sign the key.<div class="spacer">
+</div>
+You can also sign the key yourself, using the command:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl x509 -sha256 -req -days 365 \ 
+  -in /etc/ssl/private/server.csr \ 
+  -signkey /etc/ssl/private/server.key \ 
+  -out /etc/ssl/server.crt</pre>
+<div class="spacer">
+</div>
+With <i class="file">/etc/ssl/server.crt</i> and <i class="file">/etc/ssl/private/server.key</i> in place, you should be able to start <a class="link-man" href="../html8/httpd.html">httpd(8)</a> with SSL configured, enabling HTTPS transactions with your machine on port 443.<div class="spacer">
+</div>
+You will most likely want to generate a self-signed certificate in the manner above along with your certificate signing request to test your server's functionality even if you are going to have the certificate signed by another Certificate Authority. Once your Certificate Authority returns the signed certificate to you, you can switch to using the new certificate by replacing the self-signed <i class="file">/etc/ssl/server.crt</i> with the certificate signed by your Certificate Authority, and then restarting <a class="link-man" href="../html8/httpd.html">httpd(8)</a>.</div>
+<div class="section">
+<h1 id="x47454e45524154494e47204453412053455256455220434552544946494341544553">GENERATING DSA SERVER CERTIFICATES</h1> Generating a DSA certificate involves several steps. First, generate parameters for DSA keys. The following command will generate 1024-bit keys:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl dsaparam 1024 -out dsa1024.pem</pre>
+<div class="spacer">
+</div>
+Once you have the DSA parameters generated, you can generate a CSR and unencrypted private key using the command:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl req -nodes -newkey dsa:dsa1024.pem \ 
+  -out /etc/ssl/dsacert.csr -keyout /etc/ssl/private/dsakey.pem</pre>
+<div class="spacer">
+</div>
+To generate an encrypted private key, you would use:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl req -newkey dsa:dsa1024.pem \ 
+  -out /etc/ssl/dsacert.csr -keyout /etc/ssl/private/dsakey.pem</pre>
+<div class="spacer">
+</div>
+This <i class="file">server.csr</i> file can then be given to a CA who will sign the key.<div class="spacer">
+</div>
+You can also sign the key yourself, using the command:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl x509 -sha256 -req -days 365 \ 
+  -in /etc/ssl/private/dsacert.csr \ 
+  -signkey /etc/ssl/private/dsacert.key \ 
+  -out /etc/ssl/dsacert.crt</pre>
+</div>
+<div class="section">
+<h1 id="x47454e45524154494e472045434453412053455256455220434552544946494341544553">GENERATING ECDSA SERVER CERTIFICATES</h1> First, generate parameters for ECDSA keys. The following command will use a NIST/SECG curve over a 384-bit prime field:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl ecparam -out ec-secp384r1.pem -name secp384r1</pre>
+<div class="spacer">
+</div>
+Once you have the ECDSA parameters generated, you can generate a CSR and unencrypted private key using the command:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl req -nodes -newkey ec:ec-secp384r1.pem \ 
+  -keyout /etc/ssl/private/eccert.key -new \ 
+  -out /etc/ssl/private/eccert.csr</pre>
+<div class="spacer">
+</div>
+To generate an encrypted private key, you would use:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl req -newkey ec:ec-secp384r1.pem \ 
+  -keyout /etc/ssl/private/eccert.key -new \ 
+  -out /etc/ssl/private/eccert.csr</pre>
+<div class="spacer">
+</div>
+This <i class="file">eccert.csr</i> file can then be given to a CA who will sign the key.<div class="spacer">
+</div>
+You can also sign the key yourself, using the command:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl x509 -sha256 -req -days 365 \ 
+  -in /etc/ssl/private/eccert.csr \ 
+  -signkey /etc/ssl/private/eccert.key \ 
+  -out /etc/ssl/eccert.crt</pre>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html1/openssl.html">openssl(1)</a>, <a class="link-man" href="../html1/ssh.html">ssh(1)</a>, <a class="link-man" href="../html3/ssl.html">ssl(3)</a>, <a class="link-man" href="../html8/httpd.html">httpd(8)</a>, <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a>, <a class="link-man" href="../html8/rc.html">rc(8)</a>, <a class="link-man" href="../html8/smtpd.html">smtpd(8)</a>, <a class="link-man" href="../html8/sshd.html">sshd(8)</a>, <a class="link-man" href="../html8/starttls.html">starttls(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> Prior to Sept 21, 2000, there were problems shipping fully functional implementations of these protocols, as such shipment would include shipping <span class="emph">into</span> the United States. RSA Data Security Inc (RSADSI) held the patent on the RSA algorithm in the United States, and because of this, free implementations of RSA were difficult to distribute and propagate. (The RSA patent was probably more effective at preventing the adoption of widespread international integrated crypto than the much maligned ITAR restrictions were.) Prior to <span class="unix">OpenBSD&#160;2.8</span>, these libraries shipped without the RSA algorithm -- all such functions were stubbed to fail. Since RSA is a key component of SSL version 2, this meant that SSL version 2 would not work at all. SSL version 3 and TLS version 1 allow for the exchange of keys via mechanisms that do not involve RSA, and would work with the shipped version of the libraries, assuming both ends could agree to a cipher suite and key exchange that did not involve RSA. Likewise, the SSH1 protocol in <a class="link-man" href="../html1/ssh.html">ssh(1)</a> uses RSA, so it was similarly encumbered.<div class="spacer">
+</div>
+For instance, another typical alternative is DSA, which is not encumbered by commercial patents (and lawyers).<div class="spacer">
+</div>
+The HTTPS protocol used by web browsers (in modern incarnations) allows for the use of SSL version 3 and TLS version 1, which in theory allows for encrypted web transactions without using RSA. Unfortunately, all the popular web browsers buy their cryptographic code from RSADSI. Predictably, RSADSI would prefer that web browsers used their patented algorithm, and thus their libraries do not implement any non-RSA cipher and keying combination. The result of this was that while the HTTPS protocol allowed for many cipher suites that did not require the use of patented algorithms, it was very difficult to use these with the popular commercially available software. Prior to version 2.8, <span class="unix">OpenBSD</span> allowed users to download RSA enabled versions of the shared libssl and libcrypto libraries which allowed users to enable full functionality without recompiling the applications. This method is now no longer needed, as the fully functional libraries ship with the system. However, this entire debacle is worth remembering when choosing software and vendors.<div class="spacer">
+</div>
+Due to multiple flaws in the protocols, SSL version 2 was removed in <span class="unix">OpenBSD&#160;5.2</span> and SSL version 3 was disabled in <span class="unix">OpenBSD&#160;5.7</span>. Users and programs should use TLS version 1.2 instead.<div class="spacer">
+</div>
+This document first appeared in <span class="unix">OpenBSD&#160;2.5</span>.</div>
+</div>
+</body>
+</html>
+

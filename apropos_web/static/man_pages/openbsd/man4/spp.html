@@ -1,0 +1,115 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+SPPP(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">sppp</b> &#8212; <span class="desc">PPP and Link Control Protocol</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">pseudo-device sppp</b> [<span class="opt"><i class="arg">count</i></span>]</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">sppp</b> network layer implements the state machine and Link Control Protocol (LCP) of the Point-to-Point Protocol (PPP) as described in RFC 1661. Note that this layer does not provide network interfaces of its own, it is rather intended to be layered on top of drivers providing a point-to-point connection that wish to run a PPP stack over it. The corresponding network interfaces have to be provided by these hardware drivers.<div class="spacer">
+</div>
+The <b class="name">sppp</b> layer provides three basic modes of operation. The default mode, with no special flags set, is to create the PPP connection (administrative <span class="emph">Open</span> event to the LCP layer) as soon as the interface is taken up with the <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a> command. Taking the interface down again will terminate the LCP layer and thus all other layers on top. The link will also terminate itself as soon as no Network Control Protocol (NCP) is open anymore, indicating that the lower layers are no longer needed.<div class="spacer">
+</div>
+Setting the link-level flag <b class="flag">link0</b> with <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a> will cause the respective network interface to go into <span class="emph">passive</span> mode. This means the administrative <span class="emph">Open</span> event to the LCP layer will be delayed until after the lower layers signal an <span class="emph">Up</span> event (rise of &#8220;carrier&#8221;). This can be used by the lower layers to support a dial-in connection where the physical layer isn't available immediately at startup, but only after some external event arrives. Receipt of a <span class="emph">Down</span> event from the lower layer will not take the interface completely down in this case.<div class="spacer">
+</div>
+Finally, setting the flag <b class="flag">link1</b> will cause the interface to operate in <span class="emph">dial-on-demand</span> mode. This is also only useful if the lower layers support the notion of a carrier (like with an ISDN line). Upon configuring the respective interface, it will delay the administrative <span class="emph">Open</span> event to the LCP layer until either an outbound network packet arrives, or until the lower layers signal an <span class="emph">Up</span> event, indicating an inbound connection. As with passive mode, receipt of a <span class="emph">Down</span> event (loss of carrier) will not automatically take the interface down, thus it remains available for further connections.<div class="spacer">
+</div>
+The <b class="name">sppp</b> layer supports the <span class="emph">debug</span> interface flag, which can be set with <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a>. If this flag is set, the various control protocol packets being exchanged as well as the option negotiation between both ends of the link will be logged at level <span class="define">LOG_DEBUG</span>. This can be helpful to examine configuration problems during the first attempts to set up a new configuration. Without this flag being set, only the major phase transitions will be logged at level <span class="define">LOG_INFO</span>.<div class="spacer">
+</div>
+It is possible to leave the local interface IP address open for negotiation by setting it to 0.0.0.0. This requires that the remote peer can correctly supply a value for it based on the identity of the caller, or on the remote address supplied by this side. Due to the way the IPCP option negotiation works, this address is supplied late during the negotiation, which could cause the remote peer to make false assumptions.<div class="spacer">
+</div>
+In a similar spirit the remote address can be set to the magical value 0.0.0.1, which means that we don't care what address the remote side will use, as long as it is not 0.0.0.0. This is useful if your ISP has several dial-in servers. You can of course <b class="cmd">route add something or other 0.0.0.1</b> and it will do exactly what you would want it to.<div class="spacer">
+</div>
+The PAP and CHAP authentication protocols, as described in RFCs 1334 and 1994, respectively, are also implemented. Their parameters are controlled by the <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a> utility.</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> Display the settings for pppoe0. The interface is currently in the <span class="emph">establish</span> phase and tries to connect to the remote peer; other possible PPP phases are <span class="emph">dead</span>, <span class="emph">authenticate</span>, <span class="emph">network</span>, or <span class="emph">terminate</span>. Both ends of the connection use the CHAP protocol, the local client tells the remote peer the system name &#8216;<code class="lit">uriah</code>&#8217;, and the peer is expected to authenticate by the name &#8216;<code class="lit">ifb-gw</code>&#8217;. Once the initial CHAP handshake has been successful, no further CHAP challenges will be transmitted. There are supposedly some known CHAP secrets for both ends of the link which are not displayed.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+$ ifconfig pppoe0 
+pppoe0: flags=8851&lt;UP,POINTOPOINT,RUNNING,SIMPLEX,MULTICAST&gt; mtu 1492 
+        dev: em0 state: PADI sent 
+        sid: 0x0 PADI retries: 0 PADR retries: 0 
+        sppp: phase establish authproto chap authname &quot;uriah&quot; \ 
+		peerproto chap peername &quot;ifb-gw&quot; norechallenge 
+        groups: pppoe 
+        inet 0.0.0.0 --&gt; 0.0.0.1 netmask 0xffffffff</pre>
+<div class="spacer">
+</div>
+A possible call to <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a> that could have been used to bring the interface into the state shown by the previous example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# ifconfig em0 up 
+# ifconfig pppoe0 0.0.0.0 0.0.0.1 netmask 0xffffffff \ 
+	pppoedev em0 \ 
+	authproto chap authname uriah authkey &quot;some secret&quot; \ 
+	peerproto chap peername &quot;ifb-gw&quot; peerkey &quot;another&quot; \ 
+	peerflag norechallenge \ 
+	up</pre>
+</div>
+<div class="section">
+<h1 id="x444941474e4f5354494353">DIAGNOSTICS</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-diag">
+<dt class="list-diag" style="margin-top: 1.00em;">
+<b class="diag">&lt;ifname&gt;&lt;ifnum&gt;: &lt;proto&gt; illegal &lt;event&gt; in state &lt;statename&gt;</b></dt>
+<dd class="list-diag">
+An event happened that should not happen for the current state the respective control protocol is in. See RFC 1661 for a description of the state automaton.</dd>
+<dt class="list-diag" style="margin-top: 1.00em;">
+<b class="diag">&lt;ifname&gt;&lt;ifnum&gt;: loopback</b></dt>
+<dd class="list-diag">
+The state automaton detected a line loopback (that is, it was talking with itself). The interface will be temporarily disabled.</dd>
+<dt class="list-diag" style="margin-top: 1.00em;">
+<b class="diag">&lt;ifname&gt;&lt;ifnum&gt;: up</b></dt>
+<dd class="list-diag">
+The LCP layer is running again, after a line loopback had previously been detected.</dd>
+<dt class="list-diag" style="margin-top: 1.00em;">
+<b class="diag">&lt;ifname&gt;&lt;ifnum&gt;: down</b></dt>
+<dd class="list-diag">
+The keepalive facility detected the line being unresponsive. Keepalive must be explicitly requested by the lower layers in order to take place.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html4/inet.html">inet(4)</a>, <a class="link-man" href="../html4/pppoe.html">pppoe(4)</a>, <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a></div>
+<div class="section">
+<h1 id="x5354414e4441524453">STANDARDS</h1> <span class="ref"><span class="ref-auth">G. McGregor</span>, <span class="ref-title">The PPP Internet Protocol Control Protocol (IPCP)</span>, <span class="ref-rep">RFC 1332</span>, <span class="ref-date">May 1992</span>.</span><div class="spacer">
+</div>
+<span class="ref"><span class="ref-auth">B. Lloyd</span> and <span class="ref-auth">W. Simpson</span>, <span class="ref-title">PPP Authentication Protocols</span>, <span class="ref-rep">RFC 1334</span>, <span class="ref-date">October 1992</span>.</span><div class="spacer">
+</div>
+<span class="ref"><span class="ref-auth">W. Simpson</span>, <span class="ref-title">The Point-to-Point Protocol (PPP)</span>, <span class="ref-rep">RFC 1661</span>, <span class="ref-date">July 1994</span>.</span><div class="spacer">
+</div>
+<span class="ref"><span class="ref-auth">W. Simpson</span>, <span class="ref-title">PPP Challenge Handshake Authentication Protocol (CHAP)</span>, <span class="ref-rep">RFC 1994</span>, <span class="ref-date">August 1996</span>.</span><div class="spacer">
+</div>
+<span class="ref"><span class="ref-auth">S. Varada</span>, <span class="ref-auth">D. Haskins</span>, and <span class="ref-auth">E. Allen</span>, <span class="ref-title">IP Version 6 over PPP</span>, <span class="ref-rep">RFC 5072</span>, <span class="ref-date">September 2007</span>.</span></div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> The original implementation of <b class="name">sppp</b> was written in 1994 at Cronyx Ltd., Moscow, by <span class="author">Serge Vakulenko</span> &lt;<a class="link-mail" href="mailto:vak@cronyx.ru">vak@cronyx.ru</a>&gt;. <span class="author">Joerg Wunsch</span> &lt;<a class="link-mail" href="mailto:joerg_wunsch@uriah.heep.sax.de">joerg_wunsch@uriah.heep.sax.de</a>&gt; rewrote a large part in 1997 in order to fully implement the state machine as described in RFC 1661, so it could also be used for dialup lines. He also wrote the initial version of this man page. Serge later on wrote a basic implementation for PAP and CHAP, which served as the base for the current implementation, done again by Joerg Wunsch.<div class="spacer">
+</div>
+<span class="author">Reyk Floeter</span> implemented <b class="name">sppp</b> support for <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a> in <span class="unix">OpenBSD&#160;4.0</span> in order to remove the original &#8216;<code class="lit">spppcontrol</code>&#8217; utility, which was previously used to configure and display the <b class="name">sppp</b> settings.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> Many.<div class="spacer">
+</div>
+Negotiation loop avoidance is not fully implemented. If the negotiation doesn't converge, this can cause an endless loop.<div class="spacer">
+</div>
+The various parameters that should be adjustable per RFC 1661 are currently hard-coded into the kernel, and should be made accessible through <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a>.<div class="spacer">
+</div>
+<span class="emph">Passive</span> mode has not been tested extensively.<div class="spacer">
+</div>
+More NCPs should be implemented, as well as other control protocols for authentication and link quality reporting.<div class="spacer">
+</div>
+IPCP should support VJ header compression.<div class="spacer">
+</div>
+Link-level compression protocols should be supported.</div>
+</div>
+</body>
+</html>
+

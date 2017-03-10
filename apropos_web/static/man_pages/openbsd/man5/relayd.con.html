@@ -1,0 +1,914 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+RELAYD.CONF(5)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">relayd.conf</b> &#8212; <span class="desc">relay daemon configuration file</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="name">relayd.conf</b> is the configuration file for the relay daemon, <a class="link-man" href="../html8/relayd.html">relayd(8)</a>.</div>
+<div class="section">
+<h1 id="x53454354494f4e53">SECTIONS</h1> <b class="name">relayd.conf</b> is divided into seven main sections:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">Macros</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+User-defined variables may be defined and used later, simplifying the configuration file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">Global Configuration</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Global settings for <a class="link-man" href="../html8/relayd.html">relayd(8)</a>. Do note that the config file allows global settings to be added after defining tables in the config file, but those tables will use the built-in defaults instead of the global settings below them.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">Tables</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Table definitions describe a list of hosts, in a similar fashion to <a class="link-man" href="../html4/pf.html">pf(4)</a> tables. They are used for relay, redirection, and router target selection with the described options and health checking on the host they contain.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">Redirections</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Redirections are translated to <a class="link-man" href="../html4/pf.html">pf(4)</a> rdr-to rules for stateful forwarding to a target host from a health-checked table on layer 3.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">Relays</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Relays allow application layer load balancing, TLS acceleration, and general purpose TCP proxying on layer 7.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">Protocols</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Protocols are predefined settings and filter rules for relays.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="symb">Routers</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Routers are used to insert routes with health-checked gateways for (WAN) link balancing.</dd>
+</dl>
+<div class="spacer">
+</div>
+Within the sections, a host <i class="arg">address</i> can be specified by IPv4 address, IPv6 address, interface name, interface group, or DNS hostname. If the address is an interface name, <a class="link-man" href="../html8/relayd.html">relayd(8)</a> will look up the first IPv4 address and any other IPv4 and IPv6 addresses of the specified network interface. A <i class="arg">port</i> can be specified by number or name. The port name to number mappings are found in the file <i class="file">/etc/services</i>; see <a class="link-man" href="../html5/services.html">services(5)</a> for details.<div class="spacer">
+</div>
+The current line can be extended over multiple lines using a backslash (&#8216;\&#8217;). Comments can be put anywhere in the file using a hash mark (&#8216;#&#8217;), and extend to the end of the current line. Care should be taken when commenting out multi-line text: the comment is effective until the end of the entire block.<div class="spacer">
+</div>
+Argument names not beginning with a letter, digit, or underscore must be quoted.<div class="spacer">
+</div>
+Additional configuration files can be included with the <b class="cmd">include</b> keyword, for example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+include &quot;/etc/relayd.conf.local&quot;</pre>
+</div>
+<div class="section">
+<h1 id="x4d4143524f53">MACROS</h1> Macros can be defined that will later be expanded in context. Macro names must start with a letter, digit, or underscore, and may contain any of those characters. Macro names may not be reserved words (for example, <b class="cmd">table</b>, <b class="cmd">relay</b>, or <b class="cmd">timeout</b>). Macros are not expanded inside quotes.<div class="spacer">
+</div>
+For example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+www1=&quot;10.0.0.1&quot; 
+www2=&quot;10.0.0.2&quot; 
+table &lt;webhosts&gt; { 
+	$www1 
+	$www2 
+}</pre>
+</div>
+<div class="section">
+<h1 id="x474c4f42414c20434f4e46494755524154494f4e">GLOBAL CONFIGURATION</h1> Here are the settings that can be set globally:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">interval</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the interval in seconds at which the hosts will be checked. The default interval is 10 seconds.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">log</b> (<b class="cmd">updates</b>|<b class="cmd">all</b>)</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Log state notifications after completed host checks. Either only log the <b class="cmd">updates</b> to new states or log <b class="cmd">all</b> state notifications, even if the state didn't change. The host state can be &#8220;up&#8221; (the health check completed successfully), &#8220;down&#8221; (the host is down or didn't match the check criteria), or &#8220;unknown&#8221; (the host is disabled or has not been checked yet).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">prefork</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When using relays, run the specified number of processes to handle relayed connections. This increases the performance and prevents delays when connecting to a relay. <a class="link-man" href="../html8/relayd.html">relayd(8)</a> runs 3 relay processes by default and every process will handle all configured relays.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">snmp</b> [<span class="opt"><b class="cmd">trap</b></span>] [<span class="opt">&#8220;<i class="arg">path</i>&#8221;</span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Send an SNMP trap when the state of a host changes. <a class="link-man" href="../html8/relayd.html">relayd(8)</a> will try to connect to <a class="link-man" href="../html8/snmpd.html">snmpd(8)</a> over the AgentX SNMP socket specified by <i class="arg">path</i> and request it send a trap to the registered trap receivers. If <i class="arg">path</i> is not specified, a default path of <i class="file">/var/run/agentx.sock</i> will be used. See <a class="link-man" href="../html5/snmpd.conf.html">snmpd.conf(5)</a> for more information about SNMP configuration.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">timeout</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the global timeout in milliseconds for checks. This can be overridden by the timeout value in the table definitions. The default interval is 200 milliseconds and it must not exceed the global interval. Please note that the default value is optimized for checks within the same collision domain &#8211; use a higher timeout, such as 1000 milliseconds, for checks of hosts in other subnets. If this option is to be set, it should be placed before overrides in tables.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x5441424c4553">TABLES</h1> Tables are used to group a set of hosts as the target for redirections or relays; they will be mapped to a <a class="link-man" href="../html4/pf.html">pf(4)</a> table for redirections. Tables may be defined with the following attribute:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">disable</b></dt>
+<dd class="list-tag" style="margin-left: 7.00ex;">
+Start the table disabled &#8211; no hosts will be checked in this table. The table can be later enabled through <a class="link-man" href="../html8/relayctl.html">relayctl(8)</a>.</dd>
+</dl>
+<div class="spacer">
+</div>
+Each table must contain at least one host <i class="arg">address</i>; multiple hosts are separated by newline, comma, or whitespace. Host entries may be defined with the following attributes:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">ip ttl</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Change the default time-to-live value in the IP headers for host checks.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">parent</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+The optional parent option inherits the state from a parent host with the specified identifier. The check will be skipped for this host and copied from the parent host. This can be used to prevent multiple checks on hosts with multiple IP addresses for the same service. The host identifiers are sequentially assigned to the configured hosts starting with 1; it can be shown with the <a class="link-man" href="../html8/relayctl.html">relayctl(8)</a> <b class="cmd">show summary</b> commands.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">priority</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Change the route priority used when adding a route. If not specified, the kernel will set a priority of 8 (<span class="define">RTP_STATIC</span>). In ordinary use, a fallback route should be added statically with a very high (e.g. 52) priority. Unused in all other modes.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">retry</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+The optional retry option adds a tolerance for failed host checks; the check will be retried for <i class="arg">number</i> more times before setting the host state to down. If this table is used by a relay, it will also specify the number of retries for outgoing connection attempts.</dd>
+</dl>
+<div class="spacer">
+</div>
+For example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+table &lt;service&gt; { 192.168.1.1, 192.168.1.2, 192.168.2.3 } 
+table &lt;fallback&gt; disable { 10.1.5.1 retry 2 } 
+ 
+redirect &quot;www&quot; { 
+	listen on www.example.com port 80 
+	forward to &lt;service&gt; check http &quot;/&quot; code 200 
+	forward to &lt;fallback&gt; check http &quot;/&quot; code 200 
+}</pre>
+<div class="spacer">
+</div>
+Tables are used by <b class="cmd">forward to</b> directives in redirections or relays with a set of general options, health-checking rules, and timings; see the <i class="link-sec"><a class="link-sec" href="#x5245444952454354494f4e53">REDIRECTIONS</a></i> and <i class="link-sec"><a class="link-sec" href="#x52454c415953">RELAYS</a></i> sections for more information about the forward context. Table specific configuration directives are described below. Multiple options can be appended to <b class="cmd">forward to</b> directives, separated by whitespaces.<div class="spacer">
+</div>
+The following options will configure the health-checking method for the table, and is mandatory for redirections:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">check http</b> <i class="arg">path</i> [<span class="opt"><b class="cmd">host</b> <i class="arg">hostname</i></span>] <b class="cmd">code</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+For each host in the table, verify that retrieving the URL <i class="arg">path</i> gives the HTTP return code <i class="arg">number</i>. If <i class="arg">hostname</i> is specified, it is used as the &#8220;Host:&#8221; header to query a specific hostname at the target host. To validate the HTTP return code, use this shell command:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+$ echo -n &quot;HEAD &lt;path&gt; HTTP/1.0\r\n\r\n&quot; | \ 
+	nc &lt;host&gt; &lt;port&gt; | head -n1</pre>
+<div class="spacer">
+</div>
+This prints the status header including the actual return code:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+HTTP/1.1 200 OK</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">check https</b> <i class="arg">path</i> [<span class="opt"><b class="cmd">host</b> <i class="arg">hostname</i></span>] <b class="cmd">code</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This has the same effect as above but wraps the HTTP request in TLS.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">check http</b> <i class="arg">path</i> [<span class="opt"><b class="cmd">host</b> <i class="arg">hostname</i></span>] <b class="cmd">digest</b> <i class="arg">string</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+For each host in the table, verify that retrieving the URL <i class="arg">path</i> produces non-binary content whose message digest matches the defined string. The algorithm used is determined by the string length of the <i class="arg">digest</i> argument, either SHA1 (40 characters) or MD5 (32 characters). If <i class="arg">hostname</i> is specified, it is used as the &#8220;Host:&#8221; header to query a specific hostname at the target host. The digest does not take the HTTP headers into account. Do not specify a binary object (such as a graphic) as the target of the request, as <b class="name">relayd.conf</b> expects the data returned to be a string. To compute the digest, use this simple command:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+$ ftp -o - http://host[:port]/path | sha1</pre>
+<div class="spacer">
+</div>
+This gives a digest that can be used as-is in a digest statement:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+a9993e36476816aba3e25717850c26c9cd0d89d</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">check https</b> <i class="arg">path</i> [<span class="opt"><b class="cmd">host</b> <i class="arg">hostname</i></span>] <b class="cmd">digest</b> <i class="arg">string</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This has the same effect as above but wraps the HTTP request in TLS.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">check icmp</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Ping hosts in this table to determine whether they are up or not. This method will automatically use ICMP or ICMPV6 depending on the address family of each host.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">check script</b> <i class="arg">path</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Execute an external program to check the host state. The program will be executed for each host by specifying the hostname on the command line:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+/usr/local/bin/checkload.pl front-www1.private.example.com</pre>
+<div class="spacer">
+</div>
+<a class="link-man" href="../html8/relayd.html">relayd(8)</a> expects a positive return value on success and zero on failure. Note that the script will be executed with the privileges of the &#8220;_relayd&#8221; user and terminated after <i class="arg">timeout</i> milliseconds.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">check send</b> <i class="arg">data</i> <b class="cmd">expect</b> <i class="arg">pattern</i> [<span class="opt"><b class="cmd">tls</b></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+For each host in the table, a TCP connection is established on the port specified, then <i class="arg">data</i> is sent. Incoming data is then read and is expected to match against <i class="arg">pattern</i> using shell globbing rules. If <i class="arg">data</i> is an empty string or <b class="cmd">nothing</b> then nothing is sent on the connection and data is immediately read. This can be useful with protocols that output a banner like SMTP, NNTP, and FTP. If the <b class="cmd">tls</b> keyword is present, the transaction will occur in a TLS tunnel.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">check tcp</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Use a simple TCP connect to check that hosts are up.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">check tls</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Perform a complete TLS handshake with each host to check their availability.</dd>
+</dl>
+<div class="spacer">
+</div>
+The following general table options are available:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">demote</b> <i class="arg">group</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Enable the per-table <a class="link-man" href="../html4/carp.html">carp(4)</a> demotion option. This will increment the carp demotion counter for the specified interface group if all hosts in the table are down. For more information on interface groups, see the <b class="cmd">group</b> keyword in <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">interval</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Override the global interval and specify one for this table. It must be a multiple of the global interval.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">timeout</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the timeout in milliseconds for each host that is checked using TCP as the transport. This will override the global timeout, which is 200 milliseconds by default.</dd>
+</dl>
+<div class="spacer">
+</div>
+The following options will set the scheduling algorithm to select a host from the specified table:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">mode hash</b> [<span class="opt"><i class="arg">key</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Balances the outgoing connections across the active hosts based on the <i class="arg">key</i>, IP address and port of the relay. Additional input can be fed into the hash by looking at HTTP headers and GET variables; see the <i class="link-sec"><a class="link-sec" href="#x50524f544f434f4c53">PROTOCOLS</a></i> section below. This mode is only supported by relays.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">mode least-states</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Forward each outgoing connection to the active host with the least active <a class="link-man" href="../html4/pf.html">pf(4)</a> states. This mode is only supported by redirections.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">mode loadbalance</b> [<span class="opt"><i class="arg">key</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Balances the outgoing connections across the active hosts based on the <i class="arg">key</i>, the source IP address of the client, and the IP address and port of the relay. This mode is only supported by relays.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">mode random</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Distributes the outgoing connections randomly through all active hosts. This mode is supported by redirections and relays.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">mode roundrobin</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Distributes the outgoing connections using a round-robin scheduler through all active hosts. This is the default mode and will be used if no option has been specified. This mode is supported by redirections and relays.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">mode source-hash</b> [<span class="opt"><i class="arg">key</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Balances the outgoing connections across the active hosts based on the <i class="arg">key</i> and the source IP address of the client. This mode is supported by redirections and relays.</dd>
+</dl>
+<div class="spacer">
+</div>
+The optional <i class="arg">key</i> argument can be specified for the <b class="cmd">hash</b>, <b class="cmd">loadbalance</b>, and <b class="cmd">source-hash</b> modes as either a hex value with a leading &#8216;<code class="lit">0x</code>&#8217; or as a string. If omitted, <a class="link-man" href="../html8/relayd.html">relayd(8)</a> generates a random key when the configuration is loaded.</div>
+<div class="section">
+<h1 id="x5245444952454354494f4e53">REDIRECTIONS</h1> Redirections represent a <a class="link-man" href="../html4/pf.html">pf(4)</a> rdr-to rule. They are used for stateful redirections to the hosts in the specified tables. <a class="link-man" href="../html4/pf.html">pf(4)</a> rewrites the target IP addresses and ports of the incoming connections, operating on layer 3. The configuration directives that are valid in the <b class="cmd">redirect</b> context are described below:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">disable</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The redirection is initially disabled. It can be later enabled through <a class="link-man" href="../html8/relayctl.html">relayctl(8)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">forward to</b> &lt;<i class="arg">table</i>&gt; [<span class="opt"><b class="cmd">port</b> <i class="arg">number</i></span>] <i class="arg">options ...</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify the tables of target hosts to be used; see the <i class="link-sec"><a class="link-sec" href="#x5441424c4553">TABLES</a></i> section above for information about table options. If the <b class="cmd">port</b> option is not specified, the first port from the <b class="cmd">listen on</b> directive will be used. This directive can be specified twice &#8211; the second entry will be used as the backup table if all hosts in the main table are down. At least one entry for the main table is mandatory.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">listen on</b> <i class="arg">address</i> [<span class="opt">ip-proto</span>] <b class="cmd">port</b> <i class="arg">port</i> [<span class="opt"><b class="cmd">interface</b> <i class="arg">name</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify an <i class="arg">address</i> and a <i class="arg">port</i> to listen on. <a class="link-man" href="../html4/pf.html">pf(4)</a> will redirect incoming connections for the specified target to the hosts in the main or backup table. The <i class="arg">port</i> argument can optionally specify a port range instead of a single port; the format is <i class="arg">min-port</i>:<i class="arg">max-port</i>. The optional argument <i class="arg">ip-proto</i> can be used to specify an IP protocol like <b class="flag">tcp</b> or <b class="flag">udp</b>; it defaults to <b class="flag">tcp</b>. The rule can be optionally restricted to a given interface name.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">route to</b> &lt;<i class="arg">table</i>&gt; [<span class="opt"><b class="cmd">port</b> <i class="arg">number</i></span>] <i class="arg">options ...</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Like the <b class="cmd">forward to</b> directive, but directly routes the packets to the target host without modifying the target address using a <a class="link-man" href="../html4/pf.html">pf(4)</a> route-to rule. This can be used for &#8220;direct server return&#8221; to force the target host to respond via a different gateway. Note that hosts have to accept sessions for the same address as the gateway, which is typically done by configuring a loopback interface on the host with this address.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">session timeout</b> <i class="arg">seconds</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify the inactivity timeout in seconds for established redirections. The default timeout is 600 seconds (10 minutes). The maximum is 2147483647 seconds (68 years).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">sticky-address</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This has the same effect as specifying sticky-address for an rdr-to rule in <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a>. It will ensure that multiple connections from the same source are mapped to the same redirection address.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">match</b></span>] <b class="cmd">pftag</b> <i class="arg">name</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Automatically tag packets passing through the <a class="link-man" href="../html4/pf.html">pf(4)</a> rdr-to rule with the name supplied. This allows simpler filter rules. The optional <b class="cmd">match</b> keyword will change the default rule action from &#8216;<code class="lit">pass in quick</code>&#8217; to &#8216;<code class="lit">match in</code>&#8217; to allow further evaluation in the pf ruleset using the <b class="flag">tagged</b> <i class="arg">name</i> rule option.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x52454c415953">RELAYS</h1> Relays will forward traffic between a client and a target server. In contrast to redirections and IP forwarding in the network stack, a relay will accept incoming connections from remote clients as a server, open an outgoing connection to a target host, and forward any traffic between the target host and the remote client, operating on layer 7. A relay is also called an application layer gateway or layer 7 proxy.<div class="spacer">
+</div>
+The main purpose of a relay is to provide advanced load balancing functionality based on specified protocol characteristics, such as HTTP headers, to provide TLS acceleration and to allow basic handling of the underlying application protocol.<div class="spacer">
+</div>
+The <b class="cmd">relay</b> configuration directives are described below:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">disable</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Start the relay but immediately close any accepted connections.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">transparent</b></span>] <b class="cmd">forward</b> [<span class="opt"><b class="cmd">with tls</b></span>] <b class="cmd">to</b> <i class="arg">address</i> [<span class="opt"><b class="cmd">port</b> <i class="arg">port</i></span>] <i class="arg">options ...</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify the address and port of the target host to connect to. If the <b class="cmd">port</b> option is not specified, the port from the <b class="cmd">listen on</b> directive will be used. Use the <b class="cmd">transparent</b> keyword to enable fully-transparent mode; the source address of the client will be retained in this case.<div class="spacer">
+</div>
+The <b class="cmd">with tls</b> directive enables client-side TLS mode to connect to the remote host. Verification of server certificates can be enabled by setting the <b class="cmd">ca file</b> option in the protocol section.<div class="spacer">
+</div>
+The following options may be specified for forward directives:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">retry</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The optional host <b class="cmd">retry</b> option will be used as a tolerance for failed host connections; the connection will be retried for <i class="arg">number</i> more times.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">inet</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+If the requested destination is an IPv6 address, <a class="link-man" href="../html8/relayd.html">relayd(8)</a> will forward the connection to an IPv4 address which is determined by the last 4 octets of the original IPv6 destination. For example, if the original IPv6 destination address is 2001:db8:7395:ffff::a01:101, the session is relayed to the IPv4 address 10.1.1.1 (a01:101).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">inet6</b> <i class="arg">address-prefix</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+If the requested destination is an IPv4 address, <a class="link-man" href="../html8/relayd.html">relayd(8)</a> will forward the connection to an IPv6 address which is determined by setting the last 4 octets of the specified IPv6 <i class="arg">address-prefix</i> to the 4 octets of the original IPv4 destination. For example, if the original IPv4 destination address is 10.1.1.1 and the specified address prefix is 2001:db8:7395:ffff::, the session is relayed to the IPv6 address 2001:db8:7395:ffff::a01:101.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">forward to</b> &lt;<i class="arg">table</i>&gt; [<span class="opt"><b class="cmd">port</b> <i class="arg">port</i></span>] <i class="arg">options ...</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Like the previous directive, but connect to a host from the specified table; see the <i class="link-sec"><a class="link-sec" href="#x5441424c4553">TABLES</a></i> section above for information about table options. This directive can be specified multiple times &#8211; subsequent entries will be used as the backup table if all hosts in the previous table are down. At least one entry for the main table is mandatory. As above, use the <b class="cmd">with tls</b> directive to enable client-side TLS mode when connecting to the remote host.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">forward to</b> <b class="cmd">destination</b> <i class="arg">options ...</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When redirecting connections with a divert-to rule in <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a> to a relay listening on localhost, this directive will look up the real destination address of the intended target host, allowing the relay to be run as a transparent proxy. If an additional <b class="cmd">forward to</b> directive to a specified address or table is present, it will be used as a backup if the lookup failed. As above, use the <b class="cmd">with tls</b> directive to enable client-side TLS mode when connecting to the remote host.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">forward to</b> <b class="cmd">nat lookup</b> <i class="arg">options ...</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Like the previous directive, but for redirections with rdr-to in <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">listen on</b> <i class="arg">address</i> <b class="cmd">port</b> <i class="arg">port</i> [<span class="opt"><b class="cmd">tls</b></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify the address and port for the relay to listen on. The relay will accept incoming connections to the specified address.<div class="spacer">
+</div>
+If the <b class="cmd">tls</b> keyword is present, the relay will accept connections using the encrypted TLS protocol. The relay will attempt to look up a private key in <i class="file">/etc/ssl/private/address:port.key</i> and a public certificate in <i class="file">/etc/ssl/address:port.crt</i>, where <i class="arg">address</i> is the specified IP address and <i class="arg">port</i> is the specified port that the relay listens on. If these files are not present, the relay will continue to look in <i class="file">/etc/ssl/private/address.key</i> and <i class="file">/etc/ssl/address.crt</i>. See <a class="link-man" href="../html8/ssl.html">ssl(8)</a> for details about SSL/TLS server certificates.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">protocol</b> <i class="arg">name</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Use the specified protocol definition for the relay. The generic TCP protocol options will be used by default; see the <i class="link-sec"><a class="link-sec" href="#x50524f544f434f4c53">PROTOCOLS</a></i> section below.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">session timeout</b> <i class="arg">seconds</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify the inactivity timeout in seconds for accepted sessions. The default timeout is 600 seconds (10 minutes). The maximum is 2147483647 seconds (68 years).</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x544c532052454c415953">TLS RELAYS</h1> In addition to plain TCP, <a class="link-man" href="../html8/relayd.html">relayd(8)</a> supports the Transport Layer Security (TLS) cryptographic protocol for authenticated and encrypted relays. TLS is the successor of the original Secure Sockets Layer (SSL) protocol, but the term SSL is sometimes still used in modern TLS-based applications. <a class="link-man" href="../html8/relayd.html">relayd(8)</a> can operate as a TLS client or server to offer a variety of options for different use cases related to TLS.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">TLS client</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When configuring the relay <b class="cmd">forward</b> statements with the <b class="cmd">with tls</b> directive, <a class="link-man" href="../html8/relayd.html">relayd(8)</a> will enable client-side TLS to connect to the remote host. This is commonly used for TLS tunneling and transparent encapsulation of plain TCP connections. See the <b class="cmd">forward to</b> description in the <i class="link-sec"><a class="link-sec" href="#x52454c415953">RELAYS</a></i> section for more details.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">TLS server</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When specifying the <b class="cmd">tls</b> keyword in the relay <b class="cmd">listen</b> statements, <a class="link-man" href="../html8/relayd.html">relayd(8)</a> will accept connections from clients as a TLS server. This mode is also known as &#8220;SSL/TLS acceleration&#8221;. See the <b class="cmd">listen on</b> description in the <i class="link-sec"><a class="link-sec" href="#x52454c415953">RELAYS</a></i> section for more details.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">TLS client and server</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When combining both modes, TLS server and client, <a class="link-man" href="../html8/relayd.html">relayd(8)</a> can filter TLS connections as a man-in-the-middle. This combined mode is also called &#8220;TLS inspection&#8221;. The configuration requires additional X.509 certificate settings; see the <b class="cmd">ca key</b> description in the <i class="link-sec"><a class="link-sec" href="#x50524f544f434f4c53">PROTOCOLS</a></i> section for more details.</dd>
+</dl>
+<div class="spacer">
+</div>
+When configured for &#8220;TLS inspection&#8221; mode, <a class="link-man" href="../html8/relayd.html">relayd(8)</a> will listen for incoming connections which have been diverted to the local socket by PF. Before accepting and negotiating the incoming TLS connection as a server, it will look up the original destination address on the diverted socket, and pre-connect to the target server as a TLS client to obtain the remote TLS certificate. It will update or patch the obtained TLS certificate by replacing the included public key with its local server key because it doesn't have the private key of the remote server certificate. It also updates the X.509 issuer name to the local CA subject name and signs the certificate with its local CA key. This way it keeps all the other X.509 attributes that are already present in the server certificate, including the &quot;green bar&quot; extended validation attributes. Now it finally accepts the TLS connection from the diverted client using the updated certificate and continues to handle the connection and to connect to the remote server.</div>
+<div class="section">
+<h1 id="x50524f544f434f4c53">PROTOCOLS</h1> Protocols are templates defining settings and rules for relays. They allow setting generic TCP options, TLS settings, and rules for the selected application layer protocol.<div class="spacer">
+</div>
+The protocol directive is available for a number of different application layer protocols. There is no generic handler for UDP-based protocols because it is a stateless datagram-based protocol which has to look into the application layer protocol to find any possible state information.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">dns protocol</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+(UDP) Domain Name System (DNS) protocol. The requested IDs in the DNS header will be used to match the state. <a class="link-man" href="../html8/relayd.html">relayd(8)</a> replaces these IDs with random values to compensate for predictable values generated by some hosts.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">http protocol</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Handle the HyperText Transfer Protocol (HTTP, or &quot;HTTPS&quot; if encapsulated in a TLS tunnel).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">tcp</b></span>] <b class="cmd">protocol</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Generic handler for TCP-based protocols. This is the default.</dd>
+</dl>
+<div class="spacer">
+</div>
+The available configuration directives are described below:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+(<b class="cmd">block</b>|<b class="cmd">pass</b>|<b class="cmd">match</b>) [<span class="opt"><i class="arg">rule</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify one or more rules to filter connections based on their network or application layer headers; see the <i class="link-sec"><a class="link-sec" href="#x46494c5445522052554c4553">FILTER RULES</a></i> section for more details.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">return error</b> [<span class="opt"><i class="arg">option</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Return an error response to the client if an internal operation or the forward connection to the client failed. By default, the connection will be silently dropped. The effect of this option depends on the protocol: HTTP will send an error header and page to the client before closing the connection. Additional valid options are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">style</b> <i class="arg">string</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify a Cascading Style Sheet (CSS) to be used for the returned HTTP error pages, for example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+body { background: #a00000; color: white; }</pre>
+</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">tcp</b> <i class="arg">option</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Enable or disable the specified TCP/IP options; see <a class="link-man" href="../html4/tcp.html">tcp(4)</a> and <a class="link-man" href="../html4/ip.html">ip(4)</a> for more information about the options. Valid options are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">backlog</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the maximum length the queue of pending connections may grow to. The backlog option is 10 by default and is limited by the <b class="cmd">kern.somaxconn</b> <a class="link-man" href="../html8/sysctl.html">sysctl(8)</a> variable.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">ip minttl</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This option for the underlying IP connection may be used to discard packets with a TTL lower than the specified value. This can be used to implement the Generalized TTL Security Mechanism (GTSM) according to RFC 5082.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">ip ttl</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Change the default time-to-live value in the IP headers.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">no</b></span>] <b class="cmd">nodelay</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Enable the TCP NODELAY option for this connection. This is recommended to avoid delays in the relayed data stream, e.g. for SSH connections.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">no</b></span>] <b class="cmd">sack</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Use selective acknowledgements for this connection.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">socket buffer</b> <i class="arg">number</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the socket-level buffer size for input and output for this connection. This will affect the TCP window size.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">no</b></span>] <b class="cmd">splice</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Use socket splicing for zero-copy data transfer. This option is enabled by default.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">tls</b> <i class="arg">option</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the TLS options and session settings. This is only used if TLS is enabled in the relay. Valid options are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">ca cert</b> <i class="arg">path</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify a CA certificate for TLS inspection. For more information, see the <b class="cmd">ca key</b> option below.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">ca file</b> <i class="arg">path</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This option enables CA verification in TLS client mode. The daemon will load the CA (Certificate Authority) certificates from the specified path to verify the server certificates. <span class="unix">OpenBSD</span> provides a default CA bundle in <i class="file">/etc/ssl/cert.pem</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">ca key</b> <i class="arg">path</i> <b class="cmd">password</b> <i class="arg">password</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify a CA key for TLS inspection. The <i class="arg">password</i> argument will specify the password to decrypt the CA key (typically an RSA key). This option will enable TLS inspection if the following conditions are true:<div class="spacer">
+</div>
+<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-bul">
+<li class="list-bul" style="margin-top: 0.00em;">
+TLS server mode is enabled by the <b class="cmd">listen</b> directive: <b class="cmd">listen on ... tls</b>.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+TLS client mode and divert lookups are enabled by the <b class="cmd">forward</b> directive: <b class="cmd">forward with tls to destination</b>.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+The <b class="cmd">ca cert</b> option is specified.</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+The <b class="cmd">ca key</b> option is specified.</li>
+</ul>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">ciphers</b> <i class="arg">string</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the string defining the TLS cipher suite. If not specified, the default value &#8216;<code class="lit">HIGH:!aNULL</code>&#8217; will be used (strong crypto cipher suites without anonymous DH). See the CIPHERS section of <a class="link-man" href="../html1/openssl.html">openssl(1)</a> for information about SSL/TLS cipher suites and preference lists.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">no</b></span>] <b class="cmd">cipher-server-preference</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Prefer the server's cipher list over the client's preferences when choosing a cipher for the connection; enabled by default.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">no</b></span>] <b class="cmd">client-renegotiation</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Allow client-initiated renegotiation; enabled by default. Disable to mitigate a potential DoS risk.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">ecdh</b> [<span class="opt"><b class="cmd">curve</b> <i class="arg">name</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set a named curve to use when generating EC keys for ECDHE-based cipher suites with Perfect Forward Secrecy (PFS). If the curve <i class="arg">name</i> is not specified, the default curve <b class="flag">prime256v1</b> will be used. ECDHE is enabled by default.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">no ecdh</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Disable ECDHE support.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">edh</b> [<span class="opt"><b class="cmd">params</b> <i class="arg">maximum</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Enable EDH-based cipher suites with Perfect Forward Secrecy (PFS) for older clients that do not support ECDHE. If the <i class="arg">maximum</i> length of the DH params for EDH is not specified, the default value of 1024 bits will be used. Other possible values are numbers between 1024 and 8192, including 1024, 1536, 2048, 4096, or 8192. Values higher than 1024 bits can cause incompatibilities with older TLS clients.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">no edh</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Disable EDH support. This is the default.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">session cache</b> <i class="arg">value</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the maximum size of the TLS session cache. If the <i class="arg">value</i> is zero, the default size defined by the TLS library will be used. A positive number will set the maximum size in bytes and the keyword <b class="cmd">disable</b> will disable the TLS session cache.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">no</b></span>] <b class="cmd">sslv3</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Enable the SSLv3 protocol; disabled by default.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">no</b></span>] <b class="cmd">tlsv1</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Enable all TLSv1 protocols. This is an alias that includes <b class="cmd">tlsv1.0</b>, <b class="cmd">tlsv1.1</b>, and <b class="cmd">tlsv1.2</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">no</b></span>] <b class="cmd">tlsv1.0</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Enable the TLSv1.0 protocol; disabled by default.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">no</b></span>] <b class="cmd">tlsv1.1</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Enable the TLSv1.1 protocol; disabled by default.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="opt"><b class="cmd">no</b></span>] <b class="cmd">tlsv1.2</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Disable the TLSv1.2 protocol; enabled by default.</dd>
+</dl>
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x46494c5445522052554c4553">FILTER RULES</h1> Relays have the ability to filter connections based on their network or application layer headers. Filter rules apply options to connections based on the specified filter parameters.<div class="spacer">
+</div>
+For each connection that is processed by a relay, the filter rules are evaluated in sequential order, from first to last. For <b class="cmd">block</b> and <b class="cmd">pass</b>, the last matching rule decides what action is taken; if no rule matches the connection, the default action is to establish the connection without any additional action. For <b class="cmd">match</b>, rules are evaluated every time they match; the pass/block state of a connection remains unchanged.<div class="spacer">
+</div>
+The filter action may be one of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">block</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The connection is blocked. If a <b class="cmd">block</b> rule matches a new connection attempt, it will not be established. <b class="cmd">block</b> rules can also trigger for existing connections after evaluating application layer parameters; any connection of the relay session will be instantly dropped.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">match</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The connection is matched. This action does not alter the connection state, but allows additional parameters to the connection.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">pass</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The connection is passed; <a class="link-man" href="../html8/relayd.html">relayd(8)</a> will continue to process the relay session normally.</dd>
+</dl>
+<div class="spacer">
+</div>
+These filter parameters can be used in the rules:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">request</b> <code class="none">or</code> <b class="cmd">response</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+A relay session always consists of two connections: the <b class="cmd">request</b>, a client initiating a new connection to a server via the relay, and the <b class="cmd">response</b>, the server accepting the connection. Depending on the protocol, an established session can be purely request/response-based (like HTTP), exchange data in a bidirectional way (like arbitrary TCP sessions), or just contain a single datagram and an optional response (like UDP-based protocols). But the client always <span class="emph">requests</span> to communicate with a remote peer; the server.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">quick</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+If a connection is matched by a rule with the <b class="cmd">quick</b> option set, the rule is considered to be the last matching rule and any further evaluation is skipped.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">inet</b> <code class="none">or</code> <b class="cmd">inet6</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Only match connections with the specified address family, either of type IPv4 or IPv6.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">label</b> <i class="arg">string</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The label will be printed as part of the error message if the <b class="cmd">return error</b> option is set and may contain HTML tags, for example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+block request url digest 5c1e03f58f8ce0b457474ffb371fd1ef \ 
+	label &quot;&lt;a href='http://example.com/adv.pl?id=7359'&gt;\ 
+	Advisory provided by example.com&lt;/a&gt;&quot;</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">no</b> <i class="arg">parameter</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Reset a sticky parameter that was previously set by a matching rule. The <i class="arg">parameter</i> is a keyword that can be either <b class="cmd">label</b> or <b class="cmd">tag</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">tag</b> <i class="arg">string</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Add a &quot;sticky&quot; tag to connections matching this filter rule. Tags can be used to filter the connection by further rules using the <b class="cmd">tagged</b> option. Only one tag is assigned per connection; the tag will be replaced if the connection is already tagged.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">tagged</b> <i class="arg">string</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Match the connection if it is already tagged with a given tag by a previous rule.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">forward to</b> &lt;<i class="arg">table</i>&gt;</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Forward the request to a server in the specified table. With this option, requests can be passed to specific backend servers. A corresponding <b class="cmd">forward to</b> declaration in the <i class="link-sec"><a class="link-sec" href="#x52454c415953">RELAYS</a></i> section is required.</dd>
+</dl>
+<div class="spacer">
+</div>
+The following parameters are available when using the <b class="cmd">http</b> protocol:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">method</b> <i class="arg">name</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Match the HTTP request method. The method is specified by <i class="arg">name</i> and can be either <b class="cmd">CONNECT</b>, <b class="cmd">COPY</b>, <b class="cmd">DELETE</b>, <b class="cmd">GET</b>, <b class="cmd">HEAD</b>, <b class="cmd">LOCK</b>, <b class="cmd">MKCOL</b>, <b class="cmd">MOVE</b>, <b class="cmd">OPTIONS</b>, <b class="cmd">PATCH</b>, <b class="cmd">POST</b>, <b class="cmd">PROPFIND</b>, <b class="cmd">PROPPATCH</b>, <b class="cmd">PUT</b>, <b class="cmd">TRACE</b>, or <b class="cmd">UNLOCK</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">type</i> <i class="arg">option</i> [<span class="opt">[<span class="opt"><b class="cmd">digest</b></span>] (<i class="arg">key</i>|<b class="cmd">file</b> <i class="arg">path</i>) [<span class="opt"><b class="cmd">value</b> <i class="arg">value</i></span>]</span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Match a specified HTTP header entity and an optional <b class="cmd">key</b> and <b class="cmd">value</b>. An <b class="cmd">option</b> can be specified to modify the matched entity or to trigger an event. The entity is extracted from the HTTP request or response header and can be either of <i class="arg">type</i> <b class="cmd">cookie</b>, <b class="cmd">header</b>, <b class="cmd">path</b>, <b class="cmd">query</b>, or <b class="cmd">url</b>.<div class="spacer">
+</div>
+Instead of a single <i class="arg">key</i>, multiple keys can be loaded from a <b class="cmd">file</b> specified by <i class="arg">path</i> that contains one key per line. Lines will be stripped at the first whitespace or newline character and any empty lines or lines beginning with a hash mark (&#8216;<code class="lit">#</code>&#8217;) will be ignored.<div class="spacer">
+</div>
+If the <b class="cmd">digest</b> keyword is specified, compare the message digest of the key against the defined string. The algorithm used is determined by the string length of the <i class="arg">key</i> argument, either SHA1 (40 characters) or MD5 (32 characters). To compute the digest, for example for a <b class="cmd">url</b>, use this simple command:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+$ echo -n &quot;example.com/path/?args&quot; | sha1</pre>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+[<i class="arg">type</i>] may be one of:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">cookie</b> <i class="arg">option</i> [<span class="opt"><i class="arg">key</i> [<span class="opt"><b class="cmd">value</b> <i class="arg">value</i></span>]</span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Look up the entity as a value in the Cookie header. This type is only available with the direction <b class="cmd">request</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">header</b> <i class="arg">option</i> [<span class="opt"><i class="arg">key</i> [<span class="opt"><b class="cmd">value</b> <i class="arg">value</i></span>]</span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Look up the entity in the application protocol headers, like HTTP headers in <b class="cmd">http</b> mode.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">path</b> <i class="arg">option</i> [<span class="opt"><i class="arg">key</i> [<span class="opt"><b class="cmd">value</b> <i class="arg">value</i></span>]</span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Look up the entity as a value in the URL path when using the <b class="cmd">http</b> protocol. This type is only available with the direction <b class="cmd">request</b>. The <i class="arg">key</i> will match the path of the requested URL without the hostname and query and the value will match the complete query, for example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+block path &quot;/index.html&quot; 
+block path &quot;/cgi-bin/t.cgi&quot; value &quot;foo=bar*&quot;</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">query</b> <i class="arg">option</i> [<span class="opt"><i class="arg">key</i> [<span class="opt"><b class="cmd">value</b> <i class="arg">value</i></span>]</span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Look up the entity as a query variable in the URL when using the <b class="cmd">http</b> protocol. This type is only available with the direction <b class="cmd">request</b>, for example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# Will match /cgi-bin/example.pl?foo=bar&amp;ok=yes 
+request query expect &quot;bar&quot; from &quot;foo&quot;</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">url</b> <i class="arg">option</i> [<span class="opt">[<span class="opt"><b class="cmd">digest</b></span>] <i class="arg">key</i> [<span class="opt"><b class="cmd">value</b> <i class="arg">value</i></span>]</span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Look up the entity as a URL suffix/prefix expression consisting of a canonicalized hostname without port or suffix and a path name or prefix when using the <b class="cmd">http</b> protocol. This type is only available with the direction <b class="cmd">request</b>, for example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+block url &quot;example.com/index.html&quot; 
+block url &quot;example.com/test.cgi?val=1&quot;</pre>
+<div class="spacer">
+</div>
+<a class="link-man" href="../html8/relayd.html">relayd(8)</a> will match the full URL and different possible suffix/prefix combinations by stripping subdomains and path components (up to 5 levels), and the query string. For example, the following lookups will be done for http://www.example.com:81/1/2/3/4/5.html?query=yes:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+www.example.com/1/2/3/4/5.html?query=yes 
+www.example.com/1/2/3/4/5.html 
+www.example.com/ 
+www.example.com/1/ 
+www.example.com/1/2/ 
+www.example.com/1/2/3/ 
+example.com/1/2/3/4/5.html?query=yes 
+example.com/1/2/3/4/5.html 
+example.com/ 
+example.com/1/ 
+example.com/1/2/ 
+example.com/1/2/3/</pre>
+</dd>
+</dl>
+<div class="spacer">
+</div>
+[<i class="arg">option</i>] may be one of:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">append</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Append the specified <i class="arg">value</i> to a protocol entity with the selected <i class="arg">key</i> name. If it does not exist, it will be created with the new value.<div class="spacer">
+</div>
+The value string may contain predefined macros that will be expanded at runtime:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">$REMOTE_ADDR</b></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The IP address of the connected client.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">$REMOTE_PORT</b></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The TCP source port of the connected client.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">$SERVER_ADDR</b></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The configured IP address of the relay.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">$SERVER_PORT</b></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The configured TCP server port of the relay.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">$SERVER_NAME</b></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The server software name of <a class="link-man" href="../html8/relayd.html">relayd(8)</a>.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">$TIMEOUT</b></dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The configured session timeout of the relay.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">hash</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Feed the <i class="arg">value</i> of the selected entity into the load balancing hash to select the target host. See the <b class="cmd">table</b> keyword in the <i class="link-sec"><a class="link-sec" href="#x52454c415953">RELAYS</a></i> section above.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">log</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Log the <i class="arg">key</i> name and the <i class="arg">value</i> of the entity.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">remove</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Remove the entity with the selected <i class="arg">key</i> name.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">set</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Like the <b class="cmd">append</b> directive above, but change the contents of the specified entity. If <i class="arg">key</i> does not exist in the request, it will be created with the new <i class="arg">value</i>.<div class="spacer">
+</div>
+The <i class="arg">value</i> string may contain predefined macros that will be expanded at runtime, as detailed for the <b class="cmd">append</b> directive above.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x524f5554455253">ROUTERS</h1> Routers represent routing table entries in the kernel forwarding database, see <a class="link-man" href="../html4/route.html">route(4)</a>, and a table of associated gateways. They are used to dynamically insert or remove routes with gateways based on their availability and health-check results. A router can include multiple network statements and a single forward statement with a table of one or more gateways. All entries in a single router directive must match the same address family, either IPv4 or IPv6.<div class="spacer">
+</div>
+The kernel supports multipath routing when multiple gateways exist to the same destination address. The multipath routing behaviour can be changed globally using the <a class="link-man" href="../html8/sysctl.html">sysctl(8)</a> variables <b class="var">net.inet.ip.multipath</b> and <b class="var">net.inet6.ip6.multipath</b>. With the default setting of 0, the first route selected will be used for subsequent packets to that destination regardless of source. Setting it to 1 will enable load balancing based on the packet source address across gateways; multiple routes with the same priority are used equally. The kernel will also check the link state of the related network interface and try a different route if it is not active.<div class="spacer">
+</div>
+The configuration directives that are valid in the <b class="cmd">routers</b> context are described below:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">forward to</b> &lt;<i class="arg">table</i>&gt; <b class="cmd">port</b> <i class="arg">number</i> <i class="arg">options ...</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify the table of target gateways to be used; see the <i class="link-sec"><a class="link-sec" href="#x5441424c4553">TABLES</a></i> section above for information about table options. This entry is mandatory and must be specified once.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">route</b> <i class="arg">address</i><code class="lit">/</code><i class="arg">prefix</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specify the network address and prefix length of a route destination that is reachable via the active gateways. This entry must be specified at least once in a router directive.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">rtable</b> <i class="arg">id</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Add the routes to the kernel routing table with the specified <i class="arg">id</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="cmd">rtlabel</b> <i class="arg">label</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Add the routes with the specified <i class="arg">label</i> to the kernel routing table.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/relayd.conf</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+<a class="link-man" href="../html8/relayd.html">relayd(8)</a> configuration file.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/services</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Service name database.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/ssl/address.crt</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/ssl/address:port.crt</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/ssl/private/address.key</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/ssl/private/address:port.key</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Location of the relay TLS server certificates, where <i class="arg">address</i> is the configured IP address and <i class="arg">port</i> is the configured port number of the relay.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/etc/ssl/cert.pem</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Default location of the CA bundle that can be used with <a class="link-man" href="../html8/relayd.html">relayd(8)</a>.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> This configuration file would create a redirection service &#8220;www&#8221; which load balances four hosts and falls back to one host containing a &#8220;sorry page&#8221;:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+www1=front-www1.private.example.com 
+www2=front-www2.private.example.com 
+www3=front-www3.private.example.com 
+www4=front-www4.private.example.com 
+ 
+interval 5 
+ 
+table &lt;phphosts&gt; { $www1, $www2, $www3, $www4 } 
+table &lt;sorryhost&gt; disable { sorryhost.private.example.com } 
+ 
+redirect &quot;www&quot; { 
+	listen on www.example.com port 8080 interface trunk0 
+	listen on www6.example.com port 80 interface trunk0 
+ 
+	pftag REDIRECTED 
+ 
+	forward to &lt;phphosts&gt; port 8080 timeout 300 \ 
+		check http &quot;/&quot; digest &quot;630aa3c2f...&quot; 
+	forward to &lt;sorryhost&gt; port 8080 timeout 300 check icmp 
+}</pre>
+<div class="spacer">
+</div>
+It is possible to specify multiple listen directives with different IP protocols in a single redirection configuration:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+redirect &quot;dns&quot; { 
+	listen on dns.example.com tcp port 53 
+	listen on dns.example.com udp port 53 
+ 
+	forward to &lt;dnshosts&gt; port 53 check tcp 
+}</pre>
+<div class="spacer">
+</div>
+The following configuration would add a relay to forward secure HTTPS connections to a pool of HTTP webservers using the <b class="cmd">loadbalance</b> mode (TLS acceleration and layer 7 load balancing). The HTTP protocol definition will add two HTTP headers containing address information of the client and the server, set the &#8220;Keep-Alive&#8221; header value to the configured session timeout, and include the &#8220;sessid&#8221; variable in the hash to calculate the target host:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+http protocol &quot;https&quot; { 
+	match header append &quot;X-Forwarded-For&quot; \ 
+		value &quot;$REMOTE_ADDR&quot; 
+	match header append &quot;X-Forwarded-By&quot; \ 
+		value &quot;$REMOTE_ADDR:$SERVER_PORT&quot; 
+	match header set &quot;Keep-Alive&quot; value &quot;$TIMEOUT&quot; 
+ 
+	match query hash &quot;sessid&quot; 
+	match hash &quot;sessid&quot; 
+ 
+	pass 
+	block path &quot;/cgi-bin/index.cgi&quot; value &quot;*command=*&quot; 
+ 
+	tls { no tlsv1.0, ciphers &quot;HIGH&quot; } 
+} 
+ 
+relay &quot;tlsaccel&quot; { 
+	listen on www.example.com port 443 tls 
+	protocol &quot;https&quot; 
+	forward to &lt;phphosts&gt; port 8080 mode loadbalance check tcp 
+}</pre>
+<div class="spacer">
+</div>
+The second relay example will accept incoming connections to port 2222 and forward them to a remote SSH server. The TCP <b class="cmd">nodelay</b> option will allow a &#8220;smooth&#8221; SSH session without delays between keystrokes or displayed output on the terminal:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+protocol &quot;myssh&quot; { 
+	tcp { nodelay, socket buffer 65536 } 
+} 
+ 
+relay &quot;sshforward&quot; { 
+	listen on www.example.com port 2222 
+	protocol &quot;myssh&quot; 
+	forward to shell.example.com port 22 
+}</pre>
+<div class="spacer">
+</div>
+The following relay example will configure &#8220;TLS inspection&#8221; as described in the <i class="link-sec"><a class="link-sec" href="#x544c532052454c415953">TLS RELAYS</a></i> section. To start, first generate a new local CA key and certificate:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl req -x509 -days 365 -newkey rsa:2048 \ 
+	-keyout /etc/ssl/private/ca.key -out /etc/ssl/ca.crt</pre>
+<div class="spacer">
+</div>
+A TLS server key and self-signed cert for 127.0.0.1 are also required; see <b class="cmd">listen on</b> in the <i class="link-sec"><a class="link-sec" href="#x52454c415953">RELAYS</a></i> section for more details about certificate locations. Configure the packet filter with a matching divert rule in <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a>:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# Divert incoming HTTPS traffic to relayd 
+pass in on vlan1 inet proto tcp to port 443 \ 
+	divert-to localhost port 8443</pre>
+<div class="spacer">
+</div>
+And finally configure the TLS inspection in <b class="name">relayd.conf</b>:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+http protocol httpfilter { 
+	return error 
+ 
+	pass 
+	match label &quot;Prohibited!&quot; 
+	block url &quot;social.network.example.com/&quot; 
+ 
+	# New configuration directives for SSL/TLS Interception 
+	tls ca key &quot;/etc/ssl/private/ca.key&quot; password &quot;password123&quot; 
+	tls ca cert &quot;/etc/ssl/ca.crt&quot; 
+} 
+ 
+relay tlsinspect { 
+	listen on 127.0.0.1 port 8443 tls 
+	protocol httpfilter 
+	forward with tls to destination 
+}</pre>
+<div class="spacer">
+</div>
+The next simple router configuration example can be used to run redundant, health-checked WAN links:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+table &lt;gateways&gt; { $gw1 ip ttl 1, $gw2 ip ttl 1 } 
+router &quot;uplinks&quot; { 
+	route 0.0.0.0/0 
+	forward to &lt;gateways&gt; check icmp 
+}</pre>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html8/relayctl.html">relayctl(8)</a>, <a class="link-man" href="../html8/relayd.html">relayd(8)</a>, <a class="link-man" href="../html8/snmpd.html">snmpd(8)</a>, <a class="link-man" href="../html8/ssl.html">ssl(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">relayd.conf</b> file format, formerly known as <b class="cmd">hoststated.conf</b>, first appeared in <span class="unix">OpenBSD&#160;4.1</span>. It was renamed to <b class="name">relayd.conf</b> in <span class="unix">OpenBSD&#160;4.3</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> The <a class="link-man" href="../html8/relayd.html">relayd(8)</a> program was written by <span class="author">Pierre-Yves Ritschard</span> &lt;<a class="link-mail" href="mailto:pyr@openbsd.org">pyr@openbsd.org</a>&gt; and <span class="author">Reyk Floeter</span> &lt;<a class="link-mail" href="mailto:reyk@openbsd.org">reyk@openbsd.org</a>&gt;.</div>
+<div class="section">
+<h1 id="x43415645415453">CAVEATS</h1> <a class="link-man" href="../html8/relayd.html">relayd(8)</a> Verification of TLS server certificates is based on a static CA bundle and <a class="link-man" href="../html8/relayd.html">relayd(8)</a> currently does not support CRLs (Certificate Revocation Lists).</div>
+</div>
+</body>
+</html>
+

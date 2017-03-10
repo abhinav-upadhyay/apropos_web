@@ -1,0 +1,478 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+ISAKMPD(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">isakmpd</b> &#8212; <span class="desc">ISAKMP/Oakley a.k.a. IKEv1 key management daemon</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1><table class="synopsis">
+<col style="width: 7.00ex;"/>
+<col/>
+<tbody>
+<tr>
+<td>
+isakmpd</td>
+<td>
+[<span class="opt"><b class="flag">-46adKLnSTv</b></span>] [<span class="opt"><b class="flag">-c</b> <i class="arg">config-file</i></span>] [<span class="opt"><b class="flag">-D</b> <i class="arg">class</i>=<i class="arg">level</i></span>] [<span class="opt"><b class="flag">-f</b> <i class="arg">fifo</i></span>] [<span class="opt"><b class="flag">-i</b> <i class="arg">pid-file</i></span>] [<span class="opt"><b class="flag">-l</b> <i class="arg">packetlog-file</i></span>] [<span class="opt"><b class="flag">-N</b> <i class="arg">udpencap-port</i></span>] [<span class="opt"><b class="flag">-p</b> <i class="arg">listen-port</i></span>] [<span class="opt"><b class="flag">-R</b> <i class="arg">report-file</i></span>]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">isakmpd</b> daemon establishes security associations for encrypted and/or authenticated network traffic. At this moment, and probably forever, this means <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a> traffic. Traditionally, <b class="name">isakmpd</b> was configured using the <a class="link-man" href="../html5/isakmpd.conf.html">isakmpd.conf(5)</a> file format. A newer, much simpler format is now available: <a class="link-man" href="../html5/ipsec.conf.html">ipsec.conf(5)</a>.<div class="spacer">
+</div>
+<b class="name">isakmpd</b> implements the IKEv1 protocol which is defined in the standards ISAKMP/Oakley (RFC 2408), IKE (RFC 2409), and the Internet DOI (RFC 2407). The newer IKEv2 protocol, as defined in RFC 5996, is not supported by <b class="name">isakmpd</b> but by <a class="link-man" href="../html8/iked.html">iked(8)</a>. It follows then that references to IKE in this document pertain to IKEv1 only, and not IKEv2.<div class="spacer">
+</div>
+The way <b class="name">isakmpd</b> goes about its work is by maintaining an internal configuration as well as a policy database which describes what kinds of SAs to negotiate, and by listening for different events that trigger these negotiations. The events that control <b class="name">isakmpd</b> consist of negotiation initiations from a remote party, user input via a FIFO or by signals, upcalls from the kernel via a <span class="define">PF_KEY</span> socket, and lastly by scheduled events triggered by timers running out.<div class="spacer">
+</div>
+Most uses of <b class="name">isakmpd</b> will be to implement so called &quot;virtual private networks&quot; (VPNs). The ability to provide redundancy is made available through <a class="link-man" href="../html4/carp.html">carp(4)</a> and <a class="link-man" href="../html8/sasyncd.html">sasyncd(8)</a>. For other uses, some more knowledge of IKEv1 as a protocol is required. The RFCs mentioned below are a possible starting point.<div class="spacer">
+</div>
+On startup <b class="name">isakmpd</b> forks into two processes for privilege separation. The unprivileged child jails itself with <a class="link-man" href="../html8/chroot.html">chroot(8)</a> to <i class="file">/var/empty</i>. The privileged process communicates with the child, reads configuration files and PKI information, and binds to privileged ports on its behalf. See the <i class="link-sec"><a class="link-sec" href="#x43415645415453">CAVEATS</a></i> section below.<div class="spacer">
+</div>
+The options are as follows:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-4</b> | <b class="flag">-6</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+These options control what address family (<span class="define">AF_INET</span> and/or <span class="define">AF_INET6</span>) <b class="name">isakmpd</b> will use. The default is to use both IPv4 and IPv6.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-a</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+If given, <b class="name">isakmpd</b> does not set up flows automatically. Instead manual flows may be configured using <a class="link-man" href="../html5/ipsec.conf.html">ipsec.conf(5)</a> or by programs such as <a class="link-man" href="../html8/bgpd.html">bgpd(8)</a>. Thus <b class="name">isakmpd</b> only takes care of SA establishment.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-c</b> <i class="arg">config-file</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+If given, the <b class="flag">-c</b> option specifies an alternate configuration file instead of <i class="file">/etc/isakmpd/isakmpd.conf</i>. As this file may contain sensitive information, it must be readable only by the user running the daemon. <b class="name">isakmpd</b> will reread the configuration file when sent a <span class="define">SIGHUP</span> signal.<div class="spacer">
+</div>
+Note that this option applies only to configuration files in the <a class="link-man" href="../html5/isakmpd.conf.html">isakmpd.conf(5)</a> format, not those in the <a class="link-man" href="../html5/ipsec.conf.html">ipsec.conf(5)</a> format.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-D</b> <i class="arg">class</i>=<i class="arg">level</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Debugging class. It's possible to specify this argument many times. It takes a parameter of the form <i class="arg">class</i>=<i class="arg">level</i>, where both <i class="arg">class</i> and <i class="arg">level</i> are numbers. <i class="arg">class</i> denotes a debugging class, and <i class="arg">level</i> the level you want that debugging class to limit debug printouts at (i.e. all debug printouts above the level specified will not output anything). If <i class="arg">class</i> is set to &#8216;A&#8217;, then all debugging classes are set to the specified level.<div class="spacer">
+</div>
+Valid values for <i class="arg">class</i> are as follows:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+0</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Misc</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+1</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Transport</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+2</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Message</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+3</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Crypto</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+4</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Timer</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+5</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Sysdep</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+6</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+SA</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+7</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Exchange</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+8</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Negotiation</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+9</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+Policy</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+10</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+FIFO user interface</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+A</dt>
+<dd class="list-tag" style="margin-left: 2.00ex;">
+All</dd>
+</dl>
+<div class="spacer">
+</div>
+Currently used values for <i class="arg">level</i> are 0 to 99.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-d</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The <b class="flag">-d</b> option is used to make the daemon run in the foreground, logging to stderr.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-f</b> <i class="arg">fifo</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The <b class="flag">-f</b> option specifies the FIFO (a.k.a. named pipe) where the daemon listens for user requests. If the path given is a dash (&#8216;-&#8217;), <b class="name">isakmpd</b> will listen to stdin instead.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-i</b> <i class="arg">pid-file</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+By default the PID of the daemon process will be written to <i class="file">/var/run/isakmpd.pid</i>. This path can be overridden by specifying another one as the argument to the <b class="flag">-i</b> option. Note that only paths beginning with <i class="file">/var/run</i> are allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-K</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When this option is given, <b class="name">isakmpd</b> does not read the policy configuration file and no <a class="link-man" href="../html4/keynote.html">keynote(4)</a> policy check is accomplished. This option can be used when policies for flows and SA establishment are arranged by other programs like <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a> or <a class="link-man" href="../html8/bgpd.html">bgpd(8)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-L</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Enable IKE packet capture. When this option is given, <b class="name">isakmpd</b> will write an unencrypted copy of the negotiation packets it is sending and receiving to the file <i class="file">/var/run/isakmpd.pcap</i>, which can later be read by <a class="link-man" href="../html8/tcpdump.html">tcpdump(8)</a> and other utilities using <a class="link-man" href="../html3/pcap.html">pcap(3)</a>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-l</b> <i class="arg">packetlog-file</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+As option <b class="flag">-L</b> above, but capture to a specified file. Note that only paths beginning with <i class="file">/var/run</i> are allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-N</b> <i class="arg">udpencap-port</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The <b class="flag">-N</b> option specifies the listen port for encapsulated UDP that the daemon will bind to.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-n</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When the <b class="flag">-n</b> option is given, the kernel will not take part in the negotiations. This is a non-destructive mode, so to speak, in that it won't alter any SAs in the IPsec stack.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-p</b> <i class="arg">listen-port</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The <b class="flag">-p</b> option specifies the listen port the daemon will bind to.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-R</b> <i class="arg">report-file</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When you signal <b class="name">isakmpd</b> a <span class="define">SIGUSR1</span>, it will report its internal state to a report file, normally <i class="file">/var/run/isakmpd.report</i>, but this can be changed by feeding the file name as an argument to the <b class="flag">-R</b> flag. Note that only paths beginning with <i class="file">/var/run</i> are allowed.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-S</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+This option is used for setups using <a class="link-man" href="../html8/sasyncd.html">sasyncd(8)</a> and <a class="link-man" href="../html4/carp.html">carp(4)</a> to provide redundancy. <b class="name">isakmpd</b> starts in passive mode and will not initiate any connections or process any incoming traffic until sasyncd has determined that the host is the carp master. Additionally, <b class="name">isakmpd</b> will not delete SAs on shutdown by sending delete messages to all peers.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-T</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When this option is given, NAT-Traversal will be disabled and <b class="name">isakmpd</b> will not advertise support for NAT-Traversal to its peers.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="flag">-v</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Enables verbose logging. Normally, <b class="name">isakmpd</b> is silent and outputs only messages when a warning or an error occurs. With verbose logging <b class="name">isakmpd</b> reports successful completion of phase 1 (Main and Aggressive) and phase 2 (Quick) exchanges (Information and Transaction exchanges do not generate any additional status information).</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x544845204649464f205553455220494e54455246414345">THE FIFO USER INTERFACE</h1> When <b class="name">isakmpd</b> starts, it creates a FIFO (named pipe) where it listens for user requests. All commands start with a single letter, followed by command-specific options. Available commands are:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">C add</b> [<span class="opt"><i class="arg">section</i></span>]:<i class="arg">tag</i>=<i class="arg">value</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">C rmv</b> [<span class="opt"><i class="arg">section</i></span>]:<i class="arg">tag</i>=<i class="arg">value</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">C rm</b> [<span class="opt"><i class="arg">section</i></span>]:<i class="arg">tag</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">C rms</b> [<span class="opt"><i class="arg">section</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">C set</b> [<span class="opt"><i class="arg">section</i></span>]:<i class="arg">tag</i>=<i class="arg">value</i> [<span class="opt"><b class="cmd">force</b></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Update the running <b class="name">isakmpd</b> configuration atomically. &#8216;set&#8217; sets a configuration value consisting of a section, tag, and value triplet. &#8216;set&#8217; will fail if the configuration already contains a section with the named tag; use the &#8216;force&#8217; option to change this behaviour. &#8216;add&#8217; appends a configuration value to the named configuration list tag, unless the value is already in the list. &#8216;rm&#8217; removes a tag in a section. &#8216;rms&#8217; removes an entire section. &#8216;rmv&#8217; removes an entry from a list, thus reversing an &#8216;add&#8217; operation.<div class="spacer">
+</div>
+NOTE: Sending <b class="name">isakmpd</b> a <span class="define">SIGHUP</span> or an &quot;R&quot; through the FIFO will void any updates done to the configuration.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">C get</b> [<span class="opt"><i class="arg">section</i></span>]:<i class="arg">tag</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get the configuration value of the specified section and tag. The result is stored in <i class="file">/var/run/isakmpd.result</i>.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">c</b> <i class="arg">name</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Start the named connection, if stopped or inactive.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">D</b> <i class="arg">class level</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">D A</b> <i class="arg">level</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">D T</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set debug class <i class="arg">class</i> to level <i class="arg">level</i>. If <i class="arg">class</i> is specified as &#8216;A&#8217;, the level applies to all debug classes. <b class="cmd">D T</b> toggles all debug classes to level zero. Another <b class="cmd">D T</b> command will toggle them back to the earlier levels.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">d</b> <i class="arg">cookies msgid</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Delete the specified SA from the system. Specify <i class="arg">msgid</i> as &#8216;-&#8217; to match a Phase 1 SA.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">M active</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">M passive</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set <b class="name">isakmpd</b> to active or passive mode. In passive mode no packets are sent to peers.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">p on</b>[<span class="opt">=<i class="arg">path</i></span>]</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">p off</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Enable or disable cleartext IKE packet capture. When enabling, optionally specify which file <b class="name">isakmpd</b> should capture the packets to (the default is <i class="file">/var/run/isakmpd.pcap</i>). Note that only paths beginning with <i class="file">/var/run</i> are allowed.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">Q</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Cleanly shutdown the daemon, as when sent a <span class="define">SIGTERM</span> signal.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">R</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Reinitialize <b class="name">isakmpd</b>, as when sent a <span class="define">SIGHUP</span> signal.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">r</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Report <b class="name">isakmpd</b> internal state to <a class="link-man" href="../html3/syslog.html">syslog(3)</a>. See the <b class="flag">-R</b> option. Same as when sent a <span class="define">SIGUSR1</span> signal.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">S</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Report information on all known SAs to the <i class="file">/var/run/isakmpd.result</i> file.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">T</b></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Tear down all active quick mode connections.<div class="spacer">
+</div>
+</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<b class="cmd">t</b> [<span class="opt"><i class="arg">phase</i></span>] <i class="arg">name</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Tear down the named connection, if active. For <i class="arg">name</i>, the tag specified in <a class="link-man" href="../html5/isakmpd.conf.html">isakmpd.conf(5)</a> or the IP address of the remote host can be used. The optional parameter <i class="arg">phase</i> specifies whether to delete a phase 1 or phase 2 SA. The value &#8216;main&#8217; indicates a phase 1 connection; the value &#8216;quick&#8217; a phase 2 connection. If no phase is specified, &#8216;quick&#8217; will be assumed.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53455454494e4720555020414e20494b45205055424c4943204b455920494e4652415354525543545552452028504b4929">SETTING UP AN IKE PUBLIC KEY INFRASTRUCTURE (PKI)</h1> In order to use public key based authentication, there has to be an infrastructure managing the key signing. Either there is an already existing PKI <b class="name">isakmpd</b> should take part in, or there will be a need to set one up. The procedures for using a pre-existing PKI varies depending on the actual Certificate Authority (CA) used, and is therefore not covered here, other than mentioning that <a class="link-man" href="../html1/openssl.html">openssl(1)</a> needs to be used to create a Certificate Signing Request (CSR) that the CA understands.<div class="spacer">
+</div>
+A number of methods exist to allow authentication:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-ohang">
+<dt class="list-ohang" style="margin-top: 1.00em;">
+Passphrase:</dt>
+<dd class="list-ohang">
+This method does not use keys at all, but relies on a shared passphrase.</dd>
+<dt class="list-ohang" style="margin-top: 1.00em;">
+Host Keys:</dt>
+<dd class="list-ohang">
+Public keys are used to authenticate. See <i class="link-sec"><a class="link-sec" href="#x5055424c4943204b45592041555448454e5449434154494f4e">PUBLIC KEY AUTHENTICATION</a></i> below.</dd>
+<dt class="list-ohang" style="margin-top: 1.00em;">
+X.509 Certificates:</dt>
+<dd class="list-ohang">
+X.509 Certificates are used to authenticate. See <i class="link-sec"><a class="link-sec" href="#x582e3530392041555448454e5449434154494f4e">X.509 AUTHENTICATION</a></i> below.</dd>
+<dt class="list-ohang" style="margin-top: 1.00em;">
+Keynote Certificates:</dt>
+<dd class="list-ohang">
+Keynote Certificates are used to authenticate. See <i class="link-sec"><a class="link-sec" href="#x4b45594e4f54452041555448454e5449434154494f4e">KEYNOTE AUTHENTICATION</a></i> below.</dd>
+</dl>
+<div class="spacer">
+</div>
+When configuring <b class="name">isakmpd</b> for key- and certificate-based authentication, the &#8220;Transforms&#8221; tag in <a class="link-man" href="../html5/isakmpd.conf.html">isakmpd.conf(5)</a> should include &#8220;RSA_SIG&#8221;. For example, the transform &#8220;3DES-SHA-RSA_SIG&#8221; means: 3DES encryption, SHA hash, authentication using RSA signatures.</div>
+<div class="section">
+<h1 id="x5055424c4943204b45592041555448454e5449434154494f4e">PUBLIC KEY AUTHENTICATION</h1> It is possible to store trusted public keys to make them directly usable by <b class="name">isakmpd</b>, bypassing the need to use certificates. The keys should be saved in PEM format (see <a class="link-man" href="../html1/openssl.html">openssl(1)</a>) and named and stored after this easy formula:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 3.00ex;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+For IPv4 identities:</dt>
+<dd class="list-tag" style="margin-left: 22.00ex;">
+<i class="file">/etc/isakmpd/pubkeys/ipv4/A.B.C.D</i></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+For IPv6 identities:</dt>
+<dd class="list-tag" style="margin-left: 22.00ex;">
+<i class="file">/etc/isakmpd/pubkeys/ipv6/abcd:abcd::ab:bc</i></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+For FQDN identities:</dt>
+<dd class="list-tag" style="margin-left: 22.00ex;">
+<i class="file">/etc/isakmpd/pubkeys/fqdn/foo.bar.org</i></dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+For UFQDN identities:</dt>
+<dd class="list-tag" style="margin-left: 22.00ex;">
+<i class="file">/etc/isakmpd/pubkeys/ufqdn/user@foo.bar.org</i></dd>
+</dl>
+<div class="spacer">
+</div>
+Depending on the <span class="define">ID-type</span> field of <a class="link-man" href="../html5/isakmpd.conf.html">isakmpd.conf(5)</a>, keys may be named after their IPv4 address (IPV4_ADDR or IPV4_ADDR_SUBNET), IPv6 address (IPV6_ADDR or IPV6_ADDR_SUBNET), fully qualified domain name (FDQN), user fully qualified domain name (USER_FQDN), or key ID (KEY_ID).<div class="spacer">
+</div>
+For example, <b class="name">isakmpd</b> can authenticate using the pre-generated keys if the local public key, by default <i class="file">/etc/isakmpd/local.pub</i>, is copied to the remote gateway as <i class="file">/etc/isakmpd/pubkeys/ipv4/local.gateway.ip.address</i> and the remote gateway's public key is copied to the local gateway as <i class="file">/etc/isakmpd/pubkeys/ipv4/remote.gateway.ip.address</i>. Of course, new keys may also be generated (the user is not required to use the pre-generated keys). In this example, <span class="define">ID-type</span> would also have to be set to IPV4_ADDR or IPV4_ADDR_SUBNET in <a class="link-man" href="../html5/isakmpd.conf.html">isakmpd.conf(5)</a>.</div>
+<div class="section">
+<h1 id="x582e3530392041555448454e5449434154494f4e">X.509 AUTHENTICATION</h1> X.509 is a framework for public key certificates. Certificates can be generated using <a class="link-man" href="../html1/openssl.html">openssl(1)</a> and provide a means for PKI authentication. In the following example, a CA is created along with host certificates to be signed by the CA.<ol style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-enum">
+<li class="list-enum" style="margin-top: 1.00em;">
+Create your own Certificate Authority (CA).<div class="spacer">
+</div>
+First, create a private key for the CA, and a Certificate Signing Request (CSR) to enable the CA to sign its own key:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl genrsa -out /etc/ssl/private/ca.key 2048 
+# openssl req -new -key /etc/ssl/private/ca.key \ 
+	-out /etc/ssl/private/ca.csr</pre>
+<div class="spacer">
+</div>
+<b class="cmd">openssl req</b> will prompt for information that will be incorporated into the certificate request. The information entered comprises a Distinguished Name (DN). There are quite a few fields, but some can be left blank. For some fields there will be a default value; if &#8216;.&#8217; is entered, the field will be left blank.<div class="spacer">
+</div>
+After the CSR has been generated, it is used to create and sign a certificate for the CA:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl x509 -req -days 365 -in /etc/ssl/private/ca.csr \ 
+	-signkey /etc/ssl/private/ca.key \ 
+	-extfile /etc/ssl/x509v3.cnf -extensions x509v3_CA \ 
+	-out /etc/ssl/ca.crt</pre>
+</li>
+<li class="list-enum" style="margin-top: 1.00em;">
+Create Certificate Signing Requests (CSRs) for IKE peers. The CSRs are signed with a pre-generated private key.<div class="spacer">
+</div>
+This step, as well as the next one, needs to be done for every peer. Furthermore the last step will need to be done once for each ID you want the peer to have. The 10.0.0.1 below symbolizes that ID, in this case an IPv4 ID, and should be changed for each invocation. You will be asked for a DN for each run. Encoding the ID in the common name is recommended, as it should be unique.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl req -new -key /etc/isakmpd/private/local.key \ 
+	-out /etc/isakmpd/private/10.0.0.1.csr</pre>
+<div class="spacer">
+</div>
+Now take these certificate signing requests to your CA and process them as below. A <span class="emph">subjectAltName</span> extension field should be added to the certificate. Replace 10.0.0.1 with the IP address which <b class="name">isakmpd</b> will use as the certificate identity.<div class="spacer">
+</div>
+Copy <i class="file">/etc/ssl/x509v3.cnf</i> to a temporary file and edit it to replace <span class="define">$ENV::CERTIP</span> with 10.0.0.1, then run:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl x509 -req \ 
+	-days 365 -in 10.0.0.1.csr \ 
+	-CA /etc/ssl/ca.crt -CAkey /etc/ssl/private/ca.key \ 
+	-CAcreateserial -extfile /etc/ssl/x509v3.cnf \ 
+	-extensions x509v3_IPAddr -out 10.0.0.1.crt</pre>
+<div class="spacer">
+</div>
+For a FQDN certificate, replace <span class="define">$ENV::CERTIP</span> with the hostname and run:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# openssl x509 -req \ 
+	-days 365 -in somehost.somedomain.csr \ 
+	-CA /etc/ssl/ca.crt -CAkey /etc/ssl/private/ca.key \ 
+	-CAcreateserial -extfile /etc/ssl/x509v3.cnf \ 
+	-extensions x509v3_FQDN -out somehost.somedomain.crt</pre>
+<div class="spacer">
+</div>
+If CERTFQDN is being used, make sure that the <b class="var">subjectAltName</b> field of the certificate is specified using <b class="cmd">srcid</b> in <a class="link-man" href="../html5/ipsec.conf.html">ipsec.conf(5)</a>. A similar setup will be required if <a class="link-man" href="../html5/isakmpd.conf.html">isakmpd.conf(5)</a> is being used instead.<div class="spacer">
+</div>
+Put the certificate (the file ending in .crt) in <i class="file">/etc/isakmpd/certs/</i> on your local system. Also carry over the CA cert <i class="file">/etc/ssl/ca.crt</i> and put it in <i class="file">/etc/isakmpd/ca/</i>.</li>
+</ol>
+<div class="spacer">
+</div>
+To revoke certificates, create a Certificate Revocation List (CRL) file and install it in the <i class="file">/etc/isakmpd/crls/</i> directory. See <a class="link-man" href="../html1/openssl.html">openssl(1)</a> and the &#8216;crl&#8217; subcommand for more info.</div>
+<div class="section">
+<h1 id="x4b45594e4f54452041555448454e5449434154494f4e">KEYNOTE AUTHENTICATION</h1> Keynote is a trust-management framework. Keys can be generated using <a class="link-man" href="../html1/keynote.html">keynote(1)</a> and provide an alternative means for <b class="name">isakmpd</b> to authenticate. See <a class="link-man" href="../html4/keynote.html">keynote(4)</a> for further information.</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/etc/isakmpd/ca/</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The directory where CA certificates are kept.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/etc/isakmpd/certs/</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The directory where IKE certificates are kept, both the local certificate(s) and those of the peers, if a choice to have them kept permanently has been made.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/etc/isakmpd/crls/</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The directory where CRLs are kept.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/etc/isakmpd/isakmpd.conf</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The configuration file. As this file can contain sensitive information it must not be readable by anyone but the user running <b class="name">isakmpd</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/etc/isakmpd/isakmpd.policy</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The keynote policy configuration file. The same mode requirements as <i class="file">isakmpd.conf</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/etc/isakmpd/keynote/</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The directory where KeyNote credentials are kept.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/etc/isakmpd/private/</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The directory where local private keys used for public key authentication are kept. By default, the system startup script <a class="link-man" href="../html8/rc.html">rc(8)</a> generates a key-pair when starting, if one does not already exist. The entire keypair is in <i class="file">local.key</i>, and a copy of the public key suitable for transferring to other hosts is extracted into <i class="file">/etc/isakmpd/local.pub</i>. There has to be a certificate for <i class="file">local.key</i> in the certificate directory, <i class="file">/etc/isakmpd/certs/</i>. <i class="file">local.key</i> has the same mode requirements as <i class="file">isakmpd.conf</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/etc/isakmpd/pubkeys/</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The directory in which trusted public keys are kept. The keys must be named in the fashion described above.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/var/run/isakmpd.fifo</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The FIFO used to manually control <b class="name">isakmpd</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/var/run/isakmpd.pcap</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The default IKE packet capture file.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/var/run/isakmpd.pid</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The PID of the current daemon.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/var/run/isakmpd.report</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The report file written when <span class="define">SIGUSR1</span> is received.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/var/run/isakmpd.result</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The report file written when the &#8216;S&#8217; or &#8216;C get&#8217; command is issued in the command FIFO.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html1/openssl.html">openssl(1)</a>, <a class="link-man" href="../html3/getnameinfo.html">getnameinfo(3)</a>, <a class="link-man" href="../html3/pcap.html">pcap(3)</a>, <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a>, <a class="link-man" href="../html5/ipsec.conf.html">ipsec.conf(5)</a>, <a class="link-man" href="../html5/isakmpd.conf.html">isakmpd.conf(5)</a>, <a class="link-man" href="../html5/isakmpd.policy.html">isakmpd.policy(5)</a>, <a class="link-man" href="../html8/iked.html">iked(8)</a>, <a class="link-man" href="../html8/sasyncd.html">sasyncd(8)</a>, <a class="link-man" href="../html8/ssl.html">ssl(8)</a>, <a class="link-man" href="../html8/tcpdump.html">tcpdump(8)</a></div>
+<div class="section">
+<h1 id="x5354414e4441524453">STANDARDS</h1> <span class="ref"><span class="ref-auth">D. Piper</span>, <span class="ref-title">The Internet IP Security Domain of Interpretation for ISAKMP</span>, <span class="ref-rep">RFC 2407</span>, <span class="ref-date">November 1998</span>.</span><div class="spacer">
+</div>
+<span class="ref"><span class="ref-auth">D. Maughan</span>, <span class="ref-auth">M. Schertler</span>, <span class="ref-auth">M. Schneider</span>, and <span class="ref-auth">J. Turner</span>, <span class="ref-title">Internet Security Association and Key Management Protocol (ISAKMP)</span>, <span class="ref-rep">RFC 2408</span>, <span class="ref-date">November 1998</span>.</span><div class="spacer">
+</div>
+<span class="ref"><span class="ref-auth">D. Harkins</span> and <span class="ref-auth">D. Carrel</span>, <span class="ref-title">The Internet Key Exchange (IKE)</span>, <span class="ref-rep">RFC 2409</span>, <span class="ref-date">November 1998</span>.</span><div class="spacer">
+</div>
+<span class="ref"><span class="ref-auth">T. Kivinen</span>, <span class="ref-auth">B. Swander</span>, <span class="ref-auth">A. Huttunen</span>, and <span class="ref-auth">V. Volpe</span>, <span class="ref-title">Negotiation of NAT-Traversal in the IKE</span>, <span class="ref-rep">RFC 3947</span>, <span class="ref-date">January 2005</span>.</span></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> This implementation of the ISAKMP/Oakley key management protocol was done in 1998 by Niklas Hallqvist and Niels Provos, sponsored by Ericsson Radio Systems.</div>
+<div class="section">
+<h1 id="x43415645415453">CAVEATS</h1> When storing a trusted public key for an IPv6 identity, the <span class="emph">most efficient</span> form of address representation, i.e. &quot;::&quot; instead of &quot;:0:0:0:&quot;, must be used or the matching will fail. <b class="name">isakmpd</b> uses the output from <a class="link-man" href="../html3/getnameinfo.html">getnameinfo(3)</a> for the address-to-name translation. The privileged process only allows binding to the default port 500 or unprivileged ports (&gt;1024). It is not possible to change the interfaces <b class="name">isakmpd</b> listens on without a restart.<div class="spacer">
+</div>
+For redundant setups, <a class="link-man" href="../html8/sasyncd.html">sasyncd(8)</a> must be manually restarted every time <b class="name">isakmpd</b> is restarted.</div>
+</div>
+</body>
+</html>
+

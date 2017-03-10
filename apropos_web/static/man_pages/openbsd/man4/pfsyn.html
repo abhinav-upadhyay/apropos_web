@@ -1,0 +1,111 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+PFSYNC(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">pfsync</b> &#8212; <span class="desc">packet filter state table synchronisation interface</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">pseudo-device pfsync</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">pfsync</b> interface is a pseudo-device which exposes certain changes to the state table used by <a class="link-man" href="../html4/pf.html">pf(4)</a>. State changes can be viewed by invoking <a class="link-man" href="../html8/tcpdump.html">tcpdump(8)</a> on the <b class="name">pfsync</b> interface. If configured with a physical synchronisation interface, <b class="name">pfsync</b> will also send state changes out on that interface, and insert state changes received on that interface from other systems into the state table.<div class="spacer">
+</div>
+By default, all local changes to the state table are exposed via <b class="name">pfsync</b>. State changes from packets received by <b class="name">pfsync</b> over the network are not rebroadcast. Updates to states created by a rule marked with the <i class="arg">no-sync</i> keyword are ignored by the <b class="name">pfsync</b> interface (see <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a> for details).<div class="spacer">
+</div>
+The <b class="name">pfsync</b> interface will attempt to collapse multiple state updates into a single packet where possible. The maximum number of times a single state can be updated before a <b class="name">pfsync</b> packet will be sent out is controlled by the <i class="arg">maxupd</i> parameter to ifconfig (see <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a> and the example below for more details). The sending out of a <b class="name">pfsync</b> packet will be delayed by a maximum of one second.<div class="spacer">
+</div>
+Where more than one firewall might actively handle packets, e.g. with certain <a class="link-man" href="../html8/ospfd.html">ospfd(8)</a>, <a class="link-man" href="../html8/bgpd.html">bgpd(8)</a> or <a class="link-man" href="../html4/carp.html">carp(4)</a> configurations, it is beneficial to defer transmission of the initial packet of a connection. The <b class="name">pfsync</b> state insert message is sent immediately; the packet is queued until either this message is acknowledged by another system, or a timeout has expired. This behaviour is enabled with the <i class="arg">defer</i> parameter to <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a>.</div>
+<div class="section">
+<h1 id="x4e4554574f524b2053594e4348524f4e49534154494f4e">NETWORK SYNCHRONISATION</h1> States can be synchronised between two or more firewalls using this interface, by specifying a synchronisation interface using <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a>. For example, the following command configures an address on fxp0 and sets it as the synchronisation interface:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# ifconfig fxp0 inet 172.19.13.1/28 
+# ifconfig pfsync0 syncdev fxp0</pre>
+<div class="spacer">
+</div>
+By default, state change messages are sent out on the synchronisation interface using IP multicast packets to the 224.0.0.240 group address. An alternative destination address for <b class="name">pfsync</b> packets can be specified using the <b class="cmd">syncpeer</b> keyword.<div class="spacer">
+</div>
+It is important that the pfsync traffic be well secured as there is no authentication on the protocol and it would be trivial to spoof packets which create states, bypassing the pf ruleset. Only run the pfsync protocol on a trusted network - ideally a network dedicated to pfsync messages such as a crossover cable between two firewalls.</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> <b class="name">pfsync</b> and <a class="link-man" href="../html4/carp.html">carp(4)</a> can be used together to provide automatic failover of a pair of firewalls configured in parallel. One firewall will handle all traffic until it dies, is shut down, or is manually demoted, at which point the second firewall will take over automatically.<div class="spacer">
+</div>
+Both firewalls in this example have three <a class="link-man" href="../html4/sis.html">sis(4)</a> interfaces. sis0 is the external interface, on the 10.0.0.0/24 subnet; sis1 is the internal interface, on the 192.168.0.0/24 subnet; and sis2 is the <b class="name">pfsync</b> interface, using the 192.168.254.0/24 subnet. A crossover cable connects the two firewalls via their sis2 interfaces. On all three interfaces, firewall A uses the .254 address, while firewall B uses .253. The interfaces are configured as follows (firewall A unless otherwise indicated):<div class="spacer">
+</div>
+<i class="file">/etc/hostname.sis0</i>:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+inet 10.0.0.254 255.255.255.0 NONE</pre>
+<div class="spacer">
+</div>
+<i class="file">/etc/hostname.sis1</i>:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+inet 192.168.0.254 255.255.255.0 NONE</pre>
+<div class="spacer">
+</div>
+<i class="file">/etc/hostname.sis2</i>:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+inet 192.168.254.254 255.255.255.0 NONE</pre>
+<div class="spacer">
+</div>
+<i class="file">/etc/hostname.carp0</i>:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+inet 10.0.0.1 255.255.255.0 10.0.0.255 vhid 1 pass foo</pre>
+<div class="spacer">
+</div>
+<i class="file">/etc/hostname.carp1</i>:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+inet 192.168.0.1 255.255.255.0 192.168.0.255 vhid 2 pass bar</pre>
+<div class="spacer">
+</div>
+<i class="file">/etc/hostname.pfsync0</i>:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+up syncdev sis2</pre>
+<div class="spacer">
+</div>
+<a class="link-man" href="../html4/pf.html">pf(4)</a> must also be configured to allow <b class="name">pfsync</b> and <a class="link-man" href="../html4/carp.html">carp(4)</a> traffic through. The following should be added to the top of <i class="file">/etc/pf.conf</i>:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+pass quick on { sis2 } proto pfsync keep state (no-sync) 
+pass on { sis0 sis1 } proto carp keep state (no-sync)</pre>
+<div class="spacer">
+</div>
+It is preferable that one firewall handle the forwarding of all the traffic, therefore the <i class="arg">advskew</i> on the backup firewall's <a class="link-man" href="../html4/carp.html">carp(4)</a> interfaces should be set to something higher than the primary's. For example, if firewall B is the backup, its <i class="file">/etc/hostname.carp1</i> would look like this:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+inet 192.168.0.1 255.255.255.0 192.168.0.255 vhid 2 pass bar \ 
+	advskew 100</pre>
+<div class="spacer">
+</div>
+The following must also be added to <i class="file">/etc/sysctl.conf</i>:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+net.inet.carp.preempt=1</pre>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html4/bpf.html">bpf(4)</a>, <a class="link-man" href="../html4/carp.html">carp(4)</a>, <a class="link-man" href="../html4/inet.html">inet(4)</a>, <a class="link-man" href="../html4/inet6.html">inet6(4)</a>, <a class="link-man" href="../html4/netintro.html">netintro(4)</a>, <a class="link-man" href="../html4/pf.html">pf(4)</a>, <a class="link-man" href="../html5/hostname.if.html">hostname.if(5)</a>, <a class="link-man" href="../html5/pf.conf.html">pf.conf(5)</a>, <a class="link-man" href="../html5/protocols.html">protocols(5)</a>, <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a>, <a class="link-man" href="../html8/ifstated.html">ifstated(8)</a>, <a class="link-man" href="../html8/tcpdump.html">tcpdump(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">pfsync</b> device first appeared in <span class="unix">OpenBSD&#160;3.3</span>.<div class="spacer">
+</div>
+The <b class="name">pfsync</b> protocol and kernel implementation were significantly modified between <span class="unix">OpenBSD&#160;4.4</span> and <span class="unix">OpenBSD&#160;4.5</span>. The two protocols are incompatible and will not interoperate.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> <b class="name">pfsync</b> does not currently work with <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a>.</div>
+</div>
+</body>
+</html>
+

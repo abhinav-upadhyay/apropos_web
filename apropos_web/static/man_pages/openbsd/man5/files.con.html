@@ -1,0 +1,260 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+FILES.CONF(5)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">files.conf</b> &#8212; <span class="desc">rules base for the config utility</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The various <i class="file">files.*</i> files located in the kernel source tree contain all the necessary information needed by <a class="link-man" href="../html8/config.html">config(8)</a> to parse a kernel configuration file and determine the list of files to compile.<div class="spacer">
+</div>
+The <i class="file">files.*</i> rules base are simple, human-readable, text files. Empty lines, as well as text prefixed by the &#8216;#&#8217; character, are ignored.</div>
+<div class="section">
+<h1 id="x444556494345205452454520434f4e43455054">DEVICE TREE CONCEPT</h1> The <span class="unix">OpenBSD</span> kernel &#8220;sees&#8221; the various devices as a hierarchical tree, where the various devices &#8220;attach&#8221; to parent entities, which can either be physical devices themselves (such as a computer bus), or logical entities, designed to make the driver code simpler. Usually, the top-most devices are attached to the pseudo-device &#8220;mainbus&#8221;, which is itself reported as attached to a fictitious &#8220;root&#8221; node. There is no restriction on the &#8220;children&#8221; a device node may have; some device drivers can attach themselves to different kinds of parent devices. For example, the logical <a class="link-man" href="../html4/scsibus.html">scsibus(4)</a> device can either attach at a SCSI controller device, or at the logical <a class="link-man" href="../html4/atapiscsi.html">atapiscsi(4)</a> bus.</div>
+<div class="section">
+<h1 id="x4c4f4341544f5253">LOCATORS</h1> Some device attachments need to provide attachment information. For example, an <a class="link-man" href="../html4/isa.html">isa(4)</a> device will use a range of I/O ports, one or more DMA channels, and one interrupt vector. This attachment information is known as the &#8220;locators&#8221; for the device. Most of the buses support default values for unspecified locators, for devices that either do not require them (such as <a class="link-man" href="../html4/isa.html">isa(4)</a> cards not using interrupts), or which can autoconfigure themselves (such as <a class="link-man" href="../html4/pci.html">pci(4)</a> devices).<div class="spacer">
+</div>
+Attachment lines in the kernel configuration file must match the locators of the device they are attaching to. For example:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+define pci {[dev = -1], [function = -1]}</pre>
+<div class="spacer">
+</div>
+With the rule above, the following kernel configuration lines are valid:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+pciknob0 at pci? dev 2 function 42 # use fixed values 
+pciknob* at pci? dev ? function ?  # use default values 
+pciknob* at pci?                   # use default locators</pre>
+<div class="spacer">
+</div>
+But the following are not:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+pciknob* at pci? trick ? treat ?               # unknown locators 
+pciknob* at pci? dev ? function ? usefulness ? # unknown locators</pre>
+</div>
+<div class="section">
+<h1 id="x41545452494255544553">ATTRIBUTES</h1> The following syntax defines a simple attribute, which can be later used to factorize code dependencies:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">define attribute</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+An attachment-like attribute will also require locators to be specified. If no locators are necessary:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">define attribute {}</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+If locators are provided:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">define attribute {[locator1 = default1], [locator2 = default2]}</code></div>
+</blockquote>
+</div>
+<div class="section">
+<h1 id="x44455649434553">DEVICES</h1> For simple device attachment, the following syntax defines a simple device, with no locators:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">device devicename {}</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+If locators are necessary, they are specified as:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">device devicename {[locator1 = default1], [locator2 = default2]}</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+A device can also reference an attribute with locators. This is in fact a dependency rule. For example, <i class="file">sys/conf/files</i> defines the following attribute for SCSI controllers:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">define scsi {}			# no locators</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+And SCSI drivers can then be defined as:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">device scsictrl: scsi</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+A device may depend on as many attributes as necessary:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">device complexdev: simpledev, otherdev, specialattribute</code></div>
+</blockquote>
+</div>
+<div class="section">
+<h1 id="x50534555444f2044455649434553">PSEUDO DEVICES</h1> Pseudo devices are defined as regular devices, except that they do not need locators, and use a different keyword:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+pseudo-device loop: inet 
+pseudo-device ksyms</pre>
+<div class="spacer">
+</div>
+The rules above define, respectively, the loopback network interface and the kernel symbols pseudo-device.</div>
+<div class="section">
+<h1 id="x444556494345204154544143484d454e542052554c4553">DEVICE ATTACHMENT RULES</h1> Due to the tree structure of the device nodes, every device but the pseudo devices need to attach to some parent node. A device driver has to specify to which parents it can attach, with the following syntax:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">attach device at parent, parent2, parent3</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+The rule above lists all the parent attributes a device may attach to. For example, given the following:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+device smartknob: bells, whistles 
+attach smartknob at brainbus</pre>
+<div class="spacer">
+</div>
+The following configuration line is then valid:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">smartknob* at brainbus?</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+Whilst the following is not:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">smartknob* at dumbbus?</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+If a device supports attachments to multiple parents, using different &#8220;glue&#8221; routines every time, the following syntax specifies the details:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+attach device at parent with device_parent_glue 
+attach device at parent2 with device_parent2_glue</pre>
+<div class="spacer">
+</div>
+This will define more required attributes, depending on the kernel configuration file's contents.</div>
+<div class="section">
+<h1 id="x52554c452046494c4520494e434c5553494f4e">RULE FILE INCLUSION</h1> It is possible to include other rules files anywhere in a file, using the &#8220;include&#8221; keyword:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">include &quot;dev/pci/files.pci&quot;</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+The above rule will include the rules for machine-independent PCI code.<div class="spacer">
+</div>
+The files <i class="file">sys/arch/machine/conf/files.machine</i>, for every &#8220;machine&#8221; listed in the machine line in the kernel configuration file, as well as <i class="file">sys/conf/files</i>, are always processed, and do not need to be included.</div>
+<div class="section">
+<h1 id="x41545452494255544520524551554952454d454e5453">ATTRIBUTE REQUIREMENTS</h1> The kernel configuration file description passed to <a class="link-man" href="../html8/config.html">config(8)</a> lists several compilation options, as well as several device definitions. From this list, <a class="link-man" href="../html8/config.html">config(8)</a> will build a list of required attributes, which are:<div class="spacer">
+</div>
+<ul style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-bul">
+<li class="list-bul" style="margin-top: 0.00em;">
+The &#8220;option&#8221; lines, with the option name translated to lowercase (for example, an &#8220;option INET6&#8221; line will produce the &#8220;inet6&#8221; attribute).</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+The device and pseudo-device names, except for &#8220;root&#8221;.</li>
+</ul>
+</div>
+<div class="section">
+<h1 id="x4b45524e454c2046494c45204c495354">KERNEL FILE LIST</h1> Kernel source files are defined as:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+file file-list	dependencies	need-rules</pre>
+<div class="spacer">
+</div>
+&#8220;file-list&#8221; typically only specifies a single filename. If instead it contains a list of filenames separated by the &#8216;|&#8217; character, <a class="link-man" href="../html8/config.html">config(8)</a> will select the first file from the list which exists. If &#8220;${MACHINE_ARCH}&#8221; or &#8220;${MACHINE}&#8221; is found in the filename, it will be substituted with the relevant base architecture name.<div class="spacer">
+</div>
+If the &#8220;dependencies&#8221; part is empty, the file will always be compiled in. This is the case for the core kernel files. Otherwise, the file will only be added to the list if the dependencies are met. Dependencies are based upon attributes and device names. Multiple dependencies can be written using the &#8220;|&#8221; and &#8220;&amp;&#8221; operators. For example:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">file netinet/ipsec_input.c	(inet | inet6) &amp; ipsec</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+The above rule teaches <a class="link-man" href="../html8/config.html">config(8)</a> to only add <i class="file">sys/netinet/ipsec_input.c</i> to the filelist if the &#8220;ipsec&#8221; attribute, and at least one of the &#8220;inet&#8221; and &#8220;inet6&#8221; attributes, are required.<div class="spacer">
+</div>
+The &#8220;need&#8221; rules can be empty, or one of the following keywords:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="arg">needs-flag</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Create an attribute header file, defining whether or not this attribute is compiled in.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="arg">needs-count</i></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+Create an attribute header file, defining how many instances of this attribute are to be compiled in. This rule is mostly used for pseudo-devices.</dd>
+</dl>
+<div class="spacer">
+</div>
+The &#8220;attribute header files&#8221; are simple C header files created in the kernel compilation directory, with the name <i class="file">attribute.h</i> and containing the following line:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">#define NATTRIBUTE	0</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+This would substitute the attribute name and its uppercase form, prefixed with the letter &#8220;N&#8221;, to &#8220;attribute&#8221; and &#8220;NATTRIBUTE&#8221;, respectively. For a &#8220;needs-flag&#8221; rule, the value on the &#8220;#define&#8221; line is either 1 if the attribute is required, or 0 if it is not required. For a &#8220;needs-count&#8221; rule, the value is the number of device instances required, or 0 if the device is not required.<div class="spacer">
+</div>
+Attribute files are created for every attribute listed with a &#8220;need&#8221; rule, even if it is never referenced from the kernel configuration file.</div>
+<div class="section">
+<h1 id="x4d495343454c4c414e454f5553204954454d53">MISCELLANEOUS ITEMS</h1> <i class="file">sys/arch/machine/conf/files.machine</i> must also supply the following special commands:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">maxpartitions</i></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Defines how many partitions are available on disk block devices, usually 16. This value is used by <a class="link-man" href="../html8/config.html">config(8)</a> to set up various device information structures.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="arg">maxusers</i></dt>
+<dd class="list-tag" style="margin-left: 13.00ex;">
+Defines the bounds, and the default value, for the &#8220;maxusers&#8221; parameter in the kernel configuration file. The usual values are 2 8 64 ; <a class="link-man" href="../html8/config.html">config(8)</a> will report an error if the &#8220;maxusers parameter&#8221; in the kernel configuration file does not fit in the specified range.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">sys/arch/machine/conf/files.machine</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Rules for architecture-dependent files, for the &#8220;machine&#8221; architecture.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">sys/dev/class/files.class</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Rules for the &#8220;class&#8221; class of devices.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">sys/scsi/files.scsi</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Rules for the common SCSI subsystem.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html8/config.html">config(8)</a></div>
+</div>
+</body>
+</html>
+

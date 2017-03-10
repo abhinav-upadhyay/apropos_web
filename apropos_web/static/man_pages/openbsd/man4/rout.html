@@ -1,0 +1,240 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+ROUTE(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">route</b> &#8212; <span class="desc">kernel packet forwarding database</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/socket.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">net/if.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">net/route.h</a>&gt;</b><div class="spacer">
+</div>
+<i class="ftype">int</i><br/>
+<b class="fname">socket</b>(<i class="farg" style="white-space:nowrap;">PF_ROUTE</i>, <i class="farg" style="white-space:nowrap;">SOCK_RAW</i>, <i class="farg" style="white-space:nowrap;">family</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <span class="unix">OpenBSD</span> provides some packet routing facilities. The kernel maintains a routing information database, which is used in selecting the appropriate network interface when transmitting packets.<div class="spacer">
+</div>
+A user process (or possibly multiple co-operating processes) maintains this database by sending messages over a special kind of socket. This supplants fixed size <a class="link-man" href="../html2/ioctl.html">ioctl(2)</a>'s used in earlier releases. Routing table changes may only be carried out by the super user.<div class="spacer">
+</div>
+The operating system may spontaneously emit routing messages in response to external events, such as receipt of a redirect, or failure to locate a suitable route for a request. The message types are described in greater detail below.<div class="spacer">
+</div>
+Routing database entries come in two flavors: for a specific host, or for all hosts on a generic subnetwork (as specified by a bit mask and value under the mask). The effect of wildcard or default route may be achieved by using a mask of all zeros, and there may be hierarchical routes.<div class="spacer">
+</div>
+When the system is booted and addresses are assigned to the network interfaces, each protocol family installs a routing table entry for each interface when it is ready for traffic. Normally the protocol specifies the route through each interface as a &#8220;direct&#8221; connection to the destination host or network. If the route is direct, the transport layer of a protocol family usually requests the packet be sent to the same host specified in the packet. Otherwise, the interface is requested to address the packet to the gateway listed in the routing entry (i.e., the packet is forwarded).<div class="spacer">
+</div>
+When routing a packet, the kernel will attempt to find the most specific route matching the destination. (If there are two different mask and value-under-the-mask pairs that match, the more specific is the one with more bits in the mask. A route to a host is regarded as being supplied with a mask of as many ones as there are bits in the destination.) If no entry is found, the destination is declared to be unreachable, and a routing-miss message is generated if there are any listeners on the routing control socket described below.<div class="spacer">
+</div>
+A wildcard routing entry is specified with a zero destination address value and a mask of all zeroes. Wildcard routes will be used when the system fails to find other routes matching the destination. The combination of wildcard routes and routing redirects can provide an economical mechanism for routing traffic. Routes created by redirects from wildcard routes and other routes will be marked <span class="emph">cloned</span>, until their &#8220;parent&#8221; from which they were created has disappeared.<div class="spacer">
+</div>
+Route labels can be attached to routes and may contain arbitrary information about the route. Labels are sent over the routing socket (see below) as <span class="type">sockaddr_rtlabel</span> structures.<div class="subsection">
+<h2 id="x54686520526f7574696e6720536f636b6574">The Routing Socket</h2> One opens the channel for passing routing control messages by using the <a class="link-man" href="../html2/socket.html">socket(2)</a> call shown in the <i class="link-sec"><a class="link-sec" href="#x53594e4f50534953">SYNOPSIS</a></i> above.<div class="spacer">
+</div>
+The <i class="farg">family</i> parameter may be <span class="define">AF_UNSPEC</span>, which will provide routing information for all address families, or can be restricted to a specific address family by specifying which one is desired. There can be more than one routing socket open per system.<div class="spacer">
+</div>
+Messages are formed by a header followed by a small number of <span class="type">sockaddr</span> structures (which are variable length), interpreted by position, and delimited by the length entry in the <span class="type">sockaddr</span>. An example of a message with four addresses might be an IPv4 route addition: the destination, netmask, gateway, and label, since both netmasks and labels are sent over the routing socket as <span class="type">sockaddr</span> structures. The interpretation of which addresses are present is given by a bit mask within the header, and the sequence is least significant to most significant bit within the vector.<div class="spacer">
+</div>
+Any messages sent to the kernel are returned, and copies are sent to all interested listeners. The kernel will provide the process ID for the sender, and the sender may use an additional sequence field to distinguish between outstanding messages. However, message replies may be lost when kernel buffers are exhausted.<div class="spacer">
+</div>
+The kernel may reject certain messages, and will indicate this by filling in the <b class="var">rtm_errno</b> field. The routing code returns <span class="errno">EEXIST</span> if requested to duplicate an existing entry, <span class="errno">ESRCH</span> if requested to delete a non-existent entry, or <span class="errno">ENOBUFS</span> if insufficient resources were available to install a new route. In the current implementation, all routing processes run locally, and the values for <b class="var">rtm_errno</b> are available through the normal <b class="var">errno</b> mechanism, even if the routing reply message is lost.<div class="spacer">
+</div>
+A process may avoid the expense of reading replies to its own messages by issuing a <a class="link-man" href="../html2/setsockopt.html">setsockopt(2)</a> call indicating that the <span class="define">SO_USELOOPBACK</span> option at the <span class="define">SOL_SOCKET</span> level is to be turned off. A process may ignore all messages from the routing socket by doing a <a class="link-man" href="../html2/shutdown.html">shutdown(2)</a> system call for further input.<div class="spacer">
+</div>
+A process can specify an alternate routing table by using the <span class="define">SO_RTABLE</span> <a class="link-man" href="../html2/setsockopt.html">setsockopt(2)</a>.<div class="spacer">
+</div>
+A process can specify which route message types it's interested in by using <span class="define">ROUTE_FILTER(int type)</span> and issuing a setsockopt call with the <span class="define">ROUTE_MSGFILTER</span> option at the <span class="define">AF_ROUTE</span> level. For example, to only get interface specific messages:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+unsigned int rtfilter; 
+ 
+rtfilter = ROUTE_FILTER(RTM_IFINFO) | 
+    ROUTE_FILTER(RTM_IFANNOUNCE); 
+ 
+if (setsockopt(routefd, PF_ROUTE, ROUTE_MSGFILTER, 
+    &amp;rtfilter, sizeof(rtfilter)) == -1) 
+	err(1, &quot;setsockopt(ROUTE_MSGFILTER)&quot;);</pre>
+<div class="spacer">
+</div>
+If a route is in use when it is deleted, the routing entry will be marked down and removed from the routing table, but the resources associated with it will not be reclaimed until all references to it are released. User processes can obtain information about the routing entry to a specific destination by using a <span class="define">RTM_GET</span> message or via the <span class="define">PF_ROUTE</span> <a class="link-man" href="../html3/sysctl.html">sysctl(3)</a>.<div class="spacer">
+</div>
+Messages include:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define RTM_ADD		0x1	/* Add Route */ 
+#define RTM_DELETE	0x2	/* Delete Route */ 
+#define RTM_CHANGE	0x3	/* Change Metrics or flags */ 
+#define RTM_GET		0x4	/* Report Metrics */ 
+#define RTM_LOSING	0x5	/* Kernel Suspects Partitioning */ 
+#define RTM_REDIRECT	0x6	/* Told to use different route */ 
+#define RTM_MISS	0x7	/* Lookup failed on this address */ 
+#define RTM_LOCK	0x8	/* fix specified metrics */ 
+#define RTM_RESOLVE	0xb	/* req to resolve dst to LL addr */ 
+#define RTM_NEWADDR	0xc	/* address being added to iface */ 
+#define RTM_DELADDR	0xd	/* address being removed from iface */ 
+#define RTM_IFINFO	0xe	/* iface going up/down etc. */ 
+#define RTM_IFANNOUNCE	0xf	/* iface arrival/departure */ 
+#define RTM_DESYNC	0x10	/* route socket buffer overflow */</pre>
+<div class="spacer">
+</div>
+A message header consists of one of the following:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct rt_msghdr { 
+	u_short	rtm_msglen;	/* to skip over non-understood messages */ 
+	u_char	rtm_version;	/* future binary compatibility */ 
+	u_char	rtm_type;	/* message type */ 
+	u_short	rtm_hdrlen;	/* sizeof(rt_msghdr) to skip over the header */ 
+	u_short	rtm_index;	/* index for associated ifp */ 
+	u_short rtm_tableid;	/* routing table id */ 
+	u_char	rtm_priority;	/* routing priority */ 
+	u_char	rtm_mpls;	/* MPLS additional infos */ 
+	int	rtm_addrs;	/* bitmask identifying sockaddrs in msg */ 
+	int	rtm_flags;	/* flags, incl. kern &amp; message, e.g. DONE */ 
+	int	rtm_fmask;	/* bitmask used in RTM_CHANGE message */ 
+	pid_t	rtm_pid;	/* identify sender */ 
+	int	rtm_seq;	/* for sender to identify action */ 
+	int	rtm_errno;	/* why failed */ 
+	u_int	rtm_inits;	/* which metrics we are initializing */ 
+	struct	rt_metrics rtm_rmx; /* metrics themselves */ 
+}; 
+ 
+struct if_msghdr { 
+	u_short	ifm_msglen;	/* to skip over non-understood messages */ 
+	u_char	ifm_version;	/* future binary compatibility */ 
+	u_char	ifm_type;	/* message type */ 
+	u_short ifm_hdrlen;	/* sizeof(if_msghdr) to skip over the header */ 
+	u_short	ifm_index;	/* index for associated ifp */ 
+	u_short	ifm_tableid;	/* routing table id */ 
+	u_char	ifm_pad1; 
+	u_char	ifm_pad2; 
+	int	ifm_addrs;	/* like rtm_addrs */ 
+	int	ifm_flags;	/* value of if_flags */ 
+	int	ifm_xflags; 
+	struct	if_data ifm_data;/* statistics and other data about if */ 
+}; 
+ 
+struct ifa_msghdr { 
+	u_short	ifam_msglen;	/* to skip over non-understood messages */ 
+	u_char	ifam_version;	/* future binary compatibility */ 
+	u_char	ifam_type;	/* message type */ 
+	u_short ifam_hdrlen;	/* sizeof(ifa_msghdr) to skip over the header */ 
+	u_short	ifam_index;	/* index for associated ifp */ 
+	u_short	ifam_tableid;	/* routing table id */ 
+	u_char	ifam_pad1; 
+	u_char	ifam_pad2; 
+	int	ifam_addrs;	/* like rtm_addrs */ 
+	int	ifam_flags;	/* value of ifa_flags */ 
+	int	ifam_metric;	/* value of ifa_metric */ 
+}; 
+ 
+struct if_announcemsghdr { 
+	u_short	ifan_msglen;	/* to skip over non-understood messages */ 
+	u_char	ifan_version;	/* future binary compatibility */ 
+	u_char	ifan_type;	/* message type */ 
+	u_short ifan_hdrlen;	/* sizeof(ifa_msghdr) to skip over the header */ 
+	u_short	ifan_index;	/* index for associated ifp */ 
+	u_short	ifan_what;	/* what type of announcement */ 
+	char	ifan_name[IFNAMSIZ];	/* if name, e.g. &quot;en0&quot; */ 
+};</pre>
+<div class="spacer">
+</div>
+The <span class="define">RTM_IFINFO</span> message uses an <span class="type">if_msghdr</span> header, the <span class="define">RTM_NEWADDR</span> and <span class="define">RTM_DELADDR</span> messages use an <span class="type">ifa_msghdr</span> header, the <span class="define">RTM_IFANNOUNCE</span> message uses an <span class="type">if_announcemsghdr</span> header, and all other messages use the <span class="type">rt_msghdr</span> header.<div class="spacer">
+</div>
+The metrics structure is:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct rt_metrics { 
+	u_int64_t	rmx_pksent;	/* packets sent using this route */ 
+	int64_t		rmx_expire;	/* lifetime for route, e.g. redirect */ 
+	u_int		rmx_locks;	/* Kernel must leave these values */ 
+	u_int		rmx_mtu;	/* MTU for this path */ 
+	u_int		rmx_refcnt;	/* # references hold */ 
+	u_int		rmx_hopcount;	/* max hops expected */ 
+	u_int		rmx_recvpipe;	/* inbound delay-bandwidth product */ 
+	u_int		rmx_sendpipe;	/* outbound delay-bandwidth product */ 
+	u_int		rmx_ssthresh;	/* outbound gateway buffer limit */ 
+	u_int		rmx_rtt;	/* estimated round trip time */ 
+	u_int		rmx_rttvar;	/* estimated rtt variance */ 
+	u_int		rmx_pad; 
+};</pre>
+<div class="spacer">
+</div>
+Only <b class="var">rmx_mtu</b>, <b class="var">rmx_expire</b>, <b class="var">rmx_pksent</b>, and <b class="var">rmx_locks</b> are used by the kernel routing table. All other values will be ignored when inserting them into the kernel and are set to zero in routing messages sent by the kernel. They are left for compatibility reasons with other systems.<div class="spacer">
+</div>
+Flags include the values:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define	RTF_UP        0x1       /* route usable */ 
+#define	RTF_GATEWAY   0x2       /* destination is a gateway */ 
+#define	RTF_HOST      0x4       /* host entry (net otherwise) */ 
+#define	RTF_REJECT    0x8       /* host or net unreachable */ 
+#define	RTF_DYNAMIC   0x10      /* created dynamically (by redirect) */ 
+#define	RTF_MODIFIED  0x20      /* modified dynamically (by redirect) */ 
+#define	RTF_DONE      0x40      /* message confirmed */ 
+#define	RTF_MASK      0x80      /* subnet mask present */ 
+#define	RTF_CLONING   0x100     /* generate new routes on use */ 
+#define	RTF_LLINFO    0x400     /* generated by ARP or NDP */ 
+#define	RTF_STATIC    0x800     /* manually added */ 
+#define	RTF_BLACKHOLE 0x1000    /* just discard pkts (during updates) */ 
+#define	RTF_PROTO3    0x2000    /* protocol specific routing flag */ 
+#define	RTF_PROTO2    0x4000    /* protocol specific routing flag */ 
+#define	RTF_PROTO1    0x8000    /* protocol specific routing flag */ 
+#define	RTF_CLONED    0x10000   /* this is a cloned route */ 
+#define RTF_MPATH     0x40000   /* multipath route or operation */ 
+#define RTF_MPLS      0x100000  /* MPLS additional infos */ 
+#define RTF_LOCAL     0x200000	/* route to a local address */ 
+#define RTF_BROADCAST 0x400000	/* route associated to a bcast addr. */ 
+#define RTF_CONNECTED 0x800000	/* interface route */</pre>
+<div class="spacer">
+</div>
+The following flags (defined as <span class="define">RTF_FMASK</span>) can be changed by an RTM_CHANGE request: <span class="define">RTF_LLINFO</span>, <span class="define">RTF_PROTO1</span>, <span class="define">RTF_PROTO2</span>, <span class="define">RTF_PROTO3</span>, <span class="define">RTF_BLACKHOLE</span>, <span class="define">RTF_REJECT</span>, <span class="define">RTF_STATIC</span> and <span class="define">RTF_MPLS</span>.<div class="spacer">
+</div>
+Specifiers for metric values in <b class="var">rmx_locks</b> and <b class="var">rtm_inits</b> are:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define RTV_MTU		0x1	/* init or lock _mtu */ 
+#define RTV_HOPCOUNT	0x2	/* init or lock _hopcount */ 
+#define RTV_EXPIRE	0x4	/* init or lock _hopcount */ 
+#define RTV_RPIPE	0x8	/* init or lock _recvpipe */ 
+#define RTV_SPIPE	0x10	/* init or lock _sendpipe */ 
+#define RTV_SSTHRESH	0x20	/* init or lock _ssthresh */ 
+#define RTV_RTT		0x40	/* init or lock _rtt */ 
+#define RTV_RTTVAR	0x80	/* init or lock _rttvar */</pre>
+<div class="spacer">
+</div>
+Only <span class="define">RTV_MTU</span> and <span class="define">RTV_EXPIRE</span> should be used; all other flags are ignored.<div class="spacer">
+</div>
+Specifiers for which addresses are present in the messages are:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+#define RTA_DST		0x1	/* destination sockaddr present */ 
+#define RTA_GATEWAY	0x2	/* gateway sockaddr present */ 
+#define RTA_NETMASK	0x4	/* netmask sockaddr present */ 
+#define RTA_IFP		0x10	/* interface name sockaddr present */ 
+#define RTA_IFA		0x20	/* interface addr sockaddr present */ 
+#define RTA_AUTHOR	0x40	/* sockaddr for author of redirect */ 
+#define RTA_BRD		0x80	/* for NEWADDR, bcast or p-p dest addr */ 
+#define RTA_SRC		0x100	/* source sockaddr present */ 
+#define RTA_SRCMASK	0x200	/* source netmask present */ 
+#define RTA_LABEL	0x400	/* route label present */</pre>
+</div>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html1/netstat.html">netstat(1)</a>, <a class="link-man" href="../html2/socket.html">socket(2)</a>, <a class="link-man" href="../html3/sysctl.html">sysctl(3)</a>, <a class="link-man" href="../html5/mygate.html">mygate(5)</a>, <a class="link-man" href="../html8/route.html">route(8)</a>, <a class="link-man" href="../html9/route.html">route(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> A <span class="define">PF_ROUTE</span> protocol family first appeared in <span class="unix">4.3BSD-Reno</span>.</div>
+</div>
+</body>
+</html>
+

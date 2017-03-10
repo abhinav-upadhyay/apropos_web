@@ -1,0 +1,114 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+CARP(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">carp</b> &#8212; <span class="desc">Common Address Redundancy Protocol</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">pseudo-device carp</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">carp</b> interface is a pseudo-device which implements and controls the CARP protocol. <b class="name">carp</b> allows multiple hosts on the same local network to share a set of IP addresses. Its primary purpose is to ensure that these addresses are always available, but in some configurations <b class="name">carp</b> can also provide load balancing functionality.<div class="spacer">
+</div>
+A <b class="name">carp</b> interface can be created at runtime using the <b class="cmd">ifconfig carp</b><i class="arg">N</i> <b class="cmd">create</b> command or by setting up a <a class="link-man" href="../html5/hostname.if.html">hostname.if(5)</a> configuration file for <a class="link-man" href="../html8/netstart.html">netstart(8)</a>.<div class="spacer">
+</div>
+To use <b class="name">carp</b>, the administrator needs to configure at minimum a common virtual host ID (VHID) and virtual host IP address on each machine which is to take part in the virtual group. Additional parameters can also be set on a per-interface basis: <b class="flag">advbase</b> and <b class="flag">advskew</b>, which are used to control how frequently the host sends advertisements when it is the master for a virtual host, and <b class="flag">pass</b> which is used to authenticate carp advertisements. Finally <b class="flag">carpdev</b> is used to specify which interface the <b class="name">carp</b> device attaches to. These configurations can be done using <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a>, or through the <span class="define">SIOCSVH</span> ioctl.<div class="spacer">
+</div>
+<b class="name">carp</b> can also be used in conjunction with <a class="link-man" href="../html8/ifstated.html">ifstated(8)</a> to respond to changes in CARP state; however, for most uses this will not be necessary. See the manual page for <a class="link-man" href="../html8/ifstated.html">ifstated(8)</a> for more information.<div class="spacer">
+</div>
+Additionally, there are a number of global parameters which can be set using <a class="link-man" href="../html8/sysctl.html">sysctl(8)</a>:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+net.inet.carp.allow</dt>
+<dd class="list-tag" style="margin-left: 26.00ex;">
+Accept incoming <b class="name">carp</b> packets. Enabled by default.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+net.inet.carp.preempt</dt>
+<dd class="list-tag" style="margin-left: 26.00ex;">
+Allow virtual hosts to preempt each other. Disabled by default.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+net.inet.carp.log</dt>
+<dd class="list-tag" style="margin-left: 26.00ex;">
+Make <b class="name">carp</b> log state changes, bad packets, and other errors. May be a value between 0 and 7 corresponding with <a class="link-man" href="../html3/syslog.html">syslog(3)</a> priorities. The default value is 2, which limits logging to changes in CARP state.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4c4f41442042414c414e43494e47">LOAD BALANCING</h1> <b class="name">carp</b> uses IP balancing to load balance incoming traffic over a group of <b class="name">carp</b> hosts. IP balancing is not dependent on ARP and therefore works for traffic that comes over a router. However it requires the traffic that is destined towards the load balanced IP addresses to be received by all <b class="name">carp</b> hosts. While this is always the case when connected to a hub, it has to play some tricks in switched networks, which will result in a higher network load.<div class="spacer">
+</div>
+To configure load balancing one has to specify multiple carp nodes using the <b class="flag">carpnodes</b> option. Each node in a load balancing cluster is represented by at least one &#8220;<b class="flag">vhid</b>:<b class="flag">advskew</b>&#8221; pair in a comma separated list. <b class="name">carp</b> tries to distribute the incoming network load over all configured carpnodes. The following example creates a load balancing group consisting of three nodes, using vhids 3, 4 and 6:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# ifconfig carp0 carpnodes 3:0,4:0,6:100</pre>
+<div class="spacer">
+</div>
+The advskew value of the last node is set to 100, so that this node is designated to the BACKUP state. It will only become MASTER if all nodes with a lower advskew value have failed. By varying this value throughout the machines in the cluster it is possible to decide which share of the network load each node receives. Therefore, all carp interfaces in the cluster are configured identically, except for a different <b class="flag">advskew</b> value within the carpnodes specification.<div class="spacer">
+</div>
+IP balancing works by utilizing the network itself to distribute incoming traffic to all <b class="name">carp</b> nodes in the cluster. Each packet is filtered on the incoming <b class="name">carp</b> interface so that only one node in the cluster accepts the packet. All the other nodes will just silently drop it. The filtering function uses a hash over the source and destination address of the IPv4 or IPv6 packet and compares the result against the state of the carpnode.<div class="spacer">
+</div>
+IP balancing is activated by setting the <b class="flag">balancing</b> mode to <b class="flag">ip</b>. This is the recommended default setting. In this mode, carp uses a multicast MAC address, so that a switch sends incoming traffic towards all nodes.<div class="spacer">
+</div>
+However, there are a few OS and routers that do not accept a multicast MAC address being mapped to a unicast IP. This can be resolved by using one of the following unicast options. For scenarios where a hub is used it is not necessary to use a multicast MAC and it is safe to use the <i class="arg">ip-unicast</i> mode. Manageable switches can usually be tricked into forwarding unicast traffic to all cluster nodes ports by configuring them into some sort of monitoring mode. If this is not possible, using the <i class="arg">ip-stealth</i> mode is another option, which should work on most switches. In this mode <b class="name">carp</b> never sends packets with its virtual MAC address as source. Stealth mode prevents a switch from learning the virtual MAC address, so that it has to flood the traffic to all its ports. Please note that activating stealth mode on a <b class="name">carp</b> interface that has already been running might not work instantly. As a workaround the VHID of the first carpnode can be changed to a previously unused one, or just wait until the MAC table entry in the switch times out. Some layer 3 switches do port learning based on ARP packets. Therefore the stealth mode cannot hide the virtual MAC address from these kind of devices.<div class="spacer">
+</div>
+If IP balancing is being used on a firewall, it is recommended to configure the <b class="flag">carpnodes</b> in a symmetrical manner. This is achieved by simply using the same <b class="flag">carpnodes</b> list on all sides of the firewall. This ensures that packets of one connection will pass in and out on the same host and are not routed asymmetrically.</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> For most scenarios it is desirable to have a well-defined master, achieved by enabling the <b class="flag">preempt</b> option. Enable it on both host A and B:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit"># sysctl net.inet.carp.preempt=1</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+Assume that host A is the preferred master and carp should run on the physical interfaces em0 with the network 192.168.1.0/24 and em1 with network 192.168.2.0/24. This is the setup for host A:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# ifconfig carp0 192.168.1.1/24 carpdev em0 vhid 1 
+# ifconfig carp1 192.168.2.1/24 carpdev em1 vhid 2</pre>
+<div class="spacer">
+</div>
+The setup for host B is identical, but it has a higher <b class="flag">advskew</b>:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# ifconfig carp0 192.168.1.1/24 carpdev em0 vhid 1 advskew 100 
+# ifconfig carp1 192.168.2.1/24 carpdev em1 vhid 2 advskew 100</pre>
+<div class="subsection">
+<h2 id="x4c4f41442042414c414e43494e47">LOAD BALANCING</h2> In order to set up a load balanced virtual host, it is necessary to configure one <b class="flag">carpnodes</b> entry for each physical host. In the following example, two physical hosts are configured to provide balancing and failover for the IP address 192.168.1.10.<div class="spacer">
+</div>
+First the <b class="name">carp</b> interface on Host A is configured. The <b class="flag">advskew</b> of 100 on the second carpnode entry means that its advertisements will be sent out slightly less frequently and will therefore become the designated backup.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# ifconfig carp0 192.168.1.10 carpdev em0 carpnodes 1:0,2:100 \ 
+	balancing ip</pre>
+<div class="spacer">
+</div>
+The configuration for host B is identical, except the skew is on the carpnode entry with virtual host 1 rather than virtual host 2.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# ifconfig carp0 192.168.1.10 carpdev em0 carpnodes 1:100,2:0 \ 
+	balancing ip</pre>
+<div class="spacer">
+</div>
+If a different mode of load balancing is desired the <b class="flag">balancing</b> mode can be adjusted accordingly.</div>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html3/sysctl.html">sysctl(3)</a>, <a class="link-man" href="../html4/inet.html">inet(4)</a>, <a class="link-man" href="../html4/pfsync.html">pfsync(4)</a>, <a class="link-man" href="../html5/hostname.if.html">hostname.if(5)</a>, <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a>, <a class="link-man" href="../html8/ifstated.html">ifstated(8)</a>, <a class="link-man" href="../html8/netstart.html">netstart(8)</a>, <a class="link-man" href="../html8/sysctl.html">sysctl(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">carp</b> device first appeared in <span class="unix">OpenBSD&#160;3.5</span>.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> If load balancing is used in setups where the carpdev does not share an IP in the same subnet as <b class="name">carp</b>, it is not possible to use the IP of the <b class="name">carp</b> interface for self originated traffic. This is because the return packets are also subject to load balancing and might end up on any other node in the cluster.<div class="spacer">
+</div>
+If an IPv6 load balanced carp interface is taken down manually, it will accept all incoming packets for its address. This will lead to duplicated packets.</div>
+</div>
+</body>
+</html>
+

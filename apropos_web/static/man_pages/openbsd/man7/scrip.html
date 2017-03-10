@@ -1,0 +1,150 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+SCRIPT(7)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">script</b> &#8212; <span class="desc">interpreter script execution</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The system is capable of treating a text file containing commands intended for an interpreter, such as <a class="link-man" href="../html1/sh.html">sh(1)</a> or <a class="link-man" href="../html1/awk.html">awk(1)</a>, as an executable program.<div class="spacer">
+</div>
+An &#8220;interpreter script&#8221; is a file which has been set executable (see <a class="link-man" href="../html2/chmod.html">chmod(2)</a>) and which has a first line of the form:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">#!</code> <i class="arg">pathname</i> [<span class="opt"><i class="arg">argument</i></span>]</div>
+</blockquote>
+<div class="spacer">
+</div>
+The &#8216;#!&#8217; must appear as the first two characters of the file. A space between the &#8216;#!&#8217; and <i class="arg">pathname</i> is optional. At most one <i class="arg">argument</i> may follow <i class="arg">pathname</i>, and the length of the entire line is limited (see below).<div class="spacer">
+</div>
+If such a file is executed (such as via the <a class="link-man" href="../html2/execve.html">execve(2)</a> system call), the interpreter specified by the <i class="arg">pathname</i> is executed by the system. (The <i class="arg">pathname</i> is executed without regard to the <span class="env">PATH</span> variable, so in general <i class="arg">pathname</i> should be an absolute path.)<div class="spacer">
+</div>
+The arguments passed to the interpreter will be as follows. <b class="var">argv[0]</b> will be the path to the interpreter itself, as specified on the first line of the script. If there is an <i class="arg">argument</i> following <i class="arg">pathname</i> on the first line of the script, it will be passed as <b class="var">argv[1]</b>. The subsequent elements of <b class="var">argv</b> will be the path to the interpreter script file itself (i.e. the original <b class="var">argv[0]</b>) followed by any further arguments passed when <a class="link-man" href="../html2/execve.html">execve(2)</a> was invoked to execute the script file.<div class="spacer">
+</div>
+By convention, it is expected that an interpreter will open the script file passed as an argument and process the commands within it. Typical interpreters treat &#8216;#&#8217; as a comment character, and thus will ignore the initial line of the script because it begins &#8216;#!&#8217;, but there is no requirement for this per se.<div class="spacer">
+</div>
+On <span class="unix">OpenBSD</span>, the length of the interpreter line following the &#8216;#!&#8217; is limited to <span class="define">MAXINTERP</span>, as defined in <b class="includes">&lt;<a class="link-includes">sys/param.h</a>&gt;</b>. Other operating systems impose different limits on the length of the &#8216;#!&#8217; line (see below).<div class="spacer">
+</div>
+Note that the interpreter may not itself be an interpreter script. If <i class="arg">pathname</i> does not point to an executable binary, execution of the interpreter script will fail.<div class="subsection">
+<h2 id="x5472616d706f6c696e657320616e6420506f727461626c652053637269707473">Trampolines and Portable Scripts</h2> Different operating systems often have interpreters located in different locations, and the kernel executes the passed interpreter without regard to the setting of environment variables such as <span class="env">PATH</span>. This makes it somewhat challenging to set the &#8216;#!&#8217; line of a script so that it will run identically on different systems.<div class="spacer">
+</div>
+Since the <a class="link-man" href="../html1/env.html">env(1)</a> utility executes a command passed to it on its command line, it is often used as a &#8220;trampoline&#8221; to render scripts portable. If the leading line of a script reads<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">#! /usr/bin/env interp</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+then the <a class="link-man" href="../html1/env.html">env(1)</a> command will execute the &#8220;interp&#8221; command it finds in its <span class="env">PATH</span>, passing on to it all subsequent arguments with which it itself was called. Since <i class="file">/usr/bin/env</i> is found on almost all POSIX style systems, this trick is frequently exploited by authors who need a script to execute without change on multiple systems.</div>
+<div class="subsection">
+<h2 id="x486973746f726963616c204e6f74653a205363726970747320776974686f75742060232127">Historical Note: Scripts without `#!'</h2> Shell scripts predate the invention of the &#8216;#!&#8217; convention, which is implemented in the kernel. In the days of Version&#160;7 AT&amp;T UNIX, there was only one interpreter used on the system, <i class="file">/bin/sh</i>, and the shell treated any file that failed to execute with an <span class="errno">ENOEXEC</span> error (see <a class="link-man" href="../html2/intro.html">intro(2)</a>) as a shell script.<div class="spacer">
+</div>
+Most shells (such as <a class="link-man" href="../html1/sh.html">sh(1)</a>) and certain other facilities (including <a class="link-man" href="../html3/execlp.html">execlp(3)</a> and <a class="link-man" href="../html3/execvp.html">execvp(3)</a> but not other types of <a class="link-man" href="../html3/exec.html">exec(3)</a> calls) still pass interpreter scripts that do not include the &#8216;#!&#8217; (and thus fail to execute with <span class="errno">ENOEXEC</span>) to <i class="file">/bin/sh</i>.<div class="spacer">
+</div>
+As this behavior is implemented outside the kernel, there is no mechanism that forces it to be respected by all programs that execute other programs. It is thus not completely reliable. It is therefore important to always include<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">#!/bin/sh</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+in front of Bourne shell scripts, and to treat the traditional behavior as obsolete.</div>
+</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> Suppose that an executable binary exists in <i class="file">/bin/interp</i> and that the file <i class="file">/tmp/script</i> contains:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+#!/bin/interp -arg 
+ 
+[...]</pre>
+<div class="spacer">
+</div>
+and that <i class="file">/tmp/script</i> is set mode 755.<div class="spacer">
+</div>
+Executing<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">$ /tmp/script one two three</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+at the shell will result in <i class="file">/bin/interp</i> being executed, receiving the following arguments in <b class="var">argv</b> (numbered from 0):<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;" class="display">
+&#8220;/bin/interp&#8221;, &#8220;-arg&#8221;, &#8220;/tmp/script&#8221;, &#8220;one&#8221;, &#8220;two&#8221;, &#8220;three&#8221;</div>
+<div class="subsection">
+<h2 id="x506f72746162696c697479204e6f74653a204d756c7469706c6520617267756d656e7473">Portability Note: Multiple arguments</h2> The behavior of multiple arguments on the &#8216;#!&#8217; line is highly non-portable between different systems. In general, only one argument can be assumed to work consistently.<div class="spacer">
+</div>
+Consider the following variation on the previous example. Suppose that an executable binary exists in <i class="file">/bin/interp</i> and that the file <i class="file">/tmp/script</i> contains:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+#!/bin/interp -x -y 
+ 
+[...]</pre>
+<div class="spacer">
+</div>
+and that <i class="file">/tmp/script</i> is set mode 755.<div class="spacer">
+</div>
+Executing<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">$ /tmp/script one two three</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+at the shell will result in <i class="file">/bin/interp</i> being executed, receiving the following arguments in <b class="var">argv</b> (numbered from 0):<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;" class="display">
+&#8220;/bin/interp&#8221;, &#8220;-x -y&#8221;, &#8220;/tmp/script&#8221;, &#8220;one&#8221;, &#8220;two&#8221;, &#8220;three&#8221;</div>
+<div class="spacer">
+</div>
+Note that &#8220;-x -y&#8221; will be passed on <span class="unix">OpenBSD</span> as a single argument.<div class="spacer">
+</div>
+Although most POSIX style operating systems will pass only one <i class="arg">argument</i>, the behavior when multiple arguments are included is not consistent between platforms. Some, such as <span class="unix">OpenBSD</span>, will concatenate multiple arguments into a single argument (as above), some will truncate them, and at least one will pass them as multiple arguments.<div class="spacer">
+</div>
+The <span class="unix">OpenBSD</span> behavior is common but not universal. Sun's Solaris would present the above argument as &#8220;-x&#8221;, dropping the &#8220; -y&#8221; entirely. Perhaps uniquely, recent versions of Apple's OS X will actually pass multiple arguments properly, i.e.:<div class="spacer">
+</div>
+<div style="margin-left: 5.00ex;" class="display">
+&#8220;/bin/interp&#8221;, &#8220;-x&#8221;, &#8220;-y&#8221;, &#8220;/tmp/script&#8221;, &#8220;one&#8221;, &#8220;two&#8221;, &#8220;three&#8221;</div>
+<div class="spacer">
+</div>
+The behavior of the system in the face of multiple arguments is thus not currently standardized, should not be relied on, and may be changed in future releases. In general, pass at most one argument, and do not rely on multiple arguments being concatenated.</div>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html1/awk.html">awk(1)</a>, <a class="link-man" href="../html1/csh.html">csh(1)</a>, <a class="link-man" href="../html1/ksh.html">ksh(1)</a>, <a class="link-man" href="../html1/sh.html">sh(1)</a>, <a class="link-man" href="../html2/chmod.html">chmod(2)</a>, <a class="link-man" href="../html2/execve.html">execve(2)</a>, <a class="link-man" href="../html2/intro.html">intro(2)</a>, <a class="link-man" href="../html3/execlp.html">execlp(3)</a>, <a class="link-man" href="../html3/execvp.html">execvp(3)</a></div>
+<div class="section">
+<h1 id="x5354414e4441524453">STANDARDS</h1> The behavior of interpreter scripts is obliquely referred to, but never actually described in, IEEE Std 1003.1-2004 (&#8220;POSIX.1&#8221;).<div class="spacer">
+</div>
+The behavior is partially (but not completely) described in the System&#160;V Interface Definition, Fourth Edition (&#8220;SVID4&#8221;).<div class="spacer">
+</div>
+Although it has never been formally standardized, the behavior described is largely portable across POSIX style systems, with two significant exceptions: the maximum length of the &#8216;#!&#8217; line, and the behavior if multiple arguments are passed. Please be aware that the behavior in the face of multiple arguments is not consistent across systems.</div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The behavior of the kernel when encountering scripts that start in &#8216;#!&#8217; was not present in Version&#160;7 AT&amp;T UNIX. A Usenet posting to net.unix by Guy Harris on October 16, 1984 claims that the idea for the &#8216;#!&#8217; behavior was first proposed by Dennis Ritchie but that the first implementation was on <span class="unix">BSD</span>.<div class="spacer">
+</div>
+Historical manuals (specifically the exec man page) indicate that the behavior was present in <span class="unix">4BSD</span> at least as early as April, 1981. Information on precisely when it was first implemented, and in which version of <span class="unix">UNIX</span>, is solicited.</div>
+<div class="section">
+<h1 id="x43415645415453">CAVEATS</h1> Numerous security problems are associated with setuid interpreter scripts.<div class="spacer">
+</div>
+In addition to the fact that many interpreters (and scripts) are simply not designed to be robust in a setuid context, a race condition exists between the moment that the kernel examines the interpreter script file and the moment that the newly invoked interpreter opens the file itself.<div class="spacer">
+</div>
+Subtle techniques can be used to subvert even seemingly well written scripts. Scripts executed by Bourne type shells can be subverted in numerous ways, such as by setting the <span class="env">IFS</span> variable before executing the script. Other interpreters possess their own vulnerabilities. Setting the Set-user-ID on execution (SUID) bit is therefore very dangerous, and should not be done lightly, if at all.</div>
+</div>
+</body>
+</html>
+

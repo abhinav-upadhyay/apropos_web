@@ -1,0 +1,456 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+WSDISPLAY(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">wsdisplay</b> &#8212; <span class="desc">generic display device support in wscons</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">wsdisplay* at ...</b><br/>
+<b class="config">option WSDISPLAY_DEFAULTSCREENS=N</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">wsdisplay</b> driver is an abstraction layer for display devices within the <a class="link-man" href="../html4/wscons.html">wscons(4)</a> framework. It attaches to the hardware specific display device driver and makes it available as text terminal or graphics interface.<div class="spacer">
+</div>
+Display devices have the ability to display characters on them (without help of an X server), either directly by hardware or through software drawing pixel data into the display memory. The <b class="name">wsdisplay</b> driver will connect a terminal emulation module and provide a tty-like software interface.<div class="spacer">
+</div>
+The <span class="emph">console</span> locator in the configuration line refers to the device's use as output part of the operating system console. A device specification containing a positive value here will only match if the device is in use as system console. (The console device selection in early system startup is not influenced.) This way, the console device can be connected to a known <b class="name">wsdisplay</b> device instance.<div class="spacer">
+</div>
+The <span class="emph">mux</span> locator in the configuration line refers to the <a class="link-man" href="../html4/wsmux.html">wsmux(4)</a> that will be used to get keyboard events. If this locator is -1 no mux will be used.<div class="spacer">
+</div>
+The logical unit of an independent contents displayed on a display (sometimes referred to as &#8220;virtual terminal&#8221;) is called a &#8220;screen&#8221; here. If the underlying device driver supports it, multiple screens can be used on one display. (As of this writing, only the <a class="link-man" href="../html4/lcd.html">lcd(4)</a> and <a class="link-man" href="../html4/vga.html">vga(4)</a> display drivers provide this ability.) Screens have different minor device numbers and separate tty instances. One screen possesses the &#8220;focus&#8221;, this means it is displayed on the display and its tty device will get the keyboard input. (In some cases, if no screen is set up or if a screen was just deleted, it is possible that no focus is present at all.) The focus can be switched by either special keyboard input (typically CTL-ALT-Fn) or an ioctl command issued by a user program. Screens are set up or deleted through the <i class="file">/dev/ttyCcfg</i> control device (preferably using the <a class="link-man" href="../html8/wsconscfg.html">wsconscfg(8)</a> utility). Alternatively, the compile-time option <b class="flag">WSDISPLAY_DEFAULTSCREENS=N</b> will set up N screens of the display driver's default type and using the system's default terminal emulator at autoconfiguration time.<div class="spacer">
+</div>
+In addition and with help from backend drivers the following features are also provided:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 1.00em;">
+Loading, deleting and listing the loaded fonts.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+Browsing backwards in the screen output, the size of the buffer for saved text is defined by the particular hardware driver.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+Blanking the screen by timing out on inactivity in the screen holding the input focus. Awakening activities consist of:<div class="spacer">
+</div>
+<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 0.00em;">
+pressing any keys on the keyboard;</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+moving or clicking the mouse;</li>
+<li class="list-bul" style="margin-top: 0.00em;">
+any output to the screen.</li>
+</ul>
+<div class="spacer">
+</div>
+Blanking the screen is usually done by disabling the horizontal sync signal on video output, but may also include blanking the vertical sync in which case most monitors go into power saving mode. See <a class="link-man" href="../html8/wsconsctl.html">wsconsctl(8)</a> for controlling variables.</li>
+</ul>
+<div class="spacer">
+</div>
+Consult the back-end drivers' documentation for which features are supported for each particular hardware type.<div class="subsection">
+<h2 id="x494f43544c20494e54455246414345">IOCTL INTERFACE</h2> The following <a class="link-man" href="../html2/ioctl.html">ioctl(2)</a> calls are provided by the <b class="name">wsdisplay</b> driver or by devices which use it. Their definitions are found in <b class="includes">&lt;<a class="link-includes">dev/wscons/wsconsio.h</a>&gt;</b>.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_GTYPE</span> (<code class="lit">u_int</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Retrieve the type of the display. The list of types is in <b class="includes">&lt;<a class="link-includes">dev/wscons/wsconsio.h</a>&gt;</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_GINFO</span> (<code class="lit">struct wsdisplay_fbinfo</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Retrieve basic information about a framebuffer display. The returned structure is as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct wsdisplay_fbinfo { 
+        u_int   height; 
+        u_int   width; 
+        u_int   depth; 
+        u_int   cmsize; 
+};</pre>
+<div class="spacer">
+</div>
+The <b class="var">height</b> and <b class="var">width</b> members are counted in pixels. The <b class="var">depth</b> member indicates the number of bits per pixel, and <b class="var">cmsize</b> indicates the number of color map entries accessible through <span class="define">WSDISPLAYIO_GETCMAP</span> and <span class="define">WSDISPLAYIO_PUTCMAP</span>. This call is likely to be unavailable on text-only displays.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_GETCMAP</span> (<code class="lit">struct wsdisplay_cmap</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Retrieve the current color map from the display. This call needs the following structure set up beforehand:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct wsdisplay_cmap { 
+        u_int   index; 
+        u_int   count; 
+        u_char  *red; 
+        u_char  *green; 
+        u_char  *blue; 
+};</pre>
+<div class="spacer">
+</div>
+The <b class="var">index</b> and <b class="var">count</b> members specify the range of color map entries to retrieve. The <b class="var">red</b>, <b class="var">green</b>, and <b class="var">blue</b> members should each point to an array of <b class="var">count</b> <code class="lit">u_char</code>s. On return, these will be filled in with the appropriate entries from the color map. On all displays that support this call, values range from 0 for minimum intensity to 255 for maximum intensity, even if the display does not use eight bits internally to represent intensity.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_PUTCMAP</span> (<code class="lit">struct wsdisplay_cmap</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Change the display's color map. The argument structure is the same as for <span class="define">WSDISPLAYIO_GETCMAP</span>, but <b class="var">red</b>, <b class="var">green</b>, and <b class="var">blue</b> are taken as pointers to the values to use to set the color map. This call is not available on displays with fixed color maps.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_GVIDEO</span> (<code class="lit">u_int</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Get the current state of the display's video output. Possible values are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_VIDEO_OFF</span></dt>
+<dd class="list-tag" style="margin-left: 21.00ex;">
+The display is blanked.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_VIDEO_ON</span></dt>
+<dd class="list-tag" style="margin-left: 21.00ex;">
+The display is enabled.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_SVIDEO</span> (<code class="lit">u_int</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Set the state of the display's video output. See <span class="define">WSDISPLAYIO_GVIDEO</span> above for possible values.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_GCURPOS</span> (<code class="lit">struct wsdisplay_curpos</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Retrieve the current position of the hardware cursor. The returned structure is as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct wsdisplay_curpos { 
+        u_int x, y; 
+};</pre>
+<div class="spacer">
+</div>
+The <b class="var">x</b> and <b class="var">y</b> members count the number of pixels right and down, respectively, from the top-left corner of the display to the hot spot of the cursor. This call is not available on displays without a hardware cursor.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_SCURPOS</span> (<code class="lit">struct wsdisplay_curpos</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Set the current cursor position. The argument structure, and its semantics, are the same as for <span class="define">WSDISPLAYIO_GCURPOS</span>. This call is not available on displays without a hardware cursor.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_GCURMAX</span> (<code class="lit">struct wsdisplay_curpos</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Retrieve the maximum size of cursor supported by the display. The <b class="var">x</b> and <b class="var">y</b> members of the returned structure indicate the maximum number of pixel rows and columns, respectively, in a hardware cursor on this display. This call is not available on displays without a hardware cursor.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_GCURSOR</span> (<code class="lit">struct wsdisplay_cursor</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Retrieve some or all of the hardware cursor's attributes. The argument structure is as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct wsdisplay_cursor { 
+        u_int   which; 
+        u_int   enable; 
+        struct wsdisplay_curpos pos; 
+        struct wsdisplay_curpos hot; 
+        struct wsdisplay_cmap cmap; 
+        struct wsdisplay_curpos size; 
+        u_char *image; 
+        u_char *mask; 
+}; 
+<div class="spacer">
+</div>
+</pre>
+The <b class="var">which</b> member indicates which of the values the application requires to be returned. It should contain the logical OR of the following flags:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_CURSOR_DOCUR</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Get <b class="var">enable</b>, which indicates whether the cursor is currently displayed (non-zero) or not (zero).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_CURSOR_DOPOS</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Get <b class="var">pos</b>, which indicates the current position of the cursor on the display, as would be returned by <span class="define">WSDISPLAYIO_GCURPOS</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_CURSOR_DOHOT</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Get <b class="var">hot</b>, which indicates the location of the &#8220;hot spot&#8221; within the cursor. This is the point on the cursor whose position on the display is treated as being the position of the cursor by other calls. Its location is counted in pixels from the top-left corner of the cursor.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_CURSOR_DOCMAP</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Get <b class="var">cmap</b>, which indicates the current cursor color map. Unlike in a call to <span class="define">WSDISPLAYIO_GETCMAP</span>, <b class="var">cmap</b> here need not have its <b class="var">index</b> and <b class="var">count</b> members initialized. They will be set to 0 and 2 respectively by the call. This means that <b class="var">cmap</b>.<b class="var">red</b>, <b class="var">cmap</b>.<b class="var">green</b>, and <b class="var">cmap</b>.<b class="var">blue</b> must each point to at least enough space to hold two <code class="lit">u_char</code>s.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_CURSOR_DOSHAPE</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Get <b class="var">size</b>, <b class="var">image</b>, and <b class="var">mask</b>. These are, respectively, the dimensions of the cursor in pixels, the bitmap of set pixels in the cursor and the bitmap of opaque pixels in the cursor. The format in which these bitmaps are returned, and hence the amount of space that must be provided by the application, are device-dependent.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_CURSOR_DOALL</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Get all of the above.</dd>
+</dl>
+<div class="spacer">
+</div>
+The device may elect to return information that was not requested by the user, so those elements of <code class="lit">struct wsdisplay_cursor</code> which are pointers should be initialized to <span class="define">NULL</span> if not otherwise used. This call is not available on displays without a hardware cursor.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_SCURSOR</span> (<code class="lit">struct wsdisplay_cursor</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Set some or all of the hardware cursor's attributes. The argument structure is the same as for <span class="define">WSDISPLAYIO_GCURSOR</span>. The <b class="var">which</b> member specifies which attributes of the cursor are to be changed. It should contain the logical OR of the following flags:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_CURSOR_DOCUR</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+If <b class="var">enable</b> is zero, hide the cursor. Otherwise, display it.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_CURSOR_DOPOS</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Set the cursor's position on the display to <b class="var">pos</b>, the same as <span class="define">WSDISPLAYIO_SCURPOS</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_CURSOR_DOHOT</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Set the &#8220;hot spot&#8221; of the cursor, as defined above, to <b class="var">hot</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_CURSOR_DOCMAP</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Set some or all of the cursor color map based on <b class="var">cmap</b>. The <b class="var">index</b> and <b class="var">count</b> elements of <b class="var">cmap</b> indicate which color map entries to set, and the entries themselves come from <b class="var">cmap</b>.<b class="var">red</b>, <b class="var">cmap</b>.<b class="var">green</b>, and <b class="var">cmap</b>.<b class="var">blue</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_CURSOR_DOSHAPE</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Set the cursor shape from <b class="var">size</b>, <b class="var">image</b>, <b class="var">mask</b>. See above for their meanings.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_CURSOR_DOALL</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Do all of the above.</dd>
+</dl>
+<div class="spacer">
+</div>
+This call is not available on displays without a hardware cursor.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_GMODE</span> (<code class="lit">u_int</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Get the current mode of the display. Possible results include:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_MODE_EMUL</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The display is in emulating (text) mode.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_MODE_MAPPED</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The display is in mapped (graphics) mode.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_MODE_DUMBFB</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The display is in mapped (frame buffer) mode.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_SMODE</span> (<code class="lit">u_int</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Set the current mode of the display. For possible arguments, see <span class="define">WSDISPLAYIO_GMODE</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_LDFONT</span> (<code class="lit">struct wsdisplay_font</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Loads a font specified by the wsdisplay_font structure.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct wsdisplay_font { 
+        char name[WSFONT_NAME_SIZE]; 
+        int index; 
+        int firstchar, numchars; 
+        int encoding; 
+        u_int fontwidth, fontheight, stride; 
+        int bitorder, byteorder; 
+        void *cookie; 
+        void *data; 
+};</pre>
+<div class="spacer">
+</div>
+The <b class="var">name</b> field contains a human readable string used to identify the font. The <b class="var">index</b> field may be used to select a driver-specific font resource (for non-raster frame buffers). A value of -1 will pick the first available slot. The <b class="var">firstchar</b> field contains the index of the first character in the font, starting at zero. The <b class="var">numchars</b> field contains the number of characters in the font. The <b class="var">encoding</b> field describes the font character encoding, using one of the following values:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_FONTENC_ISO</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+ISO-8859-1 encoding (also known as Latin-1). This is the preferred encoding for raster frame buffers.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_FONTENC_IBM</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+IBM code page number 437. This is the preferred encoding for text-mode displays.</dd>
+</dl>
+<div class="spacer">
+</div>
+The <b class="var">fontwidth</b> and <b class="var">fontheight</b> fields specify the dimensions of a character cell. The <b class="var">stride</b> field specify the number of bytes of font data per character cell line (usually <b class="var">fontwidth</b> rounded up to a byte boundary). The <b class="var">bitorder</b> and <b class="var">byteorder</b> fields specify the bit- and byte-ordering of the font data, using either one of the following values:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_FONTORDER_L2R</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Leftmost data contained in the most significant bits (left-to-right ordering). This is the most commonly encountered case.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_FONTORDER_R2L</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Leftmost data contained in the least significant bits (right-to-left ordering).</dd>
+</dl>
+<div class="spacer">
+</div>
+The <b class="var">data</b> field contains the font character data to be loaded. The <b class="var">cookie</b> field is reserved for internal purposes.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_LSFONT</span> (<code class="lit">struct wsdisplay_font</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Retrieves the data for a loaded font into the wsdisplay_font structure. The <b class="var">index</b> field is set to the font resource to query. For the argument structure, see <span class="define">WSDISPLAYIO_LDFONT</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+WSDISPLAYIO_USEFONT (<code class="lit">struct wsdisplay_font</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Selects the font specified in the <b class="var">name</b> field. An empty <b class="var">name</b> selects the next available font. For the argument structure, see <span class="define">WSDISPLAYIO_LDFONT</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_GBURNER</span> (<code class="lit">struct wsdisplay_burner</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Retrieves the state of the screen burner. The returned structure is as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct wsdisplay_burner { 
+        u_int   off; 
+        u_int   on; 
+        u_int   flags; 
+};</pre>
+<div class="spacer">
+</div>
+The <b class="var">off</b> member contains the inactivity time before the screen is turned off, in milliseconds. The <b class="var">on</b> member contains the time before the screen is turned back on, in milliseconds. The <b class="var">flags</b> member contains a logical OR of the following flags:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_BURN_VBLANK</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+When turning the display off, disable the vertical synchronization signal.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_BURN_KBD</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Monitor keyboard activity.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_BURN_MOUSE</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Monitor mouse activity (this only works for mice using the <a class="link-man" href="../html4/wsmouse.html">wsmouse(4)</a> driver).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_BURN_OUTPUT</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Monitor display output activity.</dd>
+</dl>
+<div class="spacer">
+</div>
+If none of the activity source flags are set, the screen burner is disabled.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_SBURNER</span> (<code class="lit">struct wsdisplay_burner</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Sets the state of the screen burner. The argument structure, and its semantics, are the same as for <span class="define">WSDISPLAYIO_GBURNER</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_ADDSCREEN</span> (<code class="lit">struct wsdisplay_addscreendata</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Creates a new screen.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct wsdisplay_addscreendata { 
+        int idx; /* screen index */ 
+        char screentype[WSSCREEN_NAME_SIZE]; 
+        char emul[WSEMUL_NAME_SIZE]; 
+};</pre>
+<div class="spacer">
+</div>
+The <b class="var">idx</b> field is the index of the screen to be configured. The <b class="var">screentype</b> field is matched against builtin screen types, which will be driver-dependent. The <b class="var">emul</b> field indicates the terminal emulation type. Available terminal emulations are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+sun</dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Sun terminal emulation. This is the default on sparc and sparc64 architectures.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+vt100</dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Dec VT100 terminal emulation, with some VT220 features. This is the default on all other architectures.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+dumb</dt>
+<dd class="list-tag" style="margin-left: 5.00ex;">
+Dumb terminal.</dd>
+</dl>
+<div class="spacer">
+</div>
+An empty string will select the default emulation.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_DELSCREEN</span> (<code class="lit">struct wsdisplay_delscreendata</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Deletes an existing screen.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct wsdisplay_delscreendata { 
+        int idx; /* screen index */ 
+        int flags; 
+};</pre>
+<div class="spacer">
+</div>
+The <b class="var">idx</b> field indicates the index of the screen to be deleted. The <b class="var">flags</b> field is a logical OR of zero or more of the following:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_DELSCR_FORCE</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Force deletion of screen even if in use by a userspace program.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAY_DELSCR_QUIET</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Don't report deletion to console.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_GETSCREEN</span> (<code class="lit">struct wsdisplay_addscreendata</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Returns information on the screen indicated by <b class="var">idx</b> or the current screen if <b class="var">idx</b> is -1. The screen and emulation types are returned in the same structure (see <span class="define">WSDISPLAYIO_GETPARAM</span>).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_SETSCREEN</span> (<code class="lit">u_int</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Switch to the screen with the given index.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_WSMOUSED</span> (<code class="lit">struct wscons_event</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+This call is used by the <a class="link-man" href="../html8/wsmoused.html">wsmoused(8)</a> daemon to inject mouse events gathered from serial mice, as well as various control events.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_GETPARAM</span> (<code class="lit">struct wsdisplay_param</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Retrieves the state of a display parameter. This call needs the following structure set up beforehand:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct wsdisplay_param { 
+        int param; 
+        int min, max, curval; 
+        int reserved[4]; 
+};</pre>
+<div class="spacer">
+</div>
+The <b class="var">param</b> member should be set with the parameter to be returned. The following parameters are supported:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_PARAM_BACKLIGHT</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The intensity of the display backlight (usually on laptop computers).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_PARAM_BRIGHTNESS</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The brightness level.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_PARAM_CONTRAST</span></dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+The contrast level.</dd>
+</dl>
+<div class="spacer">
+</div>
+On return, <b class="var">min</b> and <b class="var">max</b> specify the allowed range for the value, while <b class="var">curval</b> specifies the current setting. Not all parameters are supported by all display drivers.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_SETPARAM</span> (<code class="lit">struct wsdisplay_param</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Sets a display parameter. The argument structure is the same as for <span class="define">WSDISPLAYIO_GETPARAM</span>, with the <b class="var">param</b> and <b class="var">curval</b> members filled in. Not all parameters are supported by all display drivers.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">WSDISPLAYIO_LINEBYTES</span> (<code class="lit">u_int</code>)</dt>
+<dd class="list-tag" style="margin-left: 4.00ex;">
+Get the number of bytes per row when the device is in <span class="define">WSDISPLAYIO_MODE_DUMBFB</span> mode.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/dev/tty[C-F]*</i></dt>
+<dd class="list-tag" style="margin-left: 34.00ex;">
+terminal devices (per screen)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/dev/tty[C-F]cfg</i></dt>
+<dd class="list-tag" style="margin-left: 34.00ex;">
+control device (per screen)</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/usr/include/dev/wscons/wsconsio.h</i></dt>
+<dd class="list-tag" style="margin-left: 34.00ex;">
+</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html4/intro.html">intro(4)</a>, <a class="link-man" href="../html4/tty.html">tty(4)</a>, <a class="link-man" href="../html4/wscons.html">wscons(4)</a>, <a class="link-man" href="../html4/wsmux.html">wsmux(4)</a>, <a class="link-man" href="../html8/wsconscfg.html">wsconscfg(8)</a>, <a class="link-man" href="../html8/wsconsctl.html">wsconsctl(8)</a>, <a class="link-man" href="../html8/wsfontload.html">wsfontload(8)</a></div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> The <b class="name">wsdisplay</b> code currently limits the number of screens on one display to 8.<div class="spacer">
+</div>
+The terms &#8220;wscons&#8221; and &#8220;wsdisplay&#8221; are not cleanly distinguished in the code and in manual pages.</div>
+</div>
+</body>
+</html>
+

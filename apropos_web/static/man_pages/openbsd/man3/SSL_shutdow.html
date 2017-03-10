@@ -1,0 +1,67 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+SSL_SHUTDOWN(3)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">SSL_shutdown</b> &#8212; <span class="desc">shut down a TLS/SSL connection</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">openssl/ssl.h</a>&gt;</b><div class="spacer">
+</div>
+<i class="ftype">int</i><br/>
+<b class="fname">SSL_shutdown</b>(<i class="farg" style="white-space:nowrap;">SSL *ssl</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="fname">SSL_shutdown</b>() shuts down an active TLS/SSL connection. It sends the &#8220;close notify&#8221; shutdown alert to the peer.</div>
+<div class="section">
+<h1 id="x4e4f544553">NOTES</h1> <b class="fname">SSL_shutdown</b>() tries to send the &#8220;close notify&#8221; shutdown alert to the peer. Whether the operation succeeds or not, the <span class="define">SSL_SENT_SHUTDOWN</span> flag is set and a currently open session is considered closed and good and will be kept in the session cache for further reuse.<div class="spacer">
+</div>
+The shutdown procedure consists of 2 steps: the sending of the &#8220;close notify&#8221; shutdown alert and the reception of the peer's &#8220;close notify&#8221; shutdown alert. According to the TLS standard, it is acceptable for an application to only send its shutdown alert and then close the underlying connection without waiting for the peer's response (this way resources can be saved, as the process can already terminate or serve another connection). When the underlying connection shall be used for more communications, the complete shutdown procedure (bidirectional &#8220;close notify&#8221; alerts) must be performed, so that the peers stay synchronized.<div class="spacer">
+</div>
+<b class="fname">SSL_shutdown</b>() supports both uni- and bidirectional shutdown by its 2 step behavior.<div class="spacer">
+</div>
+When the application is the first party to send the &#8220;close notify&#8221; alert, <b class="fname">SSL_shutdown</b>() will only send the alert and then set the <span class="define">SSL_SENT_SHUTDOWN</span> flag (so that the session is considered good and will be kept in cache). <b class="fname">SSL_shutdown</b>() will then return 0. If a unidirectional shutdown is enough (the underlying connection shall be closed anyway), this first call to <b class="fname">SSL_shutdown</b>() is sufficient. In order to complete the bidirectional shutdown handshake, <b class="fname">SSL_shutdown</b>() must be called again. The second call will make <b class="fname">SSL_shutdown</b>() wait for the peer's &#8220;close notify&#8221; shutdown alert. On success, the second call to <b class="fname">SSL_shutdown</b>() will return 1.<div class="spacer">
+</div>
+If the peer already sent the &#8220;close notify&#8221; alert and it was already processed implicitly inside another function (<a class="link-man" href="../html3/SSL_read.html">SSL_read(3)</a>), the <span class="define">SSL_RECEIVED_SHUTDOWN</span> flag is set. <b class="fname">SSL_shutdown</b>() will send the &#8220;close notify&#8221; alert, set the <span class="define">SSL_SENT_SHUTDOWN</span> flag and will immediately return with 1. Whether <span class="define">SSL_RECEIVED_SHUTDOWN</span> is already set can be checked using the <b class="fname">SSL_get_shutdown</b>() (see also the <a class="link-man" href="../html3/SSL_set_shutdown.html">SSL_set_shutdown(3)</a> call).<div class="spacer">
+</div>
+It is therefore recommended to check the return value of <b class="fname">SSL_shutdown</b>() and call <b class="fname">SSL_shutdown</b>() again, if the bidirectional shutdown is not yet complete (return value of the first call is 0). As the shutdown is not specially handled in the SSLv2 protocol, <b class="fname">SSL_shutdown</b>() will succeed on the first call.<div class="spacer">
+</div>
+The behaviour of <b class="fname">SSL_shutdown</b>() additionally depends on the underlying <span class="type">BIO</span>.<div class="spacer">
+</div>
+If the underlying <span class="type">BIO</span> is <span class="emph">blocking</span>, <b class="fname">SSL_shutdown</b>() will only return once the handshake step has been finished or an error occurred.<div class="spacer">
+</div>
+If the underlying <span class="type">BIO</span> is <span class="emph">non-blocking</span>, <b class="fname">SSL_shutdown</b>() will also return when the underlying <span class="type">BIO</span> could not satisfy the needs of <b class="fname">SSL_shutdown</b>() to continue the handshake. In this case a call to <a class="link-man" href="../html3/SSL_get_error.html">SSL_get_error(3)</a> with the return value of <b class="fname">SSL_shutdown</b>() will yield <span class="define">SSL_ERROR_WANT_READ</span> or <span class="define">SSL_ERROR_WANT_WRITE</span>. The calling process then must repeat the call after taking appropriate action to satisfy the needs of <b class="fname">SSL_shutdown</b>(). The action depends on the underlying <span class="type">BIO</span>. When using a non-blocking socket, nothing is to be done, but <a class="link-man" href="../html2/select.html">select(2)</a> can be used to check for the required condition. When using a buffering <span class="type">BIO</span>, like a <span class="type">BIO</span> pair, data must be written into or retrieved out of the <span class="type">BIO</span> before being able to continue.<div class="spacer">
+</div>
+<b class="fname">SSL_shutdown</b>() can be modified to only set the connection to &#8220;shutdown&#8221; state but not actually send the &#8220;close notify&#8221; alert messages; see <a class="link-man" href="../html3/SSL_CTX_set_quiet_shutdown.html">SSL_CTX_set_quiet_shutdown(3)</a>. When &#8220;quiet shutdown&#8221; is enabled, <b class="fname">SSL_shutdown</b>() will always succeed and return 1.</div>
+<div class="section">
+<h1 id="x52455455524e2056414c554553">RETURN VALUES</h1> The following return values can occur:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+0</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The shutdown is not yet finished. Call <b class="fname">SSL_shutdown</b>() for a second time, if a bidirectional shutdown shall be performed. The output of <a class="link-man" href="../html3/SSL_get_error.html">SSL_get_error(3)</a> may be misleading, as an erroneous <span class="define">SSL_ERROR_SYSCALL</span> may be flagged even though no error occurred.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+1</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The shutdown was successfully completed. The &#8220;close notify&#8221; alert was sent and the peer's &#8220;close notify&#8221; alert was received.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+&#8722;1</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The shutdown was not successful because a fatal error occurred either at the protocol level or a connection failure occurred. It can also occur if action is need to continue the operation for non-blocking <span class="type">BIO</span>s. Call <a class="link-man" href="../html3/SSL_get_error.html">SSL_get_error(3)</a> with the return value <i class="farg">ret</i> to find out the reason.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html3/bio.html">bio(3)</a>, <a class="link-man" href="../html3/ssl.html">ssl(3)</a>, <a class="link-man" href="../html3/SSL_accept.html">SSL_accept(3)</a>, <a class="link-man" href="../html3/SSL_clear.html">SSL_clear(3)</a>, <a class="link-man" href="../html3/SSL_connect.html">SSL_connect(3)</a>, <a class="link-man" href="../html3/SSL_CTX_set_quiet_shutdown.html">SSL_CTX_set_quiet_shutdown(3)</a>, <a class="link-man" href="../html3/SSL_free.html">SSL_free(3)</a>, <a class="link-man" href="../html3/SSL_get_error.html">SSL_get_error(3)</a>, <a class="link-man" href="../html3/SSL_set_shutdown.html">SSL_set_shutdown(3)</a></div>
+</div>
+</body>
+</html>
+

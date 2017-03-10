@@ -1,0 +1,220 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+RELEASE(8)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">release</b> &#8212; <span class="desc">building an OpenBSD release</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> There are several steps necessary to build a system release. They are:<div class="spacer">
+</div>
+<ol style="margin-top: 0.00em;margin-bottom: 0.00em;margin-left: 6.00ex;" class="list list-enum">
+<li class="list-enum" style="margin-top: 0.00em;">
+Update sources.</li>
+<li class="list-enum" style="margin-top: 0.00em;">
+Build and install a new kernel.</li>
+<li class="list-enum" style="margin-top: 0.00em;">
+Build a new system.</li>
+<li class="list-enum" style="margin-top: 0.00em;">
+Make and validate the system release.</li>
+<li class="list-enum" style="margin-top: 0.00em;">
+Build and install xenocara.</li>
+<li class="list-enum" style="margin-top: 0.00em;">
+Make and validate the xenocara release.</li>
+<li class="list-enum" style="margin-top: 0.00em;">
+Make the third party packages.</li>
+</ol>
+<div class="spacer">
+</div>
+The following sections describe each of the required steps in detail.<div class="spacer">
+</div>
+Commands to be run as a user with write permissions on the source and ports trees (<i class="file">/usr/src</i> and <i class="file">/usr/ports</i> respectively) are preceded by a dollar sign (&#8216;$&#8217;). Commands that must be run as the superuser are preceded by a hash mark (&#8216;#&#8217;).<div class="subsection">
+<h2 id="x312e2055706461746520736f7572636573">1. Update sources</h2> A <b class="name">release</b> should always start from a known set of <span class="emph">coherent</span> sources. The easiest way to ensure that the sources are complete and coherent is to check them out using the CVS tag the <span class="unix">OpenBSD</span> developers add to the repository prior to making a release. There are two tags, one which identifies the release as it exists on the CD-ROM and another which identifies the <span class="emph">stable</span> branch. The <span class="emph">stable</span> branch, starting with <span class="unix">OpenBSD&#160;2.7</span>, contains the patches described in <a class="link-ext" href="http://www.openbsd.org/errata.html">http://www.openbsd.org/errata.html</a>. The tags are of the form:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">OPENBSD_x_y_BASE</b></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+This tag marks the source as it exists on the release CD-ROM where <i class="arg">x</i> is the major release number and <i class="arg">y</i> is the minor release number.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">OPENBSD_x_y</b></dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+This tag is a moving target. It marks the sources that belong to the stable branch. This branch <span class="emph">only</span> contains errata, no new features.</dd>
+</dl>
+<div class="spacer">
+</div>
+To update your sources to the versions identified by one of the above tags use the commands:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+$ cd /usr/src &amp;&amp; cvs up -r TAG -Pd 
+$ cd XSRCDIR &amp;&amp; cvs up -r TAG -Pd 
+$ cd PORTSPATH &amp;&amp; cvs up -r TAG -Pd</pre>
+<div class="spacer">
+</div>
+Replace <b class="var">XSRCDIR</b> with the path to your X Window System sources. Replace <b class="var">PORTSPATH</b> with the path to your ports tree sources, typically <i class="file">/usr/ports</i>. The above commands assume an existing source tree.<div class="spacer">
+</div>
+See <a class="link-ext" href="http://www.openbsd.org/anoncvs.html">http://www.openbsd.org/anoncvs.html</a> for instructions on fetching the sources for the first time.<div class="spacer">
+</div>
+<span class="symb">Warning</span>: CVS tags are &#8216;sticky&#8217;. See <a class="link-man" href="../html1/cvs.html">cvs(1)</a> for more information.</div>
+<div class="subsection">
+<h2 id="x322e204275696c6420616e6420696e7374616c6c2061206e6577206b65726e656c">2. Build and install a new kernel</h2> For safety, you should always build and install a new kernel before building the programs that will use the kernel. This ensures that any new system calls, for example, will be present when needed. To build a kernel the steps are:<div class="spacer">
+</div>
+Change the current working directory. <b class="var">${ARCH}</b> is the architecture of your machine, e.g. <code class="lit">i386</code>.<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">$ cd /usr/src/sys/arch/${ARCH}/conf</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+Edit the kernel configuration file. <b class="var">${NAME}</b> is your kernel configuration file. You should <span class="emph">not</span> edit <code class="lit">GENERIC</code>; create your own kernel configuration if you need to make modifications. If using <code class="lit">GENERIC</code> you can skip this step. And yes, you may use <a class="link-man" href="../html1/vi.html">vi(1)</a>, <a class="link-man" href="../html1/mg.html">mg(1)</a>, or any other editor you choose.<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">$ vi ${NAME}</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+Build the kernel compilation directory and compile the kernel:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+$ config ${NAME} 
+$ cd ../compile/${NAME} 
+$ make clean &amp;&amp; make</pre>
+<div class="spacer">
+</div>
+(In this instance <code class="lit">make clean</code> is your friend.)<div class="spacer">
+</div>
+Replace the old kernel and reboot. The current kernel is copied to <i class="file">/obsd</i> and the new kernel to <i class="file">/bsd</i>.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+$ su 
+# make install 
+# shutdown -r now</pre>
+<div class="spacer">
+</div>
+If the system does not come up you can boot using <i class="file">/obsd</i>.</div>
+<div class="subsection">
+<h2 id="x332e204275696c642061206e65772073797374656d">3. Build a new system</h2> Now that you are running your new kernel you can build a new system. It's safer (but slower) to remove your object directories and re-create them before the build. The steps are:<div class="spacer">
+</div>
+Move all your existing object files out of the way and then remove them in the background:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+$ cd /usr/obj &amp;&amp; mkdir -p .old &amp;&amp; doas mv * .old &amp;&amp; \ 
+	doas rm -rf .old &amp;</pre>
+<div class="spacer">
+</div>
+Re-build your obj directories:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">$ cd /usr/src &amp;&amp; make obj</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+Create directories that might be missing:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">$ cd /usr/src/etc &amp;&amp; doas env DESTDIR=/ make distrib-dirs</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+Begin the build:<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<code class="lit">$ cd /usr/src &amp;&amp; make SUDO=doas build</code></div>
+</blockquote>
+<div class="spacer">
+</div>
+Update <i class="file">/etc</i>, <i class="file">/var</i>, and <i class="file">/dev/MAKEDEV</i>, either by hand or using <a class="link-man" href="../html8/sysmerge.html">sysmerge(8)</a>.<div class="spacer">
+</div>
+At this point your system is up-to-date and running the code that you are going to make into a release.</div>
+<div class="subsection">
+<h2 id="x342e204d616b6520616e642076616c6964617465207468652073797374656d2072656c65617365">4. Make and validate the system release</h2> The system release consists of at least one generic kernel, some installation media, the release &#8216;tarballs&#8217;, installation instructions, and checksum files.<div class="spacer">
+</div>
+The release process requires two work areas. They are:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">DESTDIR</b></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+This is the name of a directory which will be the root of a complete <span class="unix">OpenBSD</span> installation, thus it must be on a disk partition large enough to store the entire operating system (less the X Window System and any third party &#8216;packages&#8217;). The directory can be removed once the release is created. In any case the release process ensures the directory is empty before starting.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<b class="var">RELEASEDIR</b></dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+This is the name of a directory where the release output files are stored. The following process will create the directory if necessary.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+ </dt>
+<dd class="list-tag" style="margin-left: 11.00ex;">
+<span class="symb">Warning</span>: <b class="var">DESTDIR</b> and <b class="var">RELEASEDIR</b> must not refer to any directory with <i class="file">/mnt</i> in its path, as <i class="file">/mnt</i> is used in the release generation process. Additionally the first <a class="link-man" href="../html4/vnd.html">vnd(4)</a> device, vnd0, is also used and must not be configured.</dd>
+</dl>
+<div class="spacer">
+</div>
+The release process is:<div class="spacer">
+</div>
+Ensure <b class="var">${DESTDIR}</b> exists as an empty directory and <b class="var">${RELEASEDIR}</b> exists. <b class="var">${RELEASEDIR}</b> need not be empty. You must be root to create a release:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+$ su 
+# export DESTDIR=your-destdir; export RELEASEDIR=your-releasedir 
+# test -d ${DESTDIR} &amp;&amp; mv ${DESTDIR} ${DESTDIR}- &amp;&amp; \ 
+	rm -rf ${DESTDIR}- &amp; 
+# mkdir -p ${DESTDIR} ${RELEASEDIR}</pre>
+<div class="spacer">
+</div>
+Make the release and check that the contents of <b class="var">${DESTDIR}</b> pretty much match the contents of the release &#8216;tarballs&#8217;:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# cd /usr/src/etc &amp;&amp; make release 
+# cd /usr/src/distrib/sets &amp;&amp; sh checkflist 
+# unset RELEASEDIR DESTDIR</pre>
+<div class="spacer">
+</div>
+At this point you have most of an <span class="unix">OpenBSD</span> release. The only thing missing is the X Window System (which is covered in the next section).</div>
+<div class="subsection">
+<h2 id="x352e204275696c6420616e6420696e7374616c6c2078656e6f63617261">5. Build and install xenocara</h2> <b class="var">Xenocara</b> is based on the X.Org modular build system. Xenocara sources are supposed to be in <b class="var">XSRCDIR</b> which defaults to <i class="file">/usr/xenocara</i>. This variable should be set in <a class="link-man" href="../html5/mk.conf.html">mk.conf(5)</a> if a non-default value is used. The <i class="file">/usr/src</i> tree is also needed while building xenocara. The following steps will build and install everything for the first time.<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+$ su 
+# cd XSRCDIR 
+# make bootstrap 
+# make obj 
+# make build</pre>
+<div class="spacer">
+</div>
+The X Window System is created and installed in <i class="file">/usr/X11R6</i>.</div>
+<div class="subsection">
+<h2 id="x362e204d616b6520616e642076616c6964617465207468652078656e6f636172612072656c65617365">6. Make and validate the xenocara release</h2> <b class="var">xenocara</b> uses <b class="var">DESTDIR</b> and <b class="var">RELEASEDIR</b> as described above. While they may be set to the values used to build the rest of the system, be aware that the existing contents of <b class="var">DESTDIR</b> will be removed as part of the xenocara build (this is necessary for release checklist processing).<div class="spacer">
+</div>
+The steps to build the release are (assuming you are still root, and still in <b class="var">XSRCDIR</b>):<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+# export DESTDIR=your-destdir; export RELEASEDIR=your-releasedir 
+# test -d ${DESTDIR} &amp;&amp; mv ${DESTDIR} ${DESTDIR}- &amp;&amp; \ 
+	rm -rf ${DESTDIR}- &amp; 
+# mkdir -p ${DESTDIR} ${RELEASEDIR} 
+# make release 
+# unset RELEASEDIR DESTDIR</pre>
+<div class="spacer">
+</div>
+At this point you have both <span class="unix">OpenBSD</span> system and X Window System &#8216;tarballs&#8217; in your release directory.</div>
+<div class="subsection">
+<h2 id="x372e204d616b6520746865207468697264207061727479207061636b61676573">7. Make the third party packages</h2> The &#8216;ports&#8217; subsystem of contributed applications is capable of producing &#8216;packages&#8217; for installation, either individually or in bulk. This is described in <a class="link-man" href="../html7/ports.html">ports(7)</a>.</div>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html1/cvs.html">cvs(1)</a>, <a class="link-man" href="../html1/doas.html">doas(1)</a>, <a class="link-man" href="../html1/pkg_add.html">pkg_add(1)</a>, <a class="link-man" href="../html7/ports.html">ports(7)</a>, <a class="link-man" href="../html8/sysmerge.html">sysmerge(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> This document first appeared in <span class="unix">OpenBSD&#160;2.8</span>.</div>
+</div>
+</body>
+</html>
+

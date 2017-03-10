@@ -1,0 +1,355 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+BRIDGE(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">bridge</b> &#8212; <span class="desc">Ethernet bridge interface</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="config">pseudo-device bridge</b><div class="spacer">
+</div>
+<br/>
+<b class="includes">#include &lt;<a class="link-includes">sys/types.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">net/if.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">netinet/in.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">netinet/if_ether.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">net/if_bridge.h</a>&gt;</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="name">bridge</b> device creates a logical link between two or more Ethernet interfaces or encapsulation interfaces (see <a class="link-man" href="../html4/gif.html">gif(4)</a>). This link between the interfaces selectively forwards frames from each interface on the bridge to every other interface on the bridge. A bridge can serve several services, including isolation of traffic between sets of machines so that traffic local to one set of machines is not available on the wire of another set of machines, and it can act as a transparent filter for <a class="link-man" href="../html4/ip.html">ip(4)</a> datagrams.<div class="spacer">
+</div>
+A <b class="name">bridge</b> interface can be created at runtime using the <b class="cmd">ifconfig bridge</b><i class="arg">N</i> <b class="cmd">create</b> command or by setting up a <a class="link-man" href="../html5/hostname.if.html">hostname.if(5)</a> configuration file for <a class="link-man" href="../html8/netstart.html">netstart(8)</a>.<div class="spacer">
+</div>
+The bridges provided by this interface are learning bridges with filtering; see <a class="link-man" href="../html4/pf.html">pf(4)</a>. In general a bridge works like a hub, forwarding traffic from one interface to another. It differs from a hub in that it will &quot;learn&quot; which machines are on each of its attached segments by actively listening to incoming traffic and examining the headers of each frame. A table is built containing the MAC address and segment to which the MAC address is attached. This allows a bridge to be more selective about what it forwards, which can be used to reduce traffic on a set of segments and also to provide an IP firewall without changing the topology of the network.<div class="spacer">
+</div>
+The algorithm works as follows by default, but can be modified via <a class="link-man" href="../html2/ioctl.html">ioctl(2)</a> or the utility <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a>. When a frame comes in, the origin segment and the source address are recorded. If the bridge has no knowledge about where the destination is to be found, the bridge will forward the frame to all attached segments. If the destination is known to be on a different segment from its origin, the bridge will forward the packet only to the destination segment. If the destination is on the same segment as the origin segment, the bridge will drop the packet because the receiver has already had a chance to see the frame. Before forwarding a frame, the bridge will check to see if the packet contains an <a class="link-man" href="../html4/ip.html">ip(4)</a> or <a class="link-man" href="../html4/ip6.html">ip6(4)</a> datagram; if so, the datagram is run through the pf interface so that it can be filtered. See the <i class="link-sec"><a class="link-sec" href="#x4e4f544553">NOTES</a></i> section for details.</div>
+<div class="section">
+<h1 id="x5350414e4e494e472054524545">SPANNING TREE</h1> The bridge has support for 802.1D-2004 Spanning Tree Protocol (STP), which can be used to detect and remove loops in a network topology. Using the <b class="flag">stp</b> or <b class="flag">-stp</b> commands to <b class="name">bridge</b>, STP can be enabled or disabled on each port.<div class="spacer">
+</div>
+The bridge will use the Rapid Spanning Tree Protocol (RSTP) by default to allow rapid transitions to the forwarding state. The <b class="flag">proto</b> command to <b class="name">bridge</b> can be used to force operation in the common Spanning Tree Protocol without rapid state transitions. Note that RSTP will be compatible with remote bridges running common STP.<div class="spacer">
+</div>
+STP will not work on <a class="link-man" href="../html4/gif.html">gif(4)</a> members because they lack a hardware MAC address.</div>
+<div class="section">
+<h1 id="x5350414e20504f525453">SPAN PORTS</h1> The bridge can have interfaces added to it as span ports. Span ports transmit a copy of every frame received by the bridge. This is most useful for snooping a bridged network passively on another host connected to one of the span ports of the bridge. Span ports cannot be bridge members; instead, the <b class="flag">addspan</b> and <b class="flag">delspan</b> commands are used to add and delete span ports to and from a bridge.</div>
+<div class="section">
+<h1 id="x494f43544c53">IOCTLS</h1> A <b class="name">bridge</b> interface responds to all of the <a class="link-man" href="../html2/ioctl.html">ioctl(2)</a> calls specific to other interfaces listed in <a class="link-man" href="../html4/netintro.html">netintro(4)</a>. The following <a class="link-man" href="../html2/ioctl.html">ioctl(2)</a> calls are specific to <b class="name">bridge</b> devices. They are defined in <b class="includes">&lt;<a class="link-includes">sys/sockio.h</a>&gt;</b>.<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGIFS</span> <i class="farg">struct ifbifconf *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Retrieve member interface list from a bridge. This request takes an <span class="type">ifbifconf</span> structure (see below) as a value-result parameter. The <b class="var">ifbic_len</b> field should be initially set to the size of the buffer pointed to by <b class="var">ifbic_buf</b>. On return it will contain the length, in bytes, of the configuration list.<div class="spacer">
+</div>
+Alternatively, if the <b class="var">ifbic_len</b> passed in is set to 0, <span class="define">SIOCBRDGIFS</span> will set <b class="var">ifbic_len</b> to the size that <b class="var">ifbic_buf</b> needs to be to fit the entire configuration list, and will not fill in the other parameters. This is useful for determining the exact size that <b class="var">ifbic_buf</b> needs to be in advance.<div class="spacer">
+</div>
+The argument structure is defined as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct ifbreq { 
+	char	  ifbr_name[IFNAMSIZ];	 /* bridge ifs name */ 
+	char	  ifbr_ifsname[IFNAMSIZ];/* member ifs name */ 
+	u_int32_t ifbr_ifsflags;  /* member ifs flags */ 
+	u_int8_t  ifbr_state;	  /* member stp state */ 
+	u_int8_t  ifbr_priority;  /* member stp priority */ 
+	u_int8_t  ifbr_portno;	  /* member port number */ 
+	u_int32_t ifbr_path_cost; /* member stp path cost */ 
+}; 
+ 
+/* ifbr_ifsflags flags about interfaces */ 
+#define	IFBIF_LEARNING	 0x0001 /* ifs can learn */ 
+#define	IFBIF_DISCOVER	 0x0002 /* sends packets w/unknown dst */ 
+#define	IFBIF_BLOCKNONIP 0x0004 /* ifs blocks non-IP/ARP in/out */ 
+#define	IFBIF_STP	 0x0008 /* participate in spanning tree*/ 
+#define	IFBIF_SPAN	 0x0100 /* ifs is a span port (ro) */ 
+#define	IFBIF_RO_MASK	 0xff00 /* read only bits */ 
+ 
+struct ifbifconf { 
+	char	  ifbic_name[IFNAMSIZ];	/* bridge ifs name */ 
+	u_int32_t ifbic_len;		/* buffer size */ 
+	union { 
+		caddr_t	ifbicu_buf; 
+		struct	ifbreq *ifbicu_req; 
+	} ifbic_ifbicu; 
+#define	ifbic_buf	ifbic_ifbicu.ifbicu_buf 
+#define	ifbic_req	ifbic_ifbicu.ifbicu_req 
+};</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGADD</span> <i class="farg">struct ifbreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Add the interface named in <b class="var">ifbr_ifsname</b> to the bridge named in <b class="var">ifbr_name</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGDEL</span> <i class="farg">struct ifbreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Delete the interface named in <b class="var">ifbr_ifsname</b> from the bridge named in <b class="var">ifbr_name</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGADDS</span> <i class="farg">struct ifbreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Add the interface named in <b class="var">ifbr_ifsname</b> as a span port to the bridge named in <b class="var">ifbr_name</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGDELS</span> <i class="farg">struct ifbreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Delete the interface named in <b class="var">ifbr_ifsname</b> from the list of span ports of the bridge named in <b class="var">ifbr_name</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGSIFFLGS</span> <i class="farg">struct ifbreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the bridge member interface flags for the interface named in <b class="var">ifbr_ifsname</b> attached to the bridge <b class="var">ifbr_name</b>. If the flag <span class="define">IFBIF_LEARNING</span> is set on an interface, source addresses from frames received on the interface are recorded in the address cache. If the flag <span class="define">IFBIF_DISCOVER</span> is set, the interface will receive packets destined for unknown destinations, otherwise a frame that has a destination not found in the address cache is not forwarded to this interface. The default for newly added interfaces has both flags set. If the flag <span class="define">IFBIF_BLOCKNONIP</span> is set, only <a class="link-man" href="../html4/ip.html">ip(4)</a>, <a class="link-man" href="../html4/ip6.html">ip6(4)</a>, <a class="link-man" href="../html4/arp.html">arp(4)</a>, and Reverse ARP packets will be bridged from and to the interface.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGGIFFLGS</span> <i class="farg">struct ifbreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Retrieve the bridge member interface flags for the interface named in <b class="var">ifbr_ifsname</b> attached to the bridge <b class="var">ifbr_name</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGRTS</span> <i class="farg">struct ifbaconf *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Retrieve the address cache of the bridge named in <b class="var">ifbac_name</b>. This request takes an <span class="type">ifbaconf</span> structure (see below) as a value-result parameter. The <b class="var">ifbac_len</b> field should be initially set to the size of the buffer pointed to by <b class="var">ifbac_buf</b>. On return, it will contain the length, in bytes, of the configuration list.<div class="spacer">
+</div>
+Alternatively, if the <b class="var">ifbac_len</b> passed in is set to 0, <span class="define">SIOCBRDGRTS</span> will set it to the size that <b class="var">ifbac_buf</b> needs to be to fit the entire configuration list, and will not fill in the other parameters. As with <span class="define">SIOCBRDGIFS</span>, this is useful for determining the exact size that <b class="var">ifbac_buf</b> needs to be in advance.<div class="spacer">
+</div>
+The argument structure is defined as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct ifbareq { 
+	char	 ifba_name[IFNAMSIZ];	/* bridge name */ 
+	char	 ifba_ifsname[IFNAMSIZ];/* destination ifs */ 
+	u_int8_t ifba_age;		/* address age */ 
+	u_int8_t ifba_flags;		/* address flags */ 
+	struct ether_addr ifba_dst;	/* destination addr */ 
+}; 
+ 
+#define	IFBAF_TYPEMASK	0x03		/* address type mask */ 
+#define	IFBAF_DYNAMIC	0x00		/* dynamically learned */ 
+#define	IFBAF_STATIC	0x01		/* static address */ 
+ 
+struct ifbaconf { 
+	char	  ifbac_name[IFNAMSIZ];	/* bridge ifs name */ 
+	u_int32_t ifbac_len;		/* buffer size */ 
+	union { 
+		caddr_t	ifbacu_buf;	/* buffer */ 
+		struct ifbareq *ifbacu_req; /* request pointer */ 
+	} ifbac_ifbacu; 
+#define	ifbac_buf	ifbac_ifbacu.ifbacu_buf 
+#define	ifbac_req	ifbac_ifbacu.ifbacu_req 
+};</pre>
+<div class="spacer">
+</div>
+Address cache entries with the type set to <span class="define">IFBAF_DYNAMIC</span> in <b class="var">ifba_flags</b> are entries learned by the bridge. Entries with the type set to <span class="define">IFBAF_STATIC</span> are manually added entries.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGSADDR</span> <i class="farg">struct ifbareq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Add an entry, manually, to the address cache for the bridge named in <b class="var">ifba_name</b>. The address and its associated interface and flags are set in the <b class="var">ifba_dst</b>, <b class="var">ifba_ifsname</b>, and <b class="var">ifba_flags</b> fields, respectively.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGDADDR</span> <i class="farg">struct ifbareq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Delete an entry from the address cache of the bridge named in <b class="var">ifba_name</b>. Entries are deleted strictly based on the address field <b class="var">ifba_dst</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGFLUSH</span> <i class="farg">struct ifbreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Flush addresses from the cache. <b class="var">ifbr_name</b> contains the name of the bridge device, and <b class="var">ifbr_ifsflags</b> should be set to <span class="define">IFBF_FLUSHALL</span> to flush all addresses from the cache or <span class="define">IFBF_FLUSHDYN</span> to flush only the dynamically learned addresses from the cache.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGSCACHE</span> <i class="farg">struct ifbrparam *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the maximum address cache size for the bridge named in <b class="var">ifbrp_name</b> to <b class="var">ifbrp_csize</b> entries.<div class="spacer">
+</div>
+The argument structure is as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct ifbrparam { 
+	char		  ifbrp_name[IFNAMSIZ]; 
+	union { 
+		u_int32_t ifbrpu_csize;	    /* cache size */ 
+		int	  ifbrpu_ctime;	    /* cache time */ 
+		u_int16_t ifbrpu_prio;	    /* bridge priority */ 
+		u_int8_t  ifbrpu_hellotime; /* hello time */ 
+		u_int8_t  ifbrpu_fwddelay;  /* fwd delay */ 
+		u_int8_t  ifbrpu_maxage;    /* max age */ 
+	} ifbrp_ifbrpu; 
+}; 
+#define	ifbrp_csize	ifbrp_ifbrpu.ifbrpu_csize 
+#define	ifbrp_ctime	ifbrp_ifbrpu.ifbrpu_ctime 
+#define	ifbrp_prio	ifbrp_ifbrpu.ifbrpu_prio 
+#define	ifbrp_hellotime	ifbrp_ifbrpu.ifbrpu_hellotime 
+#define	ifbrp_fwddelay	ifbrp_ifbrpu.ifbrpu_fwddelay 
+#define	ifbrp_maxage	ifbrp_ifbrpu.ifbrpu_maxage</pre>
+<div class="spacer">
+</div>
+Note that the <b class="var">ifbrp_ctime</b>, <b class="var">ifbrp_hellotime</b>, <b class="var">ifbrp_fwddelay</b> and <b class="var">ifbrp_maxage</b> fields are in seconds.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGGCACHE</span> <i class="farg">struct ifbrparam *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Retrieve the maximum size of the address cache for the bridge <b class="var">ifbrp_name</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGSTO</span> <i class="farg">struct ifbrparam *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the time, in seconds, for how long addresses which have not been seen on the network (i.e., have not transmitted a packet) will remain in the cache to the value <b class="var">ifbrp_ctime</b>. If the time is set to zero, no aging is performed on the address cache.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGGTO</span> <i class="farg">struct ifbrparam *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Retrieve the address cache expiration time (see above).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGARL</span> <i class="farg">struct ifbrlreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Add an Ethernet address filtering rule to the bridge on a specific interface. <b class="var">ifbr_name</b> contains the name of the bridge device, and <b class="var">ifbr_ifsname</b> contains the name of the bridge member interface.<div class="spacer">
+</div>
+Rules are applied in the order in which they were added to the bridge, and the first matching rule's action parameter determines the fate of the packet. The <b class="var">ifbr_action</b> field is one of <span class="define">BRL_ACTION_PASS</span> or <span class="define">BRL_ACTION_BLOCK</span>, to pass or block matching frames, respectively. The <b class="var">ifbr_flags</b> field specifies whether the rule should match on input, output, or both by using the flags <span class="define">BRL_FLAG_IN</span> and <span class="define">BRL_FLAG_OUT</span>. At least one of these flags must be set.<div class="spacer">
+</div>
+The <b class="var">ifbr_flags</b> field also specifies whether either (or both) of the source and destination addresses should be matched by using the <span class="define">BRL_FLAG_SRCVALID</span> and <span class="define">BRL_FLAG_DSTVALID</span> flags. The <b class="var">ifbr_src</b> field is the source address that triggers the rule (only considered if <b class="var">ifbr_flags</b> has the <span class="define">BRL_FLAG_SRCVALID</span> bit set). The <b class="var">ifbr_src</b> field is the destination address that triggers the rule (only considered if <b class="var">ifbr_flags</b> has the <span class="define">BRL_FLAG_DSTVALID</span> bit set). If neither bit is set, the rule matches all frames.<div class="spacer">
+</div>
+The argument structure is as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct ifbrlreq { 
+	char	 ifbr_name[IFNAMSIZ];	 /* bridge ifs name */ 
+	char	 ifbr_ifsname[IFNAMSIZ]; /* member ifs name */ 
+	u_int8_t ifbr_action;		 /* disposition */ 
+	u_int8_t ifbr_flags;		 /* flags */ 
+	struct ether_addr ifbr_src;	 /* source mac */ 
+	struct ether_addr ifbr_dst;	 /* destination mac */ 
+	char	 ifbr_tagname[PF_TAG_NAME_SIZE]; /* pf tagname */ 
+}; 
+#define	BRL_ACTION_BLOCK	0x01	 /* block frame */ 
+#define	BRL_ACTION_PASS		0x02	 /* pass frame */ 
+#define	BRL_FLAG_IN		0x08	 /* input rule */ 
+#define	BRL_FLAG_OUT		0x04	 /* output rule */ 
+#define	BRL_FLAG_SRCVALID	0x02	 /* src valid */ 
+#define	BRL_FLAG_DSTVALID	0x01	 /* dst valid */</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGFRL</span> <i class="farg">struct ifbrlreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Remove all filtering rules from a bridge interface member. <b class="var">ifbr_name</b> contains the name of the bridge device, and <b class="var">ifbr_ifsname</b> contains the name of the bridge member interface.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGGRL</span> <i class="farg">struct ifbrlconf *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Retrieve all of the rules from the bridge, <b class="var">ifbrl_name</b>, for the member interface, <b class="var">ifbrl_ifsname</b>. This request takes an <span class="type">ifbrlconf</span> structure (see below) as a value-result parameter. The <b class="var">ifbrl_len</b> field should be initially set to the size of the buffer pointed to by <b class="var">ifbrl_buf</b>. On return, it will contain the length, in bytes, of the configuration list.<div class="spacer">
+</div>
+Alternatively, if the <b class="var">ifbrl_len</b> passed in is set to 0, <span class="define">SIOCBRDGGRL</span> will set it to the size that <b class="var">ifbrl_buf</b> needs to be to fit the entire configuration list, and will not fill in the other parameters. As with <span class="define">SIOCBRDGIFS</span>, this is useful for determining the exact size that <b class="var">ifbrl_buf</b> needs to be in advance.<div class="spacer">
+</div>
+The argument structure is defined as follows:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct ifbrlconf { 
+	char	  ifbrl_name[IFNAMSIZ];	   /* bridge ifs name */ 
+	char	  ifbrl_ifsname[IFNAMSIZ]; /* member ifs name */ 
+	u_int32_t ifbrl_len;		   /* buffer size */ 
+	union { 
+		caddr_t	ifbrlu_buf; 
+		struct	ifbrlreq *ifbrlu_req; 
+	} ifbrl_ifbrlu; 
+#define	ifbrl_buf ifbrl_ifbrlu.ifbrlu_buf 
+#define	ifbrl_req ifbrl_ifbrlu.ifbrlu_req 
+};</pre>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGGPRI</span> <i class="farg">struct ifbrparam *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Retrieve the Spanning Tree Protocol (STP) priority parameter of the bridge into the <b class="var">ifbrp_prio</b> field.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGSPRI</span> <i class="farg">struct ifbrparam *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the STP priority parameter of the bridge to the value in <b class="var">ifbrp_prio</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGGHT</span> <i class="farg">struct ifbrparam *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Retrieve the STP hello time parameter, in seconds, of the bridge into the <b class="var">ifbrp_hellotime</b> field.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGSHT</span> <i class="farg">struct ifbrparam *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the STP hello time parameter, in seconds, of the bridge to the value in <b class="var">ifbrp_hellotime</b>. The value in <b class="var">ifbrp_hellotime</b> cannot be zero.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGGFD</span> <i class="farg">struct ifbrparam *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Retrieve the STP forward delay parameter, in seconds, of the bridge into the <b class="var">ifbrp_fwddelay</b> field.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGSFD</span> <i class="farg">struct ifbrparam *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the STP forward delay parameter, in seconds, of the bridge to the value in <b class="var">ifbrp_fwddelay</b>. The value in <b class="var">ifbrp_fwddelay</b> cannot be zero.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGGMA</span> <i class="farg">struct ifbrparam *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Retrieve the STP maximum age parameter, in seconds, of the bridge into the <b class="var">ifbrp_maxage</b> field.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGSMA</span> <i class="farg">struct ifbrparam *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the STP maximum age parameter, in seconds, of the bridge to the value in <b class="var">ifbrp_maxage</b>. The value in <b class="var">ifbrp_maxage</b> cannot be zero.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGSIFPRIO</span> <i class="farg">struct ifbreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the STP priority parameter of the interface named in <b class="var">ifbr_ifsname</b> to the value in <b class="var">ifbr_priority</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">SIOCBRDGSIFCOST</span> <i class="farg">struct ifbreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set the STP cost parameter of the interface named in <b class="var">ifbr_ifsname</b> to the value in <b class="var">ifbr_path_cost</b>. The value in <b class="var">ifbr_path_cost</b> must be greater than or equal to one.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4552524f5253">ERRORS</h1> If the <a class="link-man" href="../html2/ioctl.html">ioctl(2)</a> call fails, <a class="link-man" href="../html2/errno.html">errno(2)</a> is set to one of the following values:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">ENOENT</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+For an add request, this means that the named interface is not configured into the system. For a delete operation, it means that the named interface is not a member of the bridge. For an address cache deletion, the address was not found in the table.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">ENOMEM</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Memory could not be allocated for an interface or cache entry to be added to the bridge.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EEXIST</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The named interface is already a member of the bridge.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EBUSY</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The named interface is already a member of another bridge.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EINVAL</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The named interface is not an Ethernet interface, or an invalid ioctl was performed on the bridge.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">ENETDOWN</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Address cache operation (flush, add, or delete) on a bridge that is in the down state.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EPERM</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+Super-user privilege is required to add and delete interfaces to and from bridges and to set the bridge interface flags.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EFAULT</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+The buffer used in a <span class="define">SIOCBRDGIFS</span> or <span class="define">SIOCBRDGRTS</span> request points outside of the process's allocated address space.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">ESRCH</span>]</dt>
+<dd class="list-tag" style="margin-left: 17.00ex;">
+No such member interface in the bridge.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4e4f544553">NOTES</h1> Bridged packets pass through <a class="link-man" href="../html4/pf.html">pf(4)</a> filters once as input on the receiving interface and once as output on all interfaces on which they are forwarded. In order to pass through the bridge packets must pass any <i class="arg">in</i> rules on the input and any <i class="arg">out</i> rules on the output interface. Packets may be blocked either entering or leaving the bridge.<div class="spacer">
+</div>
+Return packets generated by pf itself are not routed using the kernel routing table. Instead, pf will send these replies back to the same Ethernet address that the original packet came from. This applies to rules with <b class="cmd">return</b>, <b class="cmd">return-rst</b>, <b class="cmd">return-icmp</b>, <b class="cmd">return-icmp6</b>, or <b class="cmd">synproxy</b> defined. At the moment, only <b class="cmd">return-rst</b> on IPv4 is implemented and the other packet generating rules are unsupported.<div class="spacer">
+</div>
+If an IP packet is too large for the outgoing interface, the bridge will perform IP fragmentation. This can happen when bridge members have different MTUs or when IP fragments are reassembled by pf. Non-IP packets which are too large for the outgoing interface will be dropped.<div class="spacer">
+</div>
+If the <span class="define">IFF_LINK2</span> flag is set on the <b class="name">bridge</b> interface, the bridge will also perform transparent <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a> processing on the packets (encrypt or decrypt them), according to the policies set with the <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a> command by the administrator. If appropriate security associations (SAs) do not exist, any key management daemons such as <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a> that are running on the bridge will be invoked to establish the necessary SAs. These daemons have to be configured as if they were running on the host whose traffic they are protecting (i.e., they need to have the appropriate authentication and authorization material, such as keys and certificates, to impersonate the protected host(s)).</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html2/errno.html">errno(2)</a>, <a class="link-man" href="../html2/ioctl.html">ioctl(2)</a>, <a class="link-man" href="../html4/arp.html">arp(4)</a>, <a class="link-man" href="../html4/gif.html">gif(4)</a>, <a class="link-man" href="../html4/ip.html">ip(4)</a>, <a class="link-man" href="../html4/ip6.html">ip6(4)</a>, <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a>, <a class="link-man" href="../html4/netintro.html">netintro(4)</a>, <a class="link-man" href="../html4/pf.html">pf(4)</a>, <a class="link-man" href="../html4/vether.html">vether(4)</a>, <a class="link-man" href="../html5/hostname.if.html">hostname.if(5)</a>, <a class="link-man" href="../html8/ifconfig.html">ifconfig(8)</a>, <a class="link-man" href="../html8/ipsecctl.html">ipsecctl(8)</a>, <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a>, <a class="link-man" href="../html8/netstart.html">netstart(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="name">bridge</b> kernel interface first appeared in <span class="unix">OpenBSD&#160;2.5</span>.</div>
+<div class="section">
+<h1 id="x415554484f5253">AUTHORS</h1> The <b class="name">bridge</b> kernel interface was written by <span class="author">Jason L. Wright</span> &lt;<a class="link-mail" href="mailto:jason@thought.net">jason@thought.net</a>&gt; as part of an undergraduate independent study at the University of North Carolina at Greensboro.<div class="spacer">
+</div>
+Support for rapid spanning tree reconfigurations (RSTP) was added by<br/>
+<span class="author">Andrew Thompson</span> &lt;<a class="link-mail" href="mailto:thompsa@freebsd.org">thompsa@freebsd.org</a>&gt; and ported to <span class="unix">OpenBSD</span> by<br/>
+<span class="author">Reyk Floeter</span> &lt;<a class="link-mail" href="mailto:reyk@openbsd.org">reyk@openbsd.org</a>&gt;.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> There are some rather special network interface chipsets which will not work in a bridge configuration. Some chipsets have serious flaws when running in promiscuous mode, like the TI ThunderLAN (see <a class="link-man" href="../html4/tl.html">tl(4)</a>), which receives its own transmissions (this renders the address learning cache useless). Most other chipsets work fine though.</div>
+</div>
+</body>
+</html>
+

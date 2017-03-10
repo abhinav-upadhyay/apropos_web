@@ -1,0 +1,3589 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+PERL5160DELTA(1)</title>
+</head>
+<body>
+<div class="mandoc">
+<table class="head">
+<tbody>
+<tr>
+<td class="head-ltitle">
+PERL5160DELTA(1)</td>
+<td class="head-vol">
+Perl Programmers Reference Guide</td>
+<td class="head-rtitle">
+PERL5160DELTA(1)</td>
+</tr>
+</tbody>
+</table>
+<div class="section">
+<h1>NAME</h1> perl5160delta - what is new for perl v5.16.0</div>
+<div class="section">
+<h1>DESCRIPTION</h1> This document describes differences between the 5.14.0 release and the 5.16.0 release.<div class="spacer">
+</div>
+If you are upgrading from an earlier release such as 5.12.0, first read perl5140delta, which describes differences between 5.12.0 and 5.14.0.<div class="spacer">
+</div>
+Some bug fixes in this release have been backported to later releases of 5.14.x.  Those are indicated with the 5.14.x version in parentheses.</div>
+<div class="section">
+<h1>Notice</h1> With the release of Perl 5.16.0, the 5.12.x series of releases is now out of its support period.  There may be future 5.12.x releases, but only in the event of a critical security issue.  Users of Perl 5.12 or earlier should consider upgrading to a more recent release of Perl.<div class="spacer">
+</div>
+This policy is described in greater detail in perlpolicy.</div>
+<div class="section">
+<h1>Core Enhancements</h1><div class="subsection">
+<h2>&quot;use <i>VERSION</i>&quot;</h2> As of this release, version declarations like &quot;use v5.16&quot; now disable all features before enabling the new feature bundle.  This means that the following holds true:<div class="spacer">
+</div>
+<br/>
+    use 5.016;<br/>
+    # only 5.16 features enabled here<br/>
+    use 5.014;<br/>
+    # only 5.14 features enabled here (not 5.16)<br/>
+<div class="spacer">
+</div>
+&quot;use v5.12&quot; and higher continue to enable strict, but explicit &quot;use strict&quot; and &quot;no strict&quot; now override the version declaration, even when they come first:<div class="spacer">
+</div>
+<br/>
+    no strict;<br/>
+    use 5.012;<br/>
+    # no strict here<br/>
+<div class="spacer">
+</div>
+There is a new &quot;:default&quot; feature bundle that represents the set of features enabled before any version declaration or &quot;use feature&quot; has been seen.  Version declarations below 5.10 now enable the &quot;:default&quot; feature set.  This does not actually change the behavior of &quot;use v5.8&quot;, because features added to the &quot;:default&quot; set are those that were traditionally enabled by default, before they could be turned off.<div class="spacer">
+</div>
+&quot;no feature&quot; now resets to the default feature set.  To disable all features (which is likely to be a pretty special-purpose request, since it presumably won't match any named set of semantics) you can now write &quot;no feature ':all'&quot;.<div class="spacer">
+</div>
+$[ is now disabled under &quot;use v5.16&quot;.  It is part of the default feature set and can be turned on or off explicitly with &quot;use feature 'array_base'&quot;.</div>
+<div class="subsection">
+<h2>&quot;__SUB__&quot;</h2> The new &quot;__SUB__&quot; token, available under the &quot;current_sub&quot; feature (see feature) or &quot;use v5.16&quot;, returns a reference to the current subroutine, making it easier to write recursive closures.</div>
+<div class="subsection">
+<h2>New and Improved Built-ins</h2>  <i>More consistent </i><i>&quot;eval&quot;</i><i></i><div class="spacer">
+</div>
+The &quot;eval&quot; operator sometimes treats a string argument as a sequence of characters and sometimes as a sequence of bytes, depending on the internal encoding.  The internal encoding is not supposed to make any difference, but there is code that relies on this inconsistency.<div class="spacer">
+</div>
+The new &quot;unicode_eval&quot; and &quot;evalbytes&quot; features (enabled under &quot;use 5.16.0&quot;) resolve this.  The &quot;unicode_eval&quot; feature causes &quot;eval $string&quot; to treat the string always as Unicode.  The &quot;evalbytes&quot; features provides a function, itself called &quot;evalbytes&quot;, which evaluates its argument always as a string of bytes.<div class="spacer">
+</div>
+These features also fix oddities with source filters leaking to outer dynamic scopes.<div class="spacer">
+</div>
+See feature for more detail.<div class="spacer">
+</div>
+<i></i><i>&quot;substr&quot;</i><i> lvalue revamp</i><div class="spacer">
+</div>
+When &quot;substr&quot; is called in lvalue or potential lvalue context with two or three arguments, a special lvalue scalar is returned that modifies the original string (the first argument) when assigned to.<div class="spacer">
+</div>
+Previously, the offsets (the second and third arguments) passed to &quot;substr&quot; would be converted immediately to match the string, negative offsets being translated to positive and offsets beyond the end of the string being truncated.<div class="spacer">
+</div>
+Now, the offsets are recorded without modification in the special lvalue scalar that is returned, and the original string is not even looked at by &quot;substr&quot; itself, but only when the returned lvalue is read or modified.<div class="spacer">
+</div>
+These changes result in an incompatible change:<div class="spacer">
+</div>
+If the original string changes length after the call to &quot;substr&quot; but before assignment to its return value, negative offsets will remember their position from the end of the string, affecting code like this:<div class="spacer">
+</div>
+<br/>
+    my $string = &quot;string&quot;;<br/>
+    my $lvalue = \substr $string, -4, 2;<br/>
+    print $$lvalue, &quot;\n&quot;; # prints &quot;ri&quot;<br/>
+    $string = &quot;bailing twine&quot;;<br/>
+    print $$lvalue, &quot;\n&quot;; # prints &quot;wi&quot;; used to print &quot;il&quot;<br/>
+<div class="spacer">
+</div>
+The same thing happens with an omitted third argument.  The returned lvalue will always extend to the end of the string, even if the string becomes longer.<div class="spacer">
+</div>
+Since this change also allowed many bugs to be fixed (see &quot;The &quot;substr&quot; operator&quot;), and since the behavior of negative offsets has never been specified, the change was deemed acceptable.<div class="spacer">
+</div>
+<i>Return value of </i><i>&quot;tied&quot;</i><i></i><div class="spacer">
+</div>
+The value returned by &quot;tied&quot; on a tied variable is now the actual scalar that holds the object to which the variable is tied.  This lets ties be weakened with &quot;Scalar::Util::weaken(tied $tied_variable)&quot;.</div>
+<div class="subsection">
+<h2>Unicode Support</h2>  <i>Supports (</i><i>almost</i><i>) Unicode 6.1</i><div class="spacer">
+</div>
+Besides the addition of whole new scripts, and new characters in existing scripts, this new version of Unicode, as always, makes some changes to existing characters.  One change that may trip up some applications is that the General Category of two characters in the Latin-1 range, PILCROW SIGN and SECTION SIGN, has been changed from Other_Symbol to Other_Punctuation.  The same change has been made for a character in each of Tibetan, Ethiopic, and Aegean. The code points U+3248..U+324F (CIRCLED NUMBER TEN ON BLACK SQUARE through CIRCLED NUMBER EIGHTY ON BLACK SQUARE) have had their General Category changed from Other_Symbol to Other_Numeric.  The Line Break property has changes for Hebrew and Japanese; and because of other changes in 6.1, the Perl regular expression construct &quot;\X&quot; now works differently for some characters in Thai and Lao.<div class="spacer">
+</div>
+New aliases (synonyms) have been defined for many property values; these, along with the previously existing ones, are all cross-indexed in perluniprops.<div class="spacer">
+</div>
+The return value of &quot;charnames::viacode()&quot; is affected by other changes:<div class="spacer">
+</div>
+<br/>
+ Code point      Old Name             New Name<br/>
+   U+000A    LINE FEED (LF)        LINE FEED<br/>
+   U+000C    FORM FEED (FF)        FORM FEED<br/>
+   U+000D    CARRIAGE RETURN (CR)  CARRIAGE RETURN<br/>
+   U+0085    NEXT LINE (NEL)       NEXT LINE<br/>
+   U+008E    SINGLE-SHIFT 2        SINGLE-SHIFT-2<br/>
+   U+008F    SINGLE-SHIFT 3        SINGLE-SHIFT-3<br/>
+   U+0091    PRIVATE USE 1         PRIVATE USE-1<br/>
+   U+0092    PRIVATE USE 2         PRIVATE USE-2<br/>
+   U+2118    SCRIPT CAPITAL P      WEIERSTRASS ELLIPTIC FUNCTION<br/>
+<div class="spacer">
+</div>
+Perl will accept any of these names as input, but &quot;charnames::viacode()&quot; now returns the new name of each pair.  The change for U+2118 is considered by Unicode to be a correction, that is the original name was a mistake (but again, it will remain forever valid to use it to refer to U+2118).  But most of these changes are the fallout of the mistake Unicode 6.0 made in naming a character used in Japanese cell phones to be &quot;BELL&quot;, which conflicts with the longstanding industry use of (and Unicode's recommendation to use) that name to mean the ASCII control character at U+0007.  Therefore, that name has been deprecated in Perl since v5.14, and any use of it will raise a warning message (unless turned off).  The name &quot;ALERT&quot; is now the preferred name for this code point, with &quot;BEL&quot; an acceptable short form.  The name for the new cell phone character, at code point U+1F514, remains undefined in this version of Perl (hence we don't implement quite all of Unicode 6.1), but starting in v5.18, BELL will mean this character, and not U+0007.<div class="spacer">
+</div>
+Unicode has taken steps to make sure that this sort of mistake does not happen again.  The Standard now includes all generally accepted names and abbreviations for control characters, whereas previously it didn't (though there were recommended names for most of them, which Perl used).  This means that most of those recommended names are now officially in the Standard.  Unicode did not recommend names for the four code points listed above between U+008E and U+008F, and in standardizing them Unicode subtly changed the names that Perl had previously given them, by replacing the final blank in each name by a hyphen.  Unicode also officially accepts names that Perl had deprecated, such as FILE SEPARATOR.  Now the only deprecated name is BELL. Finally, Perl now uses the new official names instead of the old (now considered obsolete) names for the first four code points in the list above (the ones which have the parentheses in them).<div class="spacer">
+</div>
+Now that the names have been placed in the Unicode standard, these kinds of changes should not happen again, though corrections, such as to U+2118, are still possible.<div class="spacer">
+</div>
+Unicode also added some name abbreviations, which Perl now accepts: SP for SPACE; TAB for CHARACTER TABULATION; NEW LINE, END OF LINE, NL, and EOL for LINE FEED; LOCKING-SHIFT ONE for SHIFT OUT; LOCKING-SHIFT ZERO for SHIFT IN; and ZWNBSP for ZERO WIDTH NO-BREAK SPACE.<div class="spacer">
+</div>
+More details on this version of Unicode are provided in &lt;http://www.unicode.org/versions/Unicode6.1.0/&gt;.<div class="spacer">
+</div>
+<i></i><i>&quot;use charnames&quot;</i><i> is no longer needed for </i><i>&quot;\N{</i><i>name</i><i>}&quot;</i><i></i><div class="spacer">
+</div>
+When &quot;\N{<i>name</i>}&quot; is encountered, the &quot;charnames&quot; module is now automatically loaded when needed as if the &quot;:full&quot; and &quot;:short&quot; options had been specified.  See charnames for more information.<div class="spacer">
+</div>
+<i></i><i>&quot;\N{...}&quot;</i><i> can now have Unicode loose name matching</i><div class="spacer">
+</div>
+This is described in the &quot;charnames&quot; item in &quot;Updated Modules and Pragmata&quot; below.<div class="spacer">
+</div>
+<i>Unicode Symbol Names</i><div class="spacer">
+</div>
+Perl now has proper support for Unicode in symbol names.  It used to be that &quot;*{$foo}&quot; would ignore the internal UTF8 flag and use the bytes of the underlying representation to look up the symbol.  That meant that &quot;*{&quot;\x{100}&quot;}&quot; and &quot;*{&quot;\xc4\x80&quot;}&quot; would return the same thing.  All these parts of Perl have been fixed to account for Unicode:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Method names (including those passed to &quot;use overload&quot;)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Typeglob names (including names of variables, subroutines, and filehandles)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Package names</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;goto&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Symbolic dereferencing</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Second argument to &quot;bless()&quot; and &quot;tie()&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Return value of &quot;ref()&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Subroutine prototypes</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Attributes</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Various warnings and error messages that mention variable names or values, methods, etc.</dd>
+</dl>
+<div class="spacer">
+</div>
+In addition, a parsing bug has been fixed that prevented &quot;*{&#233;}&quot; from implicitly quoting the name, but instead interpreted it as &quot;*{+&#233;}&quot;, which would cause a strict violation.<div class="spacer">
+</div>
+&quot;*{&quot;*a::b&quot;}&quot; automatically strips off the * if it is followed by an ASCII letter.  That has been extended to all Unicode identifier characters.<div class="spacer">
+</div>
+One-character non-ASCII non-punctuation variables (like $&#233;) are now subject to &quot;Used only once&quot; warnings.  They used to be exempt, as they were treated as punctuation variables.<div class="spacer">
+</div>
+Also, single-character Unicode punctuation variables (like $&#8240;) are now supported [perl #69032].<div class="spacer">
+</div>
+<i>Improved ability to mix locales and Unicode, including UTF-8 locales</i><div class="spacer">
+</div>
+An optional parameter has been added to &quot;use locale&quot;<div class="spacer">
+</div>
+<br/>
+ use locale ':not_characters';<br/>
+<div class="spacer">
+</div>
+which tells Perl to use all but the &quot;LC_CTYPE&quot; and &quot;LC_COLLATE&quot; portions of the current locale.  Instead, the character set is assumed to be Unicode.  This lets locales and Unicode be seamlessly mixed, including the increasingly frequent UTF-8 locales.  When using this hybrid form of locales, the &quot;:locale&quot; layer to the open pragma can be used to interface with the file system, and there are CPAN modules available for ARGV and environment variable conversions.<div class="spacer">
+</div>
+Full details are in perllocale.<div class="spacer">
+</div>
+<i>New function </i><i>&quot;fc&quot;</i><i> and corresponding escape sequence </i><i>&quot;\F&quot;</i><i> for Unicode foldcase</i><div class="spacer">
+</div>
+Unicode foldcase is an extension to lowercase that gives better results when comparing two strings case-insensitively.  It has long been used internally in regular expression &quot;/i&quot; matching.  Now it is available explicitly through the new &quot;fc&quot; function call (enabled by &quot;use&#160;feature&#160;'fc'&quot;, or &quot;use v5.16&quot;, or explicitly callable via &quot;CORE::fc&quot;) or through the new &quot;\F&quot; sequence in double-quotish strings.<div class="spacer">
+</div>
+Full details are in &quot;fc&quot; in perlfunc.<div class="spacer">
+</div>
+<i>The Unicode </i><i>&quot;Script_Extensions&quot;</i><i> property is now supported.</i><div class="spacer">
+</div>
+New in Unicode 6.0, this is an improved &quot;Script&quot; property.  Details are in &quot;Scripts&quot; in perlunicode.</div>
+<div class="subsection">
+<h2>XS Changes</h2>  <i>Improved typemaps for Some Builtin Types</i><div class="spacer">
+</div>
+Most XS authors will know there is a longstanding bug in the OUTPUT typemap for T_AVREF (&quot;AV*&quot;), T_HVREF (&quot;HV*&quot;), T_CVREF (&quot;CV*&quot;), and T_SVREF (&quot;SVREF&quot; or &quot;\$foo&quot;) that requires manually decrementing the reference count of the return value instead of the typemap taking care of this.  For backwards-compatibility, this cannot be changed in the default typemaps.  But we now provide additional typemaps &quot;T_AVREF_REFCOUNT_FIXED&quot;, etc. that do not exhibit this bug.  Using them in your extension is as simple as having one line in your &quot;TYPEMAP&quot; section:<div class="spacer">
+</div>
+<br/>
+  HV*   T_HVREF_REFCOUNT_FIXED<br/>
+<div class="spacer">
+</div>
+<i></i><i>&quot;is_utf8_char()&quot;</i><i></i><div class="spacer">
+</div>
+The XS-callable function &quot;is_utf8_char()&quot;, when presented with malformed UTF-8 input, can read up to 12 bytes beyond the end of the string.  This cannot be fixed without changing its API, and so its use is now deprecated.  Use &quot;is_utf8_char_buf()&quot; (described just below) instead.<div class="spacer">
+</div>
+<i>Added </i><i>&quot;is_utf8_char_buf()&quot;</i><i></i><div class="spacer">
+</div>
+This function is designed to replace the deprecated &quot;<i>is_utf8_char()</i>&quot; function.  It includes an extra parameter to make sure it doesn't read past the end of the input buffer.<div class="spacer">
+</div>
+<i>Other </i><i>&quot;is_utf8_foo()&quot;</i><i> functions, as well as </i><i>&quot;utf8_to_foo()&quot;</i><i>, etc.</i><div class="spacer">
+</div>
+Most other XS-callable functions that take UTF-8 encoded input implicitly assume that the UTF-8 is valid (not malformed) with respect to buffer length.  Do not do things such as change a character's case or see if it is alphanumeric without first being sure that it is valid UTF-8.  This can be safely done for a whole string by using one of the functions &quot;is_utf8_string()&quot;, &quot;is_utf8_string_loc()&quot;, and &quot;is_utf8_string_loclen()&quot;.<div class="spacer">
+</div>
+<i>New Pad API</i><div class="spacer">
+</div>
+Many new functions have been added to the API for manipulating lexical pads.  See &quot;Pad Data Structures&quot; in perlapi for more information.</div>
+<div class="subsection">
+<h2>Changes to Special Variables</h2>  <i></i><i>$$</i><i> can be assigned to</i><div class="spacer">
+</div>
+$$ was made read-only in Perl 5.8.0.  But only sometimes: &quot;local $$&quot; would make it writable again.  Some CPAN modules were using &quot;local $$&quot; or XS code to bypass the read-only check, so there is no reason to keep $$ read-only.  (This change also allowed a bug to be fixed while maintaining backward compatibility.)<div class="spacer">
+</div>
+<i></i><i>$^X</i><i> converted to an absolute path on FreeBSD, OS X and Solaris</i><div class="spacer">
+</div>
+$^X is now converted to an absolute path on OS X, FreeBSD (without needing  <i>/proc</i> mounted) and Solaris 10 and 11.  This augments the previous approach of using  <i>/proc</i> on Linux, FreeBSD, and NetBSD (in all cases, where mounted).<div class="spacer">
+</div>
+This makes relocatable perl installations more useful on these platforms. (See &quot;Relocatable @INC&quot; in  <i>INSTALL</i>)</div>
+<div class="subsection">
+<h2>Debugger Changes</h2>  <i>Features inside the debugger</i><div class="spacer">
+</div>
+The current Perl's feature bundle is now enabled for commands entered in the interactive debugger.<div class="spacer">
+</div>
+<i>New option for the debugger's </i><b><i>t</i></b><i> command</i><div class="spacer">
+</div>
+The <b>t</b> command in the debugger, which toggles tracing mode, now accepts a numeric argument that determines how many levels of subroutine calls to trace.<div class="spacer">
+</div>
+<i></i><i>&quot;enable&quot;</i><i> and </i><i>&quot;disable&quot;</i><i></i><div class="spacer">
+</div>
+The debugger now has &quot;disable&quot; and &quot;enable&quot; commands for disabling existing breakpoints and re-enabling them.  See perldebug.<div class="spacer">
+</div>
+<i>Breakpoints with file names</i><div class="spacer">
+</div>
+The debugger's &quot;b&quot; command for setting breakpoints now lets a line number be prefixed with a file name.  See &quot;b [file]:[line] [condition]&quot; in perldebug.</div>
+<div class="subsection">
+<h2>The &quot;CORE&quot; Namespace</h2>  <i>The </i><i>&quot;CORE::&quot;</i><i> prefix</i><div class="spacer">
+</div>
+The &quot;CORE::&quot; prefix can now be used on keywords enabled by feature.pm, even outside the scope of &quot;use feature&quot;.<div class="spacer">
+</div>
+<i>Subroutines in the </i><i>&quot;CORE&quot;</i><i> namespace</i><div class="spacer">
+</div>
+Many Perl keywords are now available as subroutines in the CORE namespace. This lets them be aliased:<div class="spacer">
+</div>
+<br/>
+    BEGIN { *entangle = \&amp;CORE::tie }<br/>
+    entangle $variable, $package, @args;<br/>
+<div class="spacer">
+</div>
+And for prototypes to be bypassed:<div class="spacer">
+</div>
+<br/>
+    sub mytie(\[%$*@]$@) {<br/>
+        my ($ref, $pack, @args) = @_;<br/>
+        ... do something ...<br/>
+        goto &amp;CORE::tie;<br/>
+    }<br/>
+<div class="spacer">
+</div>
+Some of these cannot be called through references or via &amp;foo syntax, but must be called as barewords.<div class="spacer">
+</div>
+See CORE for details.</div>
+<div class="subsection">
+<h2>Other Changes</h2>  <i>Anonymous handles</i><div class="spacer">
+</div>
+Automatically generated file handles are now named __ANONIO__ when the variable name cannot be determined, rather than $__ANONIO__.<div class="spacer">
+</div>
+<i>Autoloaded sort Subroutines</i><div class="spacer">
+</div>
+Custom sort subroutines can now be autoloaded [perl #30661]:<div class="spacer">
+</div>
+<br/>
+    sub AUTOLOAD { ... }<br/>
+    @sorted = sort foo @list; # uses AUTOLOAD<br/>
+<div class="spacer">
+</div>
+<i></i><i>&quot;continue&quot;</i><i> no longer requires the &quot;switch&quot; feature</i><div class="spacer">
+</div>
+The &quot;continue&quot; keyword has two meanings.  It can introduce a &quot;continue&quot; block after a loop, or it can exit the current &quot;when&quot; block.  Up to now, the latter meaning was valid only with the &quot;switch&quot; feature enabled, and was a syntax error otherwise.  Since the main purpose of feature.pm is to avoid conflicts with user-defined subroutines, there is no reason for &quot;continue&quot; to depend on it.<div class="spacer">
+</div>
+<i>DTrace probes for interpreter phase change</i><div class="spacer">
+</div>
+The &quot;phase-change&quot; probes will fire when the interpreter's phase changes, which tracks the &quot;${^GLOBAL_PHASE}&quot; variable.  &quot;arg0&quot; is the new phase name; &quot;arg1&quot; is the old one.  This is useful for limiting your instrumentation to one or more of: compile time, run time, or destruct time.<div class="spacer">
+</div>
+<i></i><i>&quot;__FILE__()&quot;</i><i> Syntax</i><div class="spacer">
+</div>
+The &quot;__FILE__&quot;, &quot;__LINE__&quot; and &quot;__PACKAGE__&quot; tokens can now be written with an empty pair of parentheses after them.  This makes them parse the same way as &quot;time&quot;, &quot;fork&quot; and other built-in functions.<div class="spacer">
+</div>
+<i>The </i><i>&quot;\$&quot;</i><i> prototype accepts any scalar lvalue</i><div class="spacer">
+</div>
+The &quot;\$&quot; and &quot;\[$]&quot; subroutine prototypes now accept any scalar lvalue argument.  Previously they accepted only scalars beginning with &quot;$&quot; and hash and array elements.  This change makes them consistent with the way the built-in &quot;read&quot; and &quot;recv&quot; functions (among others) parse their arguments.  This means that one can override the built-in functions with custom subroutines that parse their arguments the same way.<div class="spacer">
+</div>
+<i></i><i>&quot;_&quot;</i><i> in subroutine prototypes</i><div class="spacer">
+</div>
+The &quot;_&quot; character in subroutine prototypes is now allowed before &quot;@&quot; or &quot;%&quot;.</div>
+</div>
+<div class="section">
+<h1>Security</h1><div class="subsection">
+<h2>Use &quot;is_utf8_char_buf()&quot; and not &quot;is_utf8_char()&quot;</h2> The latter function is now deprecated because its API is insufficient to guarantee that it doesn't read (up to 12 bytes in the worst case) beyond the end of its input string.  See  <i>is_utf8_char_buf()</i>.</div>
+<div class="subsection">
+<h2>Malformed UTF-8 input could cause attempts to read beyond the end of the buffer</h2> Two new XS-accessible functions, &quot;utf8_to_uvchr_buf()&quot; and &quot;utf8_to_uvuni_buf()&quot; are now available to prevent this, and the Perl core has been converted to use them. See &quot;Internal Changes&quot;.</div>
+<div class="subsection">
+<h2>&quot;File::Glob::bsd_glob()&quot; memory error with GLOB_ALTDIRFUNC (CVE-2011-2728).</h2> Calling &quot;File::Glob::bsd_glob&quot; with the unsupported flag GLOB_ALTDIRFUNC would cause an access violation / segfault.  A Perl program that accepts a flags value from an external source could expose itself to denial of service or arbitrary code execution attacks.  There are no known exploits in the wild.  The problem has been corrected by explicitly disabling all unsupported flags and setting unused function pointers to null.  Bug reported by Cl&#233;ment Lecigne. (5.14.2)</div>
+<div class="subsection">
+<h2>Privileges are now set correctly when assigning to $(</h2> A hypothetical bug (probably unexploitable in practice) because the incorrect setting of the effective group ID while setting $( has been fixed.  The bug would have affected only systems that have &quot;setresgid()&quot; but not &quot;setregid()&quot;, but no such systems are known to exist.</div>
+</div>
+<div class="section">
+<h1>Deprecations</h1><div class="subsection">
+<h2>Don't read the Unicode data base files in <i>lib/unicore</i></h2> It is now deprecated to directly read the Unicode data base files. These are stored in the  <i>lib/unicore</i> directory.  Instead, you should use the new functions in Unicode::UCD.  These provide a stable API, and give complete information.<div class="spacer">
+</div>
+Perl may at some point in the future change or remove these files.  The file which applications were most likely to have used is  <i>lib/unicore/ToDigit.pl</i>.  &quot;<i>prop_invmap()</i>&quot; in Unicode::UCD can be used to get at its data instead.</div>
+<div class="subsection">
+<h2>XS functions &quot;is_utf8_char()&quot;, &quot;utf8_to_uvchr()&quot; and &quot;utf8_to_uvuni()&quot;</h2> This function is deprecated because it could read beyond the end of the input string.  Use the new  <i>is_utf8_char_buf()</i>, &quot;utf8_to_uvchr_buf()&quot; and &quot;utf8_to_uvuni_buf()&quot; instead.</div>
+</div>
+<div class="section">
+<h1>Future Deprecations</h1> This section serves as a notice of features that are  <i>likely</i> to be removed or deprecated in the next release of perl (5.18.0).  If your code depends on these features, you should contact the Perl 5 Porters via the mailing list &lt;http://lists.perl.org/list/perl5-porters.html&gt; or perlbug to explain your use case and inform the deprecation process.<div class="subsection">
+<h2>Core Modules</h2> These modules may be marked as deprecated  <i>from the core</i>.  This only means that they will no longer be installed by default with the core distribution, but will remain available on the CPAN.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+CPANPLUS</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Filter::Simple</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+PerlIO::mmap</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Pod::LaTeX</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Pod::Parser</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+SelfLoader</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Text::Soundex</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Thread.pm</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Platforms with no supporting programmers</h2> These platforms will probably have their special build support removed during the 5.17.0 development series.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+BeOS</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+djgpp</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+dgux</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+EPOC</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+MPE/iX</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Rhapsody</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+UTS</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+VM/ESA</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Other Future Deprecations</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Swapping of $&lt; and $&gt;<div style="height: 1.00em;">
+&#160;</div>
+For more information about this future deprecation, see the relevant RT ticket &lt;https://rt.perl.org/rt3/Ticket/Display.html?id=96212&gt;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+sfio, stdio<div style="height: 1.00em;">
+&#160;</div>
+Perl supports being built without PerlIO proper, using a stdio or sfio wrapper instead.  A perl build like this will not support IO layers and thus Unicode IO, making it rather handicapped.<div style="height: 1.00em;">
+&#160;</div>
+PerlIO supports a &quot;stdio&quot; layer if stdio use is desired, and similarly a sfio layer could be produced.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Unescaped literal &quot;{&quot; in regular expressions.<div style="height: 1.00em;">
+&#160;</div>
+Starting with v5.20, it is planned to require a literal &quot;{&quot; to be escaped, for example by preceding it with a backslash.  In v5.18, a deprecated warning message will be emitted for all such uses. This affects only patterns that are to match a literal &quot;{&quot;.  Other uses of this character, such as part of a quantifier or sequence as in those below, are completely unaffected:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    /foo{3,5}/<br/>
+    /\p{Alphabetic}/<br/>
+    /\N{DIGIT ZERO}<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Removing this will permit extensions to Perl's pattern syntax and better error checking for existing syntax.  See &quot;Quantifiers&quot; in perlre for an example.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Revamping &quot;\Q&quot; semantics in double-quotish strings when combined with other escapes.<div style="height: 1.00em;">
+&#160;</div>
+There are several bugs and inconsistencies involving combinations of &quot;\Q&quot; and escapes like &quot;\x&quot;, &quot;\L&quot;, etc., within a &quot;\Q...\E&quot; pair. These need to be fixed, and doing so will necessarily change current behavior.  The changes have not yet been settled.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Incompatible Changes</h1><div class="subsection">
+<h2>Special blocks called in void context</h2> Special blocks (&quot;BEGIN&quot;, &quot;CHECK&quot;, &quot;INIT&quot;, &quot;UNITCHECK&quot;, &quot;END&quot;) are now called in void context.  This avoids wasteful copying of the result of the last statement [perl #108794].</div>
+<div class="subsection">
+<h2>The &quot;overloading&quot; pragma and regexp objects</h2> With &quot;no overloading&quot;, regular expression objects returned by &quot;qr//&quot; are now stringified as &quot;Regexp=REGEXP(0xbe600d)&quot; instead of the regular expression itself [perl #108780].</div>
+<div class="subsection">
+<h2>Two XS typemap Entries removed</h2> Two presumably unused XS typemap entries have been removed from the core typemap: T_DATAUNIT and T_CALLBACK.  If you are, against all odds, a user of these, please see the instructions on how to restore them in perlxstypemap.</div>
+<div class="subsection">
+<h2>Unicode 6.1 has incompatibilities with Unicode 6.0</h2> These are detailed in &quot;Supports (almost) Unicode 6.1&quot; above. You can compile this version of Perl to use Unicode 6.0.  See &quot;Hacking Perl to work on earlier Unicode versions (for very serious hackers only)&quot; in perlunicode.</div>
+<div class="subsection">
+<h2>Borland compiler</h2> All support for the Borland compiler has been dropped.  The code had not worked for a long time anyway.</div>
+<div class="subsection">
+<h2>Certain deprecated Unicode properties are no longer supported by default</h2> Perl should never have exposed certain Unicode properties that are used by Unicode internally and not meant to be publicly available.  Use of these has generated deprecated warning messages since Perl 5.12.  The removed properties are Other_Alphabetic, Other_Default_Ignorable_Code_Point, Other_Grapheme_Extend, Other_ID_Continue, Other_ID_Start, Other_Lowercase, Other_Math, and Other_Uppercase.<div class="spacer">
+</div>
+Perl may be recompiled to include any or all of them; instructions are given in &quot;Unicode character properties that are NOT accepted by Perl&quot; in perluniprops.</div>
+<div class="subsection">
+<h2>Dereferencing IO thingies as typeglobs</h2> The &quot;*{...}&quot; operator, when passed a reference to an IO thingy (as in &quot;*{*STDIN{IO}}&quot;), creates a new typeglob containing just that IO object. Previously, it would stringify as an empty string, but some operators would treat it as undefined, producing an &quot;uninitialized&quot; warning. Now it stringifies as __ANONIO__ [perl #96326].</div>
+<div class="subsection">
+<h2>User-defined case-changing operations</h2> This feature was deprecated in Perl 5.14, and has now been removed. The CPAN module Unicode::Casing provides better functionality without the drawbacks that this feature had, as are detailed in the 5.14 documentation: &lt;http://perldoc.perl.org/5.14.0/perlunicode.html#User-Defined-Case-Mappings-%28for-serious-hackers-only%29&gt;</div>
+<div class="subsection">
+<h2>XSUBs are now 'static'</h2> XSUB C functions are now 'static', that is, they are not visible from outside the compilation unit.  Users can use the new &quot;XS_EXTERNAL(name)&quot; and &quot;XS_INTERNAL(name)&quot; macros to pick the desired linking behavior. The ordinary &quot;XS(name)&quot; declaration for XSUBs will continue to declare non-'static' XSUBs for compatibility, but the XS compiler, ExtUtils::ParseXS (&quot;xsubpp&quot;) will emit 'static' XSUBs by default. ExtUtils::ParseXS's behavior can be reconfigured from XS using the &quot;EXPORT_XSUB_SYMBOLS&quot; keyword.  See perlxs for details.</div>
+<div class="subsection">
+<h2>Weakening read-only references</h2> Weakening read-only references is no longer permitted.  It should never have worked anyway, and could sometimes result in crashes.</div>
+<div class="subsection">
+<h2>Tying scalars that hold typeglobs</h2> Attempting to tie a scalar after a typeglob was assigned to it would instead tie the handle in the typeglob's IO slot.  This meant that it was impossible to tie the scalar itself.  Similar problems affected &quot;tied&quot; and &quot;untie&quot;: &quot;tied $scalar&quot; would return false on a tied scalar if the last thing returned was a typeglob, and &quot;untie $scalar&quot; on such a tied scalar would do nothing.<div class="spacer">
+</div>
+We fixed this problem before Perl 5.14.0, but it caused problems with some CPAN modules, so we put in a deprecation cycle instead.<div class="spacer">
+</div>
+Now the deprecation has been removed and this bug has been fixed.  So &quot;tie $scalar&quot; will always tie the scalar, not the handle it holds.  To tie the handle, use &quot;tie *$scalar&quot; (with an explicit asterisk).  The same applies to &quot;tied *$scalar&quot; and &quot;untie *$scalar&quot;.</div>
+<div class="subsection">
+<h2>IPC::Open3 no longer provides &quot;xfork()&quot;, &quot;xclose_on_exec()&quot; and &quot;xpipe_anon()&quot;</h2> All three functions were private, undocumented, and unexported.  They do not appear to be used by any code on CPAN.  Two have been inlined and one deleted entirely.</div>
+<div class="subsection">
+<h2>$$ no longer caches PID</h2> Previously, if one called  <i>fork</i>(3) from C, Perl's notion of $$ could go out of sync with what  <i>getpid()</i> returns.  By always fetching the value of $$ via  <i>getpid()</i>, this potential bug is eliminated. Code that depends on the caching behavior will break.  As described in Core Enhancements, $$ is now writable, but it will be reset during a fork.</div>
+<div class="subsection">
+<h2>$$ and &quot;getppid()&quot; no longer emulate POSIX semantics under LinuxThreads</h2> The POSIX emulation of $$ and &quot;getppid()&quot; under the obsolete LinuxThreads implementation has been removed. This only impacts users of Linux 2.4 and users of Debian GNU/kFreeBSD up to and including 6.0, not the vast majority of Linux installations that use NPTL threads.<div class="spacer">
+</div>
+This means that &quot;getppid()&quot;, like $$, is now always guaranteed to return the OS's idea of the current state of the process, not perl's cached version of it.<div class="spacer">
+</div>
+See the documentation for $$ for details.</div>
+<div class="subsection">
+<h2>$&lt;, $&gt;, $( and $) are no longer cached</h2> Similarly to the changes to $$ and &quot;getppid()&quot;, the internal caching of $&lt;, $&gt;, $( and $) has been removed.<div class="spacer">
+</div>
+When we cached these values our idea of what they were would drift out of sync with reality if someone (e.g., someone embedding perl) called &quot;sete?[ug]id()&quot; without updating &quot;PL_e?[ug]id&quot;.  Having to deal with this complexity wasn't worth it given how cheap the &quot;gete?[ug]id()&quot; system call is.<div class="spacer">
+</div>
+This change will break a handful of CPAN modules that use the XS-level &quot;PL_uid&quot;, &quot;PL_gid&quot;, &quot;PL_euid&quot; or &quot;PL_egid&quot; variables.<div class="spacer">
+</div>
+The fix for those breakages is to use &quot;PerlProc_gete?[ug]id()&quot; to retrieve them (e.g., &quot;PerlProc_getuid()&quot;), and not to assign to &quot;PL_e?[ug]id&quot; if you change the UID/GID/EUID/EGID.  There is no longer any need to do so since perl will always retrieve the up-to-date version of those values from the OS.</div>
+<div class="subsection">
+<h2>Which Non-ASCII characters get quoted by &quot;quotemeta&quot; and &quot;\Q&quot; has changed</h2> This is unlikely to result in a real problem, as Perl does not attach special meaning to any non-ASCII character, so it is currently irrelevant which are quoted or not.  This change fixes bug [perl #77654] and brings Perl's behavior more into line with Unicode's recommendations. See &quot;quotemeta&quot; in perlfunc.</div>
+</div>
+<div class="section">
+<h1>Performance Enhancements</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Improved performance for Unicode properties in regular expressions<div style="height: 1.00em;">
+&#160;</div>
+Matching a code point against a Unicode property is now done via a binary search instead of linear.  This means for example that the worst case for a 1000 item property is 10 probes instead of 1000.  This inefficiency has been compensated for in the past by permanently storing in a hash the results of a given probe plus the results for the adjacent 64 code points, under the theory that near-by code points are likely to be searched for.  A separate hash was used for each mention of a Unicode property in each regular expression.  Thus, &quot;qr/\p{foo}abc\p{foo}/&quot; would generate two hashes.  Any probes in one instance would be unknown to the other, and the hashes could expand separately to be quite large if the regular expression were used on many different widely-separated code points. Now, however, there is just one hash shared by all instances of a given property.  This means that if &quot;\p{foo}&quot; is matched against &quot;A&quot; in one regular expression in a thread, the result will be known immediately to all regular expressions, and the relentless march of using up memory is slowed considerably.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Version declarations with the &quot;use&quot; keyword (e.g., &quot;use 5.012&quot;) are now faster, as they enable features without loading  <i>feature.pm</i>.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;local $_&quot; is faster now, as it no longer iterates through magic that it is not going to copy anyway.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Perl 5.12.0 sped up the destruction of objects whose classes define empty &quot;DESTROY&quot; methods (to prevent autoloading), by simply not calling such empty methods.  This release takes this optimization a step further, by not calling any &quot;DESTROY&quot; method that begins with a &quot;return&quot; statement.  This can be useful for destructors that are only used for debugging:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    use constant DEBUG =&gt; 1;<br/>
+    sub DESTROY { return unless DEBUG; ... }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Constant-folding will reduce the first statement to &quot;return;&quot; if DEBUG is set to 0, triggering this optimization.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assigning to a variable that holds a typeglob or copy-on-write scalar is now much faster.  Previously the typeglob would be stringified or the copy-on-write scalar would be copied before being clobbered.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assignment to &quot;substr&quot; in void context is now more than twice its previous speed.  Instead of creating and returning a special lvalue scalar that is then assigned to, &quot;substr&quot; modifies the original string itself.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;substr&quot; no longer calculates a value to return when called in void context.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Due to changes in File::Glob, Perl's &quot;glob&quot; function and its &quot;&lt;...&gt;&quot; equivalent are now much faster.  The splitting of the pattern into words has been rewritten in C, resulting in speed-ups of 20% for some cases.<div style="height: 1.00em;">
+&#160;</div>
+This does not affect &quot;glob&quot; on VMS, as it does not use File::Glob.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The short-circuiting operators &quot;&amp;&amp;&quot;, &quot;||&quot;, and &quot;//&quot;, when chained (such as &quot;$a || $b || $c&quot;), are now considerably faster to short-circuit, due to reduced optree traversal.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The implementation of &quot;s///r&quot; makes one fewer copy of the scalar's value.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Recursive calls to lvalue subroutines in lvalue scalar context use less memory.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Modules and Pragmata</h1><div class="subsection">
+<h2>Deprecated Modules</h2><dl>
+<dt>
+Version::Requirements</dt>
+<dd>
+Version::Requirements is now DEPRECATED, use CPAN::Meta::Requirements, which is a drop-in replacement.  It will be deleted from perl.git blead in v5.17.0.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>New Modules and Pragmata</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+arybase -- this new module implements the $[ variable.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+PerlIO::mmap 0.010 has been added to the Perl core.<div style="height: 1.00em;">
+&#160;</div>
+The &quot;mmap&quot; PerlIO layer is no longer implemented by perl itself, but has been moved out into the new PerlIO::mmap module.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Updated Modules and Pragmata</h2> This is only an overview of selected module updates.  For a complete list of updates, run:<div class="spacer">
+</div>
+<br/>
+    $ corelist --diff 5.14.0 5.16.0<br/>
+<div class="spacer">
+</div>
+You can substitute your favorite version in place of 5.14.0, too.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Archive::Extract has been upgraded from version 0.48 to 0.58.<div style="height: 1.00em;">
+&#160;</div>
+Includes a fix for FreeBSD to only use &quot;unzip&quot; if it is located in &quot;/usr/local/bin&quot;, as FreeBSD 9.0 will ship with a limited &quot;unzip&quot; in &quot;/usr/bin&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Archive::Tar has been upgraded from version 1.76 to 1.82.<div style="height: 1.00em;">
+&#160;</div>
+Adjustments to handle files &gt;8gb (&gt;0777777777777 octal) and a feature to return the MD5SUM of files in the archive.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+base has been upgraded from version 2.16 to 2.18.<div style="height: 1.00em;">
+&#160;</div>
+&quot;base&quot; no longer sets a module's $VERSION to &quot;-1&quot; when a module it loads does not define a $VERSION.  This change has been made because &quot;-1&quot; is not a valid version number under the new &quot;lax&quot; criteria used internally by &quot;UNIVERSAL::VERSION&quot;.  (See version for more on &quot;lax&quot; version criteria.)<div style="height: 1.00em;">
+&#160;</div>
+&quot;base&quot; no longer internally skips loading modules it has already loaded and instead relies on &quot;require&quot; to inspect %INC.  This fixes a bug when &quot;base&quot; is used with code that clear %INC to force a module to be reloaded.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Carp has been upgraded from version 1.20 to 1.26.<div style="height: 1.00em;">
+&#160;</div>
+It now includes last read filehandle info and puts a dot after the file and line number, just like errors from &quot;die&quot; [perl #106538].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+charnames has been updated from version 1.18 to 1.30.<div style="height: 1.00em;">
+&#160;</div>
+&quot;charnames&quot; can now be invoked with a new option, &quot;:loose&quot;, which is like the existing &quot;:full&quot; option, but enables Unicode loose name matching.  Details are in &quot;LOOSE MATCHES&quot; in charnames.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+B::Deparse has been upgraded from version 1.03 to 1.14.  This fixes numerous deparsing bugs.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+CGI has been upgraded from version 3.52 to 3.59.<div style="height: 1.00em;">
+&#160;</div>
+It uses the public and documented FCGI.pm API in CGI::Fast.  CGI::Fast was using an FCGI API that was deprecated and removed from documentation more than ten years ago.  Usage of this deprecated API with FCGI &gt;= 0.70 or FCGI &lt;= 0.73 introduces a security issue. &lt;https://rt.cpan.org/Public/Bug/Display.html?id=68380&gt; &lt;http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2011-2766&gt;<div style="height: 1.00em;">
+&#160;</div>
+Things that may break your code:<div style="height: 1.00em;">
+&#160;</div>
+&quot;url()&quot; was fixed to return &quot;PATH_INFO&quot; when it is explicitly requested with either the &quot;path=&gt;1&quot; or &quot;path_info=&gt;1&quot; flag.<div style="height: 1.00em;">
+&#160;</div>
+If your code is running under mod_rewrite (or compatible) and you are calling &quot;self_url()&quot; or you are calling &quot;url()&quot; and passing &quot;path_info=&gt;1&quot;, these methods will actually be returning &quot;PATH_INFO&quot; now, as you have explicitly requested or &quot;self_url()&quot; has requested on your behalf.<div style="height: 1.00em;">
+&#160;</div>
+The &quot;PATH_INFO&quot; has been omitted in such URLs since the issue was introduced in the 3.12 release in December, 2005.<div style="height: 1.00em;">
+&#160;</div>
+This bug is so old your application may have come to depend on it or workaround it. Check for application before upgrading to this release.<div style="height: 1.00em;">
+&#160;</div>
+Examples of affected method calls:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $q-&gt;url(-absolute =&gt; 1, -query =&gt; 1, -path_info =&gt; 1);<br/>
+  $q-&gt;url(-path=&gt;1);<br/>
+  $q-&gt;url(-full=&gt;1,-path=&gt;1);<br/>
+  $q-&gt;url(-rewrite=&gt;1,-path=&gt;1);<br/>
+  $q-&gt;self_url();<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+We no longer read from STDIN when the Content-Length is not set, preventing requests with no Content-Length from sometimes freezing. This is consistent with the CGI RFC 3875, and is also consistent with CGI::Simple.  However, the old behavior may have been expected by some command-line uses of CGI.pm.<div style="height: 1.00em;">
+&#160;</div>
+In addition, the DELETE HTTP verb is now supported.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Compress::Zlib has been upgraded from version 2.035 to 2.048.<div style="height: 1.00em;">
+&#160;</div>
+IO::Compress::Zip and IO::Uncompress::Unzip now have support for LZMA (method 14).  There is a fix for a CRC issue in IO::Compress::Unzip and it supports Streamed Stored context now.  And fixed a Zip64 issue in IO::Compress::Zip when the content size was exactly 0xFFFFFFFF.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Digest::SHA has been upgraded from version 5.61 to 5.71.<div style="height: 1.00em;">
+&#160;</div>
+Added BITS mode to the addfile method and shasum.  This makes partial-byte inputs possible via files/STDIN and lets shasum check all 8074 NIST Msg vectors, where previously special programming was required to do this.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Encode has been upgraded from version 2.42 to 2.44.<div style="height: 1.00em;">
+&#160;</div>
+Missing aliases added, a deep recursion error fixed and various documentation updates.<div style="height: 1.00em;">
+&#160;</div>
+Addressed 'decode_xs n-byte heap-overflow' security bug in Unicode.xs (CVE-2011-2939). (5.14.2)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+ExtUtils::CBuilder updated from version 0.280203 to 0.280206.<div style="height: 1.00em;">
+&#160;</div>
+The new version appends CFLAGS and LDFLAGS to their Config.pm counterparts.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+ExtUtils::ParseXS has been upgraded from version 2.2210 to 3.16.<div style="height: 1.00em;">
+&#160;</div>
+Much of ExtUtils::ParseXS, the module behind the XS compiler &quot;xsubpp&quot;, was rewritten and cleaned up.  It has been made somewhat more extensible and now finally uses strictures.<div style="height: 1.00em;">
+&#160;</div>
+The typemap logic has been moved into a separate module, ExtUtils::Typemaps.  See &quot;New Modules and Pragmata&quot;, above.<div style="height: 1.00em;">
+&#160;</div>
+For a complete set of changes, please see the ExtUtils::ParseXS changelog, available on the CPAN.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+File::Glob has been upgraded from version 1.12 to 1.17.<div style="height: 1.00em;">
+&#160;</div>
+On Windows, tilde (~) expansion now checks the &quot;USERPROFILE&quot; environment variable, after checking &quot;HOME&quot;.<div style="height: 1.00em;">
+&#160;</div>
+It has a new &quot;:bsd_glob&quot; export tag, intended to replace &quot;:glob&quot;.  Like &quot;:glob&quot; it overrides &quot;glob&quot; with a function that does not split the glob pattern into words, but, unlike &quot;:glob&quot;, it iterates properly in scalar context, instead of returning the last file.<div style="height: 1.00em;">
+&#160;</div>
+There are other changes affecting Perl's own &quot;glob&quot; operator (which uses File::Glob internally, except on VMS).  See &quot;Performance Enhancements&quot; and &quot;Selected Bug Fixes&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+FindBin updated from version 1.50 to 1.51.<div style="height: 1.00em;">
+&#160;</div>
+It no longer returns a wrong result if a script of the same name as the current one exists in the path and is executable.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+HTTP::Tiny has been upgraded from version 0.012 to 0.017.<div style="height: 1.00em;">
+&#160;</div>
+Added support for using $ENV{http_proxy} to set the default proxy host.<div style="height: 1.00em;">
+&#160;</div>
+Adds additional shorthand methods for all common HTTP verbs, a &quot;post_form()&quot; method for POST-ing x-www-form-urlencoded data and a &quot;www_form_urlencode()&quot; utility method.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+IO has been upgraded from version 1.25_04 to 1.25_06, and IO::Handle from version 1.31 to 1.33.<div style="height: 1.00em;">
+&#160;</div>
+Together, these upgrades fix a problem with IO::Handle's &quot;getline&quot; and &quot;getlines&quot; methods.  When these methods are called on the special ARGV handle, the next file is automatically opened, as happens with the built-in &quot;&lt;&gt;&quot; and &quot;readline&quot; functions.  But, unlike the built-ins, these methods were not respecting the caller's use of the open pragma and applying the appropriate I/O layers to the newly-opened file [rt.cpan.org #66474].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+IPC::Cmd has been upgraded from version 0.70 to 0.76.<div style="height: 1.00em;">
+&#160;</div>
+Capturing of command output (both &quot;STDOUT&quot; and &quot;STDERR&quot;) is now supported using IPC::Open3 on MSWin32 without requiring IPC::Run.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+IPC::Open3 has been upgraded from version 1.09 to 1.12.<div style="height: 1.00em;">
+&#160;</div>
+Fixes a bug which prevented use of &quot;open3&quot; on Windows when *STDIN, *STDOUT or *STDERR had been localized.<div style="height: 1.00em;">
+&#160;</div>
+Fixes a bug which prevented duplicating numeric file descriptors on Windows.<div style="height: 1.00em;">
+&#160;</div>
+&quot;open3&quot; with &quot;-&quot; for the program name works once more.  This was broken in version 1.06 (and hence in Perl 5.14.0) [perl #95748].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Locale::Codes has been upgraded from version 3.16 to 3.21.<div style="height: 1.00em;">
+&#160;</div>
+Added Language Extension codes (langext) and Language Variation codes (langvar) as defined in the IANA language registry.<div style="height: 1.00em;">
+&#160;</div>
+Added language codes from ISO 639-5<div style="height: 1.00em;">
+&#160;</div>
+Added language/script codes from the IANA language subtag registry<div style="height: 1.00em;">
+&#160;</div>
+Fixed an uninitialized value warning [rt.cpan.org #67438].<div style="height: 1.00em;">
+&#160;</div>
+Fixed the return value for the all_XXX_codes and all_XXX_names functions [rt.cpan.org #69100].<div style="height: 1.00em;">
+&#160;</div>
+Reorganized modules to move Locale::MODULE to Locale::Codes::MODULE to allow for cleaner future additions.  The original four modules (Locale::Language, Locale::Currency, Locale::Country, Locale::Script) will continue to work, but all new sets of codes will be added in the Locale::Codes namespace.<div style="height: 1.00em;">
+&#160;</div>
+The code2XXX, XXX2code, all_XXX_codes, and all_XXX_names functions now support retired codes.  All codesets may be specified by a constant or by their name now.  Previously, they were specified only by a constant.<div style="height: 1.00em;">
+&#160;</div>
+The alias_code function exists for backward compatibility.  It has been replaced by rename_country_code.  The alias_code function will be removed some time after September, 2013.<div style="height: 1.00em;">
+&#160;</div>
+All work is now done in the central module (Locale::Codes).  Previously, some was still done in the wrapper modules (Locale::Codes::*).  Added Language Family codes (langfam) as defined in ISO 639-5.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Math::BigFloat has been upgraded from version 1.993 to 1.997.<div style="height: 1.00em;">
+&#160;</div>
+The &quot;numify&quot; method has been corrected to return a normalized Perl number (the result of &quot;0 + $thing&quot;), instead of a string [rt.cpan.org #66732].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Math::BigInt has been upgraded from version 1.994 to 1.998.<div style="height: 1.00em;">
+&#160;</div>
+It provides a new &quot;bsgn&quot; method that complements the &quot;babs&quot; method.<div style="height: 1.00em;">
+&#160;</div>
+It fixes the internal &quot;objectify&quot; function's handling of &quot;foreign objects&quot; so they are converted to the appropriate class (Math::BigInt or Math::BigFloat).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Math::BigRat has been upgraded from version 0.2602 to 0.2603.<div style="height: 1.00em;">
+&#160;</div>
+&quot;int()&quot; on a Math::BigRat object containing -1/2 now creates a Math::BigInt containing 0, rather than -0.  Math::BigInt does not even support negative zero, so the resulting object was actually malformed [perl #95530].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Math::Complex has been upgraded from version 1.56 to 1.59 and Math::Trig from version 1.2 to 1.22.<div style="height: 1.00em;">
+&#160;</div>
+Fixes include: correct copy constructor usage; fix polarwise formatting with numeric format specifier; and more stable &quot;great_circle_direction&quot; algorithm.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Module::CoreList has been upgraded from version 2.51 to 2.66.<div style="height: 1.00em;">
+&#160;</div>
+The &quot;corelist&quot; utility now understands the &quot;-r&quot; option for displaying Perl release dates and the &quot;--diff&quot; option to print the set of modlib changes between two perl distributions.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Module::Metadata has been upgraded from version 1.000004 to 1.000009.<div style="height: 1.00em;">
+&#160;</div>
+Adds &quot;provides&quot; method to generate a CPAN META provides data structure correctly; use of &quot;package_versions_from_directory&quot; is discouraged.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+ODBM_File has been upgraded from version 1.10 to 1.12.<div style="height: 1.00em;">
+&#160;</div>
+The XS code is now compiled with &quot;PERL_NO_GET_CONTEXT&quot;, which will aid performance under ithreads.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+open has been upgraded from version 1.08 to 1.10.<div style="height: 1.00em;">
+&#160;</div>
+It no longer turns off layers on standard handles when invoked without the &quot;:std&quot; directive.  Similarly, when invoked  <i>with</i> the &quot;:std&quot; directive, it now clears layers on STDERR before applying the new ones, and not just on STDIN and STDOUT [perl #92728].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+overload has been upgraded from version 1.13 to 1.18.<div style="height: 1.00em;">
+&#160;</div>
+&quot;overload::Overloaded&quot; no longer calls &quot;can&quot; on the class, but uses another means to determine whether the object has overloading.  It was never correct for it to call &quot;can&quot;, as overloading does not respect AUTOLOAD.  So classes that autoload methods and implement &quot;can&quot; no longer have to account for overloading [perl #40333].<div style="height: 1.00em;">
+&#160;</div>
+A warning is now produced for invalid arguments.  See &quot;New Diagnostics&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+PerlIO::scalar has been upgraded from version 0.11 to 0.14.<div style="height: 1.00em;">
+&#160;</div>
+(This is the module that implements &quot;open $fh, '&gt;', \$scalar&quot;.)<div style="height: 1.00em;">
+&#160;</div>
+It fixes a problem with &quot;open my $fh, &quot;&gt;&quot;, \$scalar&quot; not working if $scalar is a copy-on-write scalar. (5.14.2)<div style="height: 1.00em;">
+&#160;</div>
+It also fixes a hang that occurs with &quot;readline&quot; or &quot;&lt;$fh&gt;&quot; if a typeglob has been assigned to $scalar [perl #92258].<div style="height: 1.00em;">
+&#160;</div>
+It no longer assumes during &quot;seek&quot; that $scalar is a string internally. If it didn't crash, it was close to doing so [perl #92706].  Also, the internal print routine no longer assumes that the position set by &quot;seek&quot; is valid, but extends the string to that position, filling the intervening bytes (between the old length and the seek position) with nulls [perl #78980].<div style="height: 1.00em;">
+&#160;</div>
+Printing to an in-memory handle now works if the $scalar holds a reference, stringifying the reference before modifying it.  References used to be treated as empty strings.<div style="height: 1.00em;">
+&#160;</div>
+Printing to an in-memory handle no longer crashes if the $scalar happens to hold a number internally, but no string buffer.<div style="height: 1.00em;">
+&#160;</div>
+Printing to an in-memory handle no longer creates scalars that confuse the regular expression engine [perl #108398].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Pod::Functions has been upgraded from version 1.04 to 1.05.<div style="height: 1.00em;">
+&#160;</div>
+<i>Functions.pm</i> is now generated at perl build time from annotations in  <i>perlfunc.pod</i>.  This will ensure that Pod::Functions and perlfunc remain in synchronisation.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Pod::Html has been upgraded from version 1.11 to 1.1502.<div style="height: 1.00em;">
+&#160;</div>
+This is an extensive rewrite of Pod::Html to use Pod::Simple under the hood.  The output has changed significantly.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Pod::Perldoc has been upgraded from version 3.15_03 to 3.17.<div style="height: 1.00em;">
+&#160;</div>
+It corrects the search paths on VMS [perl #90640]. (5.14.1)<div style="height: 1.00em;">
+&#160;</div>
+The <b>-v</b> option now fetches the right section for $0.<div style="height: 1.00em;">
+&#160;</div>
+This upgrade has numerous significant fixes.  Consult its changelog on the CPAN for more information.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+POSIX has been upgraded from version 1.24 to 1.30.<div style="height: 1.00em;">
+&#160;</div>
+POSIX no longer uses AutoLoader.  Any code which was relying on this implementation detail was buggy, and may fail because of this change. The module's Perl code has been considerably simplified, roughly halving the number of lines, with no change in functionality.  The XS code has been refactored to reduce the size of the shared object by about 12%, with no change in functionality.  More POSIX functions now have tests.<div style="height: 1.00em;">
+&#160;</div>
+&quot;sigsuspend&quot; and &quot;pause&quot; now run signal handlers before returning, as the whole point of these two functions is to wait until a signal has arrived, and then return  <i>after</i> it has been triggered.  Delayed, or &quot;safe&quot;, signals were preventing that from happening, possibly resulting in race conditions [perl #107216].<div style="height: 1.00em;">
+&#160;</div>
+&quot;POSIX::sleep&quot; is now a direct call into the underlying OS &quot;sleep&quot; function, instead of being a Perl wrapper on &quot;CORE::sleep&quot;. &quot;POSIX::dup2&quot; now returns the correct value on Win32 ( <i>i.e.</i>, the file descriptor).  &quot;POSIX::SigSet&quot; &quot;sigsuspend&quot; and &quot;sigpending&quot; and &quot;POSIX::pause&quot; now dispatch safe signals immediately before returning to their caller.<div style="height: 1.00em;">
+&#160;</div>
+&quot;POSIX::Termios::setattr&quot; now defaults the third argument to &quot;TCSANOW&quot;, instead of 0. On most platforms &quot;TCSANOW&quot; is defined to be 0, but on some 0 is not a valid parameter, which caused a call with defaults to fail.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Socket has been upgraded from version 1.94 to 2.001.<div style="height: 1.00em;">
+&#160;</div>
+It has new functions and constants for handling IPv6 sockets:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    pack_ipv6_mreq<br/>
+    unpack_ipv6_mreq<br/>
+    IPV6_ADD_MEMBERSHIP<br/>
+    IPV6_DROP_MEMBERSHIP<br/>
+    IPV6_MTU<br/>
+    IPV6_MTU_DISCOVER<br/>
+    IPV6_MULTICAST_HOPS<br/>
+    IPV6_MULTICAST_IF<br/>
+    IPV6_MULTICAST_LOOP<br/>
+    IPV6_UNICAST_HOPS<br/>
+    IPV6_V6ONLY<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Storable has been upgraded from version 2.27 to 2.34.<div style="height: 1.00em;">
+&#160;</div>
+It no longer turns copy-on-write scalars into read-only scalars when freezing and thawing.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Sys::Syslog has been upgraded from version 0.27 to 0.29.<div style="height: 1.00em;">
+&#160;</div>
+This upgrade closes many outstanding bugs.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Term::ANSIColor has been upgraded from version 3.00 to 3.01.<div style="height: 1.00em;">
+&#160;</div>
+Only interpret an initial array reference as a list of colors, not any initial reference, allowing the colored function to work properly on objects with stringification defined.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Term::ReadLine has been upgraded from version 1.07 to 1.09.<div style="height: 1.00em;">
+&#160;</div>
+Term::ReadLine now supports any event loop, including unpublished ones and simple IO::Select, loops without the need to rewrite existing code for any particular framework [perl #108470].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+threads::shared has been upgraded from version 1.37 to 1.40.<div style="height: 1.00em;">
+&#160;</div>
+Destructors on shared objects used to be ignored sometimes if the objects were referenced only by shared data structures.  This has been mostly fixed, but destructors may still be ignored if the objects still exist at global destruction time [perl #98204].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Unicode::Collate has been upgraded from version 0.73 to 0.89.<div style="height: 1.00em;">
+&#160;</div>
+Updated to CLDR 1.9.1<div style="height: 1.00em;">
+&#160;</div>
+Locales updated to CLDR 2.0: mk, mt, nb, nn, ro, ru, sk, sr, sv, uk, zh__pinyin, zh__stroke<div style="height: 1.00em;">
+&#160;</div>
+Newly supported locales: bn, fa, ml, mr, or, pa, sa, si, si__dictionary, sr_Latn, sv__reformed, ta, te, th, ur, wae.<div style="height: 1.00em;">
+&#160;</div>
+Tailored compatibility ideographs as well as unified ideographs for the locales: ja, ko, zh__big5han, zh__gb2312han, zh__pinyin, zh__stroke.<div style="height: 1.00em;">
+&#160;</div>
+Locale/*.pl files are now searched for in @INC.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Unicode::Normalize has been upgraded from version 1.10 to 1.14.<div style="height: 1.00em;">
+&#160;</div>
+Fixes for the removal of <i>unicore/CompositionExclusions.txt</i> from core.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Unicode::UCD has been upgraded from version 0.32 to 0.43.<div style="height: 1.00em;">
+&#160;</div>
+This adds four new functions:  &quot;prop_aliases()&quot; and &quot;prop_value_aliases()&quot;, which are used to find all Unicode-approved synonyms for property names, or to convert from one name to another; &quot;prop_invlist&quot; which returns all code points matching a given Unicode binary property; and &quot;prop_invmap&quot; which returns the complete specification of a given Unicode property.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Win32API::File has been upgraded from version 0.1101 to 0.1200.<div style="height: 1.00em;">
+&#160;</div>
+Added SetStdHandle and GetStdHandle functions</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Removed Modules and Pragmata</h2> As promised in Perl 5.14.0's release notes, the following modules have been removed from the core distribution, and if needed should be installed from CPAN instead.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Devel::DProf has been removed from the Perl core.  Prior version was 20110228.00.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Shell has been removed from the Perl core.  Prior version was 0.72_01.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Several old perl4-style libraries which have been deprecated with 5.14 are now removed:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    abbrev.pl assert.pl bigfloat.pl bigint.pl bigrat.pl cacheout.pl<br/>
+    complete.pl ctime.pl dotsh.pl exceptions.pl fastcwd.pl flush.pl<br/>
+    getcwd.pl getopt.pl getopts.pl hostname.pl importenv.pl<br/>
+    lib/find{,depth}.pl look.pl newgetopt.pl open2.pl open3.pl<br/>
+    pwd.pl shellwords.pl stat.pl tainted.pl termcap.pl timelocal.pl<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+They can be found on CPAN as Perl4::CoreLibs.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Documentation</h1><div class="subsection">
+<h2>New Documentation</h2>  <i>perldtrace</i><div class="spacer">
+</div>
+perldtrace describes Perl's DTrace support, listing the provided probes and gives examples of their use.<div class="spacer">
+</div>
+<i>perlexperiment</i><div class="spacer">
+</div>
+This document is intended to provide a list of experimental features in Perl.  It is still a work in progress.<div class="spacer">
+</div>
+<i>perlootut</i><div class="spacer">
+</div>
+This a new OO tutorial.  It focuses on basic OO concepts, and then recommends that readers choose an OO framework from CPAN.<div class="spacer">
+</div>
+<i>perlxstypemap</i><div class="spacer">
+</div>
+The new manual describes the XS typemapping mechanism in unprecedented detail and combines new documentation with information extracted from perlxs and the previously unofficial list of all core typemaps.</div>
+<div class="subsection">
+<h2>Changes to Existing Documentation</h2>  <i>perlapi</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The HV API has long accepted negative lengths to show that the key is in UTF8.  This is now documented.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;boolSV()&quot; macro is now documented.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlfunc</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;dbmopen&quot; treats a 0 mode as a special case, that prevents a nonexistent file from being created.  This has been the case since Perl 5.000, but was never documented anywhere.  Now the perlfunc entry mentions it [perl #90064].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+As an accident of history, &quot;open $fh, '&lt;:', ...&quot; applies the default layers for the platform (&quot;:raw&quot; on Unix, &quot;:crlf&quot; on Windows), ignoring whatever is declared by open.pm.  This seems such a useful feature it has been documented in perlfunc and open.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The entry for &quot;split&quot; has been rewritten.  It is now far clearer than before.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlguts</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+A new section, Autoloading with XSUBs, has been added, which explains the two APIs for accessing the name of the autoloaded sub.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Some function descriptions in perlguts were confusing, as it was not clear whether they referred to the function above or below the description.  This has been clarified [perl #91790].</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlobj</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+This document has been rewritten from scratch, and its coverage of various OO concepts has been expanded.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlop</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Documentation of the smartmatch operator has been reworked and moved from perlsyn to perlop where it belongs.<div style="height: 1.00em;">
+&#160;</div>
+It has also been corrected for the case of &quot;undef&quot; on the left-hand side.  The list of different smart match behaviors had an item in the wrong place.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Documentation of the ellipsis statement (&quot;...&quot;) has been reworked and moved from perlop to perlsyn.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The explanation of bitwise operators has been expanded to explain how they work on Unicode strings (5.14.1).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+More examples for &quot;m//g&quot; have been added (5.14.1).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;&lt;&lt;\FOO&quot; here-doc syntax has been documented (5.14.1).</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlpragma</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+There is now a standard convention for naming keys in the &quot;%^H&quot;, documented under Key naming.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>&quot;Laundering and Detecting Tainted Data&quot; in perlsec</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The example function for checking for taintedness contained a subtle error.  $@ needs to be localized to prevent its changing this global's value outside the function.  The preferred method to check for this remains &quot;tainted&quot; in Scalar::Util.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perllol</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+perllol has been expanded with examples using the new &quot;push $scalar&quot; syntax introduced in Perl 5.14.0 (5.14.1).</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlmod</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+perlmod now states explicitly that some types of explicit symbol table manipulation are not supported.  This codifies what was effectively already the case [perl #78074].</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlpodstyle</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The tips on which formatting codes to use have been corrected and greatly expanded.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+There are now a couple of example one-liners for previewing POD files after they have been edited.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlre</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;(*COMMIT)&quot; directive is now listed in the right section (Verbs without an argument).</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlrun</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+perlrun has undergone a significant clean-up.  Most notably, the  <b>-0x...</b> form of the <b>-0</b> flag has been clarified, and the final section on environment variables has been corrected and expanded (5.14.1).</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlsub</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The ($;) prototype syntax, which has existed for rather a long time, is now documented in perlsub.  It lets a unary function have the same precedence as a list operator.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perltie</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The required syntax for tying handles has been documented.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>perlvar</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The documentation for $! has been corrected and clarified. It used to state that $! could be &quot;undef&quot;, which is not the case.  It was also unclear whether system calls set C's &quot;errno&quot; or Perl's $! [perl #91614].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Documentation for $$ has been amended with additional cautions regarding changing the process ID.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>Other Changes</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+perlxs was extended with documentation on inline typemaps.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+perlref has a new Circular References section explaining how circularities may not be freed and how to solve that with weak references.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Parts of perlapi were clarified, and Perl equivalents of some C functions have been added as an additional mode of exposition.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A few parts of perlre and perlrecharclass were clarified.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Removed Documentation</h2>  <i>Old OO Documentation</i><div class="spacer">
+</div>
+The old OO tutorials, perltoot, perltooc, and perlboot, have been removed.  The perlbot (bag of object tricks) document has been removed as well.<div class="spacer">
+</div>
+<i>Development Deltas</i><div class="spacer">
+</div>
+The perldelta files for development releases are no longer packaged with perl.  These can still be found in the perl source code repository.</div>
+</div>
+<div class="section">
+<h1>Diagnostics</h1> The following additions or changes have been made to diagnostic output, including warnings and fatal error messages.  For the complete list of diagnostic messages, see perldiag.<div class="subsection">
+<h2>New Diagnostics</h2>  <i>New Errors</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Cannot set tied @DB::args<div style="height: 1.00em;">
+&#160;</div>
+This error occurs when &quot;caller&quot; tries to set @DB::args but finds it tied.  Before this error was added, it used to crash instead.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Cannot tie unreifiable array<div style="height: 1.00em;">
+&#160;</div>
+This error is part of a safety check that the &quot;tie&quot; operator does before tying a special array like @_.  You should never see this message.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&amp;CORE::%s cannot be called directly<div style="height: 1.00em;">
+&#160;</div>
+This occurs when a subroutine in the &quot;CORE::&quot; namespace is called with &amp;foo syntax or through a reference.  Some subroutines in this package cannot yet be called that way, but must be called as barewords.  See &quot;Subroutines in the &quot;CORE&quot; namespace&quot;, above.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Source filters apply only to byte streams<div style="height: 1.00em;">
+&#160;</div>
+This new error occurs when you try to activate a source filter (usually by loading a source filter module) within a string passed to &quot;eval&quot; under the &quot;unicode_eval&quot; feature.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>New Warnings</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+defined(@array) is deprecated<div style="height: 1.00em;">
+&#160;</div>
+The long-deprecated &quot;defined(@array)&quot; now also warns for package variables. Previously it issued a warning for lexical variables only.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>length()</i> used on %s<div style="height: 1.00em;">
+&#160;</div>
+This new warning occurs when &quot;length&quot; is used on an array or hash, instead of &quot;scalar(@array)&quot; or &quot;scalar(keys %hash)&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+lvalue attribute %s already-defined subroutine<div style="height: 1.00em;">
+&#160;</div>
+attributes.pm now emits this warning when the :lvalue attribute is applied to a Perl subroutine that has already been defined, as doing so can have unexpected side-effects.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+overload arg '%s' is invalid<div style="height: 1.00em;">
+&#160;</div>
+This warning, in the &quot;overload&quot; category, is produced when the overload pragma is given an argument it doesn't recognize, presumably a mistyped operator.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$[ used in %s (did you mean $] ?)<div style="height: 1.00em;">
+&#160;</div>
+This new warning exists to catch the mistaken use of $[ in version checks.  $], not $[, contains the version number.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Useless assignment to a temporary<div style="height: 1.00em;">
+&#160;</div>
+Assigning to a temporary scalar returned from an lvalue subroutine now produces this warning [perl #31946].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Useless use of \E<div style="height: 1.00em;">
+&#160;</div>
+&quot;\E&quot; does nothing unless preceded by &quot;\Q&quot;, &quot;\L&quot; or &quot;\U&quot;.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Removed Errors</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;sort is now a reserved word&quot;<div style="height: 1.00em;">
+&#160;</div>
+This error used to occur when &quot;sort&quot; was called without arguments, followed by &quot;;&quot; or &quot;)&quot;.  (E.g., &quot;sort;&quot; would die, but &quot;{sort}&quot; was OK.)  This error message was added in Perl 3 to catch code like &quot;close(sort)&quot; which would no longer work.  More than two decades later, this message is no longer appropriate.  Now &quot;sort&quot; without arguments is always allowed, and returns an empty list, as it did in those cases where it was already allowed [perl #90030].</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Changes to Existing Diagnostics</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;Applying pattern match...&quot; or similar warning produced when an array or hash is on the left-hand side of the &quot;=~&quot; operator now mentions the name of the variable.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;Attempt to free non-existent shared string&quot; has had the spelling of &quot;non-existent&quot; corrected to &quot;nonexistent&quot;.  It was already listed with the correct spelling in perldiag.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The error messages for using &quot;default&quot; and &quot;when&quot; outside a topicalizer have been standardized to match the messages for &quot;continue&quot; and loop controls.  They now read 'Can't &quot;default&quot; outside a topicalizer' and 'Can't &quot;when&quot; outside a topicalizer'.  They both used to be 'Can't use  <i>when()</i> outside a topicalizer' [perl #91514].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The message, &quot;Code point 0x%X is not Unicode, no properties match it; all inverse properties do&quot; has been changed to &quot;Code point 0x%X is not Unicode, all \p{} matches fail; all \P{} matches succeed&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Redefinition warnings for constant subroutines used to be mandatory, even occurring under &quot;no warnings&quot;.  Now they respect the warnings pragma.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;glob failed&quot; warning message is now suppressible via &quot;no warnings&quot; [perl #111656].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The Invalid version format error message now says &quot;negative version number&quot; within the parentheses, rather than &quot;non-numeric data&quot;, for negative numbers.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The two warnings Possible attempt to put comments in  <i>qw()</i> list and Possible attempt to separate words with commas are no longer mutually exclusive: the same &quot;qw&quot; construct may produce both.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The uninitialized warning for &quot;y///r&quot; when $_ is implicit and undefined now mentions the variable name, just like the non-/r variation of the operator.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The 'Use of &quot;foo&quot; without parentheses is ambiguous' warning has been extended to apply also to user-defined subroutines with a (;$) prototype, and not just to built-in functions.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Warnings that mention the names of lexical (&quot;my&quot;) variables with Unicode characters in them now respect the presence or absence of the &quot;:utf8&quot; layer on the output handle, instead of outputting UTF8 regardless.  Also, the correct names are included in the strings passed to $SIG{__WARN__} handlers, rather than the raw UTF8 bytes.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Utility Changes</h1>  <i>h2ph</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+h2ph used to generate code of the form<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  unless(defined(&amp;FOO)) {<br/>
+    sub FOO () {42;}<br/>
+  }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+But the subroutine is a compile-time declaration, and is hence unaffected by the condition.  It has now been corrected to emit a string &quot;eval&quot; around the subroutine [perl #99368].</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>splain</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>splain</i> no longer emits backtraces with the first line number repeated.<div style="height: 1.00em;">
+&#160;</div>
+This:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    Uncaught exception from user code:<br/>
+            Cannot fwiddle the fwuddle at -e line 1.<br/>
+     at -e line 1<br/>
+            main::baz() called at -e line 1<br/>
+            main::bar() called at -e line 1<br/>
+            main::foo() called at -e line 1<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+has become this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    Uncaught exception from user code:<br/>
+            Cannot fwiddle the fwuddle at -e line 1.<br/>
+            main::baz() called at -e line 1<br/>
+            main::bar() called at -e line 1<br/>
+            main::foo() called at -e line 1<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Some error messages consist of multiple lines that are listed as separate entries in perldiag.  splain has been taught to find the separate entries in these cases, instead of simply failing to find the message.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>zipdetails</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+This is a new utility, included as part of an IO::Compress::Base upgrade.<div style="height: 1.00em;">
+&#160;</div>
+zipdetails displays information about the internal record structure of the zip file.  It is not concerned with displaying any details of the compressed data stored in the zip file.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Configuration and Compilation</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>regexp.h</i> has been modified for compatibility with GCC's <b>-Werror</b> option, as used by some projects that include perl's header files (5.14.1).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;USE_LOCALE{,_COLLATE,_CTYPE,_NUMERIC}&quot; have been added the output of perl -V as they have affect the behavior of the interpreter binary (albeit in only a small area).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The code and tests for IPC::Open2 have been moved from <i>ext/IPC-Open2</i> into  <i>ext/IPC-Open3</i>, as &quot;IPC::Open2::open2()&quot; is implemented as a thin wrapper around &quot;IPC::Open3::_open3()&quot;, and hence is very tightly coupled to it.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The magic types and magic vtables are now generated from data in a new script  <i>regen/mg_vtable.pl</i>, instead of being maintained by hand.  As different EBCDIC variants can't agree on the code point for '~', the character to code point conversion is done at build time by  <i>generate_uudmap</i> to a new generated header  <i>mg_data.h</i>.  &quot;PL_vtbl_bm&quot; and &quot;PL_vtbl_fm&quot; are now defined by the pre-processor as &quot;PL_vtbl_regexp&quot;, instead of being distinct C variables. &quot;PL_vtbl_sig&quot; has been removed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Building with &quot;-DPERL_GLOBAL_STRUCT&quot; works again.  This configuration is not generally used.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Perl configured with <i>MAD</i> now correctly frees &quot;MADPROP&quot; structures when OPs are freed.  &quot;MADPROP&quot;s are now allocated with &quot;PerlMemShared_malloc()&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>makedef.pl</i> has been refactored.  This should have no noticeable affect on any of the platforms that use it as part of their build (AIX, VMS, Win32).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;useperlio&quot; can no longer be disabled.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The file <i>global.sym</i> is no longer needed, and has been removed.  It contained a list of all exported functions, one of the files generated by  <i>regen/embed.pl</i> from data in <i>embed.fnc</i> and <i>regen/opcodes</i>.  The code has been refactored so that the only user of  <i>global.sym</i>, <i>makedef.pl</i>, now reads  <i>embed.fnc</i> and <i>regen/opcodes</i> directly, removing the need to store the list of exported functions in an intermediate file.<div style="height: 1.00em;">
+&#160;</div>
+As <i>global.sym</i> was never installed, this change should not be visible outside the build process.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>pod/buildtoc</i>, used by the build process to build perltoc, has been refactored and simplified.  It now contains only code to build perltoc; the code to regenerate Makefiles has been moved to  <i>Porting/pod_rules.pl</i>. It's a bug if this change has any material effect on the build process.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>pod/roffitall</i> is now built by <i>pod/buildtoc</i>, instead of being shipped with the distribution.  Its list of manpages is now generated (and therefore current).  See also RT #103202 for an unresolved related issue.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The man page for &quot;XS::Typemap&quot; is no longer installed.  &quot;XS::Typemap&quot; is a test module which is not installed, hence installing its documentation makes no sense.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The -Dusesitecustomize and -Duserelocatableinc options now work together properly.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Platform Support</h1><div class="subsection">
+<h2>Platform-Specific Notes</h2>  <i>Cygwin</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Since version 1.7, Cygwin supports native UTF-8 paths.  If Perl is built under that environment, directory and filenames will be UTF-8 encoded.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Cygwin does not initialize all original Win32 environment variables.  See  <i>README.cygwin</i> for a discussion of the newly-added &quot;Cygwin::sync_winenv()&quot; function [perl #110190] and for further links.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>HP-UX</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+HP-UX PA-RISC/64 now supports gcc-4.x<div style="height: 1.00em;">
+&#160;</div>
+A fix to correct the socketsize now makes the test suite pass on HP-UX PA-RISC for 64bitall builds. (5.14.2)</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>VMS</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Remove unnecessary includes, fix miscellaneous compiler warnings and close some unclosed comments on  <i>vms/vms.c</i>.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Remove sockadapt layer from the VMS build.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Explicit support for VMS versions before v7.0 and DEC C versions before v6.0 has been removed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Since Perl 5.10.1, the home-grown &quot;stat&quot; wrapper has been unable to distinguish between a directory name containing an underscore and an otherwise-identical filename containing a dot in the same position (e.g., t/test_pl as a directory and t/test.pl as a file).  This problem has been corrected.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The build on VMS now permits names of the resulting symbols in C code for Perl longer than 31 characters.  Symbols like &quot;Perl__it_was_the_best_of_times_it_was_the_worst_of_times&quot; can now be created freely without causing the VMS linker to seize up.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>GNU/Hurd</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Numerous build and test failures on GNU/Hurd have been resolved with hints for building DBM modules, detection of the library search path, and enabling of large file support.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>OpenVOS</i><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Perl is now built with dynamic linking on OpenVOS, the minimum supported version of which is now Release 17.1.0.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>SunOS</i><div class="spacer">
+</div>
+The CC workshop C++ compiler is now detected and used on systems that ship without cc.</div>
+</div>
+<div class="section">
+<h1>Internal Changes</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The compiled representation of formats is now stored via the &quot;mg_ptr&quot; of their &quot;PERL_MAGIC_fm&quot;.  Previously it was stored in the string buffer, beyond &quot;SvLEN()&quot;, the regular end of the string.  &quot;SvCOMPILED()&quot; and &quot;SvCOMPILED_{on,off}()&quot; now exist solely for compatibility for XS code. The first is always 0, the other two now no-ops. (5.14.1)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Some global variables have been marked &quot;const&quot;, members in the interpreter structure have been re-ordered, and the opcodes have been re-ordered.  The op &quot;OP_AELEMFAST&quot; has been split into &quot;OP_AELEMFAST&quot; and &quot;OP_AELEMFAST_LEX&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When empting a hash of its elements (e.g., via undef(%h), or %h=()), HvARRAY field is no longer temporarily zeroed.  Any destructors called on the freed elements see the remaining elements.  Thus, %h=() becomes more like &quot;delete $h{$_} for keys %h&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Boyer-Moore compiled scalars are now PVMGs, and the Boyer-Moore tables are now stored via the mg_ptr of their &quot;PERL_MAGIC_bm&quot;. Previously they were PVGVs, with the tables stored in the string buffer, beyond &quot;SvLEN()&quot;.  This eliminates the last place where the core stores data beyond &quot;SvLEN()&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Simplified logic in &quot;Perl_sv_magic()&quot; introduces a small change of behavior for error cases involving unknown magic types.  Previously, if &quot;Perl_sv_magic()&quot; was passed a magic type unknown to it, it would</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+1.</dt>
+<dd>
+Croak &quot;Modification of a read-only value attempted&quot; if read only</dd>
+</dl>
+<dl>
+<dt>
+2.</dt>
+<dd>
+Return without error if the SV happened to already have this magic</dd>
+</dl>
+<dl>
+<dt>
+3.</dt>
+<dd>
+otherwise croak &quot;Don't know how to handle magic of type \\%o&quot;</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+<div style="height: 1.00em;">
+&#160;</div>
+Now it will always croak &quot;Don't know how to handle magic of type \\%o&quot;, even on read-only values, or SVs which already have the unknown magic type.</div>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The experimental &quot;fetch_cop_label&quot; function has been renamed to &quot;cop_fetch_label&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;cop_store_label&quot; function has been added to the API, but is experimental.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>embedvar.h</i> has been simplified, and one level of macro indirection for PL_* variables has been removed for the default (non-multiplicity) configuration.  PERLVAR*() macros now directly expand their arguments to tokens such as &quot;PL_defgv&quot;, instead of expanding to &quot;PL_Idefgv&quot;, with  <i>embedvar.h</i> defining a macro to map &quot;PL_Idefgv&quot; to &quot;PL_defgv&quot;.  XS code which has unwarranted chumminess with the implementation may need updating.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+An API has been added to explicitly choose whether to export XSUB symbols.  More detail can be found in the comments for commit e64345f8.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;is_gv_magical_sv&quot; function has been eliminated and merged with &quot;gv_fetchpvn_flags&quot;.  It used to be called to determine whether a GV should be autovivified in rvalue context.  Now it has been replaced with a new &quot;GV_ADDMG&quot; flag (not part of the API).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The returned code point from the function &quot;utf8n_to_uvuni()&quot; when the input is malformed UTF-8, malformations are allowed, and &quot;utf8&quot; warnings are off is now the Unicode REPLACEMENT CHARACTER whenever the malformation is such that no well-defined code point can be computed.  Previously the returned value was essentially garbage.  The only malformations that have well-defined values are a zero-length string (0 is the return), and overlong UTF-8 sequences.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Padlists are now marked &quot;AvREAL&quot;; i.e., reference-counted.  They have always been reference-counted, but were not marked real, because  <i>pad.c</i> did its own clean-up, instead of using the usual clean-up code in  <i>sv.c</i>. That caused problems in thread cloning, so now the &quot;AvREAL&quot; flag is on, but is turned off in  <i>pad.c</i> right before the padlist is freed (after  <i>pad.c</i> has done its custom freeing of the pads).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+All C files that make up the Perl core have been converted to UTF-8.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+These new functions have been added as part of the work on Unicode symbols:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    HvNAMELEN<br/>
+    HvNAMEUTF8<br/>
+    HvENAMELEN<br/>
+    HvENAMEUTF8<br/>
+    gv_init_pv<br/>
+    gv_init_pvn<br/>
+    gv_init_pvsv<br/>
+    gv_fetchmeth_pv<br/>
+    gv_fetchmeth_pvn<br/>
+    gv_fetchmeth_sv<br/>
+    gv_fetchmeth_pv_autoload<br/>
+    gv_fetchmeth_pvn_autoload<br/>
+    gv_fetchmeth_sv_autoload<br/>
+    gv_fetchmethod_pv_flags<br/>
+    gv_fetchmethod_pvn_flags<br/>
+    gv_fetchmethod_sv_flags<br/>
+    gv_autoload_pv<br/>
+    gv_autoload_pvn<br/>
+    gv_autoload_sv<br/>
+    newGVgen_flags<br/>
+    sv_derived_from_pv<br/>
+    sv_derived_from_pvn<br/>
+    sv_derived_from_sv<br/>
+    sv_does_pv<br/>
+    sv_does_pvn<br/>
+    sv_does_sv<br/>
+    whichsig_pv<br/>
+    whichsig_pvn<br/>
+    whichsig_sv<br/>
+    newCONSTSUB_flags<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The gv_fetchmethod_*_flags functions, like gv_fetchmethod_flags, are experimental and may change in a future release.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The following functions were added.  These are <i>not</i> part of the API:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    GvNAMEUTF8<br/>
+    GvENAMELEN<br/>
+    GvENAME_HEK<br/>
+    CopSTASH_flags<br/>
+    CopSTASH_flags_set<br/>
+    PmopSTASH_flags<br/>
+    PmopSTASH_flags_set<br/>
+    sv_sethek<br/>
+    HEKfARG<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+There is also a &quot;HEKf&quot; macro corresponding to &quot;SVf&quot;, for interpolating HEKs in formatted strings.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;sv_catpvn_flags&quot; takes a couple of new internal-only flags, &quot;SV_CATBYTES&quot; and &quot;SV_CATUTF8&quot;, which tell it whether the char array to be concatenated is UTF8.  This allows for more efficient concatenation than creating temporary SVs to pass to &quot;sv_catsv&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+For XS AUTOLOAD subs, $AUTOLOAD is set once more, as it was in 5.6.0.  This is in addition to setting &quot;SvPVX(cv)&quot;, for compatibility with 5.8 to 5.14. See &quot;Autoloading with XSUBs&quot; in perlguts.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Perl now checks whether the array (the linearized isa) returned by a MRO plugin begins with the name of the class itself, for which the array was created, instead of assuming that it does.  This prevents the first element from being skipped during method lookup.  It also means that &quot;mro::get_linear_isa&quot; may return an array with one more element than the MRO plugin provided [perl #94306].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;PL_curstash&quot; is now reference-counted.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+There are now feature bundle hints in &quot;PL_hints&quot; ($^H) that version declarations use, to avoid having to load  <i>feature.pm</i>.  One setting of the hint bits indicates a &quot;custom&quot; feature bundle, which means that the entries in &quot;%^H&quot; still apply.   <i>feature.pm</i> uses that.<div style="height: 1.00em;">
+&#160;</div>
+The &quot;HINT_FEATURE_MASK&quot; macro is defined in <i>perl.h</i> along with other hints.  Other macros for setting and testing features and bundles are in the new  <i>feature.h</i>.  &quot;FEATURE_IS_ENABLED&quot; (which has moved to  <i>feature.h</i>) is no longer used throughout the codebase, but more specific macros, e.g., &quot;FEATURE_SAY_IS_ENABLED&quot;, that are defined in  <i>feature.h</i>.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>lib/feature.pm</i> is now a generated file, created by the new  <i>regen/feature.pl</i> script, which also generates <i>feature.h</i>.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Tied arrays are now always &quot;AvREAL&quot;.  If @_ or &quot;DB::args&quot; is tied, it is reified first, to make sure this is always the case.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Two new functions &quot;utf8_to_uvchr_buf()&quot; and &quot;utf8_to_uvuni_buf()&quot; have been added.  These are the same as &quot;utf8_to_uvchr&quot; and &quot;utf8_to_uvuni&quot; (which are now deprecated), but take an extra parameter that is used to guard against reading beyond the end of the input string. See &quot;utf8_to_uvchr_buf&quot; in perlapi and &quot;utf8_to_uvuni_buf&quot; in perlapi.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The regular expression engine now does TRIE case insensitive matches under Unicode. This may change the output of &quot;use re 'debug';&quot;, and will speed up various things.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+There is a new &quot;wrap_op_checker()&quot; function, which provides a thread-safe alternative to writing to &quot;PL_check&quot; directly.</dd>
+</dl>
+</div>
+<div class="section">
+<h1>Selected Bug Fixes</h1><div class="subsection">
+<h2>Array and hash</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+A bug has been fixed that would cause a &quot;Use of freed value in iteration&quot; error if the next two hash elements that would be iterated over are deleted [perl #85026]. (5.14.1)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Deleting the current hash iterator (the hash element that would be returned by the next call to &quot;each&quot;) in void context used not to free it [perl #85026].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Deletion of methods via &quot;delete $Class::{method}&quot; syntax used to update method caches if called in void context, but not scalar or list context.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When hash elements are deleted in void context, the internal hash entry is now freed before the value is freed, to prevent destructors called by that latter freeing from seeing the hash in an inconsistent state.  It was possible to cause double-frees if the destructor freed the hash itself [perl #100340].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A &quot;keys&quot; optimization in Perl 5.12.0 to make it faster on empty hashes caused &quot;each&quot; not to reset the iterator if called after the last element was deleted.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Freeing deeply nested hashes no longer crashes [perl #44225].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+It is possible from XS code to create hashes with elements that have no values.  The hash element and slice operators used to crash when handling these in lvalue context.  They now produce a &quot;Modification of non-creatable hash value attempted&quot; error message.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+If list assignment to a hash or array triggered destructors that freed the hash or array itself, a crash would ensue.  This is no longer the case [perl #107440].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+It used to be possible to free the typeglob of a localized array or hash (e.g., &quot;local @{&quot;x&quot;}; delete $::{x}&quot;), resulting in a crash on scope exit.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Some core bugs affecting Hash::Util have been fixed: locking a hash element that is a glob copy no longer causes the next assignment to it to corrupt the glob (5.14.2), and unlocking a hash element that holds a copy-on-write scalar no longer causes modifications to that scalar to modify other scalars that were sharing the same string buffer.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>C API fixes</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;newHVhv&quot; XS function now works on tied hashes, instead of crashing or returning an empty hash.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;SvIsCOW&quot; C macro now returns false for read-only copies of typeglobs, such as those created by:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $hash{elem} = *foo;<br/>
+  Hash::Util::lock_value %hash, 'elem';<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+It used to return true.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;SvPVutf8&quot; C function no longer tries to modify its argument, resulting in errors [perl #108994].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;SvPVutf8&quot; now works properly with magical variables.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;SvPVbyte&quot; now works properly non-PVs.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When presented with malformed UTF-8 input, the XS-callable functions &quot;is_utf8_string()&quot;, &quot;is_utf8_string_loc()&quot;, and &quot;is_utf8_string_loclen()&quot; could read beyond the end of the input string by up to 12 bytes.  This no longer happens.  [perl #32080]. However, currently, &quot;is_utf8_char()&quot; still has this defect, see &quot; <i>is_utf8_char()</i>&quot; above.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The C-level &quot;pregcomp&quot; function could become confused about whether the pattern was in UTF8 if the pattern was an overloaded, tied, or otherwise magical scalar [perl #101940].</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Compile-time hints</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Tying &quot;%^H&quot; no longer causes perl to crash or ignore the contents of &quot;%^H&quot; when entering a compilation scope [perl #106282].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;eval $string&quot; and &quot;require&quot; used not to localize &quot;%^H&quot; during compilation if it was empty at the time the &quot;eval&quot; call itself was compiled.  This could lead to scary side effects, like &quot;use re &quot;/m&quot;&quot; enabling other flags that the surrounding code was trying to enable for its caller [perl #68750].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;eval $string&quot; and &quot;require&quot; no longer localize hints ($^H and &quot;%^H&quot;) at run time, but only during compilation of the $string or required file. This makes &quot;BEGIN { $^H{foo}=7 }&quot; equivalent to &quot;BEGIN { eval '$^H{foo}=7' }&quot; [perl #70151].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Creating a BEGIN block from XS code (via &quot;newXS&quot; or &quot;newATTRSUB&quot;) would, on completion, make the hints of the current compiling code the current hints.  This could cause warnings to occur in a non-warning scope.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Copy-on-write scalars</h2> Copy-on-write or shared hash key scalars were introduced in 5.8.0, but most Perl code did not encounter them (they were used mostly internally).  Perl 5.10.0 extended them, such that assigning &quot;__PACKAGE__&quot; or a hash key to a scalar would make it copy-on-write.  Several parts of Perl were not updated to account for them, but have now been fixed.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;utf8::decode&quot; had a nasty bug that would modify copy-on-write scalars' string buffers in place (i.e., skipping the copy).  This could result in hashes having two elements with the same key [perl #91834]. (5.14.2)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Lvalue subroutines were not allowing COW scalars to be returned.  This was fixed for lvalue scalar context in Perl 5.12.3 and 5.14.0, but list context was not fixed until this release.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Elements of restricted hashes (see the fields pragma) containing copy-on-write values couldn't be deleted, nor could such hashes be cleared (&quot;%hash = ()&quot;). (5.14.2)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Localizing a tied variable used to make it read-only if it contained a copy-on-write string. (5.14.2)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assigning a copy-on-write string to a stash element no longer causes a double free.  Regardless of this change, the results of such assignments are still undefined.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assigning a copy-on-write string to a tied variable no longer stops that variable from being tied if it happens to be a PVMG or PVLV internally.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Doing a substitution on a tied variable returning a copy-on-write scalar used to cause an assertion failure or an &quot;Attempt to free nonexistent shared string&quot; warning.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+This one is a regression from 5.12: In 5.14.0, the bitwise assignment operators &quot;|=&quot;, &quot;^=&quot; and &quot;&amp;=&quot; started leaving the left-hand side undefined if it happened to be a copy-on-write string [perl #108480].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Storable, Devel::Peek and PerlIO::scalar had similar problems. See &quot;Updated Modules and Pragmata&quot;, above.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>The debugger</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+<i>dumpvar.pl</i>, and therefore the &quot;x&quot; command in the debugger, have been fixed to handle objects blessed into classes whose names contain &quot;=&quot;.  The contents of such objects used not to be dumped [perl #101814].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;R&quot; command for restarting a debugger session has been fixed to work on Windows, or any other system lacking a &quot;POSIX::_SC_OPEN_MAX&quot; constant [perl #87740].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;#line 42 foo&quot; directive used not to update the arrays of lines used by the debugger if it occurred in a string eval.  This was partially fixed in 5.14, but it worked only for a single &quot;#line 42 foo&quot; in each eval.  Now it works for multiple.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When subroutine calls are intercepted by the debugger, the name of the subroutine or a reference to it is stored in $DB::sub, for the debugger to access.  Sometimes (such as &quot;$foo = *bar; undef *bar; &amp;$foo&quot;) $DB::sub would be set to a name that could not be used to find the subroutine, and so the debugger's attempt to call it would fail.  Now the check to see whether a reference is needed is more robust, so those problems should not happen anymore [rt.cpan.org #69862].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Every subroutine has a filename associated with it that the debugger uses. The one associated with constant subroutines used to be misallocated when cloned under threads.  Consequently, debugging threaded applications could result in memory corruption [perl #96126].</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Dereferencing operators</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;defined(${&quot;...&quot;})&quot;, &quot;defined(*{&quot;...&quot;})&quot;, etc., used to return true for most, but not all built-in variables, if they had not been used yet.  This bug affected &quot;${^GLOBAL_PHASE}&quot; and &quot;${^UTF8CACHE}&quot;, among others.  It also used to return false if the package name was given as well (&quot;${&quot;::!&quot;}&quot;) [perl #97978, #97492].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Perl 5.10.0 introduced a similar bug: &quot;defined(*{&quot;foo&quot;})&quot; where &quot;foo&quot; represents the name of a built-in global variable used to return false if the variable had never been used before, but only on the  <i>first</i> call. This, too, has been fixed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Since 5.6.0, &quot;*{ ... }&quot; has been inconsistent in how it treats undefined values.  It would die in strict mode or lvalue context for most undefined values, but would be treated as the empty string (with a warning) for the specific scalar return by &quot;undef()&quot; (&amp;PL_sv_undef internally).  This has been corrected.  &quot;undef()&quot; is now treated like other undefined scalars, as in Perl 5.005.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Filehandle, last-accessed</h2> Perl has an internal variable that stores the last filehandle to be accessed.  It is used by $. and by &quot;tell&quot; and &quot;eof&quot; without arguments.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+It used to be possible to set this internal variable to a glob copy and then modify that glob copy to be something other than a glob, and still have the last-accessed filehandle associated with the variable after assigning a glob to it again:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    my $foo = *STDOUT;  # $foo is a glob copy<br/>
+    &lt;$foo&gt;;             # $foo is now the last-accessed handle<br/>
+    $foo = 3;           # no longer a glob<br/>
+    $foo = *STDERR;     # still the last-accessed handle<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Now the &quot;$foo = 3&quot; assignment unsets that internal variable, so there is no last-accessed filehandle, just as if &quot;&lt;$foo&gt;&quot; had never happened.<div style="height: 1.00em;">
+&#160;</div>
+This also prevents some unrelated handle from becoming the last-accessed handle if $foo falls out of scope and the same internal SV gets used for another handle [perl #97988].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A regression in 5.14 caused these statements not to set that internal variable:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    my $fh = *STDOUT;<br/>
+    tell $fh;<br/>
+    eof  $fh;<br/>
+    seek $fh, 0,0;<br/>
+    tell     *$fh;<br/>
+    eof      *$fh;<br/>
+    seek     *$fh, 0,0;<br/>
+    readline *$fh;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+This is now fixed, but &quot;tell *{ *$fh }&quot; still has the problem, and it is not clear how to fix it [perl #106536].</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Filetests and &quot;stat&quot;</h2> The term &quot;filetests&quot; refers to the operators that consist of a hyphen followed by a single letter: &quot;-r&quot;, &quot;-x&quot;, &quot;-M&quot;, etc.  The term &quot;stacked&quot; when applied to filetests means followed by another filetest operator sharing the same operand, as in &quot;-r -x -w $fooo&quot;.<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;stat&quot; produces more consistent warnings.  It no longer warns for &quot;_&quot; [perl #71002] and no longer skips the warning at times for other unopened handles.  It no longer warns about an unopened handle when the operating system's &quot;fstat&quot; function fails.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;stat&quot; would sometimes return negative numbers for large inode numbers, because it was using the wrong internal C type. [perl #84590]</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;lstat&quot; is documented to fall back to &quot;stat&quot; (with a warning) when given a filehandle.  When passed an IO reference, it was actually doing the equivalent of &quot;stat&#160;_&quot; and ignoring the handle.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;-T _&quot; with no preceding &quot;stat&quot; used to produce a confusing &quot;uninitialized&quot; warning, even though there is no visible uninitialized value to speak of.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;-T&quot;, &quot;-B&quot;, &quot;-l&quot; and &quot;-t&quot; now work when stacked with other filetest operators [perl #77388].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+In 5.14.0, filetest ops (&quot;-r&quot;, &quot;-x&quot;, etc.) started calling FETCH on a tied argument belonging to the previous argument to a list operator, if called with a bareword argument or no argument at all.  This has been fixed, so &quot;push @foo, $tied, -r&quot; no longer calls FETCH on $tied.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+In Perl 5.6, &quot;-l&quot; followed by anything other than a bareword would treat its argument as a file name.  That was changed in 5.8 for glob references (&quot;\*foo&quot;), but not for globs themselves (*foo).  &quot;-l&quot; started returning &quot;undef&quot; for glob references without setting the last stat buffer that the &quot;_&quot; handle uses, but only if warnings were turned on.  With warnings off, it was the same as 5.6. In other words, it was simply buggy and inconsistent.  Now the 5.6 behavior has been restored.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;-l&quot; followed by a bareword no longer &quot;eats&quot; the previous argument to the list operator in whose argument list it resides.  Hence, &quot;print &quot;bar&quot;, -l foo&quot; now actually prints &quot;bar&quot;, because &quot;-l&quot; on longer eats it.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Perl keeps several internal variables to keep track of the last stat buffer, from which file(handle) it originated, what type it was, and whether the last stat succeeded.<div style="height: 1.00em;">
+&#160;</div>
+There were various cases where these could get out of synch, resulting in inconsistent or erratic behavior in edge cases (every mention of &quot;-T&quot; applies to &quot;-B&quot; as well):</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;-T <i>HANDLE</i>&quot;, even though it does a &quot;stat&quot;, was not resetting the last stat type, so an &quot;lstat _&quot; following it would merrily return the wrong results.  Also, it was not setting the success status.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Freeing the handle last used by &quot;stat&quot; or a filetest could result in &quot;-T&#160;_&quot; using an unrelated handle.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;stat&quot; with an IO reference would not reset the stat type or record the filehandle for &quot;-T&#160;_&quot; to use.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Fatal warnings could cause the stat buffer not to be reset for a filetest operator on an unopened filehandle or &quot;-l&quot; on any handle. Fatal warnings also stopped &quot;-T&quot; from setting $!.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When the last stat was on an unreadable file, &quot;-T _&quot; is supposed to return &quot;undef&quot;, leaving the last stat buffer unchanged.  But it was setting the stat type, causing &quot;lstat _&quot; to stop working.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;-T <i>FILENAME</i>&quot; was not resetting the internal stat buffers for unreadable files.</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+<div style="height: 1.00em;">
+&#160;</div>
+These have all been fixed.</div>
+</div>
+<div class="subsection">
+<h2>Formats</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Several edge cases have been fixed with formats and &quot;formline&quot;; in particular, where the format itself is potentially variable (such as with ties and overloading), and where the format and data differ in their encoding.  In both these cases, it used to possible for the output to be corrupted [perl #91032].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;formline&quot; no longer converts its argument into a string in-place.  So passing a reference to &quot;formline&quot; no longer destroys the reference [perl #79532].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assignment to $^A (the format output accumulator) now recalculates the number of lines output.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>&quot;given&quot; and &quot;when&quot;</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;given&quot; was not scoping its implicit $_ properly, resulting in memory leaks or &quot;Variable is not available&quot; warnings [perl #94682].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;given&quot; was not calling set-magic on the implicit lexical $_ that it uses.  This meant, for example, that &quot;pos&quot; would be remembered from one execution of the same &quot;given&quot; block to the next, even if the input were a different variable [perl #84526].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;when&quot; blocks are now capable of returning variables declared inside the enclosing &quot;given&quot; block [perl #93548].</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>The &quot;glob&quot; operator</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+On OSes other than VMS, Perl's &quot;glob&quot; operator (and the &quot;&lt;...&gt;&quot; form) use File::Glob underneath.  File::Glob splits the pattern into words, before feeding each word to its &quot;bsd_glob&quot; function.<div style="height: 1.00em;">
+&#160;</div>
+There were several inconsistencies in the way the split was done.  Now quotation marks (' and &quot;) are always treated as shell-style word delimiters (that allow whitespace as part of a word) and backslashes are always preserved, unless they exist to escape quotation marks.  Before, those would only sometimes be the case, depending on whether the pattern contained whitespace.  Also, escaped whitespace at the end of the pattern is no longer stripped [perl #40470].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;CORE::glob&quot; now works as a way to call the default globbing function.  It used to respect overrides, despite the &quot;CORE::&quot; prefix.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Under miniperl (used to configure modules when perl itself is built), &quot;glob&quot; now clears %ENV before calling csh, since the latter croaks on some systems if it does not like the contents of the LS_COLORS environment variable [perl #98662].</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Lvalue subroutines</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Explicit return now returns the actual argument passed to return, instead of copying it [perl #72724, #72706].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Lvalue subroutines used to enforce lvalue syntax (i.e., whatever can go on the left-hand side of &quot;=&quot;) for the last statement and the arguments to return.  Since lvalue subroutines are not always called in lvalue context, this restriction has been lifted.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Lvalue subroutines are less restrictive about what values can be returned. It used to croak on values returned by &quot;shift&quot; and &quot;delete&quot; and from other subroutines, but no longer does so [perl #71172].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Empty lvalue subroutines (&quot;sub :lvalue {}&quot;) used to return @_ in list context.  All subroutines used to do this, but regular subs were fixed in Perl 5.8.2.  Now lvalue subroutines have been likewise fixed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Autovivification now works on values returned from lvalue subroutines [perl #7946], as does returning &quot;keys&quot; in lvalue context.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Lvalue subroutines used to copy their return values in rvalue context.  Not only was this a waste of CPU cycles, but it also caused bugs.  A &quot;($)&quot; prototype would cause an lvalue sub to copy its return value [perl #51408], and &quot;while(lvalue_sub() =~ m/.../g) { ... }&quot; would loop endlessly [perl #78680].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When called in potential lvalue context (e.g., subroutine arguments or a list passed to &quot;for&quot;), lvalue subroutines used to copy any read-only value that was returned.  E.g., &quot; sub :lvalue { $] } &quot; would not return $], but a copy of it.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When called in potential lvalue context, an lvalue subroutine returning arrays or hashes used to bind the arrays or hashes to scalar variables, resulting in bugs.  This was fixed in 5.14.0 if an array were the first thing returned from the subroutine (but not for &quot;$scalar, @array&quot; or hashes being returned).  Now a more general fix has been applied [perl #23790].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Method calls whose arguments were all surrounded with &quot;my()&quot; or &quot;our()&quot; (as in &quot;$object-&gt;method(my($a,$b))&quot;) used to force lvalue context on the subroutine.  This would prevent lvalue methods from returning certain values.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Lvalue sub calls that are not determined to be such at compile time (&amp;$name or &amp;{&quot;name&quot;}) are no longer exempt from strict refs if they occur in the last statement of an lvalue subroutine [perl #102486].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Sub calls whose subs are not visible at compile time, if they occurred in the last statement of an lvalue subroutine, would reject non-lvalue subroutines and die with &quot;Can't modify non-lvalue subroutine call&quot; [perl #102486].<div style="height: 1.00em;">
+&#160;</div>
+Non-lvalue sub calls whose subs <i>are</i> visible at compile time exhibited the opposite bug.  If the call occurred in the last statement of an lvalue subroutine, there would be no error when the lvalue sub was called in lvalue context.  Perl would blindly assign to the temporary value returned by the non-lvalue subroutine.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;AUTOLOAD&quot; routines used to take precedence over the actual sub being called (i.e., when autoloading wasn't needed), for sub calls in lvalue or potential lvalue context, if the subroutine was not visible at compile time.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Applying the &quot;:lvalue&quot; attribute to an XSUB or to an aliased subroutine stub with &quot;sub foo :lvalue;&quot; syntax stopped working in Perl 5.12. This has been fixed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Applying the :lvalue attribute to subroutine that is already defined does not work properly, as the attribute changes the way the sub is compiled. Hence, Perl 5.12 began warning when an attempt is made to apply the attribute to an already defined sub.  In such cases, the attribute is discarded.<div style="height: 1.00em;">
+&#160;</div>
+But the change in 5.12 missed the case where custom attributes are also present: that case still silently and ineffectively applied the attribute. That omission has now been corrected.  &quot;sub foo :lvalue :Whatever&quot; (when &quot;foo&quot; is already defined) now warns about the :lvalue attribute, and does not apply it.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A bug affecting lvalue context propagation through nested lvalue subroutine calls has been fixed.  Previously, returning a value in nested rvalue context would be treated as lvalue context by the inner subroutine call, resulting in some values (such as read-only values) being rejected.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Overloading</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Arithmetic assignment (&quot;$left += $right&quot;) involving overloaded objects that rely on the 'nomethod' override no longer segfault when the left operand is not overloaded.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Errors that occur when methods cannot be found during overloading now mention the correct package name, as they did in 5.8.x, instead of erroneously mentioning the &quot;overload&quot; package, as they have since 5.10.0.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Undefining %overload:: no longer causes a crash.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Prototypes of built-in keywords</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;prototype&quot; function no longer dies for the &quot;__FILE__&quot;, &quot;__LINE__&quot; and &quot;__PACKAGE__&quot; directives.  It now returns an empty-string prototype for them, because they are syntactically indistinguishable from nullary functions like &quot;time&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;prototype&quot; now returns &quot;undef&quot; for all overridable infix operators, such as &quot;eq&quot;, which are not callable in any way resembling functions. It used to return incorrect prototypes for some and die for others [perl #94984].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The prototypes of several built-in functions--&quot;getprotobynumber&quot;, &quot;lock&quot;, &quot;not&quot; and &quot;select&quot;--have been corrected, or at least are now closer to reality than before.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Regular expressions</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;/[[:ascii:]]/&quot; and &quot;/[[:blank:]]/&quot; now use locale rules under &quot;use locale&quot; when the platform supports that.  Previously, they used the platform's native character set.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;m/[[:ascii:]]/i&quot; and &quot;/\p{ASCII}/i&quot; now match identically (when not under a differing locale).  This fixes a regression introduced in 5.14 in which the first expression could match characters outside of ASCII, such as the KELVIN SIGN.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;/.*/g&quot; would sometimes refuse to match at the end of a string that ends with &quot;\n&quot;.  This has been fixed [perl #109206].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Starting with 5.12.0, Perl used to get its internal bookkeeping muddled up after assigning &quot;${ qr// }&quot; to a hash element and locking it with Hash::Util.  This could result in double frees, crashes, or erratic behavior.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The new (in 5.14.0) regular expression modifier &quot;/a&quot; when repeated like &quot;/aa&quot; forbids the characters outside the ASCII range that match characters inside that range from matching under &quot;/i&quot;.  This did not work under some circumstances, all involving alternation, such as:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ &quot;\N{KELVIN SIGN}&quot; =~ /k|foo/iaa;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+succeeded inappropriately.  This is now fixed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+5.14.0 introduced some memory leaks in regular expression character classes such as &quot;[\w\s]&quot;, which have now been fixed. (5.14.1)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+An edge case in regular expression matching could potentially loop. This happened only under &quot;/i&quot; in bracketed character classes that have characters with multi-character folds, and the target string to match against includes the first portion of the fold, followed by another character that has a multi-character fold that begins with the remaining portion of the fold, plus some more.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ &quot;s\N{U+DF}&quot; =~ /[\x{DF}foo]/i<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+is one such case.  &quot;\xDF&quot; folds to &quot;ss&quot;. (5.14.1)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A few characters in regular expression pattern matches did not match correctly in some circumstances, all involving &quot;/i&quot;.  The affected characters are: COMBINING GREEK YPOGEGRAMMENI, GREEK CAPITAL LETTER IOTA, GREEK CAPITAL LETTER UPSILON, GREEK PROSGEGRAMMENI, GREEK SMALL LETTER IOTA WITH DIALYTIKA AND OXIA, GREEK SMALL LETTER IOTA WITH DIALYTIKA AND TONOS, GREEK SMALL LETTER UPSILON WITH DIALYTIKA AND OXIA, GREEK SMALL LETTER UPSILON WITH DIALYTIKA AND TONOS, LATIN SMALL LETTER LONG S, LATIN SMALL LIGATURE LONG S T, and LATIN SMALL LIGATURE ST.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A memory leak regression in regular expression compilation under threading has been fixed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A regression introduced in 5.14.0 has been fixed.  This involved an inverted bracketed character class in a regular expression that consisted solely of a Unicode property.  That property wasn't getting inverted outside the Latin1 range.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Three problematic Unicode characters now work better in regex pattern matching under &quot;/i&quot;.<div style="height: 1.00em;">
+&#160;</div>
+In the past, three Unicode characters: LATIN SMALL LETTER SHARP S, GREEK SMALL LETTER IOTA WITH DIALYTIKA AND TONOS, and GREEK SMALL LETTER UPSILON WITH DIALYTIKA AND TONOS, along with the sequences that they fold to (including &quot;ss&quot; for LATIN SMALL LETTER SHARP S), did not properly match under &quot;/i&quot;.  5.14.0 fixed some of these cases, but introduced others, including a panic when one of the characters or sequences was used in the &quot;(?(DEFINE)&quot; regular expression predicate. The known bugs that were introduced in 5.14 have now been fixed; as well as some other edge cases that have never worked until now.  These all involve using the characters and sequences outside bracketed character classes under &quot;/i&quot;.  This closes [perl #98546].<div style="height: 1.00em;">
+&#160;</div>
+There remain known problems when using certain characters with multi-character folds inside bracketed character classes, including such constructs as &quot;qr/[\N{LATIN SMALL LETTER SHARP}a-z]/i&quot;.  These remaining bugs are addressed in [perl #89774].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+RT #78266: The regex engine has been leaking memory when accessing named captures that weren't matched as part of a regex ever since 5.10 when they were introduced; e.g., this would consume over a hundred MB of memory:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    for (1..10_000_000) {<br/>
+        if (&quot;foo&quot; =~ /(foo|(?&lt;capture&gt;bar))?/) {<br/>
+            my $capture = $+{capture}<br/>
+        }<br/>
+    }<br/>
+    system &quot;ps -o rss $$&quot;'<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+In 5.14, &quot;/[[:lower:]]/i&quot; and &quot;/[[:upper:]]/i&quot; no longer matched the opposite case.  This has been fixed [perl #101970].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A regular expression match with an overloaded object on the right-hand side would sometimes stringify the object too many times.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A regression has been fixed that was introduced in 5.14, in &quot;/i&quot; regular expression matching, in which a match improperly fails if the pattern is in UTF-8, the target string is not, and a Latin-1 character precedes a character in the string that should match the pattern. [perl #101710]</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+In case-insensitive regular expression pattern matching, no longer on UTF-8 encoded strings does the scan for the start of match look only at the first possible position.  This caused matches such as &quot;&quot;f\x{FB00}&quot; =~ /ff/i&quot; to fail.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The regexp optimizer no longer crashes on debugging builds when merging fixed-string nodes with inconvenient contents.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A panic involving the combination of the regular expression modifiers &quot;/aa&quot; and the &quot;\b&quot; escape sequence introduced in 5.14.0 has been fixed [perl #95964]. (5.14.2)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The combination of the regular expression modifiers &quot;/aa&quot; and the &quot;\b&quot; and &quot;\B&quot; escape sequences did not work properly on UTF-8 encoded strings.  All non-ASCII characters under &quot;/aa&quot; should be treated as non-word characters, but what was happening was that Unicode rules were used to determine wordness/non-wordness for non-ASCII characters.  This is now fixed [perl #95968].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;(?foo: ...)&quot; no longer loses passed in character set.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The trie optimization used to have problems with alternations containing an empty &quot;(?:)&quot;, causing &quot;&quot;x&quot; =~ /\A(?&gt;(?:(?:)A|B|C?x))\z/&quot; not to match, whereas it should [perl #111842].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Use of lexical (&quot;my&quot;) variables in code blocks embedded in regular expressions will no longer result in memory corruption or crashes.<div style="height: 1.00em;">
+&#160;</div>
+Nevertheless, these code blocks are still experimental, as there are still problems with the wrong variables being closed over (in loops for instance) and with abnormal exiting (e.g., &quot;die&quot;) causing memory corruption.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;\h&quot;, &quot;\H&quot;, &quot;\v&quot; and &quot;\V&quot; regular expression metacharacters used to cause a panic error message when trying to match at the end of the string [perl #96354].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The abbreviations for four C1 control characters &quot;MW&quot; &quot;PM&quot;, &quot;RI&quot;, and &quot;ST&quot; were previously unrecognized by &quot;\N{}&quot;,  <i>vianame()</i>, and  <i>string_vianame()</i>.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Mentioning a variable named &quot;&amp;&quot; other than $&amp; (i.e., &quot;@&amp;&quot; or &quot;%&amp;&quot;) no longer stops $&amp; from working.  The same applies to variables named &quot;'&quot; and &quot;`&quot; [perl #24237].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Creating a &quot;UNIVERSAL::AUTOLOAD&quot; sub no longer stops &quot;%+&quot;, &quot;%-&quot; and &quot;%!&quot; from working some of the time [perl #105024].</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Smartmatching</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;~~&quot; now correctly handles the precedence of Any~~Object, and is not tricked by an overloaded object on the left-hand side.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+In Perl 5.14.0, &quot;$tainted ~~ @array&quot; stopped working properly.  Sometimes it would erroneously fail (when $tainted contained a string that occurs in the array  <i>after</i> the first element) or erroneously succeed (when &quot;undef&quot; occurred after the first element) [perl #93590].</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>The &quot;sort&quot; operator</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;sort&quot; was not treating &quot;sub {}&quot; and &quot;sub {()}&quot; as equivalent when such a sub was provided as the comparison routine.  It used to croak on &quot;sub {()}&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;sort&quot; now works once more with custom sort routines that are XSUBs.  It stopped working in 5.10.0.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;sort&quot; with a constant for a custom sort routine, although it produces unsorted results, no longer crashes.  It started crashing in 5.10.0.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Warnings emitted by &quot;sort&quot; when a custom comparison routine returns a non-numeric value now contain &quot;in sort&quot; and show the line number of the &quot;sort&quot; operator, rather than the last line of the comparison routine.  The warnings also now occur only if warnings are enabled in the scope where &quot;sort&quot; occurs.  Previously the warnings would occur if enabled in the comparison routine's scope.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;sort { $a &lt;=&gt; $b }&quot;, which is optimized internally, now produces &quot;uninitialized&quot; warnings for NaNs (not-a-number values), since &quot;&lt;=&gt;&quot; returns &quot;undef&quot; for those.  This brings it in line with &quot;sort&#160;{&#160;1;&#160;$a&#160;&lt;=&gt;&#160;$b&#160;}&quot; and other more complex cases, which are not optimized [perl #94390].</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>The &quot;substr&quot; operator</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Tied (and otherwise magical) variables are no longer exempt from the &quot;Attempt to use reference as lvalue in substr&quot; warning.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+That warning now occurs when the returned lvalue is assigned to, not when &quot;substr&quot; itself is called.  This makes a difference only if the return value of &quot;substr&quot; is referenced and later assigned to.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Passing a substring of a read-only value or a typeglob to a function (potential lvalue context) no longer causes an immediate &quot;Can't coerce&quot; or &quot;Modification of a read-only value&quot; error.  That error occurs only if the passed value is assigned to.<div style="height: 1.00em;">
+&#160;</div>
+The same thing happens with the &quot;substr outside of string&quot; error.  If the lvalue is only read from, not written to, it is now just a warning, as with rvalue &quot;substr&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;substr&quot; assignments no longer call FETCH twice if the first argument is a tied variable, just once.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Support for embedded nulls</h2> Some parts of Perl did not work correctly with nulls (&quot;chr 0&quot;) embedded in strings.  That meant that, for instance, &quot;$m = &quot;a\0b&quot;; foo-&gt;$m&quot; would call the &quot;a&quot; method, instead of the actual method name contained in $m. These parts of perl have been fixed to support nulls:<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Method names</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Typeglob names (including filehandle and subroutine names)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Package names, including the return value of &quot;ref()&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Typeglob elements (*foo{&quot;THING\0stuff&quot;})</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Signal names</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Various warnings and error messages that mention variable names or values, methods, etc.</dd>
+</dl>
+<div class="spacer">
+</div>
+One side effect of these changes is that blessing into &quot;\0&quot; no longer causes &quot;ref()&quot; to return false.</div>
+<div class="subsection">
+<h2>Threading bugs</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Typeglobs returned from threads are no longer cloned if the parent thread already has a glob with the same name.  This means that returned subroutines will now assign to the right package variables [perl #107366].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Some cases of threads crashing due to memory allocation during cloning have been fixed [perl #90006].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Thread joining would sometimes emit &quot;Attempt to free unreferenced scalar&quot; warnings if &quot;caller&quot; had been used from the &quot;DB&quot; package before thread creation [perl #98092].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Locking a subroutine (via &quot;lock &amp;sub&quot;) is no longer a compile-time error for regular subs.  For lvalue subroutines, it no longer tries to return the sub as a scalar, resulting in strange side effects like &quot;ref \$_&quot; returning &quot;CODE&quot; in some instances.<div style="height: 1.00em;">
+&#160;</div>
+&quot;lock &amp;sub&quot; is now a run-time error if threads::shared is loaded (a no-op otherwise), but that may be rectified in a future version.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Tied variables</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Various cases in which FETCH was being ignored or called too many times have been fixed:</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;PerlIO::get_layers&quot; [perl #97956]</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;$tied =~ y/a/b/&quot;, &quot;chop $tied&quot; and &quot;chomp $tied&quot; when $tied holds a reference.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When calling &quot;local $_&quot; [perl #105912]</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Four-argument &quot;select&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A tied buffer passed to &quot;sysread&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;$tied .= &lt;&gt;&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Three-argument &quot;open&quot;, the third being a tied file handle (as in &quot;open $fh, &quot;&gt;&amp;&quot;, $tied&quot;)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;sort&quot; with a reference to a tied glob for the comparison routine.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;..&quot; and &quot;...&quot; in list context [perl #53554].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;${$tied}&quot;, &quot;@{$tied}&quot;, &quot;%{$tied}&quot; and &quot;*{$tied}&quot; where the tied variable returns a string (&quot;&amp;{}&quot; was unaffected)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;defined ${ $tied_variable }&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Various functions that take a filehandle argument in rvalue context (&quot;close&quot;, &quot;readline&quot;, etc.) [perl #97482]</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Some cases of dereferencing a complex expression, such as &quot;${ (), $tied } = 1&quot;, used to call &quot;FETCH&quot; multiple times, but now call it once.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;$tied-&gt;method&quot; where $tied returns a package name--even resulting in a failure to call the method, due to memory corruption</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assignments like &quot;*$tied = \&amp;{&quot;...&quot;}&quot; and &quot;*glob = $tied&quot;</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;chdir&quot;, &quot;chmod&quot;, &quot;chown&quot;, &quot;utime&quot;, &quot;truncate&quot;, &quot;stat&quot;, &quot;lstat&quot; and the filetest ops (&quot;-r&quot;, &quot;-x&quot;, etc.)</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+</div>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;caller&quot; sets @DB::args to the subroutine arguments when called from the DB package.  It used to crash when doing so if @DB::args happened to be tied.  Now it croaks instead.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Tying an element of %ENV or &quot;%^H&quot; and then deleting that element would result in a call to the tie object's DELETE method, even though tying the element itself is supposed to be equivalent to tying a scalar (the element is, of course, a scalar) [perl #67490].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When Perl autovivifies an element of a tied array or hash (which entails calling STORE with a new reference), it now calls FETCH immediately after the STORE, instead of assuming that FETCH would have returned the same reference.  This can make it easier to implement tied objects [perl #35865, #43011].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Four-argument &quot;select&quot; no longer produces its &quot;Non-string passed as bitmask&quot; warning on tied or tainted variables that are strings.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Localizing a tied scalar that returns a typeglob no longer stops it from being tied till the end of the scope.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Attempting to &quot;goto&quot; out of a tied handle method used to cause memory corruption or crashes.  Now it produces an error message instead [perl #8611].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A bug has been fixed that occurs when a tied variable is used as a subroutine reference:  if the last thing assigned to or returned from the variable was a reference or typeglob, the &quot;\&amp;$tied&quot; could either crash or return the wrong subroutine.  The reference case is a regression introduced in Perl 5.10.0.  For typeglobs, it has probably never worked till now.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Version objects and vstrings</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+The bitwise complement operator (and possibly other operators, too) when passed a vstring would leave vstring magic attached to the return value, even though the string had changed.  This meant that &quot;version-&gt;new(~v1.2.3)&quot; would create a version looking like &quot;v1.2.3&quot; even though the string passed to &quot;version-&gt;new&quot; was actually &quot;\376\375\374&quot;.  This also caused B::Deparse to deparse &quot;~v1.2.3&quot; incorrectly, without the &quot;~&quot; [perl #29070].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Assigning a vstring to a magic (e.g., tied, $!) variable and then assigning something else used to blow away all magic.  This meant that tied variables would come undone, $! would stop getting updated on failed system calls, $| would stop setting autoflush, and other mischief would take place.  This has been fixed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;version-&gt;new(&quot;version&quot;)&quot; and &quot;printf &quot;%vd&quot;, &quot;version&quot;&quot; no longer crash [perl #102586].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Version comparisons, such as those that happen implicitly with &quot;use v5.43&quot;, no longer cause locale settings to change [perl #105784].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Version objects no longer cause memory leaks in boolean context [perl #109762].</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Warnings, redefinition</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Subroutines from the &quot;autouse&quot; namespace are once more exempt from redefinition warnings.  This used to work in 5.005, but was broken in 5.6 for most subroutines.  For subs created via XS that redefine subroutines from the &quot;autouse&quot; package, this stopped working in 5.10.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+New XSUBs now produce redefinition warnings if they overwrite existing subs, as they did in 5.8.x.  (The &quot;autouse&quot; logic was reversed in 5.10-14.  Only subroutines from the &quot;autouse&quot; namespace would warn when clobbered.)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;newCONSTSUB&quot; used to use compile-time warning hints, instead of run-time hints.  The following code should never produce a redefinition warning, but it used to, if &quot;newCONSTSUB&quot; redefined an existing subroutine:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    use warnings;<br/>
+    BEGIN {<br/>
+        no warnings;<br/>
+        some_XS_function_that_calls_new_CONSTSUB();<br/>
+    }<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Redefinition warnings for constant subroutines are on by default (what are known as severe warnings in perldiag).  This occurred only when it was a glob assignment or declaration of a Perl subroutine that caused the warning.  If the creation of XSUBs triggered the warning, it was not a default warning.  This has been corrected.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The internal check to see whether a redefinition warning should occur used to emit &quot;uninitialized&quot; warnings in cases like this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    use warnings &quot;uninitialized&quot;;<br/>
+    use constant {u =&gt; undef, v =&gt; undef};<br/>
+    sub foo(){u}<br/>
+    sub foo(){v}<br/>
+</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Warnings, &quot;Uninitialized&quot;</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Various functions that take a filehandle argument in rvalue context (&quot;close&quot;, &quot;readline&quot;, etc.) used to warn twice for an undefined handle [perl #97482].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;dbmopen&quot; now only warns once, rather than three times, if the mode argument is &quot;undef&quot; [perl #90064].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;+=&quot; operator does not usually warn when the left-hand side is &quot;undef&quot;, but it was doing so for tied variables.  This has been fixed [perl #44895].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A bug fix in Perl 5.14 introduced a new bug, causing &quot;uninitialized&quot; warnings to report the wrong variable if the operator in question had two operands and one was &quot;%{...}&quot; or &quot;@{...}&quot;.  This has been fixed [perl #103766].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;..&quot; and &quot;...&quot; in list context now mention the name of the variable in &quot;uninitialized&quot; warnings for string (as opposed to numeric) ranges.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Weak references</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+Weakening the first argument to an automatically-invoked &quot;DESTROY&quot; method could result in erroneous &quot;DESTROY created new reference&quot; errors or crashes.  Now it is an error to weaken a read-only reference.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Weak references to lexical hashes going out of scope were not going stale (becoming undefined), but continued to point to the hash.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Weak references to lexical variables going out of scope are now broken before any magical methods (e.g., DESTROY on a tie object) are called. This prevents such methods from modifying the variable that will be seen the next time the scope is entered.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Creating a weak reference to an @ISA array or accessing the array index ($#ISA) could result in confused internal bookkeeping for elements later added to the @ISA array.  For instance, creating a weak reference to the element itself could push that weak reference on to @ISA; and elements added after use of $#ISA would be ignored by method lookup [perl #85670].</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Other notable fixes</h2><dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;quotemeta&quot; now quotes consistently the same non-ASCII characters under &quot;use feature 'unicode_strings'&quot;, regardless of whether the string is encoded in UTF-8 or not, hence fixing the last vestiges (we hope) of the notorious &quot;The &quot;Unicode Bug&quot;&quot; in perlunicode.  [perl #77654].<div style="height: 1.00em;">
+&#160;</div>
+Which of these code points is quoted has changed, based on Unicode's recommendations.  See &quot;quotemeta&quot; in perlfunc for details.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;study&quot; is now a no-op, presumably fixing all outstanding bugs related to study causing regex matches to behave incorrectly!</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When one writes &quot;open foo || die&quot;, which used to work in Perl 4, a &quot;Precedence problem&quot; warning is produced.  This warning used erroneously to apply to fully-qualified bareword handle names not followed by &quot;||&quot;.  This has been corrected.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+After package aliasing (&quot;*foo:: = *bar::&quot;), &quot;select&quot; with 0 or 1 argument would sometimes return a name that could not be used to refer to the filehandle, or sometimes it would return &quot;undef&quot; even when a filehandle was selected.  Now it returns a typeglob reference in such cases.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;PerlIO::get_layers&quot; no longer ignores some arguments that it thinks are numeric, while treating others as filehandle names.  It is now consistent for flat scalars (i.e., not references).</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Unrecognized switches on &quot;#!&quot; line<div style="height: 1.00em;">
+&#160;</div>
+If a switch, such as <b>-x</b>, that cannot occur on the &quot;#!&quot; line is used there, perl dies with &quot;Can't emulate...&quot;.<div style="height: 1.00em;">
+&#160;</div>
+It used to produce the same message for switches that perl did not recognize at all, whether on the command line or the &quot;#!&quot; line.<div style="height: 1.00em;">
+&#160;</div>
+Now it produces the &quot;Unrecognized switch&quot; error message [perl #104288].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;system&quot; now temporarily blocks the SIGCHLD signal handler, to prevent the signal handler from stealing the exit status [perl #105700].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The %n formatting code for &quot;printf&quot; and &quot;sprintf&quot;, which causes the number of characters to be assigned to the next argument, now actually assigns the number of characters, instead of the number of bytes.<div style="height: 1.00em;">
+&#160;</div>
+It also works now with special lvalue functions like &quot;substr&quot; and with nonexistent hash and array elements [perl #3471, #103492].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Perl skips copying values returned from a subroutine, for the sake of speed, if doing so would make no observable difference.  Because of faulty logic, this would happen with the result of &quot;delete&quot;, &quot;shift&quot; or &quot;splice&quot;, even if the result was referenced elsewhere.  It also did so with tied variables about to be freed [perl #91844, #95548].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;utf8::decode&quot; now refuses to modify read-only scalars [perl #91850].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Freeing $_ inside a &quot;grep&quot; or &quot;map&quot; block, a code block embedded in a regular expression, or an @INC filter (a subroutine returned by a subroutine in @INC) used to result in double frees or crashes [perl #91880, #92254, #92256].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;eval&quot; returns &quot;undef&quot; in scalar context or an empty list in list context when there is a run-time error.  When &quot;eval&quot; was passed a string in list context and a syntax error occurred, it used to return a list containing a single undefined element.  Now it returns an empty list in list context for all errors [perl #80630].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;goto &amp;func&quot; no longer crashes, but produces an error message, when the unwinding of the current subroutine's scope fires a destructor that undefines the subroutine being &quot;goneto&quot; [perl #99850].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Perl now holds an extra reference count on the package that code is currently compiling in.  This means that the following code no longer crashes [perl #101486]:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    package Foo;<br/>
+    BEGIN {*Foo:: = *Bar::}<br/>
+    sub foo;<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The &quot;x&quot; repetition operator no longer crashes on 64-bit builds with large repeat counts [perl #94560].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Calling &quot;require&quot; on an implicit $_ when *CORE::GLOBAL::require has been overridden does not segfault anymore, and $_ is now passed to the overriding subroutine [perl #78260].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;use&quot; and &quot;require&quot; are no longer affected by the I/O layers active in the caller's scope (enabled by open.pm) [perl #96008].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;our $::&#233;; $&#233;&quot; (which is invalid) no longer produces the &quot;Compilation error at lib/utf8_heavy.pl...&quot; error message, which it started emitting in 5.10.0 [perl #99984].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+On 64-bit systems, &quot;read()&quot; now understands large string offsets beyond the 32-bit range.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Errors that occur when processing subroutine attributes no longer cause the subroutine's op tree to leak.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Passing the same constant subroutine to both &quot;index&quot; and &quot;formline&quot; no longer causes one or the other to fail [perl #89218]. (5.14.1)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+List assignment to lexical variables declared with attributes in the same statement (&quot;my ($x,@y) : blimp = (72,94)&quot;) stopped working in Perl 5.8.0. It has now been fixed.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Perl 5.10.0 introduced some faulty logic that made &quot;U*&quot; in the middle of a pack template equivalent to &quot;U0&quot; if the input string was empty.  This has been fixed [perl #90160]. (5.14.2)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Destructors on objects were not called during global destruction on objects that were not referenced by any scalars.  This could happen if an array element were blessed (e.g., &quot;bless \$a[0]&quot;) or if a closure referenced a blessed variable (&quot;bless \my @a; sub foo { @a }&quot;).<div style="height: 1.00em;">
+&#160;</div>
+Now there is an extra pass during global destruction to fire destructors on any objects that might be left after the usual passes that check for objects referenced by scalars [perl #36347].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Fixed a case where it was possible that a freed buffer may have been read from when parsing a here document [perl #90128]. (5.14.1)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;each(<i>ARRAY</i>)&quot; is now wrapped in &quot;defined(...)&quot;, like &quot;each(<i>HASH</i>)&quot;, inside a &quot;while&quot; condition [perl #90888].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+A problem with context propagation when a &quot;do&quot; block is an argument to &quot;return&quot; has been fixed.  It used to cause &quot;undef&quot; to be returned in certain cases of a &quot;return&quot; inside an &quot;if&quot; block which itself is followed by another &quot;return&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Calling &quot;index&quot; with a tainted constant no longer causes constants in subsequently compiled code to become tainted [perl #64804].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Infinite loops like &quot;1 while 1&quot; used to stop &quot;strict 'subs'&quot; mode from working for the rest of the block.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+For list assignments like &quot;($a,$b) = ($b,$a)&quot;, Perl has to make a copy of the items on the right-hand side before assignment them to the left.  For efficiency's sake, it assigns the values on the right straight to the items on the left if no one variable is mentioned on both sides, as in &quot;($a,$b) = ($c,$d)&quot;.  The logic for determining when it can cheat was faulty, in that &quot;&amp;&amp;&quot; and &quot;||&quot; on the right-hand side could fool it.  So &quot;($a,$b) = $some_true_value &amp;&amp; ($b,$a)&quot; would end up assigning the value of $b to both scalars.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Perl no longer tries to apply lvalue context to the string in &quot;(&quot;string&quot;, $variable) ||= 1&quot; (which used to be an error).  Since the left-hand side of &quot;||=&quot; is evaluated in scalar context, that's a scalar comma operator, which gives all but the last item void context.  There is no such thing as void lvalue context, so it was a mistake for Perl to try to force it [perl #96942].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;caller&quot; no longer leaks memory when called from the DB package if @DB::args was assigned to after the first call to &quot;caller&quot;.  Carp was triggering this bug [perl #97010]. (5.14.2)</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;close&quot; and similar filehandle functions, when called on built-in global variables (like $+), used to die if the variable happened to hold the undefined value, instead of producing the usual &quot;Use of uninitialized value&quot; warning.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When autovivified file handles were introduced in Perl 5.6.0, &quot;readline&quot; was inadvertently made to autovivify when called as &quot;readline($foo)&quot; (but not as &quot;&lt;$foo&gt;&quot;).  It has now been fixed never to autovivify.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Calling an undefined anonymous subroutine (e.g., what $x holds after &quot;undef &amp;{$x = sub{}}&quot;) used to cause a &quot;Not a CODE reference&quot; error, which has been corrected to &quot;Undefined subroutine called&quot; [perl #71154].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Causing @DB::args to be freed between uses of &quot;caller&quot; no longer results in a crash [perl #93320].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;setpgrp($foo)&quot; used to be equivalent to &quot;($foo, setpgrp)&quot;, because &quot;setpgrp&quot; was ignoring its argument if there was just one.  Now it is equivalent to &quot;setpgrp($foo,0)&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;shmread&quot; was not setting the scalar flags correctly when reading from shared memory, causing the existing cached numeric representation in the scalar to persist [perl #98480].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;++&quot; and &quot;--&quot; now work on copies of globs, instead of dying.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;splice()&quot; doesn't warn when truncating<div style="height: 1.00em;">
+&#160;</div>
+You can now limit the size of an array using &quot;splice(@a,MAX_LEN)&quot; without worrying about warnings.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+$$ is no longer tainted.  Since this value comes directly from &quot;getpid()&quot;, it is always safe.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The parser no longer leaks a filehandle if STDIN was closed before parsing started [perl #37033].</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+&quot;die;&quot; with a non-reference, non-string, or magical (e.g., tainted) value in $@ now properly propagates that value [perl #111654].</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1>Known Problems</h1><dl>
+<dt>
+&#8226;</dt>
+<dd>
+On Solaris, we have two kinds of failure.<div style="height: 1.00em;">
+&#160;</div>
+If <i>make</i> is Sun's <i>make</i>, we get an error about a badly formed macro assignment in the  <i>Makefile</i>.  That happens when <i>./Configure</i> tries to make depends.   <i>Configure</i> then exits 0, but further <i>make</i>-ing fails.<div style="height: 1.00em;">
+&#160;</div>
+If <i>make</i> is <i>gmake</i>, <i>Configure</i> completes, then we get errors related to  <i>/usr/include/stdbool.h</i></dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+On Win32, a number of tests hang unless STDERR is redirected.  The cause of this is still under investigation.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+When building as root with a umask that prevents files from being other-readable,  <i>t/op/filetest.t</i> will fail.  This is a test bug, not a bug in perl's behavior.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Configuring with a recent gcc and link-time-optimization, such as &quot;Configure -Doptimize='-O2 -flto'&quot; fails because the optimizer optimizes away some of Configure's tests.  A workaround is to omit the &quot;-flto&quot; flag when running Configure, but add it back in while actually building, something like<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sh Configure -Doptimize=-O2                                             <br/>
+    make OPTIMIZE='-O2 -flto'<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+The following CPAN modules have test failures with perl 5.16.  Patches have been submitted for all of these, so hopefully there will be new releases soon:</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Date::Pcalc version 6.1</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+Module::CPANTS::Analyse version 0.85<div style="height: 1.00em;">
+&#160;</div>
+This fails due to problems in Module::Find 0.10 and File::MMagic 1.27.</dd>
+</dl>
+<dl>
+<dt>
+&#8226;</dt>
+<dd>
+PerlIO::Util version 0.72</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+</div>
+</div>
+<div class="section">
+<h1>Acknowledgements</h1> Perl 5.16.0 represents approximately 12 months of development since Perl 5.14.0 and contains approximately 590,000 lines of changes across 2,500 files from 139 authors.<div class="spacer">
+</div>
+Perl continues to flourish into its third decade thanks to a vibrant community of users and developers.  The following people are known to have contributed the improvements that became Perl 5.16.0:<div class="spacer">
+</div>
+Aaron Crane, Abhijit Menon-Sen, Abigail, Alan Haggai Alavi, Alberto Sim&#245;es, Alexandr Ciornii, Andreas K&#246;nig, Andy Dougherty, Aristotle Pagaltzis, Bo Johansson, Bo Lindbergh, Breno G. de Oliveira, brian d foy, Brian Fraser, Brian Greenfield, Carl Hayter, Chas. Owens, Chia-liang Kao, Chip Salzenberg, Chris 'BinGOs' Williams, Christian Hansen, Christopher J. Madsen, chromatic, Claes Jacobsson, Claudio Ramirez, Craig A. Berry, Damian Conway, Daniel Kahn Gillmor, Darin McBride, Dave Rolsky, David Cantrell, David Golden, David Leadbeater, David Mitchell, Dee Newcum, Dennis Kaarsemaker, Dominic Hargreaves, Douglas Christopher Wilson, Eric Brine, Father Chrysostomos, Florian Ragwitz, Frederic Briere, George Greer, Gerard Goossen, Gisle Aas, H.Merijn Brand, Hojung Youn, Ian Goodacre, James E Keenan, Jan Dubois, Jerry D. Hedden, Jesse Luehrs, Jesse Vincent, Jilles Tjoelker, Jim Cromie, Jim Meyering, Joel Berger, Johan Vromans, Johannes Plunien, John Hawkinson, John P. Linderman, John Peacock, Joshua ben Jore, Juerd Waalboer, Karl Williamson, Karthik Rajagopalan, Keith Thompson, Kevin J. Woolley, Kevin Ryde, Laurent Dami, Leo Lapworth, Leon Brocard, Leon Timmermans, Louis Strous, Lukas Mai, Marc Green, Marcel Gr&#252;nauer, Mark A.  Stratman, Mark Dootson, Mark Jason Dominus, Martin Hasch, Matthew Horsfall, Max Maischein, Michael G Schwern, Michael Witten, Mike Sheldrake, Moritz Lenz, Nicholas Clark, Niko Tyni, Nuno Carvalho, Pau Amma, Paul Evans, Paul Green, Paul Johnson, Perlover, Peter John Acklam, Peter Martini, Peter Scott, Phil Monsen, Pino Toscano, Rafael Garcia-Suarez, Rainer Tammer, Reini Urban, Ricardo Signes, Robin Barker, Rodolfo Carvalho, Salvador Fandi&#241;o, Sam Kimbrel, Samuel Thibault, Shawn M Moore, Shigeya Suzuki, Shirakata Kentaro, Shlomi Fish, Sisyphus, Slaven Rezic, Spiros Denaxas, Steffen M&#252;ller, Steffen Schwigon, Stephen Bennett, Stephen Oberholtzer, Stevan Little, Steve Hay, Steve Peters, Thomas Sibley, Thorsten Glaser, Timothe Litt, Todd Rinaldo, Tom Christiansen, Tom Hukins, Tony Cook, Vadim Konovalov, Vincent Pit, Vladimir Timofeev, Walt Mankowski, Yves Orton, Zefram, Zsb&#225;n Ambrus, &#198;var Arnfj&#246;r&#240; Bjarmason.<div class="spacer">
+</div>
+The list above is almost certainly incomplete as it is automatically generated from version control history.  In particular, it does not include the names of the (very much appreciated) contributors who reported issues to the Perl bug tracker.<div class="spacer">
+</div>
+Many of the changes included in this version originated in the CPAN modules included in Perl's core.  We're grateful to the entire CPAN community for helping Perl to flourish.<div class="spacer">
+</div>
+For a more complete list of all of Perl's historical contributors, please see the  <i>AUTHORS</i> file in the Perl source distribution.</div>
+<div class="section">
+<h1>Reporting Bugs</h1> If you find what you think is a bug, you might check the articles recently posted to the comp.lang.perl.misc newsgroup and the perl bug database at &lt;http://rt.perl.org/perlbug/&gt;.  There may also be information at &lt;http://www.perl.org/&gt;, the Perl Home Page.<div class="spacer">
+</div>
+If you believe you have an unreported bug, please run the perlbug program included with your release.  Be sure to trim your bug down to a tiny but sufficient test case.  Your bug report, along with the output of &quot;perl -V&quot;, will be sent off to perlbug@perl.org to be analysed by the Perl porting team.<div class="spacer">
+</div>
+If the bug you are reporting has security implications, which make it inappropriate to send to a publicly archived mailing list, then please send it to perl5-security-report@perl.org.  This points to a closed subscription unarchived mailing list, which includes all core committers, who will be able to help assess the impact of issues, figure out a resolution, and help co-ordinate the release of patches to mitigate or fix the problem across all platforms on which Perl is supported.  Please use this address only for security issues in the Perl core, not for modules independently distributed on CPAN.</div>
+<div class="section">
+<h1>SEE ALSO</h1> The  <i>Changes</i> file for an explanation of how to view exhaustive details on what changed.<div class="spacer">
+</div>
+The <i>INSTALL</i> file for how to build Perl.<div class="spacer">
+</div>
+The <i>README</i> file for general stuff.<div class="spacer">
+</div>
+The <i>Artistic</i> and <i>Copying</i> files for copyright information.</div>
+<table class="foot">
+<tr>
+<td class="foot-date">
+2014-03-24</td>
+<td class="foot-os">
+perl v5.20.2</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+

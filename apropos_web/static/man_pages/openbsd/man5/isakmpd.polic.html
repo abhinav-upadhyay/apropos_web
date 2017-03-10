@@ -1,0 +1,359 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+ISAKMPD.POLICY(5)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">isakmpd.policy</b> &#8212; <span class="desc">policy configuration file for isakmpd</span></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> <b class="name">isakmpd.policy</b> is the policy configuration file for the <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a> daemon, managing security association and key management for the <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a> layer of the kernel's networking stack. The <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a> daemon, also known as the IKEv1 key management daemon, implements the Internet Key Exchange version 1 (IKEv1) protocol. It follows then that references to IKE in this document pertain to IKEv1 only, and not IKEv2.<div class="spacer">
+</div>
+<a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a> is used when two systems need to automatically set up a pair of Security Associations (SAs) for secure communication using IPsec. IKEv1 operates in two stages:<div class="spacer">
+</div>
+In the first stage (Main or Identity Protection Mode), the two IKE daemons establish a secure link between themselves, fully authenticating each other and establishing key material for encrypting/authenticating future communications between them. This step is typically only performed once for every pair of IKE daemons.<div class="spacer">
+</div>
+In the second stage (also called Quick Mode), the two IKE daemons create the pair of SAs for the parties that wish to communicate using IPsec. These parties may be the hosts the IKE daemons run on, a host and a network behind a firewall, or two networks behind their respective firewalls. At this stage, the exact parameters of the SAs (e.g., algorithms to use, encapsulation mode, lifetime) and the identities of the communicating parties (hosts, networks, etc.) are specified. The reason for the existence of Quick Mode is to allow for fast SA setup, once the more heavy-weight Main Mode has been completed. Generally, Quick Mode uses the key material derived from Main Mode to provide keys to the IPsec transforms to be used.<div class="spacer">
+</div>
+Alternatively, a new Diffie-Hellman computation may be performed, which significantly slows down the exchange, but at the same time provides Perfect Forward Secrecy (PFS). Briefly, this means that even should an attacker manage to break long-term keys used in other sessions (or, specifically, if an attacker breaks the Diffie-Hellman exchange performed during Main Mode), they will not be able to decrypt this traffic. Normally, no PFS is provided (the key material used by the IPsec SAs established as a result of this exchange will be derived from the key material of the Main Mode exchange), allowing for a faster Quick Mode exchange (no public key computations).<div class="spacer">
+</div>
+IKE proposals are &quot;suggestions&quot; by the initiator of an exchange to the responder as to what protocols and attributes should be used on a class of packets. For example, a given exchange may ask for ESP with 3DES and MD5 and AH with SHA1 (applied successively on the same packet), or just ESP with Blowfish and RIPEMD-160. The responder examines the proposals and determines which of them are acceptable, according to policy and any credentials.<div class="spacer">
+</div>
+The following paragraphs assume some knowledge of the contents of the <a class="link-man" href="../html4/keynote.html">keynote(4)</a> and <a class="link-man" href="../html5/keynote.html">keynote(5)</a> man pages.<div class="spacer">
+</div>
+In the KeyNote policy model for IPsec, no distinction is currently made based on the ordering of AH and ESP in the packet. Should this change in the future, an appropriate attribute (see below) will be added.<div class="spacer">
+</div>
+The goal of security policy for IKE is thus to determine, based on local policy (provided in the <b class="name">isakmpd.policy</b> file), credentials provided during the IKE exchanges (or obtained through other means), the SA attributes proposed during the exchange, and perhaps other (side-channel) information, whether a pair of SAs should be installed in the system (in fact, whether both the IPsec SAs and the flows should be installed). For each proposal suggested by or to the remote IKE daemon, the KeyNote system is consulted as to whether the proposal is acceptable based on local policy (contained in <b class="name">isakmpd.policy</b>, in the form of policy assertions) and remote credentials (e.g., KeyNote credentials or X.509 certificates provided by the remote IKE daemon).<div class="spacer">
+</div>
+<b class="name">isakmpd.policy</b> is simply a flat <a class="link-man" href="../html7/ascii.html">ascii(7)</a> file containing KeyNote policy assertions, separated by blank lines (note that KeyNote assertions may not contain blank lines). <b class="name">isakmpd.policy</b> is read when <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a> is first started, and every time it receives a <span class="define">SIGHUP</span> signal. The new policies read will be used for all new Phase 2 (IPsec) SAs established from that point on (even if the associated Phase 1 SA was already established when the new policies were loaded). The policy change will not affect already established Phase 2 SAs.<div class="spacer">
+</div>
+For more details on KeyNote assertion format, please see <a class="link-man" href="../html5/keynote.html">keynote(5)</a>. Briefly, KeyNote policy assertions used in IKE have the following characteristics:<ul style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-bul">
+<li class="list-bul" style="margin-top: 1.00em;">
+The Authorizer field is typically &quot;POLICY&quot; (but see the examples below, for use of policy delegation).</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+The Licensees field can be an expression of passphrases used for authentication of the Main Mode exchanges, and/or public keys (typically, X.509 certificates), and/or X.509 distinguished names.</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+The Conditions field contains an expression of attributes from the IPsec policy action set (see below as well as the keynote syntax man page for more details).</li>
+<li class="list-bul" style="margin-top: 1.00em;">
+The ordered return-values set for IPsec policy is &quot;false, true&quot;.</li>
+</ul>
+<div class="spacer">
+</div>
+For an explanation of these fields and their semantics, see <a class="link-man" href="../html5/keynote.html">keynote(5)</a>.<div class="spacer">
+</div>
+For example, the following policy assertion:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+    Authorizer: &quot;POLICY&quot; 
+    Licensees: &quot;passphrase:foobar&quot; || &quot;x509-base64:abcd==&quot; || 
+      &quot;passphrase-md5-hex:3858f62230ac3c915f300c664312c63f&quot; || 
+      &quot;passphrase-sha1-hex:8843d7f92416211de9ebb963ff4ce28125932878&quot; 
+    Conditions: app_domain == &quot;IPsec policy&quot; &amp;&amp; esp_present == &quot;yes&quot; 
+		&amp;&amp; esp_enc_alg != &quot;null&quot; -&gt; &quot;true&quot;;</pre>
+<div class="spacer">
+</div>
+says that any proposal from a remote host that authenticates using the passphrase &quot;foobar&quot; or the public key contained in the X.509 certificate encoded as &quot;abcd==&quot; will be accepted, as long as it contains ESP with a non-null algorithm (i.e., the packet will be encrypted). The last two authorizers are the MD5 and SHA1 hashes respectively of the passphrase &quot;foobar&quot;. This form may be used instead of the &quot;passphrase:...&quot; one to protect the passphrase as included in the policy file (or as distributed in a signed credential).<div class="spacer">
+</div>
+The following policy assertion:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+    Authorizer: &quot;POLICY&quot; 
+    Licensees: &quot;DN:/CN=CA Certificate&quot; 
+    Conditions: app_domain == &quot;IPsec policy&quot; &amp;&amp; esp_present == &quot;yes&quot; 
+		&amp;&amp; esp_enc_alg != &quot;null&quot; -&gt; &quot;true&quot;;</pre>
+<div class="spacer">
+</div>
+is similar to the previous one, but instead of including a complete X.509 credential in the Licensees field, only the X.509 certificate's Subject Canonical Name needs to be specified (note that the &quot;DN:&quot; prefix is necessary).<div class="spacer">
+</div>
+KeyNote credentials have the same format as policy assertions, with one difference: the Authorizer field always contains a public key, and the assertion is signed (and thus its integrity can be cryptographically verified). Credentials are used to build chains of delegation of authority. They can be exchanged during an IKE exchange, or can be retrieved through some out-of-band mechanism (no such mechanism is currently supported in this implementation however). See <a class="link-man" href="../html5/isakmpd.conf.html">isakmpd.conf(5)</a> on how to specify what credentials to send in an IKE exchange.<div class="spacer">
+</div>
+Passphrases that appear in the Licensees field are encoded as the string &quot;passphrase:&quot;, followed by the passphrase itself (case-sensitive). Alternatively (and preferably), they may be encoded using the &quot;passphrase-md5-hex:&quot; or &quot;passphrase-sha1-hex:&quot; prefixes, followed by the <a class="link-man" href="../html1/md5.html">md5(1)</a> or <a class="link-man" href="../html1/sha1.html">sha1(1)</a> hash of the passphrase itself, encoded as a hexadecimal string (using lower-case letters only).<div class="spacer">
+</div>
+When X.509-based authentication is performed in Main Mode, any X.509 certificates received from the remote IKE daemon are converted to very simple KeyNote credentials. The conversion is straightforward: the issuer of the X.509 certificate becomes the Authorizer of the KeyNote credential, the subject becomes the only Licensees entry, while the Conditions field simply asserts that the credential is only valid for &quot;IPsec policy&quot; use (see the app_domain action attribute below).<div class="spacer">
+</div>
+Similarly, any X.509 CA certificates present in the directory pointed to by the appropriate <a class="link-man" href="../html5/isakmpd.conf.html">isakmpd.conf(5)</a> entry are converted to such pseudo-credentials. This allows one to write KeyNote policies that delegate specific authority to CAs (and the keys those CAs certify, recursively).<div class="spacer">
+</div>
+For more details on KeyNote assertion format, see <a class="link-man" href="../html5/keynote.html">keynote(5)</a>.<div class="spacer">
+</div>
+Information about the proposals, the identity of the remote IKE daemon, the packet classes to be protected, etc. are encoded in what is called an action set. The action set is composed of name-value attributes, similar in some ways to shell environment variables. These values are initialized by <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a> before each query to the KeyNote system, and can be tested against in the Conditions field of assertions. See <a class="link-man" href="../html4/keynote.html">keynote(4)</a> and <a class="link-man" href="../html5/keynote.html">keynote(5)</a> for more details on the format and semantics of the Conditions field.<div class="spacer">
+</div>
+Note that assertions and credentials can make references to non-existent attributes without catastrophic failures (access may be denied, depending on the overall structure, but will not be accidentally granted). One reason for credentials referencing non-existent attributes is that they were defined within a specific implementation or network only.<div class="spacer">
+</div>
+In the following attribute set, IPv4 addresses are encoded as ASCII strings in the usual dotted-quad format. However, all quads are three digits long. For example, the IPv4 address 10.128.1.12 would be encoded as 010.128.001.012. Similarly, IPv6 addresses are encoded in the standard x:x:x:x:x:x:x:x format, where the 'x's are the hexadecimal values of the eight 16-bit pieces of the address. All 'x's are four digits long. For example, the address 1080:0:12:0:8:800:200C:417A would be encoded as 1080:0000:0012:0000:0008:0800:200C:417A.<div class="spacer">
+</div>
+The following attributes are currently defined:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+ah_auth_alg</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+One of <b class="var">hmac-md5</b>, <b class="var">hmac-sha</b>, <b class="var">des-mac</b>, <b class="var">kpdk</b>, <b class="var">hmac-sha2-256</b>, <b class="var">hmac-sha2-384</b>, <b class="var">hmac-sha2-512</b>, or <b class="var">hmac-ripemd</b>. based on the authentication method specified in the AH proposal.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+ah_ecn, esp_ecn, comp_ecn</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to <b class="var">yes</b> or <b class="var">no</b>, based on whether ECN was requested for the IPsec tunnel.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+ah_encapsulation, esp_encapsulation, comp_encapsulation</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to <b class="var">tunnel</b> or <b class="var">transport</b>, based on the AH, ESP, and compression proposal.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+ah_group_desc, esp_group_desc, comp_group_desc</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The Diffie-Hellman group identifier from the AH, ESP, and compression proposal, used for PFS during Quick Mode (see the pfs attribute below). If more than one of these attributes are set to a value other than zero, they should have the same value (in valid IKE proposals). Valid values are 1 (768-bit MODP), 2 (1024-bit MODP), 3 (155-bit EC), 4 (185-bit EC), 5 (1536-bit MODP), 14 (2048-bit MODP), 15 (3072-bit MODP), 16 (4096-bit MODP), 17 (6144-bit MODP), and 18 (8192-bit MODP).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+ah_hash_alg</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+One of <b class="var">md5</b>, <b class="var">sha</b>, <b class="var">ripemd</b>, <b class="var">sha2-256</b>, <b class="var">sha2-384</b>, <b class="var">sha2-512</b>, or <b class="var">des</b>, based on the hash algorithm specified in the AH proposal. This attribute describes the generic transform to be used in the AH authentication.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+ah_key_length, esp_key_length</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The number of key bits to be used by the authentication and encryption algorithms respectively (for variable key-size algorithms).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+ah_key_rounds, esp_key_rounds</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The number of rounds of the authentication and encryption algorithms respectively (for variable round algorithms).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+ah_life_kbytes, esp_life_kbytes, comp_life_kbytes</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to the lifetime of the AH, ESP, and compression proposal, in kbytes of traffic. If no lifetime was proposed for the corresponding protocol (e.g., there was no proposal for AH), the corresponding attribute will be set to zero.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+ah_life_seconds, esp_life_seconds, comp_life_seconds</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to the lifetime of the AH, ESP, and compression proposal, in seconds. If no lifetime was proposed for the corresponding protocol (e.g., there was no proposal for AH), the corresponding attribute will be set to zero.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+ah_present, esp_present, comp_present</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to <b class="var">yes</b> if an AH, ESP, or compression proposal was received respectively, <b class="var">no</b> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+app_domain</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Always set to <b class="var">IPsec policy</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+comp_alg</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+One of <b class="var">oui</b>, <b class="var">deflate</b>, <b class="var">lzs</b>, or <b class="var">v42bis</b>, based on the compression algorithm specified in the compression proposal.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+comp_dict_size</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Specifies the log2 maximum size of the dictionary, according to the compression proposal.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+comp_private_alg</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to an integer specifying the private algorithm in use, according to the compression proposal.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+doi</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Always set to <b class="var">ipsec</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+esp_auth_alg</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+One of <b class="var">hmac-md5</b>, <b class="var">hmac-sha</b>, <b class="var">des-mac</b>, <b class="var">kpdk</b>, <b class="var">hmac-sha2-256</b>, <b class="var">hmac-sha2-384</b>, <b class="var">hmac-sha2-512</b>, or <b class="var">hmac-ripemd</b> based on the authentication method specified in the ESP proposal.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+esp_enc_alg</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+One of <b class="var">des</b>, <b class="var">des-iv64</b>, <b class="var">3des</b>, <b class="var">rc4</b>, <b class="var">idea</b>, <b class="var">cast</b>, <b class="var">blowfish</b>, <b class="var">3idea</b>, <b class="var">des-iv32</b>, <b class="var">rc4</b>, <b class="var">null</b>, or <b class="var">aes</b>, based on the encryption algorithm specified in the ESP proposal.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+GMTTimeOfDay</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to the UTC date/time, in YYYYMMDDHHmmSS format.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+initiator</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to <b class="var">yes</b> if the local daemon is initiating the Phase 2 SA, <b class="var">no</b> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+local_negotiation_address</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to the IPv4 or IPv6 address of the local interface used by the local IKE daemon for this exchange.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+LocalTimeOfDay</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to the local date/time, in YYYYMMDDHHmmSS format.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+pfs</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to <b class="var">yes</b> if a Diffie-Hellman exchange will be performed during this Quick Mode, <b class="var">no</b> otherwise.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+phase_1</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to <b class="var">aggressive</b> if aggressive mode was used to establish the Phase 1 SA, or <b class="var">main</b> if main mode was used instead.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+phase1_group_desc</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+The Diffie-Hellman group identifier used in IKE Phase 1. Takes the same values as <b class="var">ah_group_desc</b>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+remote_filter, local_filter, remote_id</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When the corresponding filter_type specifies an address range or subnet, these are set to the upper and lower part of the address space separated by a dash ('-') character (if the type specifies a single address, they are set to that address).<div class="spacer">
+</div>
+For FQDN and User FQDN types, these are set to the respective string. For Key ID, these are set to the hexadecimal representation of the associated byte string (lower-case letters used) if the Key ID payload contains non-printable characters. Otherwise, they are set to the respective string.<div class="spacer">
+</div>
+For ASN1 DN, these are set to the text encoding of the Distinguished Name in the payload sent or received. The format is the same as that used in the Licensees field.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+remote_filter_addr_lower, local_filter_addr_lower, remote_id_addr_lower</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When the corresponding filter_type is <b class="var">IPv4 address</b> or <b class="var">IPv6 address</b>, these contain the respective address. For <b class="var">IPv4 range</b> or <b class="var">IPv6 range</b>, these contain the lower end of the address range. For <b class="var">IPv4 subnet</b> or <b class="var">IPv6 subnet</b>, these contain the lowest address in the specified subnet.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+remote_filter_addr_upper, local_filter_addr_upper, remote_id_addr_upper</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+When the corresponding filter_type is <b class="var">IPv4 address</b> or <b class="var">IPv6 address</b>, these contain the respective address. For <b class="var">IPv4 range</b> or <b class="var">IPv6 range</b>, they contain the upper end of the address range. For <b class="var">IPv4 subnet</b> or <b class="var">IPv6 subnet</b>, they contain the highest address in the specified subnet.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+remote_filter_port, local_filter_port, remote_id_port</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to the transport protocol port.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+remote_filter_proto, local_filter_proto, remote_id_proto</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to <b class="var">etherip</b>, <b class="var">tcp</b>, <b class="var">udp</b>, or the transport protocol number, depending on the transport protocol set in the IDci, IDcr, and Main Mode peer ID respectively.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+remote_filter_type, local_filter_type, remote_id_type</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to <b class="var">IPv4 address</b>, <b class="var">IPv4 range</b>, <b class="var">IPv4 subnet</b>, <b class="var">IPv6 address</b>, <b class="var">IPv6 range</b>, <b class="var">IPv6 subnet</b>, <b class="var">FQDN</b>, <b class="var">User FQDN</b>, <b class="var">ASN1 DN</b>, <b class="var">ASN1 GN</b>, or <b class="var">Key ID</b>, based on the Quick Mode Initiator ID, Quick Mode Responder ID, and Main Mode peer ID respectively.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+remote_negotiation_address</dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Set to the IPv4 or IPv6 address of the remote IKE daemon.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<i class="file">/etc/isakmpd/isakmpd.policy</i></dt>
+<dd class="list-tag" style="margin-left: 27.00ex;">
+The default <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a> policy configuration file.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1><pre style="margin-left: 0.00ex;" class="lit display">
+    Authorizer: &quot;POLICY&quot; 
+    Comment: This bare-bones assertion accepts everything 
+ 
+ 
+ 
+    Authorizer: &quot;POLICY&quot; 
+    Licensees: &quot;passphrase-md5-hex:10838982612aff543e2e62a67c786550&quot; 
+    Comment: This policy accepts anyone using shared-secret 
+	     authentication using the password mekmitasdigoat, 
+	     and does ESP with some form of encryption (not null). 
+    Conditions: app_domain == &quot;IPsec policy&quot; &amp;&amp; 
+                esp_present == &quot;yes&quot; &amp;&amp; 
+                esp_enc_alg != &quot;null&quot; -&gt; &quot;true&quot;; 
+ 
+ 
+ 
+    Authorizer: &quot;POLICY&quot; 
+    Licensees: &quot;subpolicy1&quot; || &quot;subpolicy2&quot; 
+    Comment: Delegate to two other sub-policies, so we 
+             can manage our policy better. Since these subpolicies 
+             are not &quot;owned&quot; by a key (and are thus unsigned), they 
+	     have to be in isakmpd.policy. 
+    Conditions: app_domain == &quot;IPsec policy&quot;; 
+ 
+ 
+ 
+    KeyNote-Version: 2 
+    Licensees: &quot;passphrase-md5-hex:9c42a1346e333a770904b2a2b37fa7d3&quot; 
+    Conditions: esp_present == &quot;yes&quot; -&gt; &quot;true&quot;; 
+    Authorizer: &quot;subpolicy1&quot; 
+ 
+ 
+ 
+    Conditions: ah_present == &quot;yes&quot; -&gt; 
+                   { 
+                       ah_auth_alg == &quot;md5&quot; -&gt; &quot;true&quot;; 
+                       ah_auth_alg == &quot;sha&quot; &amp;&amp; 
+                       esp_present == &quot;no&quot; -&gt; &quot;true&quot;; 
+                   }; 
+    Licensees: &quot;passphrase:otherpassword&quot; || 
+       &quot;passphrase-sha1-hex:f5ed6e4abd30c36a89409b5da7ecb542c9fbf00f&quot; 
+    Authorizer: &quot;subpolicy2&quot; 
+ 
+ 
+ 
+    keynote-version: 2 
+    comment: this is an example of a policy delegating to a CN. 
+    authorizer: &quot;POLICY&quot; 
+    licensees: &quot;DN:/CN=CA Certificate/emailAddress=ca@foo.bar.com&quot; 
+ 
+ 
+ 
+    keynote-version: 2 
+    comment: This is an example of a policy delegating to a key. 
+    authorizer: &quot;POLICY&quot; 
+    licensees: &quot;x509-base64:MIICGDCCAYGgAwIBAgIBADANBgkqhkiG9w0BAQQ\ 
+		FADBSMQswCQYDVQQGEwJHQjEOMAwGA1UEChMFQmVuQ28xETAPBg\ 
+		NVBAMTCEJlbkNvIENBMSAwHgYJKoZIhvcNAQkBFhFiZW5AYWxnc\ 
+		m91cC5jby51azAeFw05OTEwMTEyMjQ5MzhaFw05OTExMTAyMjQ5\ 
+		MzhaMFIxCzAJBgNVBAYTAkdCMQ4wDAYDVQQKEwVCZW5DbzERMA8\ 
+		GA1UEAxMIQmVuQ28gQ0ExIDAeBgkqhkiG9w0BCQEWEWJlbkBhbG\ 
+		dyb3VwLmNvLnVrMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBg\ 
+		QCxyAte2HEVouXg1Yu+vDihbnjDRn+6k00Rv6cZqbwA3BQ30mC/\ 
+		3TFJ09VGXCaM0UKfpnxIpkBYLmOA3FWkKI0RvPU7E1AhKkhC1Ds\ 
+		PSBFjYHrB15T5lYzgfwKJCIxTDzZDx2iobUgPa0FRNGVUjpQ4/k\ 
+		MJ2BF4Wh7zY3X08rMzsQIDAQABMA0GCSqGSIb3DQEBBAUAA4GBA\ 
+		DWJ5pbTcE7iKHWLQTMYiz8i9jGi5+Eo1yr1Bab90tgaGQV0zrRH\ 
+		jDHgAAy1h8WSXuyQrXfgbx2rnWFPhx9CfmuAXn7sZmQE3mnUqeP\ 
+		ZL2dW87jdBGqtoUdNcoz5zKBkC943yasNui/O01MiqgadTThTJH\ 
+		d1Pn17LbJC1ZVRNjR5&quot; 
+    conditions: app_domain == &quot;IPsec policy&quot; &amp;&amp; doi == &quot;ipsec&quot; &amp;&amp; 
+            pfs == &quot;yes&quot; &amp;&amp; esp_present == &quot;yes&quot; &amp;&amp; ah_present == &quot;no&quot; &amp;&amp; 
+            (esp_enc_alg == &quot;3des&quot; || esp_enc_alg == &quot;aes&quot;) -&gt; &quot;true&quot;; 
+ 
+ 
+ 
+    keynote-version: 2 
+    comment: This is an example of a credential, the signature does 
+	     not really verify (although the keys are real). 
+    licensees: &quot;x509-base64:MIICGDCCAYGgAwIBAgIBADANBgkqhkiG9w0BAQQ\ 
+		FADBSMQswCQYDVQQGEwJHQjEOMAwGA1UEChMFQmVuQ28xETAPBg\ 
+		NVBAMTCEJlbkNvIENBMSAwHgYJKoZIhvcNAQkBFhFiZW5AYWxnc\ 
+		m91cC5jby51azAeFw05OTEwMTEyMzA2MjJaFw05OTExMTAyMzA2\ 
+		MjJaMFIxCzAJBgNVBAYTAkdCMQ4wDAYDVQQKEwVCZW5DbzERMA8\ 
+		GA1UEAxMIQmVuQ28gQ0ExIDAeBgkqhkiG9w0BCQEWEWJlbkBhbG\ 
+		dyb3VwLmNvLnVrMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBg\ 
+		QDaCs+JAB6YRKAVkoi1NkOpE1V3syApjBj0Ahjq5HqYAACo1JhM\ 
+		+QsPwuSWCNhBT51HX6G6UzfY3mOUz/vou6MJ/wor8EdeTX4nucx\ 
+		NSz/r6XI262aXezAp+GdBviuJZx3Q67ON/IWYrB4QtvihI4bMn5\ 
+		E55nF6TKtUMJTdATvs/wIDAQABMA0GCSqGSIb3DQEBBAUAA4GBA\ 
+		MaQOSkaiR8id0h6Zo0VSB4HpBnjpWqz1jNG8N4RPN0W8muRA2b9\ 
+		85GNP1bkC3fK1ZPpFTB0A76lLn11CfhAf/gV1iz3ELlUHo5J8nx\ 
+		Pu6XfsGJm3HsXJOuvOog8Aean4ODo4KInuAsnbLzpGl0d+Jqa5u\ 
+		TZUxsyg4QOBwYEU92H&quot; 
+    authorizer: &quot;x509-base64:MIICGDCCAYGgAwIBAgIBADANBgkqhkiG9w0BAQQ\ 
+		 FADBSMQswCQYDVQQGEwJHQjEOMAwGA1UEChMFQmVuQ28xETAPBg\ 
+		 NVBAMTCEJlbkNvIENBMSAwHgYJKoZIhvcNAQkBFhFiZW5AYWxnc\ 
+		 m91cC5jby51azAeFw05OTEwMTEyMjQ5MzhaFw05OTExMTAyMjQ5\ 
+		 MzhaMFIxCzAJBgNVBAYTAkdCMQ4wDAYDVQQKEwVCZW5DbzERMA8\ 
+		 GA1UEAxMIQmVuQ28gQ0ExIDAeBgkqhkiG9w0BCQEWEWJlbkBhbG\ 
+		 dyb3VwLmNvLnVrMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBg\ 
+		 QCxyAte2HEVouXg1Yu+vDihbnjDRn+6k00Rv6cZqbwA3BQ30mC/\ 
+		 3TFJ09VGXCaM0UKfpnxIpkBYLmOA3FWkKI0RvPU7E1AhKkhC1Ds\ 
+		 PSBFjYHrB15T5lYzgfwKJCIxTDzZDx2iobUgPa0FRNGVUjpQ4/k\ 
+		 MJ2BF4Wh7zY3X08rMzsQIDAQABMA0GCSqGSIb3DQEBBAUAA4GBA\ 
+		 DWJ5pbTcE7iKHWLQTMYiz8i9jGi5+Eo1yr1Bab90tgaGQV0zrRH\ 
+		 jDHgAAy1h8WSXuyQrXfgbx2rnWFPhx9CfmuAXn7sZmQE3mnUqeP\ 
+		 ZL2dW87jdBGqtoUdNcoz5zKBkC943yasNui/O01MiqgadTThTJH\ 
+		 d1Pn17LbJC1ZVRNjR5&quot; 
+conditions: app_domain == &quot;IPsec policy&quot; &amp;&amp; doi == &quot;ipsec&quot; &amp;&amp; 
+	    pfs == &quot;yes&quot; &amp;&amp; esp_present == &quot;yes&quot; &amp;&amp; ah_present == &quot;no&quot; &amp;&amp; 
+            (esp_enc_alg == &quot;3des&quot; || esp_enc_alg == &quot;aes&quot;) -&gt; &quot;true&quot;; 
+Signature: &quot;sig-x509-sha1-base64:ql+vrUxv14DcBOQHR2jsbXayq6T\ 
+            mmtMiUB745a8rjwSrQwh+KIVDlUrghPnqhSIkWSDi9oWWMbfg\ 
+            mkdudZ0wjgeTLMI2NI4GibMMsToakOKMex/0q4cpdpln3DKcQ\ 
+            IcjzRv4khDws69FT3QfELjcpShvbLrXmh1Z00OFmxjyqDw=&quot;</pre>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a>, <a class="link-man" href="../html4/keynote.html">keynote(4)</a>, <a class="link-man" href="../html5/keynote.html">keynote(5)</a>, <a class="link-man" href="../html8/isakmpd.html">isakmpd(8)</a></div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> A more sane way of expressing IPv6 address ranges is needed.</div>
+</div>
+</body>
+</html>
+

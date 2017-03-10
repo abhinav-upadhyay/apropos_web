@@ -1,0 +1,181 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+PMAP_INIT(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">pmap_init</b>, <b class="name">pmap_enter</b>, <b class="name">pmap_kenter_pa</b>, <b class="name">pmap_remove</b>, <b class="name">pmap_kremove</b> <b class="name">pmap_unwire</b>, <b class="name">pmap_protect</b>, <b class="name">pmap_page_protect</b>, <b class="name">pmap_is_modified</b>, <b class="name">pmap_clear_modify</b>, <b class="name">pmap_is_referenced</b>, <b class="name">pmap_clear_reference</b>, <b class="name">pmap_copy_page</b>, <b class="name">pmap_zero_page</b>, <b class="name">pmap_create</b>, <b class="name">pmap_reference</b>, <b class="name">pmap_destroy</b>, <b class="name">pmap_steal_memory</b>, <b class="name">pmap_growkernel</b>, <b class="name">pmap_update</b>, <b class="name">pmap_collect</b>, <b class="name">pmap_virtual_space</b>, <b class="name">pmap_copy</b>, &#8212; <span class="desc">machine dependent interface to the MMU</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">machine/pmap.h</a>&gt;</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The architecture-dependent <b class="name">pmap</b> module describes how the physical mapping is done between the user-processes and kernel virtual addresses and the physical addresses of the main memory, providing machine-dependent translation and access tables that are used directly or indirectly by the memory-management hardware. The <b class="name">pmap</b> layer can be viewed as a big array of mapping entries that are indexed by virtual address to produce a physical address and flags. These flags describe the page's protection, whether the page has been referenced or modified and other characteristics.<div class="spacer">
+</div>
+The <b class="name">pmap</b> interface is consistent across all platforms and hides the way page mappings are stored.</div>
+<div class="section">
+<h1 id="x494e495449414c495a4154494f4e">INITIALIZATION</h1> <i class="ftype">void</i><br/>
+<b class="fname">pmap_init</b>(<i class="farg" style="white-space:nowrap;">void</i>);<div class="spacer">
+</div>
+The <b class="fname">pmap_init</b>() function is called from the machine-independent <a class="link-man" href="../html9/uvm.html">uvm(9)</a> initialization code, when the MMU is enabled.</div>
+<div class="section">
+<h1 id="x50414745204d414e4147454d454e54">PAGE MANAGEMENT</h1> Modified/referenced information is only tracked for pages managed by <a class="link-man" href="../html9/uvm.html">uvm(9)</a> (pages for which a vm_page structure exists). Only managed mappings of those pages have modified/referenced tracking. The use of unmanaged mappings should be limited to code which may execute in interrupt context (such as <a class="link-man" href="../html9/malloc.html">malloc(9)</a>) or to enter mappings for physical addresses which are not managed by <a class="link-man" href="../html9/uvm.html">uvm(9)</a>. This allows <b class="name">pmap</b> modules to avoid blocking interrupts when manipulating data structures or holding locks. Unmanaged mappings may only be entered into the kernel's virtual address space. The modified/referenced bits must be tracked on a per-page basis, as they are not attributes of a mapping, but attributes of a page. Therefore, even after all mappings for a given page have been removed, the modified/referenced bits for that page must be preserved. The only time the modified/referenced bits may be cleared is when <a class="link-man" href="../html9/uvm.html">uvm(9)</a> explicitly calls the <b class="fname">pmap_clear_modify</b>() and <b class="fname">pmap_clear_reference</b>() functions. These functions must also change any internal state necessary to detect the page being modified or referenced again after the modified/referenced state is cleared.<div class="spacer">
+</div>
+Mappings entered by <b class="fname">pmap_enter</b>() are managed, mappings entered by <b class="fname">pmap_kenter_pa</b>() are not.</div>
+<div class="section">
+<h1 id="x4d415050494e4720414c4c4f434154494f4e">MAPPING ALLOCATION</h1> <i class="ftype">int</i><br/>
+<b class="fname">pmap_enter</b>(<i class="farg" style="white-space:nowrap;">pmap_t pmap</i>, <i class="farg" style="white-space:nowrap;">vaddr_t va</i>, <i class="farg" style="white-space:nowrap;">paddr_t pa</i>, <i class="farg" style="white-space:nowrap;">vm_prot_t prot</i>, <i class="farg" style="white-space:nowrap;">int flags</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">pmap_kenter_pa</b>(<i class="farg" style="white-space:nowrap;">vaddr_t va</i>, <i class="farg" style="white-space:nowrap;">paddr_t pa</i>, <i class="farg" style="white-space:nowrap;">vm_prot_t prot</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">pmap_remove</b>(<i class="farg" style="white-space:nowrap;">pmap_t pmap</i>, <i class="farg" style="white-space:nowrap;">vaddr_t sva</i>, <i class="farg" style="white-space:nowrap;">vaddr_t eva</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">pmap_kremove</b>(<i class="farg" style="white-space:nowrap;">vaddr_t va</i>, <i class="farg" style="white-space:nowrap;">vsize_t size</i>);<div class="spacer">
+</div>
+The <b class="fname">pmap_enter</b>() function creates a managed mapping for physical page <i class="farg">pa</i> at the specified virtual address <i class="farg">va</i> in the target physical map <i class="farg">pmap</i> with protection specified by <i class="farg">prot</i>:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+PROT_READ</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The mapping must allow reading.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+PROT_WRITE</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The mapping must allow writing.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+PROT_EXEC</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The page mapped contains instructions that will be executed by the processor.</dd>
+</dl>
+<div class="spacer">
+</div>
+The <i class="farg">flags</i> argument contains protection bits (the same bits used in the <i class="farg">prot</i> argument) indicating the type of access that caused the mapping to be created. This information may be used to seed modified/referenced information for the page being mapped, possibly avoiding redundant faults on platforms that track modified/referenced information in software. Other information provided by <i class="farg">flags</i>:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+PMAP_WIRED</dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The mapping being created is a wired mapping.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+PMAP_CANFAIL</dt>
+<dd class="list-tag" style="margin-left: 12.00ex;">
+The call to <b class="fname">pmap_enter</b>() is allowed to fail. If this flag is not set, and the <b class="fname">pmap_enter</b>() call is unable to create the mapping, perhaps due to insufficient resources, the <b class="name">pmap</b> module must panic.</dd>
+</dl>
+<div class="spacer">
+</div>
+The access type provided in the <i class="farg">flags</i> argument will never exceed the protection specified by <i class="farg">prot</i>.<div class="spacer">
+</div>
+The <b class="fname">pmap_enter</b>() function is called by the fault routine to establish a mapping for the page being faulted in. If <b class="fname">pmap_enter</b>() is called to enter a mapping at a virtual address for which a mapping already exists, the previous mapping must be invalidated. <b class="fname">pmap_enter</b>() is sometimes called to change the protection for a pre-existing mapping, or to change the &#8220;wired&#8221; attribute for a pre-existing mapping.<div class="spacer">
+</div>
+The <b class="fname">pmap_kenter_pa</b>() function creates an unmanaged mapping of physical address <i class="farg">pa</i> at the specified virtual address <i class="farg">va</i> with the protection specified by <i class="farg">prot</i>.<div class="spacer">
+</div>
+The <b class="fname">pmap_remove</b>() function removes the range of virtual addresses <i class="farg">sva</i> to <i class="farg">eva</i> from <i class="farg">pmap</i>, assuming proper alignment. <b class="fname">pmap_remove</b>() is called during an unmap operation to remove low-level machine dependent mappings.<div class="spacer">
+</div>
+The <b class="fname">pmap_kremove</b>() function removes an unmanaged mapping at virtual address <i class="farg">va</i> of size <i class="farg">size</i>.<div class="spacer">
+</div>
+A call to <b class="fname">pmap_update</b>() must be made after <b class="fname">pmap_kenter_pa</b>() or <b class="fname">pmap_kremove</b>() to notify the <b class="name">pmap</b> layer that the mappings need to be made correct.</div>
+<div class="section">
+<h1 id="x4143434553532050524f54454354494f4e">ACCESS PROTECTION</h1> <i class="ftype">void</i><br/>
+<b class="fname">pmap_unwire</b>(<i class="farg" style="white-space:nowrap;">pmap_t pmap</i>, <i class="farg" style="white-space:nowrap;">vaddr_t va</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">pmap_protect</b>(<i class="farg" style="white-space:nowrap;">pmap_t pmap</i>, <i class="farg" style="white-space:nowrap;">vaddr_t sva</i>, <i class="farg" style="white-space:nowrap;">vaddr_t eva</i>, <i class="farg" style="white-space:nowrap;">vm_prot_t prot</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">pmap_page_protect</b>(<i class="farg" style="white-space:nowrap;">struct vm_page *pg</i>, <i class="farg" style="white-space:nowrap;">vm_prot_t prot</i>);<div class="spacer">
+</div>
+The <b class="fname">pmap_unwire</b>() function clears the wired attribute for a map/virtual-address pair. The mapping must already exist in <i class="farg">pmap</i>.<div class="spacer">
+</div>
+The <b class="fname">pmap_protect</b>() function sets the physical protection on range <i class="farg">sva</i> to <i class="farg">eva</i>, in <i class="farg">pmap</i>.<div class="spacer">
+</div>
+The <b class="fname">pmap_protect</b>() function is called during a copy-on-write operation to write protect copy-on-write memory, and when paging out a page to remove all mappings of a page. The <b class="fname">pmap_page_protect</b>() function sets the permission for all mapping to page <i class="farg">pg</i>. The <b class="fname">pmap_page_protect</b>() function is called before a pageout operation to ensure that all pmap references to a page are removed.</div>
+<div class="section">
+<h1 id="x504859534943414c20504147451e555341474520494e464f524d4154494f4e">PHYSICAL PAGE-USAGE INFORMATION</h1> <i class="ftype">boolean_t</i><br/>
+<b class="fname">pmap_is_modified</b>(<i class="farg" style="white-space:nowrap;">struct vm_page *pg</i>);<div class="spacer">
+</div>
+<i class="ftype">boolean_t</i><br/>
+<b class="fname">pmap_clear_modify</b>(<i class="farg" style="white-space:nowrap;">struct vm_page *pg</i>);<div class="spacer">
+</div>
+<i class="ftype">boolean_t</i><br/>
+<b class="fname">pmap_is_referenced</b>(<i class="farg" style="white-space:nowrap;">struct vm_page *pg</i>);<div class="spacer">
+</div>
+<i class="ftype">boolean_t</i><br/>
+<b class="fname">pmap_clear_reference</b>(<i class="farg" style="white-space:nowrap;">struct vm_page *pg</i>);<div class="spacer">
+</div>
+The <b class="fname">pmap_is_modified</b>() and <b class="fname">pmap_clear_modify</b>() functions read/set the modify bits on the specified physical page <i class="farg">pg</i>. The <b class="fname">pmap_is_referenced</b>() and <b class="fname">pmap_clear_reference</b>() functions read/set the reference bits on the specified physical page <i class="farg">pg</i>.<div class="spacer">
+</div>
+The <b class="fname">pmap_is_referenced</b>() and <b class="fname">pmap_is_modified</b>() functions are called by the pagedaemon when looking for pages to free. The <b class="fname">pmap_clear_referenced</b>() and <b class="fname">pmap_clear_modify</b>() functions are called by the pagedaemon to help identification of pages that are no longer in demand.</div>
+<div class="section">
+<h1 id="x504859534943414c205041474520494e495449414c495a4154494f4e">PHYSICAL PAGE INITIALIZATION</h1> <i class="ftype">void</i><br/>
+<b class="fname">pmap_copy_page</b>(<i class="farg" style="white-space:nowrap;">struct vm_page *src</i>, <i class="farg" style="white-space:nowrap;">struct vm_page *dst</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">pmap_zero_page</b>(<i class="farg" style="white-space:nowrap;">struct vm_page *page</i>);<div class="spacer">
+</div>
+The <b class="fname">pmap_copy_page</b>() function copies the content of the physical page <i class="farg">src</i> to physical page <i class="farg">dst</i>.<div class="spacer">
+</div>
+The <b class="fname">pmap_zero_page</b>() function fills <i class="farg">page</i> with zeroes.</div>
+<div class="section">
+<h1 id="x494e5445524e414c204441544120535452554354555245204d414e4147454d454e54">INTERNAL DATA STRUCTURE MANAGEMENT</h1> <i class="ftype">pmap_t</i><br/>
+<b class="fname">pmap_create</b>(<i class="farg" style="white-space:nowrap;">void</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">pmap_reference</b>(<i class="farg" style="white-space:nowrap;">pmap_t pmap</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">pmap_destroy</b>(<i class="farg" style="white-space:nowrap;">pmap_t pmap</i>);<div class="spacer">
+</div>
+The <b class="fname">pmap_create</b>() function creates an instance of the <span class="emph">pmap</span> structure.<div class="spacer">
+</div>
+The <b class="fname">pmap_reference</b>() function increments the reference count on <i class="farg">pmap</i>.<div class="spacer">
+</div>
+The <b class="fname">pmap_destroy</b>() function decrements the reference count on physical map <i class="farg">pmap</i> and retires it from service if the count drops to zero, assuming it contains no valid mappings.</div>
+<div class="section">
+<h1 id="x4f5054494f4e414c2046554e4354494f4e53">OPTIONAL FUNCTIONS</h1> <i class="ftype">vaddr_t</i><br/>
+<b class="fname">pmap_steal_memory</b>(<i class="farg" style="white-space:nowrap;">vsize_t size</i>, <i class="farg" style="white-space:nowrap;">vaddr_t *vstartp</i>, <i class="farg" style="white-space:nowrap;">vaddr_t *vendp</i>);<div class="spacer">
+</div>
+<i class="ftype">vaddr_t</i><br/>
+<b class="fname">pmap_growkernel</b>(<i class="farg" style="white-space:nowrap;">vaddr_t maxkvaddr</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">pmap_update</b>(<i class="farg" style="white-space:nowrap;">pmap_t pmap</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">pmap_collect</b>(<i class="farg" style="white-space:nowrap;">pmap_t pmap</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">pmap_virtual_space</b>(<i class="farg" style="white-space:nowrap;">vaddr_t *vstartp</i>, <i class="farg" style="white-space:nowrap;">vaddr_t *vendp</i>);<div class="spacer">
+</div>
+<i class="ftype">void</i><br/>
+<b class="fname">pmap_copy</b>(<i class="farg" style="white-space:nowrap;">pmap_t dst_pmap</i>, <i class="farg" style="white-space:nowrap;">pmap_t src_pmap</i>, <i class="farg" style="white-space:nowrap;">vaddr_t dst_addr</i>, <i class="farg" style="white-space:nowrap;">vsize_t len</i>, <i class="farg" style="white-space:nowrap;">vaddr_t src_addr</i>);<div class="spacer">
+</div>
+Wired memory allocation before the virtual memory system is bootstrapped is accomplished by the <b class="fname">pmap_steal_memory</b>() function. After that point, the kernel memory allocation routines should be used.<div class="spacer">
+</div>
+The <b class="fname">pmap_growkernel</b>() function can preallocate kernel page tables to a specified virtual address.<div class="spacer">
+</div>
+The <b class="fname">pmap_update</b>() function notifies the <b class="name">pmap</b> module to force processing of all delayed actions for all pmaps.<div class="spacer">
+</div>
+The <b class="fname">pmap_collect</b>() function informs the <b class="name">pmap</b> module that the given <span class="emph">pmap</span> is not expected to be used for some time, giving the <b class="name">pmap</b> module a chance to prioritize. The initial bounds of the kernel virtual address space are returned by <b class="fname">pmap_virtual_space</b>().<div class="spacer">
+</div>
+The <b class="fname">pmap_copy</b>() function copies the range specified by <i class="farg">src_addr</i> and <i class="farg">src_len</i> from <i class="farg">src_pmap</i> to the range described by <i class="farg">dst_addr</i> and <i class="farg">dst_len</i> in <i class="farg">dst_map</i>. <b class="fname">pmap_copy</b>() is called during a <a class="link-man" href="../html2/fork.html">fork(2)</a> operation to give the child process an initial set of low-level mappings.</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html2/fork.html">fork(2)</a>, <a class="link-man" href="../html9/uvm.html">uvm(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <span class="unix">4.4BSD</span> <b class="name">pmap</b> module is based on Mach 3.0. The introduction of <a class="link-man" href="../html9/uvm.html">uvm(9)</a> left the <b class="name">pmap</b> interface unchanged for the most part.</div>
+<div class="section">
+<h1 id="x42554753">BUGS</h1> Ifdefs must be documented.<div class="spacer">
+</div>
+<b class="fname">pmap_update</b>() should be mandatory.</div>
+</div>
+</body>
+</html>
+

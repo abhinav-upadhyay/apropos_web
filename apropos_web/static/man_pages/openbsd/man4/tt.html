@@ -1,0 +1,305 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+TTY(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">tty</b>, <b class="name">cua</b> &#8212; <span class="desc">general terminal interface</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/ioctl.h</a>&gt;</b></div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> This section describes the interface to the terminal drivers in the system.<div class="subsection">
+<h2 id="x5465726d696e616c205370656369616c2046696c6573">Terminal Special Files</h2> Each hardware terminal port (such as a serial port) on the system usually has a terminal special device file associated with it in the directory <i class="file">/dev/</i> (for example, <i class="file">/dev/tty03</i>). When a user logs into the system on one of these hardware terminal ports, the system has already opened the associated device and prepared the line for normal interactive use (see <a class="link-man" href="../html8/getty.html">getty(8)</a>). There is also a special case of a terminal file that connects not to a hardware terminal port, but to another program on the other side. These special terminal devices are called <span class="emph">ptys</span> and provide the mechanism necessary to give users the same interface to the system when logging in over a network (using <a class="link-man" href="../html1/ssh.html">ssh(1)</a> or <a class="link-man" href="../html1/telnet.html">telnet(1)</a> for example). Even in these cases the details of how the terminal file was opened and set up is already handled by special software in the system. Thus, users do not normally need to worry about the details of how these lines are opened or used.<div class="spacer">
+</div>
+For hardware terminal ports, dial-out is supported through matching device nodes called calling units. For instance, the terminal called <i class="file">/dev/tty03</i> would have a matching calling unit called <i class="file">/dev/cua03</i>. These two devices are normally differentiated by creating the calling unit device node with a minor number 128 greater than the dial-in device node. Whereas the dial-in device (the <span class="emph">tty</span>) normally requires a hardware signal to indicate to the system that it is active, the dial-out device (the <span class="emph">cua</span>) does not, and hence can communicate unimpeded with a device such as a modem, or with another system over a serial link. This means that a process like <a class="link-man" href="../html8/getty.html">getty(8)</a> will wait on a dial-in device until a connection is established. Meanwhile, a dial-out connection can be established on the dial-out device (for the very same hardware terminal port) without disturbing anything else on the system. The <a class="link-man" href="../html8/getty.html">getty(8)</a> process does not even notice that anything is happening on the terminal port. If a connecting call comes in after the dial-out connection has finished, the <a class="link-man" href="../html8/getty.html">getty(8)</a> process will deal with it properly, without having noticed the intervening dial-out action. For more information on dial-out, see <a class="link-man" href="../html1/cu.html">cu(1)</a>.<div class="spacer">
+</div>
+When an interactive user logs in, the system prepares the line to behave in a certain way (called a <span class="emph">line discipline</span>), the particular details of which are described in <a class="link-man" href="../html1/stty.html">stty(1)</a> at the command level, and in <a class="link-man" href="../html4/termios.html">termios(4)</a> at the programming level. A user may be concerned with changing settings associated with his particular login terminal and should refer to the preceding man pages for the common cases. The remainder of this man page is concerned with describing details of using and controlling terminal devices at a low level, such as that possibly required by a program wishing to provide features similar to those provided by the system.</div>
+<div class="subsection">
+<h2 id="x4c696e65206469736369706c696e6573">Line disciplines</h2> A terminal file is used like any other file in the system in that it can be opened, read, and written to using standard system calls. For each existing terminal file, there is a software processing module called a <span class="emph">line discipline</span> associated with it. The <span class="emph">line discipline</span> essentially glues the low level device driver code with the high level generic interface routines (such as <a class="link-man" href="../html2/read.html">read(2)</a> and <a class="link-man" href="../html2/write.html">write(2)</a>), and is responsible for implementing the semantics associated with the device. When a terminal file is first opened by a program, the default <span class="emph">line discipline</span> called the <span class="define">termios</span> line discipline is associated with the file. This is the primary line discipline that is used in most cases and provides the semantics that users normally associate with a terminal. When the <span class="define">termios</span> line discipline is in effect, the terminal file behaves and is operated according to the rules described in <a class="link-man" href="../html4/termios.html">termios(4)</a>. Please refer to that man page for a full description of the terminal semantics. The operations described here generally represent features common across all <span class="emph">line disciplines</span>, although some of these calls may not make sense in conjunction with a line discipline other than <span class="define">termios</span>, and some may not be supported by the underlying hardware (or lack thereof, as in the case of ptys).</div>
+<div class="subsection">
+<h2 id="x5465726d696e616c2046696c65204f7065726174696f6e73">Terminal File Operations</h2> All of the following operations are invoked using the <a class="link-man" href="../html2/ioctl.html">ioctl(2)</a> system call. Refer to that man page for a description of the <span class="emph">request</span> and <span class="emph">argp</span> parameters. In addition to the ioctl <span class="emph">requests</span> defined here, the specific line discipline in effect will define other <span class="emph">requests</span> specific to it (actually <a class="link-man" href="../html4/termios.html">termios(4)</a> defines them as function calls, not ioctl <span class="emph">requests</span>). The following section lists the available ioctl requests. The name of the request, a description of its purpose, and the typed <span class="emph">argp</span> parameter (if any) are listed. For example, the first entry says<div class="spacer">
+</div>
+<blockquote style="margin-top: 0.00em;margin-bottom: 0.00em;">
+<div class="display">
+<span class="emph">TIOCSETD int *ldisc</span></div>
+</blockquote>
+<div class="spacer">
+</div>
+and would be called on the terminal associated with file descriptor zero by the following code fragment:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+	int ldisc; 
+ 
+	ldisc = TTYDISC; 
+	ioctl(0, TIOCSETD, &amp;ldisc);</pre>
+</div>
+<div class="subsection">
+<h2 id="x5465726d696e616c2046696c652052657175657374204465736372697074696f6e73">Terminal File Request Descriptions</h2><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSETD</span> <i class="farg">int *ldisc</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Change to the new line discipline pointed to by <i class="farg">ldisc</i>. The available line disciplines currently available are:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+TTYDISC</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Termios interactive line discipline.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TABLDISC</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Tablet line discipline.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+SLIPDISC</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Serial IP line discipline.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+PPPDISC</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Point-to-Point Protocol line discipline.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+STRIPDISC</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Starmode Radio IP line discipline.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+NMEADISC</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+NMEA 0183 line discipline.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+MSTSDISC</dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Meinberg Standard Time String line discipline.</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCGETD</span> <i class="farg">int *ldisc</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Return the current line discipline in the integer pointed to by <i class="farg">ldisc</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSBRK</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Set the terminal hardware into BREAK condition.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCCBRK</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Clear the terminal hardware BREAK condition.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSDTR</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Assert data terminal ready (DTR).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCCDTR</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Clear data terminal ready (DTR).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCGPGRP</span> <i class="farg">int *tpgrp</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Return the current process group the terminal is associated with in the integer pointed to by <i class="farg">tpgrp</i>. This is the underlying call that implements the <a class="link-man" href="../html4/termios.html">termios(4)</a> <b class="fname">tcgetpgrp</b>() call.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSPGRP</span> <i class="farg">int *tpgrp</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Associate the terminal with the process group (as an integer) pointed to by <i class="farg">tpgrp</i>. This is the underlying call that implements the <a class="link-man" href="../html4/termios.html">termios(4)</a> <b class="fname">tcsetpgrp</b>() call.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCGETA</span> <i class="farg">struct termios *term</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Place the current value of the termios state associated with the device in the termios structure pointed to by <i class="farg">term</i>. This is the underlying call that implements the <a class="link-man" href="../html4/termios.html">termios(4)</a> <b class="fname">tcgetattr</b>() call.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSETA</span> <i class="farg">struct termios *term</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Set the termios state associated with the device immediately. This is the underlying call that implements the <a class="link-man" href="../html4/termios.html">termios(4)</a> <b class="fname">tcsetattr</b>() call with the <span class="define">TCSANOW</span> option.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSETAW</span> <i class="farg">struct termios *term</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+First wait for any output to complete, then set the termios state associated with the device. This is the underlying call that implements the <a class="link-man" href="../html4/termios.html">termios(4)</a> <b class="fname">tcsetattr</b>() call with the <span class="define">TCSADRAIN</span> option.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSETAF</span> <i class="farg">struct termios *term</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+First wait for any output to complete, clear any pending input, then set the termios state associated with the device. This is the underlying call that implements the <a class="link-man" href="../html4/termios.html">termios(4)</a> <b class="fname">tcsetattr</b>() call with the <span class="define">TCSAFLUSH</span> option.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCOUTQ</span> <i class="farg">int *num</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Place the current number of characters in the output queue in the integer pointed to by <i class="farg">num</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSTI</span> <i class="farg">char *cp</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Simulate typed input. Pretend as if the terminal received the character pointed to by <i class="farg">cp</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCNOTTY</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+This call is obsolete but left for compatibility. In the past, when a process that didn't have a controlling terminal (see <span class="emph">The Controlling Terminal</span> in <a class="link-man" href="../html4/termios.html">termios(4)</a>) first opened a terminal device, it acquired that terminal as its controlling terminal. For some programs this was a hazard as they didn't want a controlling terminal in the first place, and this provided a mechanism to disassociate the controlling terminal from the calling process. It <span class="emph">must</span> be called by opening the file <i class="file">/dev/tty</i> and calling <span class="define">TIOCNOTTY</span> on that file descriptor.<div class="spacer">
+</div>
+The current system does not allocate a controlling terminal to a process on an <b class="fname">open</b>() call: there is a specific ioctl called <span class="define">TIOCSCTTY</span> to make a terminal the controlling terminal. In addition, a program can <b class="fname">fork</b>() and call the <b class="fname">setsid</b>() system call which will place the process into its own session - which has the effect of disassociating it from the controlling terminal. This is the new and preferred method for programs to lose their controlling terminal.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSTOP</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Stop output on the terminal (like typing ^S at the keyboard).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSTART</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Start output on the terminal (like typing ^Q at the keyboard).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSCTTY</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Make the terminal the controlling terminal for the process (the process must not currently have a controlling terminal).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCDRAIN</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Wait until all output is drained.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCEXCL</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Set exclusive use on the terminal. No further opens are permitted except by root. Of course, this means that programs that are run by root (or setuid) will not obey the exclusive setting - which limits the usefulness of this feature.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCNXCL</span> <i class="farg">void</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Clear exclusive use of the terminal. Further opens are permitted.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCFLUSH</span> <i class="farg">int *what</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+If the value of the int pointed to by <i class="farg">what</i> contains the <span class="define">FREAD</span> bit as defined in <b class="includes">&lt;<a class="link-includes">sys/fcntl.h</a>&gt;</b>, then all characters in the input queue are cleared. If it contains the <span class="define">FWRITE</span> bit, then all characters in the output queue are cleared. If the value of the integer is zero, then it behaves as if both the <span class="define">FREAD</span> and <span class="define">FWRITE</span> bits were set (i.e., clears both queues).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCGWINSZ</span> <i class="farg">struct winsize *ws</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Put the window size information associated with the terminal in the <b class="var">winsize</b> structure pointed to by <i class="farg">ws</i>. The window size structure contains the number of rows and columns (and pixels if appropriate) of the devices attached to the terminal. It is set by user software and is the means by which most full-screen oriented programs determine the screen size.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSWINSZ</span> <i class="farg">struct winsize *ws</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Set the window size associated with the terminal to be the value in the <b class="var">winsize</b> structure pointed to by <i class="farg">ws</i> (see above).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCCONS</span> <i class="farg">int *on</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+If <i class="farg">on</i> points to a non-zero integer, redirect kernel console output (kernel <b class="fname">printf</b>()s) to this terminal. If <i class="farg">on</i> points to a zero integer, redirect kernel console output back to the normal console. This is usually used on workstations to redirect kernel messages to a particular window.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCMSET</span> <i class="farg">int *state</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The integer pointed to by <i class="farg">state</i> contains bits that correspond to modem state. Following is a list of defined variables and the modem state they represent:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCM_LE</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Line Enable.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCM_DTR</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Data Terminal Ready.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCM_RTS</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Request To Send.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCM_ST</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Secondary Transmit.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCM_SR</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Secondary Receive.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCM_CTS</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Clear To Send.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCM_CAR</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Carrier Detect.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCM_CD</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Carrier Detect (synonym).</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCM_RNG</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Ring Indication.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCM_RI</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Ring Indication (synonym).</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCM_DSR</dt>
+<dd class="list-tag" style="margin-left: 9.00ex;">
+Data Set Ready.</dd>
+</dl>
+<div class="spacer">
+</div>
+This call sets the terminal modem state to that represented by <i class="farg">state</i>. Not all terminals may support this.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCMGET</span> <i class="farg">int *state</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Return the current state of the terminal modem lines as represented above in the integer pointed to by <i class="farg">state</i>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCMBIS</span> <i class="farg">int *state</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The bits in the integer pointed to by <i class="farg">state</i> represent modem state as described above; however, the state is OR-ed in with the current state.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCMBIC</span> <i class="farg">int *state</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The bits in the integer pointed to by <i class="farg">state</i> represent modem state as described above; however, each bit which is on in <i class="farg">state</i> is cleared in the terminal.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCGTSTAMP</span> <i class="farg">struct timeval *timeval</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Return the (single) timestamp.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSTSTAMP</span> <i class="farg">struct tstamps *tstamps</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Chooses the conditions which will cause the current system time to be immediately copied to the terminal timestamp storage. This is often used to determine exactly the moment at which one or more of these events occurred, though only one can be monitored. Only <span class="define">TIOCM_CTS</span> and <span class="define">TIOCM_CAR</span> are honoured in <b class="var">tstamps.ts_set</b> and <b class="var">tstamps.ts_clr</b>; these indicate which raising and lowering events on the respective lines should cause a timestamp capture.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCSFLAGS</span> <i class="farg">int *state</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+The bits in the integer pointed to by <i class="farg">state</i> contain bits that correspond to serial port state. Following is a list of defined variables and the serial port state they represent:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCFLAG_SOFTCAR</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Ignore hardware carrier.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCFLAG_CLOCAL</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Set clocal on open.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCFLAG_CRTSCTS</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Set crtscts on open.</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+TIOCFLAG_MDMBUF</dt>
+<dd class="list-tag" style="margin-left: 16.00ex;">
+Set mdmbuf on open.</dd>
+</dl>
+<div class="spacer">
+</div>
+This call sets the serial port state to that represented by <i class="farg">state</i>. Not all serial ports may support this.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">TIOCGFLAGS</span> <i class="farg">int *state</i></dt>
+<dd class="list-tag" style="margin-left: 10.00ex;">
+Return the current state of the serial port as represented above in the integer pointed to by <i class="farg">state</i>.</dd>
+</dl>
+</div>
+</div>
+<div class="section">
+<h1 id="x46494c4553">FILES</h1><dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<i class="file">/dev/tty</i></dt>
+<dd class="list-tag" style="margin-left: 8.00ex;">
+controlling terminal, if any</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html1/cu.html">cu(1)</a>, <a class="link-man" href="../html1/stty.html">stty(1)</a>, <a class="link-man" href="../html1/tty.html">tty(1)</a>, <a class="link-man" href="../html2/ioctl.html">ioctl(2)</a>, <a class="link-man" href="../html4/pty.html">pty(4)</a>, <a class="link-man" href="../html4/termios.html">termios(4)</a>, <a class="link-man" href="../html5/ttys.html">ttys(5)</a>, <a class="link-man" href="../html8/getty.html">getty(8)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The cua support is inspired by similar support in SunOS.</div>
+</div>
+</body>
+</html>
+

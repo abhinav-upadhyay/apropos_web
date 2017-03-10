@@ -1,0 +1,371 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+IP6(4)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">ip6</b> &#8212; <span class="desc">Internet Protocol version 6 (IPv6) network layer</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/types.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">sys/socket.h</a>&gt;</b><br/>
+<b class="includes">#include &lt;<a class="link-includes">netinet/in.h</a>&gt;</b><div class="spacer">
+</div>
+<i class="ftype">int</i><br/>
+<b class="fname">socket</b>(<i class="farg" style="white-space:nowrap;">AF_INET6</i>, <i class="farg" style="white-space:nowrap;">SOCK_RAW</i>, <i class="farg" style="white-space:nowrap;">proto</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The IPv6 network layer is used by the IPv6 protocol family for transporting data. IPv6 packets contain an IPv6 header that is not provided as part of the payload contents when passed to an application. IPv6 header options affect the behavior of this protocol and may be used by high-level protocols (such as the <a class="link-man" href="../html4/tcp.html">tcp(4)</a> and <a class="link-man" href="../html4/udp.html">udp(4)</a> protocols) as well as directly by &#8220;raw sockets&#8221;, which process IPv6 messages at a lower-level and may be useful for developing new protocols and special-purpose applications.<div class="subsection">
+<h2 id="x486561646572">Header</h2> All IPv6 packets begin with an IPv6 header. When data received by the kernel are passed to the application, this header is not included in buffer, even when raw sockets are being used. Likewise, when data are sent to the kernel for transmit from the application, the buffer is not examined for an IPv6 header: the kernel always constructs the header. To directly access IPv6 headers from received packets and specify them as part of the buffer passed to the kernel, link-level access (<a class="link-man" href="../html4/bpf.html">bpf(4)</a>, for example) must instead be utilized.<div class="spacer">
+</div>
+The header has the following definition:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct ip6_hdr { 
+     union { 
+          struct ip6_hdrctl { 
+               u_int32_t ip6_un1_flow;	/* 20 bits of flow ID */ 
+               u_int16_t ip6_un1_plen;	/* payload length */ 
+               u_int8_t	 ip6_un1_nxt;	/* next header */ 
+               u_int8_t	 ip6_un1_hlim;	/* hop limit */ 
+          } ip6_un1; 
+          u_int8_t ip6_un2_vfc;   /* version and class */ 
+     } ip6_ctlun; 
+     struct in6_addr ip6_src;	/* source address */ 
+     struct in6_addr ip6_dst;	/* destination address */ 
+} __packed; 
+ 
+#define ip6_vfc		ip6_ctlun.ip6_un2_vfc 
+#define ip6_flow	ip6_ctlun.ip6_un1.ip6_un1_flow 
+#define ip6_plen	ip6_ctlun.ip6_un1.ip6_un1_plen 
+#define ip6_nxt		ip6_ctlun.ip6_un1.ip6_un1_nxt 
+#define ip6_hlim	ip6_ctlun.ip6_un1.ip6_un1_hlim 
+#define ip6_hops	ip6_ctlun.ip6_un1.ip6_un1_hlim</pre>
+<div class="spacer">
+</div>
+All fields are in network-byte order. Any options specified (see <i class="link-sec"><a class="link-sec" href="#x4f7074696f6e73">Options</a></i> below) must also be specified in network-byte order.<div class="spacer">
+</div>
+<b class="var">ip6_flow</b> specifies the flow ID. <b class="var">ip6_plen</b> specifies the payload length. <b class="var">ip6_nxt</b> specifies the type of the next header. <b class="var">ip6_hlim</b> specifies the hop limit.<div class="spacer">
+</div>
+The top 4 bits of <b class="var">ip6_vfc</b> specify the class and the bottom 4 bits specify the version.<div class="spacer">
+</div>
+<b class="var">ip6_src</b> and <b class="var">ip6_dst</b> specify the source and destination addresses.<div class="spacer">
+</div>
+The IPv6 header may be followed by any number of extension headers that start with the following generic definition:<div class="spacer">
+</div>
+<pre style="margin-left: 5.00ex;" class="lit display">
+struct ip6_ext { 
+     u_int8_t ip6e_nxt; 
+     u_int8_t ip6e_len; 
+} __packed;</pre>
+</div>
+<div class="subsection">
+<h2 id="x4f7074696f6e73">Options</h2> IPv6 allows header options on packets to manipulate the behavior of the protocol. These options and other control requests are accessed with the <a class="link-man" href="../html2/getsockopt.html">getsockopt(2)</a> and <a class="link-man" href="../html2/setsockopt.html">setsockopt(2)</a> system calls at level <span class="define">IPPROTO_IPV6</span> and by using ancillary data in <a class="link-man" href="../html2/recvmsg.html">recvmsg(2)</a> and <a class="link-man" href="../html2/sendmsg.html">sendmsg(2)</a>. They can be used to access most of the fields in the IPv6 header and extension headers.<div class="spacer">
+</div>
+The following socket options are supported:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_UNICAST_HOPS</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the default hop limit header field for outgoing unicast datagrams sent on this socket. A value of -1 resets to the default value.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_MULTICAST_IF</span> <i class="farg">u_int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the interface from which multicast packets will be sent. For hosts with multiple interfaces, each multicast transmission is sent from the primary network interface. The interface is specified as its index as provided by <a class="link-man" href="../html3/if_nametoindex.html">if_nametoindex(3)</a>. A value of zero specifies the default interface.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_MULTICAST_HOPS</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the default hop limit header field for outgoing multicast datagrams sent on this socket. This option controls the scope of multicast datagram transmissions.<div class="spacer">
+</div>
+Datagrams with a hop limit of 1 are not forwarded beyond the local network. Multicast datagrams with a hop limit of zero will not be transmitted on any network but may be delivered locally if the sending host belongs to the destination group and if multicast loopback (see below) has not been disabled on the sending socket. Multicast datagrams with a hop limit greater than 1 may be forwarded to the other networks if a multicast router (such as <a class="link-man" href="../html8/mrouted.html">mrouted(8)</a>) is attached to the local network.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_MULTICAST_LOOP</span> <i class="farg">u_int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the status of whether multicast datagrams will be looped back for local delivery when a multicast datagram is sent to a group to which the sending host belongs.<div class="spacer">
+</div>
+This option improves performance for applications that may have no more than one instance on a single host (such as a router daemon) by eliminating the overhead of receiving their own transmissions. It should generally not be used by applications for which there may be more than one instance on a single host (such as a conferencing program) or for which the sender does not belong to the destination group (such as a time-querying program).<div class="spacer">
+</div>
+A multicast datagram sent with an initial hop limit greater than 1 may be delivered to the sending host on a different interface from that on which it was sent if the host belongs to the destination group on that other interface. The multicast loopback control option has no effect on such delivery.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_JOIN_GROUP</span> <i class="farg">struct ipv6_mreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Join a multicast group. A host must become a member of a multicast group before it can receive datagrams sent to the group.<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct ipv6_mreq { 
+	struct in6_addr	ipv6mr_multiaddr; 
+	unsigned int	ipv6mr_interface; 
+};</pre>
+<div class="spacer">
+</div>
+<b class="var">ipv6mr_interface</b> may be set to zeroes to choose the default multicast interface or to the index of a particular multicast-capable interface if the host is multihomed. Membership is associated with a single interface; programs running on multihomed hosts may need to join the same group on more than one interface.<div class="spacer">
+</div>
+If the multicast address is unspecified (i.e., all zeroes), messages from all multicast addresses will be accepted by this group. Note that setting to this value requires superuser privileges.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_LEAVE_GROUP</span> <i class="farg">struct ipv6_mreq *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Drop membership from the associated multicast group. Memberships are automatically dropped when the socket is closed or when the process exits.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_PORTRANGE</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the allocation policy of ephemeral ports for when the kernel automatically binds a local address to this socket. The following values are available:<div class="spacer">
+</div>
+<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">IPV6_PORTRANGE_DEFAULT</span></dt>
+<dd class="list-tag" style="margin-left: 22.00ex;">
+Use the regular range of non-reserved ports (varies, see <a class="link-man" href="../html8/sysctl.html">sysctl(8)</a>).</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">IPV6_PORTRANGE_HIGH</span></dt>
+<dd class="list-tag" style="margin-left: 22.00ex;">
+Use a high range (varies, see <a class="link-man" href="../html8/sysctl.html">sysctl(8)</a>).</dd>
+<dt class="list-tag" style="margin-top: 0.00em;">
+<span class="define">IPV6_PORTRANGE_LOW</span></dt>
+<dd class="list-tag" style="margin-left: 22.00ex;">
+Use a low, reserved range (600-1023).</dd>
+</dl>
+</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_RECVPKTINFO</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set whether additional information about subsequent packets will be provided as ancillary data along with the payload in subsequent <a class="link-man" href="../html2/recvmsg.html">recvmsg(2)</a> calls. The information is stored in the following structure in the ancillary data returned:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct in6_pktinfo { 
+	struct in6_addr ipi6_addr;    /* src/dst IPv6 address */ 
+	unsigned int    ipi6_ifindex; /* send/recv if index */ 
+};</pre>
+<div class="spacer">
+</div>
+Turning this option on will result in this socket getting cmsg data of type IPV6_PKTINFO.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_RECVHOPLIMIT</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set whether the hop limit header field from subsequent packets will be provided as ancillary data along with the payload in subsequent <a class="link-man" href="../html2/recvmsg.html">recvmsg(2)</a> calls. The value is stored as an <span class="type">int</span> in the ancillary data returned. Turning this option on will result in this socket getting cmsg data of type IPV6_HOPLIMIT.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_RECVHOPOPTS</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set whether the hop-by-hop options from subsequent packets will be provided as ancillary data along with the payload in subsequent <a class="link-man" href="../html2/recvmsg.html">recvmsg(2)</a> calls. The option is stored in the following structure in the ancillary data returned:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct ip6_hbh { 
+	u_int8_t ip6h_nxt;	/* next header */ 
+	u_int8_t ip6h_len;	/* length in units of 8 octets */ 
+/* followed by options */ 
+} __packed;</pre>
+<div class="spacer">
+</div>
+The <b class="fname">inet6_opt_init</b>() routine and family of routines may be used to manipulate this data.<div class="spacer">
+</div>
+This option requires superuser privileges. Turning this option on will result in this socket getting cmsg data of type IPV6_HOPOPTS.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_RECVDSTOPTS</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set whether the destination options from subsequent packets will be provided as ancillary data along with the payload in subsequent <a class="link-man" href="../html2/recvmsg.html">recvmsg(2)</a> calls. The option is stored in the following structure in the ancillary data returned:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct ip6_dest { 
+	u_int8_t ip6d_nxt;	/* next header */ 
+	u_int8_t ip6d_len;	/* length in units of 8 octets */ 
+/* followed by options */ 
+} __packed;</pre>
+<div class="spacer">
+</div>
+The <b class="fname">inet6_opt_init</b>() routine and family of routines may be used to manipulate this data.<div class="spacer">
+</div>
+This option requires superuser privileges. Turning this option on will result in this socket getting cmsg data of type IPV6_DSTOPTS.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_TCLASS</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the value of the traffic class field used for outgoing datagrams on this socket. The value must be between -1 and 255. A value of -1 resets to the default value.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_RECVTCLASS</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the status of whether the traffic class header field will be provided as ancillary data along with the payload in subsequent <a class="link-man" href="../html2/recvmsg.html">recvmsg(2)</a> calls. The header field is stored as a single value of type <span class="type">int</span>.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_RECVRTHDR</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set whether the routing header from subsequent packets will be provided as ancillary data along with the payload in subsequent <a class="link-man" href="../html2/recvmsg.html">recvmsg(2)</a> calls. The header is stored in the following structure in the ancillary data returned:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct ip6_rthdr { 
+	u_int8_t ip6r_nxt;	/* next header */ 
+	u_int8_t ip6r_len;	/* length in units of 8 octets */ 
+	u_int8_t ip6r_type;	/* routing type */ 
+	u_int8_t ip6r_segleft;	/* segments left */ 
+/* followed by routing-type-specific data */ 
+} __packed;</pre>
+<div class="spacer">
+</div>
+The <b class="fname">inet6_rth_space</b>() routine and family of routines may be used to manipulate this data.<div class="spacer">
+</div>
+This option requires superuser privileges. Turning this option on will result in this socket getting cmsg data of type IPV6_RTHDR.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_CHECKSUM</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the byte offset into a packet where the 16-bit checksum is located. When set, this byte offset is where incoming packets will be expected to have checksums of their data stored and where outgoing packets will have checksums of their data computed and stored by the kernel. A value of -1 specifies that no checksums will be checked on incoming packets and that no checksums will be computed or stored on outgoing packets. The offset of the checksum for ICMPv6 sockets cannot be relocated or turned off.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_V6ONLY</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set whether only IPv6 connections can be made to this socket. For wildcard sockets, this can restrict connections to IPv6 only. With <span class="unix">OpenBSD</span> IPv6 sockets are always IPv6-only, so the socket option is read-only (not modifiable).</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_USE_MIN_MTU</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set whether the minimal IPv6 maximum transmission unit (MTU) size will be used to avoid fragmentation from occurring for subsequent outgoing datagrams.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_AUTH_LEVEL</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the <a class="link-man" href="../html4/ipsec.html">ipsec(4)</a> authentication level.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_ESP_TRANS_LEVEL</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the ESP transport level.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_ESP_NETWORK_LEVEL</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the ESP encapsulation level.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_IPCOMP_LEVEL</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the <a class="link-man" href="../html4/ipcomp.html">ipcomp(4)</a> level.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+<span class="define">IPV6_RECVDSTPORT</span> <i class="farg">int *</i></dt>
+<dd class="list-tag" style="margin-left: 6.00ex;">
+Get or set the status of whether the destination port for a UDP datagram will be provided as ancillary data along with the payload in subsequent <a class="link-man" href="../html2/recvmsg.html">recvmsg(2)</a> calls. The information is stored as a single value of type <span class="type">u_int16_t</span> in network byte order.<div class="spacer">
+</div>
+Turning this option on will result in this socket getting cmsg data of type IPV6_RECVDSTPORT.</dd>
+</dl>
+<div class="spacer">
+</div>
+The <span class="define">IPV6_RECVPKTINFO</span>, <span class="define">IPV6_RECVHOPLIMIT</span>, <span class="define">IPV6_RECVHOPOPTS</span>, <span class="define">IPV6_RECVDSTOPTS</span>, and <span class="define">IPV6_RTHDR</span> options will return ancillary data along with payload contents in subsequent <a class="link-man" href="../html2/recvmsg.html">recvmsg(2)</a> calls with <b class="var">cmsg_level</b> set to <span class="define">IPPROTO_IPV6</span> and <b class="var">cmsg_type</b> set to respective option name value (e.g., <span class="define">IPV6_HOPLIMIT</span>). These options may also be used directly as ancillary <b class="var">cmsg_type</b> values in <a class="link-man" href="../html2/sendmsg.html">sendmsg(2)</a> to set options on the packet being transmitted by the call. The <b class="var">cmsg_level</b> value must be <span class="define">IPPROTO_IPV6</span>. For these options, the ancillary data object value format is the same as the value returned as explained for each when received with <a class="link-man" href="../html2/recvmsg.html">recvmsg(2)</a>.<div class="spacer">
+</div>
+Note that using <a class="link-man" href="../html2/sendmsg.html">sendmsg(2)</a> to specify options on particular packets works only on UDP and raw sockets. To manipulate header options for packets on TCP sockets, only the socket options may be used.<div class="spacer">
+</div>
+In some cases, there are multiple APIs defined for manipulating an IPv6 header field. A good example is the outgoing interface for multicast datagrams, which can be set by the <span class="define">IPV6_MULTICAST_IF</span> socket option, through the <span class="define">IPV6_RECVPKTINFO</span> option, and through the <b class="var">sin6_scope_id</b> field of the socket address passed to the <a class="link-man" href="../html2/sendto.html">sendto(2)</a> system call.<div class="spacer">
+</div>
+Resolving these conflicts is implementation dependent. This implementation determines the value in the following way: options specified by using ancillary data (i.e., <a class="link-man" href="../html2/sendmsg.html">sendmsg(2)</a>) are considered first, options specified by using the individual, basic, and direct socket options (e.g., <span class="define">IPV6_UNICAST_HOPS</span>) are considered second, and options specified in the socket address supplied to <a class="link-man" href="../html2/sendto.html">sendto(2)</a> are the last choice.</div>
+<div class="subsection">
+<h2 id="x4d756c746963617374696e67">Multicasting</h2> IPv6 multicasting is supported only on <span class="define">AF_INET6</span> sockets of type <span class="define">SOCK_DGRAM</span> and <span class="define">SOCK_RAW</span>, and only on networks where the interface driver supports multicasting. Socket options (see above) that manipulate membership of multicast groups and other multicast options include <span class="define">IPV6_MULTICAST_IF</span>, <span class="define">IPV6_MULTICAST_HOPS</span>, <span class="define">IPV6_MULTICAST_LOOP</span>, <span class="define">IPV6_LEAVE_GROUP</span>, and <span class="define">IPV6_JOIN_GROUP</span>.</div>
+<div class="subsection">
+<h2 id="x52617720536f636b657473">Raw Sockets</h2> Raw IPv6 sockets are connectionless and are normally used with the <a class="link-man" href="../html2/sendto.html">sendto(2)</a> and <a class="link-man" href="../html2/recvfrom.html">recvfrom(2)</a> calls, although the <a class="link-man" href="../html2/connect.html">connect(2)</a> call may be used to fix the destination address for future outgoing packets so that <a class="link-man" href="../html2/send.html">send(2)</a> may instead be used and the <a class="link-man" href="../html2/bind.html">bind(2)</a> call may be used to fix the source address for future outgoing packets instead of having the kernel choose a source address.<div class="spacer">
+</div>
+By using <a class="link-man" href="../html2/connect.html">connect(2)</a> or <a class="link-man" href="../html2/bind.html">bind(2)</a>, raw socket input is constrained to only packets with their source address matching the socket destination address if <a class="link-man" href="../html2/connect.html">connect(2)</a> was used and to packets with their destination address matching the socket source address if <a class="link-man" href="../html2/bind.html">bind(2)</a> was used.<div class="spacer">
+</div>
+If the <i class="arg">proto</i> argument to <a class="link-man" href="../html2/socket.html">socket(2)</a> is zero, the default protocol (<span class="define">IPPROTO_RAW</span>) is used for outgoing packets. For incoming packets, protocols recognized by kernel are <span class="symb">not</span> passed to the application socket (e.g., <a class="link-man" href="../html4/tcp.html">tcp(4)</a> and <a class="link-man" href="../html4/udp.html">udp(4)</a>) except for some ICMPv6 messages. The ICMPv6 messages not passed to raw sockets include echo, timestamp, and address mask requests. If <i class="arg">proto</i> is non-zero, only packets with this protocol will be passed to the socket.<div class="spacer">
+</div>
+IPv6 fragments are also not passed to application sockets until they have been reassembled. If reception of all packets is desired, link-level access (such as <a class="link-man" href="../html4/bpf.html">bpf(4)</a>) must be used instead.<div class="spacer">
+</div>
+Outgoing packets automatically have an IPv6 header prepended to them (based on the destination address and the protocol number the socket was created with). Incoming packets are received by an application without the IPv6 header or any extension headers.<div class="spacer">
+</div>
+Outgoing packets will be fragmented automatically by the kernel if they are too large. Incoming packets will be reassembled before being sent to the raw socket, so packet fragments or fragment headers will never be seen on a raw socket.</div>
+</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> The following determines the hop limit on the next packet received:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+struct iovec iov[2]; 
+u_char buf[BUFSIZ]; 
+struct cmsghdr *cm; 
+struct msghdr m; 
+int found, optval; 
+u_char data[2048]; 
+ 
+/* Create socket. */ 
+ 
+(void)memset(&amp;m, 0, sizeof(m)); 
+(void)memset(&amp;iov, 0, sizeof(iov)); 
+ 
+iov[0].iov_base = data;		/* buffer for packet payload */ 
+iov[0].iov_len = sizeof(data);	/* expected packet length */ 
+ 
+m.msg_name = &amp;from;		/* sockaddr_in6 of peer */ 
+m.msg_namelen = sizeof(from); 
+m.msg_iov = iov; 
+m.msg_iovlen = 1; 
+m.msg_control = (caddr_t)buf;	/* buffer for control messages */ 
+m.msg_controllen = sizeof(buf); 
+ 
+/* 
+ * Enable the hop limit value from received packets to be 
+ * returned along with the payload. 
+ */ 
+optval = 1; 
+if (setsockopt(s, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &amp;optval, 
+    sizeof(optval)) == -1) 
+	err(1, &quot;setsockopt&quot;); 
+ 
+found = 0; 
+while (!found) { 
+	if (recvmsg(s, &amp;m, 0) == -1) 
+		err(1, &quot;recvmsg&quot;); 
+	for (cm = CMSG_FIRSTHDR(&amp;m); cm != NULL; 
+	     cm = CMSG_NXTHDR(&amp;m, cm)) { 
+		if (cm-&gt;cmsg_level == IPPROTO_IPV6 &amp;&amp; 
+		    cm-&gt;cmsg_type == IPV6_HOPLIMIT &amp;&amp; 
+		    cm-&gt;cmsg_len == CMSG_LEN(sizeof(int))) { 
+			found = 1; 
+			(void)printf(&quot;hop limit: %d\n&quot;, 
+			    *(int *)CMSG_DATA(cm)); 
+			break; 
+		} 
+	} 
+}</pre>
+</div>
+<div class="section">
+<h1 id="x444941474e4f5354494353">DIAGNOSTICS</h1> A socket operation may fail with one of the following errors returned:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EISCONN</span>]</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+when trying to establish a connection on a socket which already has one or when trying to send a datagram with the destination address specified and the socket is already connected.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">ENOTCONN</span>]</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+when trying to send a datagram, but no destination address is specified, and the socket hasn't been connected.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">ENOBUFS</span>]</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+when the system runs out of memory for an internal data structure.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EADDRNOTAVAIL</span>]</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+when an attempt is made to create a socket with a network address for which no network interface exists.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EACCES</span>]</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+when an attempt is made to create a raw IPv6 socket by a non-privileged process.</dd>
+</dl>
+<div class="spacer">
+</div>
+The following errors specific to IPv6 may occur when setting or getting header options:<dl style="margin-top: 0.00em;margin-bottom: 0.00em;" class="list list-tag">
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EINVAL</span>]</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+An unknown socket option name was given.</dd>
+<dt class="list-tag" style="margin-top: 1.00em;">
+[<span class="errno">EINVAL</span>]</dt>
+<dd class="list-tag" style="margin-left: 15.00ex;">
+An ancillary data object was improperly formed.</dd>
+</dl>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html2/getsockopt.html">getsockopt(2)</a>, <a class="link-man" href="../html2/recv.html">recv(2)</a>, <a class="link-man" href="../html2/send.html">send(2)</a>, <a class="link-man" href="../html2/setsockopt.html">setsockopt(2)</a>, <a class="link-man" href="../html2/socket.html">socket(2)</a>, <a class="link-man" href="../html3/if_nametoindex.html">if_nametoindex(3)</a>, <a class="link-man" href="../html4/bpf.html">bpf(4)</a>, <a class="link-man" href="../html4/icmp6.html">icmp6(4)</a>, <a class="link-man" href="../html4/inet6.html">inet6(4)</a>, <a class="link-man" href="../html4/netintro.html">netintro(4)</a>, <a class="link-man" href="../html4/tcp.html">tcp(4)</a>, <a class="link-man" href="../html4/udp.html">udp(4)</a></div>
+<div class="section">
+<h1 id="x5354414e4441524453">STANDARDS</h1> <span class="ref"><span class="ref-auth">S. Deering</span> and <span class="ref-auth">R. Hinden</span>, <span class="ref-title">Internet Protocol, Version 6 (IPv6) Specification</span>, <span class="ref-rep">RFC 2460</span>, <span class="ref-date">December 1998</span>.</span><div class="spacer">
+</div>
+<span class="ref"><span class="ref-auth">R. Gilligan</span>, <span class="ref-auth">S. Thomson</span>, <span class="ref-auth">J. Bound</span>, <span class="ref-auth">J. McCann</span>, and <span class="ref-auth">W. Stevens</span>, <span class="ref-title">Basic Socket Interface Extensions for IPv6</span>, <span class="ref-rep">RFC 3493</span>, <span class="ref-date">February 2003</span>.</span><div class="spacer">
+</div>
+<span class="ref"><span class="ref-auth">W. Stevens</span>, <span class="ref-auth">M. Thomas</span>, <span class="ref-auth">E. Nordmark</span>, and <span class="ref-auth">T. Jinmei</span>, <span class="ref-title">Advanced Sockets Application Program Interface (API) for IPv6</span>, <span class="ref-rep">RFC 3542</span>, <span class="ref-date">May 2003</span>.</span><div class="spacer">
+</div>
+The <span class="define">IPV6_PORTRANGE</span> socket option and the conflict resolution rule are not defined in the RFCs and should be considered implementation dependent.</div>
+</div>
+</body>
+</html>
+

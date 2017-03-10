@@ -1,0 +1,93 @@
+<head>
+<meta charset="utf-8"/>
+<style>
+table.head, table.foot { width: 100%; }
+td.head-rtitle, td.foot-os { text-align: right; }
+td.head-vol { text-align: center; }
+table.foot td { width: 50%; }
+table.head td { width: 33%; }
+div.spacer { margin: 1em 0; }
+</style>
+<link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
+<title>
+RATECHECK(9)</title>
+</head>
+<body>
+<div class="mandoc">
+<div class="section">
+<h1 id="x4e414d45">NAME</h1> <b class="name">ratecheck</b> &#8212; <span class="desc">function to help implement rate-limited actions</span></div>
+<div class="section">
+<h1 id="x53594e4f50534953">SYNOPSIS</h1> <b class="includes">#include &lt;<a class="link-includes">sys/time.h</a>&gt;</b><div class="spacer">
+</div>
+<i class="ftype">int</i><br/>
+<b class="fname">ratecheck</b>(<i class="farg" style="white-space:nowrap;">struct timeval *lasttime</i>, <i class="farg" style="white-space:nowrap;">const struct timeval *mininterval</i>);</div>
+<div class="section">
+<h1 id="x4445534352495054494f4e">DESCRIPTION</h1> The <b class="fname">ratecheck</b>() function provides a simple time interval check which can be used when implementing time-based rate-limited actions. If the difference between the current monotonically-increasing system time (<a class="link-man" href="../html9/getmicrouptime.html">getmicrouptime(9)</a>) and <i class="farg">lasttime</i> is less than the value given by the <i class="farg">mininterval</i> argument, zero is returned. Otherwise, <i class="farg">lasttime</i> is set to the current time and a non-zero value is returned.<div class="spacer">
+</div>
+The motivation for implementing <b class="fname">ratecheck</b>() was to provide a mechanism that could be used to add rate limiting to diagnostic message output. If printed too often, diagnostic messages can keep the system from doing useful work. If the repeated messages can be caused by deliberate user action or network events, they can be exploited to cause denial of system service.<div class="spacer">
+</div>
+Note that using a very short time interval (less than a second) for <i class="farg">mininterval</i> defeats the purpose of this function. (It doesn't take much to flood a 9600 baud serial console with output, for instance.)</div>
+<div class="section">
+<h1 id="x4558414d504c4553">EXAMPLES</h1> Here is a simple example of use of the <b class="fname">ratecheck</b>() function:<div class="spacer">
+</div>
+<pre style="margin-left: 0.00ex;" class="lit display">
+/* 
+ * The following variables could be global, in a device softc, etc., 
+ * depending on the exact usage. 
+ */ 
+struct timeval drv_lasterr1time;   /* time of last err1 message */ 
+long drv_err1count;                /* # of err1 errs since last msg */ 
+struct timeval drv_lasterr2time;   /* time of last err2 message */ 
+long drv_err2count;                /* # of err2 errs since last msg */ 
+ 
+/* 
+ * The following variable will often be global or shared by all 
+ * instances of a driver.  It should be initialized, so it can be 
+ * patched.  Allowing it to be set via an option might be nice, 
+ * but could lead to an insane proliferation of options. 
+ */ 
+struct timeval drv_errinterval = { 5, 0 };         /* 5 seconds */ 
+ 
+/* error handling/reporting function */ 
+void 
+drv_errhandler(int err1, int err2) 
+{ 
+ 
+	/* 
+	 * Note that you should NOT use the same last-event 
+	 * time variable for dissimilar messages! 
+	 */ 
+	if (err1) { 
+		/* handle err1 condition */ 
+		... 
+ 
+		drv_err1count++; 
+		if (ratecheck(&amp;drv_lasterr1notice, 
+		    &amp;drv_errinterval)) { 
+			printf(&quot;drv: %ld err1 errors occurred&quot;, 
+			    drv_err1count); 
+			drv_err1count = 0; 
+		} 
+	} 
+	if (err2) { 
+		/* handle err2 condition */ 
+		... 
+ 
+		drv_err2count++; 
+		if (ratecheck(&amp;drv_lasterr2notice, 
+		    &amp;drv_errinterval)) { 
+			printf(&quot;drv: %ld err2 errors occurred&quot;, 
+			    drv_err2count); 
+			drv_err2count = 0; 
+		} 
+	} 
+}</pre>
+</div>
+<div class="section">
+<h1 id="x53454520414c534f">SEE ALSO</h1> <a class="link-man" href="../html9/log.html">log(9)</a>, <a class="link-man" href="../html9/printf.html">printf(9)</a>, <a class="link-man" href="../html9/time_second.html">time_second(9)</a></div>
+<div class="section">
+<h1 id="x484953544f5259">HISTORY</h1> The <b class="fname">ratecheck</b>() function first appeared in <span class="unix">NetBSD&#160;1.5</span>.</div>
+</div>
+</body>
+</html>
+
