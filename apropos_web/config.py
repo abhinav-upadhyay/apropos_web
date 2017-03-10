@@ -9,4 +9,5 @@ BOW_FILE='/usr/local/apropos_web/bow.bin'
 SGRAM_FILE='/usr/local/apropos_web/sgram.bin'
 DB_PATHS={'netbsd': '/usr/local/apropos_web/netbsd/man.db',
         'posix':'/usr/local/apropos_web/posix/man.db',
+        'openbsd':'/usr/local/apropos_web/openbsd/man.db',
         'linux':'/usr/local/apropos_web/linux/man.db'}
