@@ -129,7 +129,7 @@ def dist_specific_search(dist):
 
     query = request.args.get('q')
     if query is None or query == '':
-        return render_template('index.html', netbsd_logo_url=netbsd_logo_url)
+        return render_template('index.html', netbsd_logo_url=netbsd_logo_url, dist=dist)
 
     page = request.args.get('p', 0)
     try:
@@ -160,19 +160,19 @@ def dist_specific_search(dist):
         results = _search(query, db_path)
         _logger.debug(results)
         if results is None:
-            return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
+            return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url, dist=dist)
         error = results.get('error')
         resultset = results.get('results')
         if error is not None:
             if error.get('category') == 'spell':
                 suggestion = error.get('suggestion')
         if (resultset is None or len(resultset) == 0) and suggestion is None:
-            return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
+            return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url, dist=dist)
         elif (resultset is None or len(resultset) == 0) and suggestion is not None:
             results = _search(suggestion, db_path)
             resultset = results.get('results')
             if resultset is None or len(resultset) == 0:
-                return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url)
+                return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url, dist=dist)
             dist_results_cache.add(suggestion, results)
             query = suggestion
     else:
@@ -192,7 +192,10 @@ def dist_specific_search(dist):
 @app.route("/search/")
 @app.route("/search")
 def search():
-    return dist_specific_search('netbsd')
+    dist = request.args.get('dist')
+    if dist is None or dist == '':
+        dist = 'netbsd'
+    return dist_specific_search(dist)
 
 @app.route("/similar")
 def similar():
@@ -279,7 +282,7 @@ def _search(query, db_path=None):
         _logger.error('apropos returned error: %s for query %s', err, query)
     if out is None or out == '':
         _logger.info('No results for query %s', query)
-        out = '[]'
+        out = '{}'
     try:
         out = filter(lambda x: x != '\n' and x != '\t' and ord(x) <= 127, out)
         return json.loads(out.replace('\\', '\\\\').replace('\r\n', ''), strict=False)
