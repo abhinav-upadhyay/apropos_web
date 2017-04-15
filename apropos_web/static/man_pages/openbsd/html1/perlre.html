@@ -10,7 +10,7 @@ div.spacer { margin: 1em 0; }
 </style>
 <link rel="stylesheet" href="/static/man_pages/posix/style.css" type="text/css" media="all"/>
 <title>
-PERLREF(1)</title>
+PERLRE(1)</title>
 </head>
 <body>
 <div class="mandoc">
@@ -18,617 +18,2001 @@ PERLREF(1)</title>
 <tbody>
 <tr>
 <td class="head-ltitle">
-PERLREF(1)</td>
+PERLRE(1)</td>
 <td class="head-vol">
 Perl Programmers Reference Guide</td>
 <td class="head-rtitle">
-PERLREF(1)</td>
+PERLRE(1)</td>
 </tr>
 </tbody>
 </table>
 <div class="section">
-<h1>NAME</h1> perlref - Perl references and nested data structures</div>
+<h1>NAME</h1> perlre - Perl regular expressions</div>
 <div class="section">
-<h1>NOTE</h1> This is complete documentation about all aspects of references. For a shorter, tutorial introduction to just the essential features, see perlreftut.</div>
-<div class="section">
-<h1>DESCRIPTION</h1> Before release 5 of Perl it was difficult to represent complex data structures, because all references had to be symbolic--and even then it was difficult to refer to a variable instead of a symbol table entry. Perl now not only makes it easier to use symbolic references to variables, but also lets you have &quot;hard&quot; references to any piece of data or code. Any scalar may hold a hard reference.  Because arrays and hashes contain scalars, you can now easily build arrays of arrays, arrays of hashes, hashes of arrays, arrays of hashes of functions, and so on.<div class="spacer">
+<h1>DESCRIPTION</h1> This page describes the syntax of regular expressions in Perl.<div class="spacer">
 </div>
-Hard references are smart--they keep track of reference counts for you, automatically freeing the thing referred to when its reference count goes to zero.  (Reference counts for values in self-referential or cyclic data structures may not go to zero without a little help; see &quot;Circular References&quot; for a detailed explanation.) If that thing happens to be an object, the object is destructed.  See perlobj for more about objects.  (In a sense, everything in Perl is an object, but we usually reserve the word for references to objects that have been officially &quot;blessed&quot; into a class package.)<div class="spacer">
+If you haven't used regular expressions before, a quick-start introduction is available in perlrequick, and a longer tutorial introduction is available in perlretut.<div class="spacer">
 </div>
-Symbolic references are names of variables or other objects, just as a symbolic link in a Unix filesystem contains merely the name of a file. The *glob notation is something of a symbolic reference.  (Symbolic references are sometimes called &quot;soft references&quot;, but please don't call them that; references are confusing enough without useless synonyms.)<div class="spacer">
+For reference on how regular expressions are used in matching operations, plus various examples of the same, see discussions of &quot;m//&quot;, &quot;s///&quot;, &quot;qr//&quot; and &quot;??&quot; in &quot;Regexp Quote-Like Operators&quot; in perlop.<div class="subsection">
+<h2>Modifiers</h2> Matching operations can have various modifiers.  Modifiers that relate to the interpretation of the regular expression inside are listed below.  Modifiers that alter the way a regular expression is used by Perl are detailed in &quot;Regexp Quote-Like Operators&quot; in perlop and &quot;Gory details of parsing quoted constructs&quot; in perlop.<dl>
+<dt>
+m</dt>
+<dd>
+Treat string as multiple lines.  That is, change &quot;^&quot; and &quot;$&quot; from matching the start of the string's first line and the end of its last line to matching the start and end of each line within the string.</dd>
+</dl>
+<dl>
+<dt>
+s</dt>
+<dd>
+Treat string as single line.  That is, change &quot;.&quot; to match any character whatsoever, even a newline, which normally it would not match.<div style="height: 1.00em;">
+&#160;</div>
+Used together, as &quot;/ms&quot;, they let the &quot;.&quot; match any character whatsoever, while still allowing &quot;^&quot; and &quot;$&quot; to match, respectively, just after and just before newlines within the string.</dd>
+</dl>
+<dl>
+<dt>
+i</dt>
+<dd>
+Do case-insensitive pattern matching.<div style="height: 1.00em;">
+&#160;</div>
+If locale matching rules are in effect, the case map is taken from the current locale for code points less than 255, and from Unicode rules for larger code points.  However, matches that would cross the Unicode rules/non-Unicode rules boundary (ords 255/256) will not succeed.  See perllocale.<div style="height: 1.00em;">
+&#160;</div>
+There are a number of Unicode characters that match multiple characters under &quot;/i&quot;.  For example, &quot;LATIN SMALL LIGATURE FI&quot; should match the sequence &quot;fi&quot;.  Perl is not currently able to do this when the multiple characters are in the pattern and are split between groupings, or when one or more are quantified.  Thus<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ &quot;\N{LATIN SMALL LIGATURE FI}&quot; =~ /fi/i;          # Matches<br/>
+ &quot;\N{LATIN SMALL LIGATURE FI}&quot; =~ /[fi][fi]/i;    # Doesn't match!<br/>
+ &quot;\N{LATIN SMALL LIGATURE FI}&quot; =~ /fi*/i;         # Doesn't match!<br/>
+<br/>
+ # The below doesn't match, and it isn't clear what $1 and $2 would<br/>
+ # be even if it did!!<br/>
+ &quot;\N{LATIN SMALL LIGATURE FI}&quot; =~ /(f)(i)/i;      # Doesn't match!<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Perl doesn't match multiple characters in a bracketed character class unless the character that maps to them is explicitly mentioned, and it doesn't match them at all if the character class is inverted, which otherwise could be highly confusing.  See &quot;Bracketed Character Classes&quot; in perlrecharclass, and &quot;Negation&quot; in perlrecharclass.</dd>
+</dl>
+<dl>
+<dt>
+x</dt>
+<dd>
+Extend your pattern's legibility by permitting whitespace and comments. Details in &quot;/x&quot;</dd>
+</dl>
+<dl>
+<dt>
+p</dt>
+<dd>
+Preserve the string matched such that ${^PREMATCH}, ${^MATCH}, and ${^POSTMATCH} are available for use after matching.<div style="height: 1.00em;">
+&#160;</div>
+In Perl 5.20 and higher this is ignored. Due to a new copy-on-write mechanism, ${^PREMATCH}, ${^MATCH}, and ${^POSTMATCH} will be available after the match regardless of the modifier.</dd>
+</dl>
+<dl>
+<dt>
+a, d, l and u</dt>
+<dd>
+These modifiers, all new in 5.14, affect which character-set rules (Unicode, etc.) are used, as described below in &quot;Character set modifiers&quot;.</dd>
+</dl>
+<dl>
+<dt>
+Other Modifiers</dt>
+<dd>
+There are a number of flags that can be found at the end of regular expression constructs that are  <i>not</i> generic regular expression flags, but apply to the operation being performed, like matching or substitution (&quot;m//&quot; or &quot;s///&quot; respectively).<div style="height: 1.00em;">
+&#160;</div>
+Flags described further in &quot;Using regular expressions in Perl&quot; in perlretut are:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  c  - keep the current position during repeated matching<br/>
+  g  - globally match the pattern repeatedly in the string<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Substitution-specific modifiers described in<div style="height: 1.00em;">
+&#160;</div>
+&quot;s/PATTERN/REPLACEMENT/msixpodualgcer&quot; in perlop are:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  e  - evaluate the right-hand side as an expression<br/>
+  ee - evaluate the right side as a string then eval the result<br/>
+  o  - pretend to optimize your code, but actually introduce bugs<br/>
+  r  - perform non-destructive substitution and return the new value<br/>
+</dd>
+</dl>
+<div class="spacer">
 </div>
-In contrast, hard references are more like hard links in a Unix file system: They are used to access an underlying object without concern for what its (other) name is.  When the word &quot;reference&quot; is used without an adjective, as in the following paragraph, it is usually talking about a hard reference.<div class="spacer">
+Regular expression modifiers are usually written in documentation as e.g., &quot;the &quot;/x&quot; modifier&quot;, even though the delimiter in question might not really be a slash.  The modifiers &quot;/imsxadlup&quot; may also be embedded within the regular expression itself using the &quot;(?...)&quot; construct, see &quot;Extended Patterns&quot; below.<div class="spacer">
 </div>
-References are easy to use in Perl.  There is just one overriding principle: in general, Perl does no implicit referencing or dereferencing. When a scalar is holding a reference, it always behaves as a simple scalar. It doesn't magically start being an array or hash or subroutine; you have to tell it explicitly to do so, by dereferencing it.<div class="spacer">
+<i>/x</i><div class="spacer">
 </div>
-That said, be aware that Perl version 5.14 introduces an exception to the rule, for syntactic convenience.  Experimental array and hash container function behavior allows array and hash references to be handled by Perl as if they had been explicitly syntactically dereferenced.  See &quot;Syntactical Enhancements&quot; in perl5140delta and perlfunc for details.<div class="subsection">
-<h2>Making References</h2> References can be created in several ways.<dl>
+&quot;/x&quot; tells the regular expression parser to ignore most whitespace that is neither backslashed nor within a bracketed character class.  You can use this to break up your regular expression into (slightly) more readable parts. Also, the &quot;#&quot; character is treated as a metacharacter introducing a comment that runs up to the pattern's closing delimiter, or to the end of the current line if the pattern extends onto the next line.  Hence, this is very much like an ordinary Perl code comment.  (You can include the closing delimiter within the comment only if you precede it with a backslash, so be careful!)<div class="spacer">
+</div>
+Use of &quot;/x&quot; means that if you want real whitespace or &quot;#&quot; characters in the pattern (outside a bracketed character class, which is unaffected by &quot;/x&quot;), then you'll either have to escape them (using backslashes or &quot;\Q...\E&quot;) or encode them using octal, hex, or &quot;\N{}&quot; escapes. It is ineffective to try to continue a comment onto the next line by escaping the &quot;\n&quot; with a backslash or &quot;\Q&quot;.<div class="spacer">
+</div>
+You can use &quot;(?#text)&quot; to create a comment that ends earlier than the end of the current line, but &quot;text&quot; also can't contain the closing delimiter unless escaped with a backslash.<div class="spacer">
+</div>
+Taken together, these features go a long way towards making Perl's regular expressions more readable.  Here's an example:<div class="spacer">
+</div>
+<br/>
+    # Delete (most) C comments.<br/>
+    $program =~ s {<br/>
+        /\*     # Match the opening delimiter.<br/>
+        .*?     # Match a minimal number of characters.<br/>
+        \*/     # Match the closing delimiter.<br/>
+    } []gsx;<br/>
+<div class="spacer">
+</div>
+Note that anything inside a &quot;\Q...\E&quot; stays unaffected by &quot;/x&quot;.  And note that &quot;/x&quot; doesn't affect space interpretation within a single multi-character construct.  For example in &quot;\x{...}&quot;, regardless of the &quot;/x&quot; modifier, there can be no spaces.  Same for a quantifier such as &quot;{3}&quot; or &quot;{5,}&quot;.  Similarly, &quot;(?:...)&quot; can't have a space between the &quot;(&quot;, &quot;?&quot;, and &quot;:&quot;.  Within any delimiters for such a construct, allowed spaces are not affected by &quot;/x&quot;, and depend on the construct.  For example, &quot;\x{...}&quot; can't have spaces because hexadecimal numbers don't have spaces in them.  But, Unicode properties can have spaces, so in &quot;\p{...}&quot; there can be spaces that follow the Unicode rules, for which see &quot;Properties accessible through \p{} and \P{}&quot; in perluniprops.<div class="spacer">
+</div>
+<i>Character set modifiers</i><div class="spacer">
+</div>
+&quot;/d&quot;, &quot;/u&quot;, &quot;/a&quot;, and &quot;/l&quot;, available starting in 5.14, are called the character set modifiers; they affect the character set rules used for the regular expression.<div class="spacer">
+</div>
+The &quot;/d&quot;, &quot;/u&quot;, and &quot;/l&quot; modifiers are not likely to be of much use to you, and so you need not worry about them very much.  They exist for Perl's internal use, so that complex regular expression data structures can be automatically serialized and later exactly reconstituted, including all their nuances.  But, since Perl can't keep a secret, and there may be rare instances where they are useful, they are documented here.<div class="spacer">
+</div>
+The &quot;/a&quot; modifier, on the other hand, may be useful.  Its purpose is to allow code that is to work mostly on ASCII data to not have to concern itself with Unicode.<div class="spacer">
+</div>
+Briefly, &quot;/l&quot; sets the character set to that of whatever <b>L</b>ocale is in effect at the time of the execution of the pattern match.<div class="spacer">
+</div>
+&quot;/u&quot; sets the character set to <b>U</b>nicode.<div class="spacer">
+</div>
+&quot;/a&quot; also sets the character set to Unicode, BUT adds several restrictions for  <b>A</b>SCII-safe matching.<div class="spacer">
+</div>
+&quot;/d&quot; is the old, problematic, pre-5.14 <b>D</b>efault character set behavior.  Its only use is to force that old behavior.<div class="spacer">
+</div>
+At any given time, exactly one of these modifiers is in effect.  Their existence allows Perl to keep the originally compiled behavior of a regular expression, regardless of what rules are in effect when it is actually executed.  And if it is interpolated into a larger regex, the original's rules continue to apply to it, and only it.<div class="spacer">
+</div>
+The &quot;/l&quot; and &quot;/u&quot; modifiers are automatically selected for regular expressions compiled within the scope of various pragmas, and we recommend that in general, you use those pragmas instead of specifying these modifiers explicitly.  For one thing, the modifiers affect only pattern matching, and do not extend to even any replacement done, whereas using the pragmas give consistent results for all appropriate operations within their scopes.  For example,<div class="spacer">
+</div>
+<br/>
+ s/foo/\Ubar/il<br/>
+<div class="spacer">
+</div>
+will match &quot;foo&quot; using the locale's rules for case-insensitive matching, but the &quot;/l&quot; does not affect how the &quot;\U&quot; operates.  Most likely you want both of them to use locale rules.  To do this, instead compile the regular expression within the scope of &quot;use locale&quot;.  This both implicitly adds the &quot;/l&quot; and applies locale rules to the &quot;\U&quot;.   The lesson is to &quot;use locale&quot; and not &quot;/l&quot; explicitly.<div class="spacer">
+</div>
+Similarly, it would be better to use &quot;use feature 'unicode_strings'&quot; instead of,<div class="spacer">
+</div>
+<br/>
+ s/foo/\Lbar/iu<br/>
+<div class="spacer">
+</div>
+to get Unicode rules, as the &quot;\L&quot; in the former (but not necessarily the latter) would also use Unicode rules.<div class="spacer">
+</div>
+More detail on each of the modifiers follows.  Most likely you don't need to know this detail for &quot;/l&quot;, &quot;/u&quot;, and &quot;/d&quot;, and can skip ahead to /a.<div class="spacer">
+</div>
+/l<div class="spacer">
+</div>
+means to use the current locale's rules (see perllocale) when pattern matching.  For example, &quot;\w&quot; will match the &quot;word&quot; characters of that locale, and &quot;/i&quot; case-insensitive matching will match according to the locale's case folding rules.  The locale used will be the one in effect at the time of execution of the pattern match.  This may not be the same as the compilation-time locale, and can differ from one match to another if there is an intervening call of the  <i>setlocale()</i> function.<div class="spacer">
+</div>
+The only non-single-byte locale Perl supports is (starting in v5.20) UTF-8.  This means that code points above 255 are treated as Unicode no matter what locale is in effect (since UTF-8 implies Unicode).<div class="spacer">
+</div>
+Under Unicode rules, there are a few case-insensitive matches that cross the 255/256 boundary.  Except for UTF-8 locales in Perls v5.20 and later, these are disallowed under &quot;/l&quot;.  For example, 0xFF (on ASCII platforms) does not caselessly match the character at 0x178, &quot;LATIN CAPITAL LETTER Y WITH DIAERESIS&quot;, because 0xFF may not be &quot;LATIN SMALL LETTER Y WITH DIAERESIS&quot; in the current locale, and Perl has no way of knowing if that character even exists in the locale, much less what code point it is.<div class="spacer">
+</div>
+In a UTF-8 locale in v5.20 and later, the only visible difference between locale and non-locale in regular expressions should be tainting (see perlsec).<div class="spacer">
+</div>
+This modifier may be specified to be the default by &quot;use locale&quot;, but see &quot;Which character set modifier is in effect?&quot;.<div class="spacer">
+</div>
+/u<div class="spacer">
+</div>
+means to use Unicode rules when pattern matching.  On ASCII platforms, this means that the code points between 128 and 255 take on their Latin-1 (ISO-8859-1) meanings (which are the same as Unicode's). (Otherwise Perl considers their meanings to be undefined.)  Thus, under this modifier, the ASCII platform effectively becomes a Unicode platform; and hence, for example, &quot;\w&quot; will match any of the more than 100_000 word characters in Unicode.<div class="spacer">
+</div>
+Unlike most locales, which are specific to a language and country pair, Unicode classifies all the characters that are letters  <i>somewhere</i> in the world as &quot;\w&quot;.  For example, your locale might not think that &quot;LATIN SMALL LETTER ETH&quot; is a letter (unless you happen to speak Icelandic), but Unicode does.  Similarly, all the characters that are decimal digits somewhere in the world will match &quot;\d&quot;; this is hundreds, not 10, possible matches.  And some of those digits look like some of the 10 ASCII digits, but mean a different number, so a human could easily think a number is a different quantity than it really is.  For example, &quot;BENGALI DIGIT FOUR&quot; (U+09EA) looks very much like an &quot;ASCII DIGIT EIGHT&quot; (U+0038).  And, &quot;\d+&quot;, may match strings of digits that are a mixture from different writing systems, creating a security issue.  &quot; <i>num()</i>&quot; in Unicode::UCD can be used to sort this out.  Or the &quot;/a&quot; modifier can be used to force &quot;\d&quot; to match just the ASCII 0 through 9.<div class="spacer">
+</div>
+Also, under this modifier, case-insensitive matching works on the full set of Unicode characters.  The &quot;KELVIN SIGN&quot;, for example matches the letters &quot;k&quot; and &quot;K&quot;; and &quot;LATIN SMALL LIGATURE FF&quot; matches the sequence &quot;ff&quot;, which, if you're not prepared, might make it look like a hexadecimal constant, presenting another potential security issue.  See &lt;http://unicode.org/reports/tr36&gt; for a detailed discussion of Unicode security issues.<div class="spacer">
+</div>
+This modifier may be specified to be the default by &quot;use feature 'unicode_strings&quot;, &quot;use locale ':not_characters'&quot;, or &quot;use 5.012&quot; (or higher), but see &quot;Which character set modifier is in effect?&quot;.<div class="spacer">
+</div>
+/d<div class="spacer">
+</div>
+This modifier means to use the &quot;Default&quot; native rules of the platform except when there is cause to use Unicode rules instead, as follows:<dl>
 <dt>
 1.</dt>
 <dd>
-By using the backslash operator on a variable, subroutine, or value. (This works much like the &amp; (address-of) operator in C.) This typically creates  <i>another</i> reference to a variable, because there's already a reference to the variable in the symbol table.  But the symbol table reference might go away, and you'll still have the reference that the backslash returned.  Here are some examples:<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    $scalarref = \$foo;<br/>
-    $arrayref  = \@ARGV;<br/>
-    $hashref   = \%ENV;<br/>
-    $coderef   = \&amp;handler;<br/>
-    $globref   = \*foo;<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-It isn't possible to create a true reference to an IO handle (filehandle or dirhandle) using the backslash operator.  The most you can get is a reference to a typeglob, which is actually a complete symbol table entry. But see the explanation of the *foo{THING} syntax below.  However, you can still use type globs and globrefs as though they were IO handles.</dd>
+the target string is encoded in UTF-8; or</dd>
 </dl>
 <dl>
 <dt>
 2.</dt>
 <dd>
-A reference to an anonymous array can be created using square brackets:<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    $arrayref = [1, 2, ['a', 'b', 'c']];<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-Here we've created a reference to an anonymous array of three elements whose final element is itself a reference to another anonymous array of three elements.  (The multidimensional syntax described later can be used to access this.  For example, after the above, &quot;$arrayref-&gt;[2][1]&quot; would have the value &quot;b&quot;.)<div style="height: 1.00em;">
-&#160;</div>
-Taking a reference to an enumerated list is not the same as using square brackets--instead it's the same as creating a list of references!<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    @list = (\$a, \@b, \%c);<br/>
-    @list = \($a, @b, %c);      # same thing!<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-As a special case, &quot;\(@foo)&quot; returns a list of references to the contents of @foo, not a reference to @foo itself.  Likewise for %foo, except that the key references are to copies (since the keys are just strings rather than full-fledged scalars).</dd>
+the pattern is encoded in UTF-8; or</dd>
 </dl>
 <dl>
 <dt>
 3.</dt>
 <dd>
-A reference to an anonymous hash can be created using curly brackets:<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    $hashref = {<br/>
-        'Adam'  =&gt; 'Eve',<br/>
-        'Clyde' =&gt; 'Bonnie',<br/>
-    };<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-Anonymous hash and array composers like these can be intermixed freely to produce as complicated a structure as you want.  The multidimensional syntax described below works for these too.  The values above are literals, but variables and expressions would work just as well, because assignment operators in Perl (even within  <i>local()</i> or <i>my()</i>) are executable statements, not compile-time declarations.<div style="height: 1.00em;">
-&#160;</div>
-Because curly brackets (braces) are used for several other things including BLOCKs, you may occasionally have to disambiguate braces at the beginning of a statement by putting a &quot;+&quot; or a &quot;return&quot; in front so that Perl realizes the opening brace isn't starting a BLOCK.  The economy and mnemonic value of using curlies is deemed worth this occasional extra hassle.<div style="height: 1.00em;">
-&#160;</div>
-For example, if you wanted a function to make a new hash and return a reference to it, you have these options:<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    sub hashem {        { @_ } }   # silently wrong<br/>
-    sub hashem {       +{ @_ } }   # ok<br/>
-    sub hashem { return { @_ } }   # ok<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-On the other hand, if you want the other meaning, you can do this:<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    sub showem {        { @_ } }   # ambiguous (currently ok,<br/>
-                                   # but may change)<br/>
-    sub showem {       {; @_ } }   # ok<br/>
-    sub showem { { return @_ } }   # ok<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-The leading &quot;+{&quot; and &quot;{;&quot; always serve to disambiguate the expression to mean either the HASH reference, or the BLOCK.</dd>
+the pattern explicitly mentions a code point that is above 255 (say by &quot;\x{100}&quot;); or</dd>
 </dl>
 <dl>
 <dt>
 4.</dt>
 <dd>
-A reference to an anonymous subroutine can be created by using &quot;sub&quot; without a subname:<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    $coderef = sub { print &quot;Boink!\n&quot; };<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-Note the semicolon.  Except for the code inside not being immediately executed, a &quot;sub {}&quot; is not so much a declaration as it is an operator, like &quot;do{}&quot; or &quot;eval{}&quot;.  (However, no matter how many times you execute that particular line (unless you're in an &quot;eval(&quot;...&quot;)&quot;), $coderef will still have a reference to the  <i>same</i> anonymous subroutine.)<div style="height: 1.00em;">
-&#160;</div>
-Anonymous subroutines act as closures with respect to <i>my()</i> variables, that is, variables lexically visible within the current scope.  Closure is a notion out of the Lisp world that says if you define an anonymous function in a particular lexical context, it pretends to run in that context even when it's called outside the context.<div style="height: 1.00em;">
-&#160;</div>
-In human terms, it's a funny way of passing arguments to a subroutine when you define it as well as when you call it.  It's useful for setting up little bits of code to run later, such as callbacks.  You can even do object-oriented stuff with it, though Perl already provides a different mechanism to do that--see perlobj.<div style="height: 1.00em;">
-&#160;</div>
-You might also think of closure as a way to write a subroutine template without using  <i>eval()</i>.  Here's a small example of how closures work:<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    sub newprint {<br/>
-        my $x = shift;<br/>
-        return sub { my $y = shift; print &quot;$x, $y!\n&quot;; };<br/>
-    }<br/>
-    $h = newprint(&quot;Howdy&quot;);<br/>
-    $g = newprint(&quot;Greetings&quot;);<br/>
-<br/>
-    # Time passes...<br/>
-<br/>
-    &amp;$h(&quot;world&quot;);<br/>
-    &amp;$g(&quot;earthlings&quot;);<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-This prints<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    Howdy, world!<br/>
-    Greetings, earthlings!<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-Note particularly that $x continues to refer to the value passed into  <i>newprint()</i> <i>despite</i> &quot;my $x&quot; having gone out of scope by the time the anonymous subroutine runs.  That's what a closure is all about.<div style="height: 1.00em;">
-&#160;</div>
-This applies only to lexical variables, by the way.  Dynamic variables continue to work as they have always worked.  Closure is not something that most Perl programmers need trouble themselves about to begin with.</dd>
+the pattern uses a Unicode name (&quot;\N{...}&quot;);  or</dd>
 </dl>
 <dl>
 <dt>
 5.</dt>
 <dd>
-References are often returned by special subroutines called constructors.  Perl objects are just references to a special type of object that happens to know which package it's associated with.  Constructors are just special subroutines that know how to create that association.  They do so by starting with an ordinary reference, and it remains an ordinary reference even while it's also being an object.  Constructors are often named &quot;new()&quot;.  You  <i>can</i> call them indirectly:<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    $objref = new Doggie( Tail =&gt; 'short', Ears =&gt; 'long' );<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-But that can produce ambiguous syntax in certain cases, so it's often better to use the direct method invocation approach:<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    $objref   = Doggie-&gt;new(Tail =&gt; 'short', Ears =&gt; 'long');<br/>
-<br/>
-    use Term::Cap;<br/>
-    $terminal = Term::Cap-&gt;Tgetent( { OSPEED =&gt; 9600 });<br/>
-<br/>
-    use Tk;<br/>
-    $main    = MainWindow-&gt;new();<br/>
-    $menubar = $main-&gt;Frame(-relief              =&gt; &quot;raised&quot;,<br/>
-                            -borderwidth         =&gt; 2)<br/>
-</dd>
+the pattern uses a Unicode property (&quot;\p{...}&quot;); or</dd>
 </dl>
 <dl>
 <dt>
 6.</dt>
 <dd>
-References of the appropriate type can spring into existence if you dereference them in a context that assumes they exist.  Because we haven't talked about dereferencing yet, we can't show you any examples yet.</dd>
+the pattern uses &quot;&quot;(?[ ])&quot;&quot;</dd>
+</dl>
+<div class="spacer">
+</div>
+Another mnemonic for this modifier is &quot;Depends&quot;, as the rules actually used depend on various things, and as a result you can get unexpected results.  See &quot;The &quot;Unicode Bug&quot;&quot; in perlunicode.  The Unicode Bug has become rather infamous, leading to yet another (printable) name for this modifier, &quot;Dodgy&quot;.<div class="spacer">
+</div>
+Unless the pattern or string are encoded in UTF-8, only ASCII characters can match positively.<div class="spacer">
+</div>
+Here are some examples of how that works on an ASCII platform:<div class="spacer">
+</div>
+<br/>
+ $str =  &quot;\xDF&quot;;      # $str is not in UTF-8 format.<br/>
+ $str =~ /^\w/;       # No match, as $str isn't in UTF-8 format.<br/>
+ $str .= &quot;\x{0e0b}&quot;;  # Now $str is in UTF-8 format.<br/>
+ $str =~ /^\w/;       # Match! $str is now in UTF-8 format.<br/>
+ chop $str;<br/>
+ $str =~ /^\w/;       # Still a match! $str remains in UTF-8 format.<br/>
+<div class="spacer">
+</div>
+This modifier is automatically selected by default when none of the others are, so yet another name for it is &quot;Default&quot;.<div class="spacer">
+</div>
+Because of the unexpected behaviors associated with this modifier, you probably should only use it to maintain weird backward compatibilities.<div class="spacer">
+</div>
+/a (and /aa)<div class="spacer">
+</div>
+This modifier stands for ASCII-restrict (or ASCII-safe).  This modifier, unlike the others, may be doubled-up to increase its effect.<div class="spacer">
+</div>
+When it appears singly, it causes the sequences &quot;\d&quot;, &quot;\s&quot;, &quot;\w&quot;, and the Posix character classes to match only in the ASCII range.  They thus revert to their pre-5.6, pre-Unicode meanings.  Under &quot;/a&quot;,  &quot;\d&quot; always means precisely the digits &quot;0&quot; to &quot;9&quot;; &quot;\s&quot; means the five characters &quot;[ \f\n\r\t]&quot;, and starting in Perl v5.18, experimentally, the vertical tab; &quot;\w&quot; means the 63 characters &quot;[A-Za-z0-9_]&quot;; and likewise, all the Posix classes such as &quot;[[:print:]]&quot; match only the appropriate ASCII-range characters.<div class="spacer">
+</div>
+This modifier is useful for people who only incidentally use Unicode, and who do not wish to be burdened with its complexities and security concerns.<div class="spacer">
+</div>
+With &quot;/a&quot;, one can write &quot;\d&quot; with confidence that it will only match ASCII characters, and should the need arise to match beyond ASCII, you can instead use &quot;\p{Digit}&quot; (or &quot;\p{Word}&quot; for &quot;\w&quot;).  There are similar &quot;\p{...}&quot; constructs that can match beyond ASCII both white space (see &quot;Whitespace&quot; in perlrecharclass), and Posix classes (see &quot;POSIX Character Classes&quot; in perlrecharclass).  Thus, this modifier doesn't mean you can't use Unicode, it means that to get Unicode matching you must explicitly use a construct (&quot;\p{}&quot;, &quot;\P{}&quot;) that signals Unicode.<div class="spacer">
+</div>
+As you would expect, this modifier causes, for example, &quot;\D&quot; to mean the same thing as &quot;[^0-9]&quot;; in fact, all non-ASCII characters match &quot;\D&quot;, &quot;\S&quot;, and &quot;\W&quot;.  &quot;\b&quot; still means to match at the boundary between &quot;\w&quot; and &quot;\W&quot;, using the &quot;/a&quot; definitions of them (similarly for &quot;\B&quot;).<div class="spacer">
+</div>
+Otherwise, &quot;/a&quot; behaves like the &quot;/u&quot; modifier, in that case-insensitive matching uses Unicode rules; for example, &quot;k&quot; will match the Unicode &quot;\N{KELVIN SIGN}&quot; under &quot;/i&quot; matching, and code points in the Latin1 range, above ASCII will have Unicode rules when it comes to case-insensitive matching.<div class="spacer">
+</div>
+To forbid ASCII/non-ASCII matches (like &quot;k&quot; with &quot;\N{KELVIN SIGN}&quot;), specify the &quot;a&quot; twice, for example &quot;/aai&quot; or &quot;/aia&quot;.  (The first occurrence of &quot;a&quot; restricts the &quot;\d&quot;, etc., and the second occurrence adds the &quot;/i&quot; restrictions.)  But, note that code points outside the ASCII range will use Unicode rules for &quot;/i&quot; matching, so the modifier doesn't really restrict things to just ASCII; it just forbids the intermixing of ASCII and non-ASCII.<div class="spacer">
+</div>
+To summarize, this modifier provides protection for applications that don't wish to be exposed to all of Unicode.  Specifying it twice gives added protection.<div class="spacer">
+</div>
+This modifier may be specified to be the default by &quot;use re '/a'&quot; or &quot;use re '/aa'&quot;.  If you do so, you may actually have occasion to use the &quot;/u&quot; modifier explicitly if there are a few regular expressions where you do want full Unicode rules (but even here, it's best if everything were under feature &quot;unicode_strings&quot;, along with the &quot;use re '/aa'&quot;).  Also see &quot;Which character set modifier is in effect?&quot;.<div class="spacer">
+</div>
+Which character set modifier is in effect?<div class="spacer">
+</div>
+Which of these modifiers is in effect at any given point in a regular expression depends on a fairly complex set of interactions.  These have been designed so that in general you don't have to worry about it, but this section gives the gory details.  As explained below in &quot;Extended Patterns&quot; it is possible to explicitly specify modifiers that apply only to portions of a regular expression. The innermost always has priority over any outer ones, and one applying to the whole expression has priority over any of the default settings that are described in the remainder of this section.<div class="spacer">
+</div>
+The &quot;use re '/foo'&quot; pragma can be used to set default modifiers (including these) for regular expressions compiled within its scope.  This pragma has precedence over the other pragmas listed below that also change the defaults.<div class="spacer">
+</div>
+Otherwise, &quot;use locale&quot; sets the default modifier to &quot;/l&quot;; and &quot;use feature 'unicode_strings&quot;, or &quot;use 5.012&quot; (or higher) set the default to &quot;/u&quot; when not in the same scope as either &quot;use locale&quot; or &quot;use bytes&quot;. (&quot;use locale ':not_characters'&quot; also sets the default to &quot;/u&quot;, overriding any plain &quot;use locale&quot;.) Unlike the mechanisms mentioned above, these affect operations besides regular expressions pattern matching, and so give more consistent results with other operators, including using &quot;\U&quot;, &quot;\l&quot;, etc. in substitution replacements.<div class="spacer">
+</div>
+If none of the above apply, for backwards compatibility reasons, the &quot;/d&quot; modifier is the one in effect by default.  As this can lead to unexpected results, it is best to specify which other rule set should be used.<div class="spacer">
+</div>
+Character set modifier behavior prior to Perl 5.14<div class="spacer">
+</div>
+Prior to 5.14, there were no explicit modifiers, but &quot;/l&quot; was implied for regexes compiled within the scope of &quot;use locale&quot;, and &quot;/d&quot; was implied otherwise.  However, interpolating a regex into a larger regex would ignore the original compilation in favor of whatever was in effect at the time of the second compilation.  There were a number of inconsistencies (bugs) with the &quot;/d&quot; modifier, where Unicode rules would be used when inappropriate, and vice versa.  &quot;\p{}&quot; did not imply Unicode rules, and neither did all occurrences of &quot;\N{}&quot;, until 5.12.</div>
+<div class="subsection">
+<h2>Regular Expressions</h2>  <i>Metacharacters</i><div class="spacer">
+</div>
+The patterns used in Perl pattern matching evolved from those supplied in the Version 8 regex routines.  (The routines are derived (distantly) from Henry Spencer's freely redistributable reimplementation of the V8 routines.)  See &quot;Version 8 Regular Expressions&quot; for details.<div class="spacer">
+</div>
+In particular the following metacharacters have their standard <i>egrep</i>-ish meanings:<div class="spacer">
+</div>
+<br/>
+    \        Quote the next metacharacter<br/>
+    ^        Match the beginning of the line<br/>
+    .        Match any character (except newline)<br/>
+    $        Match the end of the string (or before newline at the end<br/>
+             of the string)<br/>
+    |        Alternation<br/>
+    ()       Grouping<br/>
+    []       Bracketed Character class<br/>
+<div class="spacer">
+</div>
+By default, the &quot;^&quot; character is guaranteed to match only the beginning of the string, the &quot;$&quot; character only the end (or before the newline at the end), and Perl does certain optimizations with the assumption that the string contains only one line.  Embedded newlines will not be matched by &quot;^&quot; or &quot;$&quot;.  You may, however, wish to treat a string as a multi-line buffer, such that the &quot;^&quot; will match after any newline within the string (except if the newline is the last character in the string), and &quot;$&quot; will match before any newline.  At the cost of a little more overhead, you can do this by using the /m modifier on the pattern match operator.  (Older programs did this by setting $*, but this option was removed in perl 5.10.)<div class="spacer">
+</div>
+To simplify multi-line substitutions, the &quot;.&quot; character never matches a newline unless you use the &quot;/s&quot; modifier, which in effect tells Perl to pretend the string is a single line--even if it isn't.<div class="spacer">
+</div>
+<i>Quantifiers</i><div class="spacer">
+</div>
+The following standard quantifiers are recognized:<div class="spacer">
+</div>
+<br/>
+    *           Match 0 or more times<br/>
+    +           Match 1 or more times<br/>
+    ?           Match 1 or 0 times<br/>
+    {n}         Match exactly n times<br/>
+    {n,}        Match at least n times<br/>
+    {n,m}       Match at least n but not more than m times<br/>
+<div class="spacer">
+</div>
+(If a curly bracket occurs in any other context and does not form part of a backslashed sequence like &quot;\x{...}&quot;, it is treated as a regular character.  In particular, the lower quantifier bound is not optional, and a typo in a quantifier silently causes it to be treated as the literal characters.  For example,<div class="spacer">
+</div>
+<br/>
+    /o{4,a}/<br/>
+<div class="spacer">
+</div>
+compiles to match the sequence of six characters &quot;o&#160;{&#160;4&#160;,&#160;a&#160;}&quot;.  It is planned to eventually require literal uses of curly brackets to be escaped, say by preceding them with a backslash or enclosing them within square brackets, (&quot;\{&quot; or &quot;[{]&quot;).  This change will allow for future syntax extensions (like making the lower bound of a quantifier optional), and better error checking.  In the meantime, you should get in the habit of escaping all instances where you mean a literal &quot;{&quot;.)<div class="spacer">
+</div>
+The &quot;*&quot; quantifier is equivalent to &quot;{0,}&quot;, the &quot;+&quot; quantifier to &quot;{1,}&quot;, and the &quot;?&quot; quantifier to &quot;{0,1}&quot;.  n and m are limited to non-negative integral values less than a preset limit defined when perl is built. This is usually 32766 on the most common platforms.  The actual limit can be seen in the error message generated by code such as this:<div class="spacer">
+</div>
+<br/>
+    $_ **= $_ , / {$_} / for 2 .. 42;<br/>
+<div class="spacer">
+</div>
+By default, a quantified subpattern is &quot;greedy&quot;, that is, it will match as many times as possible (given a particular starting location) while still allowing the rest of the pattern to match.  If you want it to match the minimum number of times possible, follow the quantifier with a &quot;?&quot;.  Note that the meanings don't change, just the &quot;greediness&quot;:<div class="spacer">
+</div>
+<br/>
+    *?        Match 0 or more times, not greedily<br/>
+    +?        Match 1 or more times, not greedily<br/>
+    ??        Match 0 or 1 time, not greedily<br/>
+    {n}?      Match exactly n times, not greedily (redundant)<br/>
+    {n,}?     Match at least n times, not greedily<br/>
+    {n,m}?    Match at least n but not more than m times, not greedily<br/>
+<div class="spacer">
+</div>
+Normally when a quantified subpattern does not allow the rest of the overall pattern to match, Perl will backtrack. However, this behaviour is sometimes undesirable. Thus Perl provides the &quot;possessive&quot; quantifier form as well.<div class="spacer">
+</div>
+<br/>
+ *+     Match 0 or more times and give nothing back<br/>
+ ++     Match 1 or more times and give nothing back<br/>
+ ?+     Match 0 or 1 time and give nothing back<br/>
+ {n}+   Match exactly n times and give nothing back (redundant)<br/>
+ {n,}+  Match at least n times and give nothing back<br/>
+ {n,m}+ Match at least n but not more than m times and give nothing back<br/>
+<div class="spacer">
+</div>
+For instance,<div class="spacer">
+</div>
+<br/>
+   'aaaa' =~ /a++a/<br/>
+<div class="spacer">
+</div>
+will never match, as the &quot;a++&quot; will gobble up all the &quot;a&quot;'s in the string and won't leave any for the remaining part of the pattern. This feature can be extremely useful to give perl hints about where it shouldn't backtrack. For instance, the typical &quot;match a double-quoted string&quot; problem can be most efficiently performed when written as:<div class="spacer">
+</div>
+<br/>
+   /&quot;(?:[^&quot;\\]++|\\.)*+&quot;/<br/>
+<div class="spacer">
+</div>
+as we know that if the final quote does not match, backtracking will not help. See the independent subexpression &quot;&quot;(?&gt;pattern)&quot;&quot; for more details; possessive quantifiers are just syntactic sugar for that construct. For instance the above example could also be written as follows:<div class="spacer">
+</div>
+<br/>
+   /&quot;(?&gt;(?:(?&gt;[^&quot;\\]+)|\\.)*)&quot;/<br/>
+<div class="spacer">
+</div>
+Note that the possessive quantifier modifier can not be be combined with the non-greedy modifier. This is because it would make no sense. Consider the follow equivalency table:<div class="spacer">
+</div>
+<br/>
+    Illegal         Legal<br/>
+    ------------    ------<br/>
+    X??+            X{0}<br/>
+    X+?+            X{1}<br/>
+    X{min,max}?+    X{min}<br/>
+<div class="spacer">
+</div>
+<i>Escape sequences</i><div class="spacer">
+</div>
+Because patterns are processed as double-quoted strings, the following also work:<div class="spacer">
+</div>
+<br/>
+ \t          tab                   (HT, TAB)<br/>
+ \n          newline               (LF, NL)<br/>
+ \r          return                (CR)<br/>
+ \f          form feed             (FF)<br/>
+ \a          alarm (bell)          (BEL)<br/>
+ \e          escape (think troff)  (ESC)<br/>
+ \cK         control char          (example: VT)<br/>
+ \x{}, \x00  character whose ordinal is the given hexadecimal number<br/>
+ \N{name}    named Unicode character or character sequence<br/>
+ \N{U+263D}  Unicode character     (example: FIRST QUARTER MOON)<br/>
+ \o{}, \000  character whose ordinal is the given octal number<br/>
+ \l          lowercase next char (think vi)<br/>
+ \u          uppercase next char (think vi)<br/>
+ \L          lowercase until \E (think vi)<br/>
+ \U          uppercase until \E (think vi)<br/>
+ \Q          quote (disable) pattern metacharacters until \E<br/>
+ \E          end either case modification or quoted section, think vi<br/>
+<div class="spacer">
+</div>
+Details are in &quot;Quote and Quote-like Operators&quot; in perlop.<div class="spacer">
+</div>
+<i>Character Classes and other Special Escapes</i><div class="spacer">
+</div>
+In addition, Perl defines the following:<div class="spacer">
+</div>
+<br/>
+ Sequence   Note    Description<br/>
+  [...]     [1]  Match a character according to the rules of the<br/>
+                   bracketed character class defined by the &quot;...&quot;.<br/>
+                   Example: [a-z] matches &quot;a&quot; or &quot;b&quot; or &quot;c&quot; ... or &quot;z&quot;<br/>
+  [[:...:]] [2]  Match a character according to the rules of the POSIX<br/>
+                   character class &quot;...&quot; within the outer bracketed<br/>
+                   character class.  Example: [[:upper:]] matches any<br/>
+                   uppercase character.<br/>
+  (?[...])  [8]  Extended bracketed character class<br/>
+  \w        [3]  Match a &quot;word&quot; character (alphanumeric plus &quot;_&quot;, plus<br/>
+                   other connector punctuation chars plus Unicode<br/>
+                   marks)<br/>
+  \W        [3]  Match a non-&quot;word&quot; character<br/>
+  \s        [3]  Match a whitespace character<br/>
+  \S        [3]  Match a non-whitespace character<br/>
+  \d        [3]  Match a decimal digit character<br/>
+  \D        [3]  Match a non-digit character<br/>
+  \pP       [3]  Match P, named property.  Use \p{Prop} for longer names<br/>
+  \PP       [3]  Match non-P<br/>
+  \X        [4]  Match Unicode &quot;eXtended grapheme cluster&quot;<br/>
+  \C             Match a single C-language char (octet) even if that is<br/>
+                   part of a larger UTF-8 character.  Thus it breaks up<br/>
+                   characters into their UTF-8 bytes, so you may end up<br/>
+                   with malformed pieces of UTF-8.  Unsupported in<br/>
+                   lookbehind. (Deprecated.)<br/>
+  \1        [5]  Backreference to a specific capture group or buffer.<br/>
+                   '1' may actually be any positive integer.<br/>
+  \g1       [5]  Backreference to a specific or previous group,<br/>
+  \g{-1}    [5]  The number may be negative indicating a relative<br/>
+                   previous group and may optionally be wrapped in<br/>
+                   curly brackets for safer parsing.<br/>
+  \g{name}  [5]  Named backreference<br/>
+  \k&lt;name&gt;  [5]  Named backreference<br/>
+  \K        [6]  Keep the stuff left of the \K, don't include it in $&amp;<br/>
+  \N        [7]  Any character but \n.  Not affected by /s modifier<br/>
+  \v        [3]  Vertical whitespace<br/>
+  \V        [3]  Not vertical whitespace<br/>
+  \h        [3]  Horizontal whitespace<br/>
+  \H        [3]  Not horizontal whitespace<br/>
+  \R        [4]  Linebreak<br/>
+<dl>
+<dt>
+[1]</dt>
+<dd>
+See &quot;Bracketed Character Classes&quot; in perlrecharclass for details.</dd>
 </dl>
 <dl>
 <dt>
-7.</dt>
+[2]</dt>
 <dd>
-A reference can be created by using a special syntax, lovingly known as the *foo{THING} syntax.  *foo{THING} returns a reference to the THING slot in *foo (which is the symbol table entry which holds everything known as foo).<div style="height: 1.00em;">
-&#160;</div>
+See &quot;POSIX Character Classes&quot; in perlrecharclass for details.</dd>
+</dl>
+<dl>
+<dt>
+[3]</dt>
+<dd>
+See &quot;Backslash sequences&quot; in perlrecharclass for details.</dd>
+</dl>
+<dl>
+<dt>
+[4]</dt>
+<dd>
+See &quot;Misc&quot; in perlrebackslash for details.</dd>
+</dl>
+<dl>
+<dt>
+[5]</dt>
+<dd>
+See &quot;Capture groups&quot; below for details.</dd>
+</dl>
+<dl>
+<dt>
+[6]</dt>
+<dd>
+See &quot;Extended Patterns&quot; below for details.</dd>
+</dl>
+<dl>
+<dt>
+[7]</dt>
+<dd>
+Note that &quot;\N&quot; has two meanings.  When of the form &quot;\N{NAME}&quot;, it matches the character or character sequence whose name is &quot;NAME&quot;; and similarly when of the form &quot;\N{U+ <i>hex</i>}&quot;, it matches the character whose Unicode code point is  <i>hex</i>.  Otherwise it matches any character but &quot;\n&quot;.</dd>
+</dl>
+<dl>
+<dt>
+[8]</dt>
+<dd>
+See &quot;Extended Bracketed Character Classes&quot; in perlrecharclass for details.</dd>
+</dl>
+<div class="spacer">
+</div>
+<i>Assertions</i><div class="spacer">
+</div>
+Perl defines the following zero-width assertions:<div class="spacer">
+</div>
 <br/>
-    $scalarref = *foo{SCALAR};<br/>
-    $arrayref  = *ARGV{ARRAY};<br/>
-    $hashref   = *ENV{HASH};<br/>
-    $coderef   = *handler{CODE};<br/>
-    $ioref     = *STDIN{IO};<br/>
-    $globref   = *foo{GLOB};<br/>
-    $formatref = *foo{FORMAT};<br/>
-    $globname  = *foo{NAME};    # &quot;foo&quot;<br/>
-    $pkgname   = *foo{PACKAGE}; # &quot;main&quot;<br/>
+    \b  Match a word boundary<br/>
+    \B  Match except at a word boundary<br/>
+    \A  Match only at beginning of string<br/>
+    \Z  Match only at end of string, or before newline at the end<br/>
+    \z  Match only at end of string<br/>
+    \G  Match only at pos() (e.g. at the end-of-match position<br/>
+        of prior m//g)<br/>
+<div class="spacer">
+</div>
+A word boundary (&quot;\b&quot;) is a spot between two characters that has a &quot;\w&quot; on one side of it and a &quot;\W&quot; on the other side of it (in either order), counting the imaginary characters off the beginning and end of the string as matching a &quot;\W&quot;.  (Within character classes &quot;\b&quot; represents backspace rather than a word boundary, just as it normally does in any double-quoted string.) The &quot;\A&quot; and &quot;\Z&quot; are just like &quot;^&quot; and &quot;$&quot;, except that they won't match multiple times when the &quot;/m&quot; modifier is used, while &quot;^&quot; and &quot;$&quot; will match at every internal line boundary.  To match the actual end of the string and not ignore an optional trailing newline, use &quot;\z&quot;.<div class="spacer">
+</div>
+The &quot;\G&quot; assertion can be used to chain global matches (using &quot;m//g&quot;), as described in &quot;Regexp Quote-Like Operators&quot; in perlop. It is also useful when writing &quot;lex&quot;-like scanners, when you have several patterns that you want to match against consequent substrings of your string; see the previous reference.  The actual location where &quot;\G&quot; will match can also be influenced by using &quot;pos()&quot; as an lvalue: see &quot;pos&quot; in perlfunc. Note that the rule for zero-length matches (see &quot;Repeated Patterns Matching a Zero-length Substring&quot;) is modified somewhat, in that contents to the left of &quot;\G&quot; are not counted when determining the length of the match. Thus the following will not match forever:<div class="spacer">
+</div>
+<br/>
+     my $string = 'ABC';<br/>
+     pos($string) = 1;<br/>
+     while ($string =~ /(.\G)/g) {<br/>
+         print $1;<br/>
+     }<br/>
+<div class="spacer">
+</div>
+It will print 'A' and then terminate, as it considers the match to be zero-width, and thus will not match at the same position twice in a row.<div class="spacer">
+</div>
+It is worth noting that &quot;\G&quot; improperly used can result in an infinite loop. Take care when using patterns that include &quot;\G&quot; in an alternation.<div class="spacer">
+</div>
+Note also that &quot;s///&quot; will refuse to overwrite part of a substitution that has already been replaced; so for example this will stop after the first iteration, rather than iterating its way backwards through the string:<div class="spacer">
+</div>
+<br/>
+    $_ = &quot;123456789&quot;;<br/>
+    pos = 6;<br/>
+    s/.(?=.\G)/X/g;<br/>
+    print;      # prints 1234X6789, not XXXXX6789<br/>
+<div class="spacer">
+</div>
+<i>Capture groups</i><div class="spacer">
+</div>
+The bracketing construct &quot;( ... )&quot; creates capture groups (also referred to as capture buffers). To refer to the current contents of a group later on, within the same pattern, use &quot;\g1&quot; (or &quot;\g{1}&quot;) for the first, &quot;\g2&quot; (or &quot;\g{2}&quot;) for the second, and so on. This is called a  <i>backreference</i>.<div style="height: 1.00em;">
+&#160;</div>
 <div style="height: 1.00em;">
 &#160;</div>
-Most of these are self-explanatory, but *foo{IO} deserves special attention.  It returns the IO handle, used for file handles (&quot;open&quot; in perlfunc), sockets (&quot;socket&quot; in perlfunc and &quot;socketpair&quot; in perlfunc), and directory handles (&quot;opendir&quot; in perlfunc).  For compatibility with previous versions of Perl, *foo{FILEHANDLE} is a synonym for *foo{IO}, though it is deprecated as of 5.8.0.  If deprecation warnings are in effect, it will warn of its use.<div style="height: 1.00em;">
+<div style="height: 1.00em;">
 &#160;</div>
-*foo{THING} returns undef if that particular THING hasn't been used yet, except in the case of scalars.  *foo{SCALAR} returns a reference to an anonymous scalar if $foo hasn't been used yet.  This might change in a future release.<div style="height: 1.00em;">
+<div style="height: 1.00em;">
 &#160;</div>
-*foo{NAME} and *foo{PACKAGE} are the exception, in that they return strings, rather than references.  These return the package and name of the typeglob itself, rather than one that has been assigned to it.  So, after &quot;*foo=*Foo::bar&quot;, *foo will become &quot;*Foo::bar&quot; when used as a string, but *foo{PACKAGE} and *foo{NAME} will continue to produce &quot;main&quot; and &quot;foo&quot;, respectively.<div style="height: 1.00em;">
+<div style="height: 1.00em;">
 &#160;</div>
-*foo{IO} is an alternative to the *HANDLE mechanism given in &quot;Typeglobs and Filehandles&quot; in perldata for passing filehandles into or out of subroutines, or storing into larger data structures. Its disadvantage is that it won't create a new filehandle for you. Its advantage is that you have less risk of clobbering more than you want to with a typeglob assignment.  (It still conflates file and directory handles, though.)  However, if you assign the incoming value to a scalar instead of a typeglob as we do in the examples below, there's no risk of that happening.<div style="height: 1.00em;">
+<div style="height: 1.00em;">
 &#160;</div>
+<div style="height: 1.00em;">
+&#160;</div>
+<div style="height: 1.00em;">
+&#160;</div>
+There is no limit to the number of captured substrings that you may use. Groups are numbered with the leftmost open parenthesis being number 1, etc.  If a group did not match, the associated backreference won't match either. (This can happen if the group is optional, or in a different branch of an alternation.) You can omit the &quot;g&quot;, and write &quot;\1&quot;, etc, but there are some issues with this form, described below.<div class="spacer">
+</div>
+You can also refer to capture groups relatively, by using a negative number, so that &quot;\g-1&quot; and &quot;\g{-1}&quot; both refer to the immediately preceding capture group, and &quot;\g-2&quot; and &quot;\g{-2}&quot; both refer to the group before it.  For example:<div class="spacer">
+</div>
 <br/>
-    splutter(*STDOUT);          # pass the whole glob<br/>
-    splutter(*STDOUT{IO});      # pass both file and dir handles<br/>
+        /<br/>
+         (Y)            # group 1<br/>
+         (              # group 2<br/>
+            (X)         # group 3<br/>
+            \g{-1}      # backref to group 3<br/>
+            \g{-3}      # backref to group 1<br/>
+         )<br/>
+        /x<br/>
+<div class="spacer">
+</div>
+would match the same as &quot;/(Y) ( (X) \g3 \g1 )/x&quot;.  This allows you to interpolate regexes into larger regexes and not have to worry about the capture groups being renumbered.<div class="spacer">
+</div>
+You can dispense with numbers altogether and create named capture groups. The notation is &quot;(?&lt; <i>name</i>&gt;...)&quot; to declare and &quot;\g{<i>name</i>}&quot; to reference.  (To be compatible with .Net regular expressions, &quot;\g{ <i>name</i>}&quot; may also be written as &quot;\k{ <i>name</i>}&quot;, &quot;\k&lt;<i>name</i>&gt;&quot; or &quot;\k'<i>name</i>'&quot;.)  <i>name</i> must not begin with a number, nor contain hyphens. When different groups within the same pattern have the same name, any reference to that name assumes the leftmost defined group.  Named groups count in absolute and relative numbering, and so can also be referred to by those numbers. (It's possible to do things with named capture groups that would otherwise require &quot;(??{})&quot;.)<div class="spacer">
+</div>
+Capture group contents are dynamically scoped and available to you outside the pattern until the end of the enclosing block or until the next successful match, whichever comes first.  (See &quot;Compound Statements&quot; in perlsyn.) You can refer to them by absolute number (using &quot;$1&quot; instead of &quot;\g1&quot;, etc); or by name via the &quot;%+&quot; hash, using &quot;$+{ <i>name</i>}&quot;.<div class="spacer">
+</div>
+Braces are required in referring to named capture groups, but are optional for absolute or relative numbered ones.  Braces are safer when creating a regex by concatenating smaller strings.  For example if you have &quot;qr/$a$b/&quot;, and $a contained &quot;\g1&quot;, and $b contained &quot;37&quot;, you would get &quot;/\g137/&quot; which is probably not what you intended.<div class="spacer">
+</div>
+The &quot;\g&quot; and &quot;\k&quot; notations were introduced in Perl 5.10.0.  Prior to that there were no named nor relative numbered capture groups.  Absolute numbered groups were referred to using &quot;\1&quot;, &quot;\2&quot;, etc., and this notation is still accepted (and likely always will be).  But it leads to some ambiguities if there are more than 9 capture groups, as &quot;\10&quot; could mean either the tenth capture group, or the character whose ordinal in octal is 010 (a backspace in ASCII).  Perl resolves this ambiguity by interpreting &quot;\10&quot; as a backreference only if at least 10 left parentheses have opened before it.  Likewise &quot;\11&quot; is a backreference only if at least 11 left parentheses have opened before it. And so on.  &quot;\1&quot; through &quot;\9&quot; are always interpreted as backreferences. There are several examples below that illustrate these perils.  You can avoid the ambiguity by always using &quot;\g{}&quot; or &quot;\g&quot; if you mean capturing groups; and for octal constants always using &quot;\o{}&quot;, or for &quot;\077&quot; and below, using 3 digits padded with leading zeros, since a leading zero implies an octal constant.<div class="spacer">
+</div>
+The &quot;\<i>digit</i>&quot; notation also works in certain circumstances outside the pattern.  See &quot;Warning on \1 Instead of $1&quot; below for details.<div class="spacer">
+</div>
+Examples:<div class="spacer">
+</div>
 <br/>
-    sub splutter {<br/>
-        my $fh = shift;<br/>
-        print $fh &quot;her um well a hmmm\n&quot;;<br/>
+    s/^([^ ]*) *([^ ]*)/$2 $1/;     # swap first two words<br/>
+<br/>
+    /(.)\g1/                        # find first doubled char<br/>
+         and print &quot;'$1' is the first doubled character\n&quot;;<br/>
+<br/>
+    /(?&lt;char&gt;.)\k&lt;char&gt;/            # ... a different way<br/>
+         and print &quot;'$+{char}' is the first doubled character\n&quot;;<br/>
+<br/>
+    /(?'char'.)\g1/                 # ... mix and match<br/>
+         and print &quot;'$1' is the first doubled character\n&quot;;<br/>
+<br/>
+    if (/Time: (..):(..):(..)/) {   # parse out values<br/>
+        $hours = $1;<br/>
+        $minutes = $2;<br/>
+        $seconds = $3;<br/>
     }<br/>
 <br/>
-    $rec = get_rec(*STDIN);     # pass the whole glob<br/>
-    $rec = get_rec(*STDIN{IO}); # pass both file and dir handles<br/>
+    /(.)(.)(.)(.)(.)(.)(.)(.)(.)\g10/   # \g10 is a backreference<br/>
+    /(.)(.)(.)(.)(.)(.)(.)(.)(.)\10/    # \10 is octal<br/>
+    /((.)(.)(.)(.)(.)(.)(.)(.)(.))\10/  # \10 is a backreference<br/>
+    /((.)(.)(.)(.)(.)(.)(.)(.)(.))\010/ # \010 is octal<br/>
 <br/>
-    sub get_rec {<br/>
-        my $fh = shift;<br/>
-        return scalar &lt;$fh&gt;;<br/>
-    }<br/>
+    $a = '(.)\1';        # Creates problems when concatenated.<br/>
+    $b = '(.)\g{1}';     # Avoids the problems.<br/>
+    &quot;aa&quot; =~ /${a}/;      # True<br/>
+    &quot;aa&quot; =~ /${b}/;      # True<br/>
+    &quot;aa0&quot; =~ /${a}0/;    # False!<br/>
+    &quot;aa0&quot; =~ /${b}0/;    # True<br/>
+    &quot;aa\x08&quot; =~ /${a}0/;  # True!<br/>
+    &quot;aa\x08&quot; =~ /${b}0/;  # False<br/>
+<div class="spacer">
+</div>
+Several special variables also refer back to portions of the previous match.  $+ returns whatever the last bracket match matched. $&amp; returns the entire matched string.  (At one point $0 did also, but now it returns the name of the program.)  &quot;$`&quot; returns everything before the matched string.  &quot;$'&quot; returns everything after the matched string. And $^N contains whatever was matched by the most-recently closed group (submatch). $^N can be used in extended patterns (see below), for example to assign a submatch to a variable.<div class="spacer">
+</div>
+These special variables, like the &quot;%+&quot; hash and the numbered match variables ($1, $2, $3, etc.) are dynamically scoped until the end of the enclosing block or until the next successful match, whichever comes first.  (See &quot;Compound Statements&quot; in perlsyn.)<div class="spacer">
+</div>
+<b>NOTE</b>: Failed matches in Perl do not reset the match variables, which makes it easier to write code that tests for a series of more specific cases and remembers the best match.<div class="spacer">
+</div>
+<b>WARNING</b>: If your code is to run on Perl 5.16 or earlier, beware that once Perl sees that you need one of $&amp;, &quot;$`&quot;, or &quot;$'&quot; anywhere in the program, it has to provide them for every pattern match.  This may substantially slow your program.<div class="spacer">
+</div>
+Perl uses the same mechanism to produce $1, $2, etc, so you also pay a price for each pattern that contains capturing parentheses. (To avoid this cost while retaining the grouping behaviour, use the extended regular expression &quot;(?: ... )&quot; instead.)  But if you never use $&amp;, &quot;$`&quot; or &quot;$'&quot;, then patterns  <i>without</i> capturing parentheses will not be penalized.  So avoid $&amp;, &quot;$'&quot;, and &quot;$`&quot; if you can, but if you can't (and some algorithms really appreciate them), once you've used them once, use them at will, because you've already paid the price.<div class="spacer">
+</div>
+Perl 5.16 introduced a slightly more efficient mechanism that notes separately whether each of &quot;$`&quot;, $&amp;, and &quot;$'&quot; have been seen, and thus may only need to copy part of the string.  Perl 5.20 introduced a much more efficient copy-on-write mechanism which eliminates any slowdown.<div class="spacer">
+</div>
+As another workaround for this problem, Perl 5.10.0 introduced &quot;${^PREMATCH}&quot;, &quot;${^MATCH}&quot; and &quot;${^POSTMATCH}&quot;, which are equivalent to &quot;$`&quot;, $&amp; and &quot;$'&quot;,  <b>except</b> that they are only guaranteed to be defined after a successful match that was executed with the &quot;/p&quot; (preserve) modifier. The use of these variables incurs no global performance penalty, unlike their punctuation char equivalents, however at the trade-off that you have to tell perl when you want to use them.  As of Perl 5.20, these three variables are equivalent to &quot;$`&quot;, $&amp; and &quot;$'&quot;, and &quot;/p&quot; is ignored.</div>
+<div class="subsection">
+<h2>Quoting metacharacters</h2> Backslashed metacharacters in Perl are alphanumeric, such as &quot;\b&quot;, &quot;\w&quot;, &quot;\n&quot;.  Unlike some other regular expression languages, there are no backslashed symbols that aren't alphanumeric.  So anything that looks like \\, \(, \), \[, \], \{, or \} is always interpreted as a literal character, not a metacharacter.  This was once used in a common idiom to disable or quote the special meanings of regular expression metacharacters in a string that you want to use for a pattern. Simply quote all non-&quot;word&quot; characters:<div class="spacer">
+</div>
+<br/>
+    $pattern =~ s/(\W)/\\$1/g;<br/>
+<div class="spacer">
+</div>
+(If &quot;use locale&quot; is set, then this depends on the current locale.) Today it is more common to use the  <i>quotemeta()</i> function or the &quot;\Q&quot; metaquoting escape sequence to disable all metacharacters' special meanings like this:<div class="spacer">
+</div>
+<br/>
+    /$unquoted\Q$quoted\E$unquoted/<br/>
+<div class="spacer">
+</div>
+Beware that if you put literal backslashes (those not inside interpolated variables) between &quot;\Q&quot; and &quot;\E&quot;, double-quotish backslash interpolation may lead to confusing results.  If you  <i>need</i> to use literal backslashes within &quot;\Q...\E&quot;, consult &quot;Gory details of parsing quoted constructs&quot; in perlop.<div class="spacer">
+</div>
+&quot;quotemeta()&quot; and &quot;\Q&quot; are fully described in &quot;quotemeta&quot; in perlfunc.</div>
+<div class="subsection">
+<h2>Extended Patterns</h2> Perl also defines a consistent extension syntax for features not found in standard tools like  <b>awk</b> and  <b>lex</b>.  The syntax for most of these is a pair of parentheses with a question mark as the first thing within the parentheses.  The character after the question mark indicates the extension.<div class="spacer">
+</div>
+The stability of these extensions varies widely.  Some have been part of the core language for many years.  Others are experimental and may change without warning or be completely removed.  Check the documentation on an individual feature to verify its current status.<div class="spacer">
+</div>
+A question mark was chosen for this and for the minimal-matching construct because 1) question marks are rare in older regular expressions, and 2) whenever you see one, you should stop and &quot;question&quot; exactly what is going on.  That's psychology....<dl>
+<dt>
+&quot;(?#text)&quot;</dt>
+<dd>
+A comment.  The text is ignored. Note that Perl closes the comment as soon as it sees a &quot;)&quot;, so there is no way to put a literal &quot;)&quot; in the comment.  The pattern's closing delimiter must be escaped by a backslash if it appears in the comment.<div style="height: 1.00em;">
+&#160;</div>
+See &quot;/x&quot; for another way to have comments in patterns.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?adlupimsx-imsx)&quot;</dt>
+<dd>
 </dd>
 </dl>
-</div>
-<div class="subsection">
-<h2>Using References</h2> That's it for creating references.  By now you're probably dying to know how to use references to get back to your long-lost data.  There are several basic methods.<dl>
+<dl>
 <dt>
-1.</dt>
+&quot;(?^alupimsx)&quot;</dt>
 <dd>
-Anywhere you'd put an identifier (or chain of identifiers) as part of a variable or subroutine name, you can replace the identifier with a simple scalar variable containing a reference of the correct type:<div style="height: 1.00em;">
+One or more embedded pattern-match modifiers, to be turned on (or turned off, if preceded by &quot;-&quot;) for the remainder of the pattern or the remainder of the enclosing pattern group (if any).<div style="height: 1.00em;">
+&#160;</div>
+This is particularly useful for dynamic patterns, such as those read in from a configuration file, taken from an argument, or specified in a table somewhere.  Consider the case where some patterns want to be case-sensitive and some do not:  The case-insensitive ones merely need to include &quot;(?i)&quot; at the front of the pattern.  For example:<div style="height: 1.00em;">
 &#160;</div>
 <br/>
-    $bar = $$scalarref;<br/>
-    push(@$arrayref, $filename);<br/>
-    $$arrayref[0] = &quot;January&quot;;<br/>
-    $$hashref{&quot;KEY&quot;} = &quot;VALUE&quot;;<br/>
-    &amp;$coderef(1,2,3);<br/>
-    print $globref &quot;output\n&quot;;<br/>
+    $pattern = &quot;foobar&quot;;<br/>
+    if ( /$pattern/i ) { }<br/>
+<br/>
+    # more flexible:<br/>
+<br/>
+    $pattern = &quot;(?i)foobar&quot;;<br/>
+    if ( /$pattern/ ) { }<br/>
 <div style="height: 1.00em;">
 &#160;</div>
-It's important to understand that we are specifically <i>not</i> dereferencing $arrayref[0] or $hashref{&quot;KEY&quot;} there.  The dereference of the scalar variable happens  <i>before</i> it does any key lookups.  Anything more complicated than a simple scalar variable must use methods 2 or 3 below. However, a &quot;simple scalar&quot; includes an identifier that itself uses method 1 recursively.  Therefore, the following prints &quot;howdy&quot;.<div style="height: 1.00em;">
+These modifiers are restored at the end of the enclosing group. For example,<div style="height: 1.00em;">
 &#160;</div>
 <br/>
-    $refrefref = \\\&quot;howdy&quot;;<br/>
-    print $$$$refrefref;<br/>
+    ( (?i) blah ) \s+ \g1<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+will match &quot;blah&quot; in any case, some spaces, and an exact (<i>including the case</i>!) repetition of the previous word, assuming the &quot;/x&quot; modifier, and no &quot;/i&quot; modifier outside this group.<div style="height: 1.00em;">
+&#160;</div>
+These modifiers do not carry over into named subpatterns called in the enclosing group. In other words, a pattern such as &quot;((?i)(?&amp;NAME))&quot; does not change the case-sensitivity of the &quot;NAME&quot; pattern.<div style="height: 1.00em;">
+&#160;</div>
+Any of these modifiers can be set to apply globally to all regular expressions compiled within the scope of a &quot;use re&quot;.  See &quot;'/flags' mode&quot; in re.<div style="height: 1.00em;">
+&#160;</div>
+Starting in Perl 5.14, a &quot;^&quot; (caret or circumflex accent) immediately after the &quot;?&quot; is a shorthand equivalent to &quot;d-imsx&quot;.  Flags (except &quot;d&quot;) may follow the caret to override it. But a minus sign is not legal with it.<div style="height: 1.00em;">
+&#160;</div>
+Note that the &quot;a&quot;, &quot;d&quot;, &quot;l&quot;, &quot;p&quot;, and &quot;u&quot; modifiers are special in that they can only be enabled, not disabled, and the &quot;a&quot;, &quot;d&quot;, &quot;l&quot;, and &quot;u&quot; modifiers are mutually exclusive: specifying one de-specifies the others, and a maximum of one (or two &quot;a&quot;'s) may appear in the construct.  Thus, for example, &quot;(?-p)&quot; will warn when compiled under &quot;use warnings&quot;; &quot;(?-d:...)&quot; and &quot;(?dl:...)&quot; are fatal errors.<div style="height: 1.00em;">
+&#160;</div>
+Note also that the &quot;p&quot; modifier is special in that its presence anywhere in a pattern has a global effect.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?:pattern)&quot;</dt>
+<dd>
 </dd>
 </dl>
 <dl>
 <dt>
-2.</dt>
+&quot;(?adluimsx-imsx:pattern)&quot;</dt>
 <dd>
-Anywhere you'd put an identifier (or chain of identifiers) as part of a variable or subroutine name, you can replace the identifier with a BLOCK returning a reference of the correct type.  In other words, the previous examples could be written like this:<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    $bar = ${$scalarref};<br/>
-    push(@{$arrayref}, $filename);<br/>
-    ${$arrayref}[0] = &quot;January&quot;;<br/>
-    ${$hashref}{&quot;KEY&quot;} = &quot;VALUE&quot;;<br/>
-    &amp;{$coderef}(1,2,3);<br/>
-    $globref-&gt;print(&quot;output\n&quot;);  # iff IO::Handle is loaded<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-Admittedly, it's a little silly to use the curlies in this case, but the BLOCK can contain any arbitrary expression, in particular, subscripted expressions:<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    &amp;{ $dispatch{$index} }(1,2,3);      # call correct routine<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-Because of being able to omit the curlies for the simple case of $$x, people often make the mistake of viewing the dereferencing symbols as proper operators, and wonder about their precedence.  If they were, though, you could use parentheses instead of braces.  That's not the case. Consider the difference below; case 0 is a short-hand version of case 1,  <i>not</i> case 2:<div style="height: 1.00em;">
-&#160;</div>
-<br/>
-    $$hashref{&quot;KEY&quot;}   = &quot;VALUE&quot;;       # CASE 0<br/>
-    ${$hashref}{&quot;KEY&quot;} = &quot;VALUE&quot;;       # CASE 1<br/>
-    ${$hashref{&quot;KEY&quot;}} = &quot;VALUE&quot;;       # CASE 2<br/>
-    ${$hashref-&gt;{&quot;KEY&quot;}} = &quot;VALUE&quot;;     # CASE 3<br/>
-<div style="height: 1.00em;">
-&#160;</div>
-Case 2 is also deceptive in that you're accessing a variable called %hashref, not dereferencing through $hashref to the hash it's presumably referencing.  That would be case 3.</dd>
+</dd>
 </dl>
 <dl>
 <dt>
-3.</dt>
+&quot;(?^aluimsx:pattern)&quot;</dt>
 <dd>
-Subroutine calls and lookups of individual array elements arise often enough that it gets cumbersome to use method 2.  As a form of syntactic sugar, the examples for method 2 may be written:<div style="height: 1.00em;">
+This is for clustering, not capturing; it groups subexpressions like &quot;()&quot;, but doesn't make backreferences as &quot;()&quot; does.  So<div style="height: 1.00em;">
 &#160;</div>
 <br/>
-    $arrayref-&gt;[0] = &quot;January&quot;;   # Array element<br/>
-    $hashref-&gt;{&quot;KEY&quot;} = &quot;VALUE&quot;;  # Hash element<br/>
-    $coderef-&gt;(1,2,3);            # Subroutine call<br/>
+    @fields = split(/\b(?:a|b|c)\b/)<br/>
 <div style="height: 1.00em;">
 &#160;</div>
-The left side of the arrow can be any expression returning a reference, including a previous dereference.  Note that $array[$x] is  <i>not</i> the same thing as &quot;$array-&gt;[$x]&quot; here:<div style="height: 1.00em;">
+is like<div style="height: 1.00em;">
 &#160;</div>
 <br/>
-    $array[$x]-&gt;{&quot;foo&quot;}-&gt;[0] = &quot;January&quot;;<br/>
+    @fields = split(/\b(a|b|c)\b/)<br/>
 <div style="height: 1.00em;">
 &#160;</div>
-This is one of the cases we mentioned earlier in which references could spring into existence when in an lvalue context.  Before this statement, $array[$x] may have been undefined.  If so, it's automatically defined with a hash reference so that we can look up &quot;{&quot;foo&quot;}&quot; in it.  Likewise &quot;$array[$x]-&gt;{&quot;foo&quot;}&quot; will automatically get defined with an array reference so that we can look up &quot;[0]&quot; in it. This process is called  <i>autovivification</i>.<div style="height: 1.00em;">
+but doesn't spit out extra fields.  It's also cheaper not to capture characters if you don't need to.<div style="height: 1.00em;">
 &#160;</div>
-One more thing here.  The arrow is optional <i>between</i> brackets subscripts, so you can shrink the above down to<div style="height: 1.00em;">
+Any letters between &quot;?&quot; and &quot;:&quot; act as flags modifiers as with &quot;(?adluimsx-imsx)&quot;.  For example,<div style="height: 1.00em;">
 &#160;</div>
 <br/>
-    $array[$x]{&quot;foo&quot;}[0] = &quot;January&quot;;<br/>
+    /(?s-i:more.*than).*million/i<br/>
 <div style="height: 1.00em;">
 &#160;</div>
-Which, in the degenerate case of using only ordinary arrays, gives you multidimensional arrays just like C's:<div style="height: 1.00em;">
+is equivalent to the more verbose<div style="height: 1.00em;">
 &#160;</div>
 <br/>
-    $score[$x][$y][$z] += 42;<br/>
+    /(?:(?s-i)more.*than).*million/i<br/>
 <div style="height: 1.00em;">
 &#160;</div>
-Well, okay, not entirely like C's arrays, actually.  C doesn't know how to grow its arrays on demand.  Perl does.</dd>
+Starting in Perl 5.14, a &quot;^&quot; (caret or circumflex accent) immediately after the &quot;?&quot; is a shorthand equivalent to &quot;d-imsx&quot;.  Any positive flags (except &quot;d&quot;) may follow the caret, so<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    (?^x:foo)<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+is equivalent to<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    (?x-ims:foo)<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The caret tells Perl that this cluster doesn't inherit the flags of any surrounding pattern, but uses the system defaults (&quot;d-imsx&quot;), modified by any flags specified.<div style="height: 1.00em;">
+&#160;</div>
+The caret allows for simpler stringification of compiled regular expressions.  These look like<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    (?^:pattern)<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+with any non-default flags appearing between the caret and the colon. A test that looks at such stringification thus doesn't need to have the system default flags hard-coded in it, just the caret.  If new flags are added to Perl, the meaning of the caret's expansion will change to include the default for those flags, so the test will still work, unchanged.<div style="height: 1.00em;">
+&#160;</div>
+Specifying a negative flag after the caret is an error, as the flag is redundant.<div style="height: 1.00em;">
+&#160;</div>
+Mnemonic for &quot;(?^...)&quot;:  A fresh beginning since the usual use of a caret is to match at the beginning.</dd>
 </dl>
 <dl>
 <dt>
-4.</dt>
+&quot;(?|pattern)&quot;</dt>
 <dd>
-If a reference happens to be a reference to an object, then there are probably methods to access the things referred to, and you should probably stick to those methods unless you're in the class package that defines the object's methods.  In other words, be nice, and don't violate the object's encapsulation without a very good reason.  Perl does not enforce encapsulation.  We are not totalitarians here.  We do expect some basic civility though.</dd>
+This is the &quot;branch reset&quot; pattern, which has the special property that the capture groups are numbered from the same starting point in each alternation branch. It is available starting from perl 5.10.0.<div style="height: 1.00em;">
+&#160;</div>
+Capture groups are numbered from left to right, but inside this construct the numbering is restarted for each branch.<div style="height: 1.00em;">
+&#160;</div>
+The numbering within each branch will be as normal, and any groups following this construct will be numbered as though the construct contained only one branch, that being the one with the most capture groups in it.<div style="height: 1.00em;">
+&#160;</div>
+This construct is useful when you want to capture one of a number of alternative matches.<div style="height: 1.00em;">
+&#160;</div>
+Consider the following pattern.  The numbers underneath show in which group the captured content will be stored.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    # before  ---------------branch-reset----------- after        <br/>
+    / ( a )  (?| x ( y ) z | (p (q) r) | (t) u (v) ) ( z ) /x<br/>
+    # 1            2         2  3        2     3     4<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Be careful when using the branch reset pattern in combination with named captures. Named captures are implemented as being aliases to numbered groups holding the captures, and that interferes with the implementation of the branch reset pattern. If you are using named captures in a branch reset pattern, it's best to use the same names, in the same order, in each of the alternations:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+   /(?|  (?&lt;a&gt; x ) (?&lt;b&gt; y )<br/>
+      |  (?&lt;a&gt; z ) (?&lt;b&gt; w )) /x<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Not doing so may lead to surprises:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  &quot;12&quot; =~ /(?| (?&lt;a&gt; \d+ ) | (?&lt;b&gt; \D+))/x;<br/>
+  say $+ {a};   # Prints '12'<br/>
+  say $+ {b};   # *Also* prints '12'.<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+The problem here is that both the group named &quot;a&quot; and the group named &quot;b&quot; are aliases for the group belonging to $1.</dd>
 </dl>
-<div class="spacer">
+<dl>
+<dt>
+Look-Around Assertions</dt>
+<dd>
+Look-around assertions are zero-width patterns which match a specific pattern without including it in $&amp;. Positive assertions match when their subpattern matches, negative assertions match when their subpattern fails. Look-behind matches text up to the current match position, look-ahead matches text following the current match position.</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+&quot;(?=pattern)&quot;</dt>
+<dd>
+A zero-width positive look-ahead assertion.  For example, &quot;/\w+(?=\t)/&quot; matches a word followed by a tab, without including the tab in $&amp;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?!pattern)&quot;</dt>
+<dd>
+A zero-width negative look-ahead assertion.  For example &quot;/foo(?!bar)/&quot; matches any occurrence of &quot;foo&quot; that isn't followed by &quot;bar&quot;.  Note however that look-ahead and look-behind are NOT the same thing.  You cannot use this for look-behind.<div style="height: 1.00em;">
+&#160;</div>
+If you are looking for a &quot;bar&quot; that isn't preceded by a &quot;foo&quot;, &quot;/(?!foo)bar/&quot; will not do what you want.  That's because the &quot;(?!foo)&quot; is just saying that the next thing cannot be &quot;foo&quot;--and it's not, it's a &quot;bar&quot;, so &quot;foobar&quot; will match.  Use look-behind instead (see below).</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?&lt;=pattern)&quot; &quot;\K&quot;</dt>
+<dd>
+A zero-width positive look-behind assertion.  For example, &quot;/(?&lt;=\t)\w+/&quot; matches a word that follows a tab, without including the tab in $&amp;. Works only for fixed-width look-behind.<div style="height: 1.00em;">
+&#160;</div>
+There is a special form of this construct, called &quot;\K&quot; (available since Perl 5.10.0), which causes the regex engine to &quot;keep&quot; everything it had matched prior to the &quot;\K&quot; and not include it in $&amp;. This effectively provides variable-length look-behind. The use of &quot;\K&quot; inside of another look-around assertion is allowed, but the behaviour is currently not well defined.<div style="height: 1.00em;">
+&#160;</div>
+For various reasons &quot;\K&quot; may be significantly more efficient than the equivalent &quot;(?&lt;=...)&quot; construct, and it is especially useful in situations where you want to efficiently remove something following something else in a string. For instance<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  s/(foo)bar/$1/g;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+can be rewritten as the much more efficient<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  s/foo\Kbar//g;<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?&lt;!pattern)&quot;</dt>
+<dd>
+A zero-width negative look-behind assertion.  For example &quot;/(?&lt;!bar)foo/&quot; matches any occurrence of &quot;foo&quot; that does not follow &quot;bar&quot;.  Works only for fixed-width look-behind.</dd>
+</dl>
 </div>
-Using a string or number as a reference produces a symbolic reference, as explained above.  Using a reference as a number produces an integer representing its storage location in memory.  The only useful thing to be done with this is to compare two references numerically to see whether they refer to the same location.<div class="spacer">
+<div style="margin-left: 4.00ex;">
+</div>
+<dl>
+<dt>
+&quot;(?'NAME'pattern)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?&lt;NAME&gt;pattern)&quot;</dt>
+<dd>
+A named capture group. Identical in every respect to normal capturing parentheses &quot;()&quot; but for the additional fact that the group can be referred to by name in various regular expression constructs (like &quot;\g{NAME}&quot;) and can be accessed by name after a successful match via &quot;%+&quot; or &quot;%-&quot;. See perlvar for more details on the &quot;%+&quot; and &quot;%-&quot; hashes.<div style="height: 1.00em;">
+&#160;</div>
+If multiple distinct capture groups have the same name then the $+{NAME} will refer to the leftmost defined group in the match.<div style="height: 1.00em;">
+&#160;</div>
+The forms &quot;(?'NAME'pattern)&quot; and &quot;(?&lt;NAME&gt;pattern)&quot; are equivalent.<div style="height: 1.00em;">
+&#160;</div>
+<b>NOTE:</b> While the notation of this construct is the same as the similar function in .NET regexes, the behavior is not. In Perl the groups are numbered sequentially regardless of being named or not. Thus in the pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  /(x)(?&lt;foo&gt;y)(z)/<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+$+{foo} will be the same as $2, and $3 will contain 'z' instead of the opposite which is what a .NET regex hacker might expect.<div style="height: 1.00em;">
+&#160;</div>
+Currently NAME is restricted to simple identifiers only. In other words, it must match &quot;/^[_A-Za-z][_A-Za-z0-9]*\z/&quot; or its Unicode extension (see utf8), though it isn't extended by the locale (see perllocale).<div style="height: 1.00em;">
+&#160;</div>
+<b>NOTE:</b> In order to make things easier for programmers with experience with the Python or PCRE regex engines, the pattern &quot;(?P&lt;NAME&gt;pattern)&quot; may be used instead of &quot;(?&lt;NAME&gt;pattern)&quot;; however this form does not support the use of single quotes as a delimiter for the name.</dd>
+</dl>
+<dl>
+<dt>
+&quot;\k&lt;NAME&gt;&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;\k'NAME'&quot;</dt>
+<dd>
+Named backreference. Similar to numeric backreferences, except that the group is designated by name and not number. If multiple groups have the same name then it refers to the leftmost defined group in the current match.<div style="height: 1.00em;">
+&#160;</div>
+It is an error to refer to a name not defined by a &quot;(?&lt;NAME&gt;)&quot; earlier in the pattern.<div style="height: 1.00em;">
+&#160;</div>
+Both forms are equivalent.<div style="height: 1.00em;">
+&#160;</div>
+<b>NOTE:</b> In order to make things easier for programmers with experience with the Python or PCRE regex engines, the pattern &quot;(?P=NAME)&quot; may be used instead of &quot;\k&lt;NAME&gt;&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?{ code })&quot;</dt>
+<dd>
+<b>WARNING</b>: Using this feature safely requires that you understand its limitations.  Code executed that has side effects may not perform identically from version to version due to the effect of future optimisations in the regex engine.  For more information on this, see &quot;Embedded Code Execution Frequency&quot;.<div style="height: 1.00em;">
+&#160;</div>
+This zero-width assertion executes any embedded Perl code.  It always succeeds, and its return value is set as $^R.<div style="height: 1.00em;">
+&#160;</div>
+In literal patterns, the code is parsed at the same time as the surrounding code. While within the pattern, control is passed temporarily back to the perl parser, until the logically-balancing closing brace is encountered. This is similar to the way that an array index expression in a literal string is handled, for example<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    &quot;abc$array[ 1 + f('[') + g()]def&quot;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+In particular, braces do not need to be balanced:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    s/abc(?{ f('{'); })/def/<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Even in a pattern that is interpolated and compiled at run-time, literal code blocks will be compiled once, at perl compile time; the following prints &quot;ABCD&quot;:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    print &quot;D&quot;;<br/>
+    my $qr = qr/(?{ BEGIN { print &quot;A&quot; } })/;<br/>
+    my $foo = &quot;foo&quot;;<br/>
+    /$foo$qr(?{ BEGIN { print &quot;B&quot; } })/;<br/>
+    BEGIN { print &quot;C&quot; }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+In patterns where the text of the code is derived from run-time information rather than appearing literally in a source code /pattern/, the code is compiled at the same time that the pattern is compiled, and for reasons of security, &quot;use re 'eval'&quot; must be in scope. This is to stop user-supplied patterns containing code snippets from being executable.<div style="height: 1.00em;">
+&#160;</div>
+In situations where you need to enable this with &quot;use re 'eval'&quot;, you should also have taint checking enabled.  Better yet, use the carefully constrained evaluation within a Safe compartment.  See perlsec for details about both these mechanisms.<div style="height: 1.00em;">
+&#160;</div>
+From the viewpoint of parsing, lexical variable scope and closures,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    /AAA(?{ BBB })CCC/<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+behaves approximately like<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    /AAA/ &amp;&amp; do { BBB } &amp;&amp; /CCC/<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Similarly,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    qr/AAA(?{ BBB })CCC/<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+behaves approximately like<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    sub { /AAA/ &amp;&amp; do { BBB } &amp;&amp; /CCC/ }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+In particular:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    { my $i = 1; $r = qr/(?{ print $i })/ }<br/>
+    my $i = 2;<br/>
+    /$r/; # prints &quot;1&quot;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Inside a &quot;(?{...})&quot; block, $_ refers to the string the regular expression is matching against. You can also use &quot;pos()&quot; to know what is the current position of matching within this string.<div style="height: 1.00em;">
+&#160;</div>
+The code block introduces a new scope from the perspective of lexical variable declarations, but  <b>not</b> from the perspective of &quot;local&quot; and similar localizing behaviours. So later code blocks within the same pattern will still see the values which were localized in earlier blocks. These accumulated localizations are undone either at the end of a successful match, or if the assertion is backtracked (compare &quot;Backtracking&quot;). For example,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $_ = 'a' x 8;<br/>
+  m&lt;<br/>
+     (?{ $cnt = 0 })               # Initialize $cnt.<br/>
+     (<br/>
+       a<br/>
+       (?{<br/>
+           local $cnt = $cnt + 1;  # Update $cnt,<br/>
+                                   # backtracking-safe.<br/>
+       })<br/>
+     )*<br/>
+     aaaa<br/>
+     (?{ $res = $cnt })            # On success copy to<br/>
+                                   # non-localized location.<br/>
+   &gt;x;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+will initially increment $cnt up to 8; then during backtracking, its value will be unwound back to 4, which is the value assigned to $res. At the end of the regex execution, $cnt will be wound back to its initial value of 0.<div style="height: 1.00em;">
+&#160;</div>
+This assertion may be used as the condition in a<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    (?(condition)yes-pattern|no-pattern)<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+switch.  If <i>not</i> used in this way, the result of evaluation of &quot;code&quot; is put into the special variable $^R.  This happens immediately, so $^R can be used from other &quot;(?{ code })&quot; assertions inside the same regular expression.<div style="height: 1.00em;">
+&#160;</div>
+The assignment to $^R above is properly localized, so the old value of $^R is restored if the assertion is backtracked; compare &quot;Backtracking&quot;.<div style="height: 1.00em;">
+&#160;</div>
+Note that the special variable $^N  is particularly useful with code blocks to capture the results of submatches in variables without having to keep track of the number of nested parentheses. For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $_ = &quot;The brown fox jumps over the lazy dog&quot;;<br/>
+  /the (\S+)(?{ $color = $^N }) (\S+)(?{ $animal = $^N })/i;<br/>
+  print &quot;color = $color, animal = $animal\n&quot;;<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;(??{ code })&quot;</dt>
+<dd>
+<b>WARNING</b>: Using this feature safely requires that you understand its limitations.  Code executed that has side effects may not perform identically from version to version due to the effect of future optimisations in the regex engine.  For more information on this, see &quot;Embedded Code Execution Frequency&quot;.<div style="height: 1.00em;">
+&#160;</div>
+This is a &quot;postponed&quot; regular subexpression.  It behaves in <i>exactly</i> the same way as a &quot;(?{ code })&quot; code block as described above, except that its return value, rather than being assigned to $^R, is treated as a pattern, compiled if it's a string (or used as-is if its a qr// object), then matched as if it were inserted instead of this construct.<div style="height: 1.00em;">
+&#160;</div>
+During the matching of this sub-pattern, it has its own set of captures which are valid during the sub-match, but are discarded once control returns to the main pattern. For example, the following matches, with the inner pattern capturing &quot;B&quot; and matching &quot;BB&quot;, while the outer pattern captures &quot;A&quot;;<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    my $inner = '(.)\1';<br/>
+    &quot;ABBA&quot; =~ /^(.)(??{ $inner })\1/;<br/>
+    print $1; # prints &quot;A&quot;;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Note that this means that  there is no way for the inner pattern to refer to a capture group defined outside.  (The code block itself can use $1, etc., to refer to the enclosing pattern's capture groups.)  Thus, although<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    ('a' x 100)=~/(??{'(.)' x 100})/<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<i>will</i> match, it will <i>not</i> set $1 on exit.<div style="height: 1.00em;">
+&#160;</div>
+The following pattern matches a parenthesized group:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ $re = qr{<br/>
+            \(<br/>
+            (?:<br/>
+               (?&gt; [^()]+ )  # Non-parens without backtracking<br/>
+             |<br/>
+               (??{ $re })   # Group with matching parens<br/>
+            )*<br/>
+            \)<br/>
+         }x;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+See also &quot;(? <i>PARNO</i>)&quot; for a different, more efficient way to accomplish the same task.<div style="height: 1.00em;">
+&#160;</div>
+Executing a postponed regular expression 50 times without consuming any input string will result in a fatal error.  The maximum depth is compiled into perl, so changing it requires a custom build.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?<i>PARNO</i>)&quot; &quot;(?-<i>PARNO</i>)&quot; &quot;(?+<i>PARNO</i>)&quot; &quot;(?R)&quot; &quot;(?0)&quot;</dt>
+<dd>
+Recursive subpattern. Treat the contents of a given capture buffer in the current pattern as an independent subpattern and attempt to match it at the current position in the string. Information about capture state from the caller for things like backreferences is available to the subpattern, but capture buffers set by the subpattern are not visible to the caller.<div style="height: 1.00em;">
+&#160;</div>
+Similar to &quot;(??{ code })&quot; except that it does not involve executing any code or potentially compiling a returned pattern string; instead it treats the part of the current pattern contained within a specified capture group as an independent pattern that must match at the current position. Also different is the treatment of capture buffers, unlike &quot;(??{ code })&quot; recursive patterns have access to their callers match state, so one can use backreferences safely.<div style="height: 1.00em;">
+&#160;</div>
+<i>PARNO</i> is a sequence of digits (not starting with 0) whose value reflects the paren-number of the capture group to recurse to. &quot;(?R)&quot; recurses to the beginning of the whole pattern. &quot;(?0)&quot; is an alternate syntax for &quot;(?R)&quot;. If  <i>PARNO</i> is preceded by a plus or minus sign then it is assumed to be relative, with negative numbers indicating preceding capture groups and positive ones following. Thus &quot;(?-1)&quot; refers to the most recently declared group, and &quot;(?+1)&quot; indicates the next group to be declared. Note that the counting for relative recursion differs from that of relative backreferences, in that with recursion unclosed groups  <b>are</b> included.<div style="height: 1.00em;">
+&#160;</div>
+The following pattern matches a function <i>foo()</i> which may contain balanced parentheses as the argument.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  $re = qr{ (                   # paren group 1 (full function)<br/>
+              foo<br/>
+              (                 # paren group 2 (parens)<br/>
+                \(<br/>
+                  (             # paren group 3 (contents of parens)<br/>
+                  (?:<br/>
+                   (?&gt; [^()]+ ) # Non-parens without backtracking<br/>
+                  |<br/>
+                   (?2)         # Recurse to start of paren group 2<br/>
+                  )*<br/>
+                  )<br/>
+                \)<br/>
+              )<br/>
+            )<br/>
+          }x;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If the pattern was used as follows<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    'foo(bar(baz)+baz(bop))'=~/$re/<br/>
+        and print &quot;\$1 = $1\n&quot;,<br/>
+                  &quot;\$2 = $2\n&quot;,<br/>
+                  &quot;\$3 = $3\n&quot;;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+the output produced should be the following:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    $1 = foo(bar(baz)+baz(bop))<br/>
+    $2 = (bar(baz)+baz(bop))<br/>
+    $3 = bar(baz)+baz(bop)<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If there is no corresponding capture group defined, then it is a fatal error.  Recursing deeper than 50 times without consuming any input string will also result in a fatal error.  The maximum depth is compiled into perl, so changing it requires a custom build.<div style="height: 1.00em;">
+&#160;</div>
+The following shows how using negative indexing can make it easier to embed recursive patterns inside of a &quot;qr//&quot; construct for later use:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    my $parens = qr/(\((?:[^()]++|(?-1))*+\))/;<br/>
+    if (/foo $parens \s+ \+ \s+ bar $parens/x) {<br/>
+       # do something here...<br/>
+    }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+<b>Note</b> that this pattern does not behave the same way as the equivalent PCRE or Python construct of the same form. In Perl you can backtrack into a recursed group, in PCRE and Python the recursed into group is treated as atomic. Also, modifiers are resolved at compile time, so constructs like (?i:(?1)) or (?:(?i)(?1)) do not affect how the sub-pattern will be processed.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?&amp;NAME)&quot;</dt>
+<dd>
+Recurse to a named subpattern. Identical to &quot;(?<i>PARNO</i>)&quot; except that the parenthesis to recurse to is determined by name. If multiple parentheses have the same name, then it recurses to the leftmost.<div style="height: 1.00em;">
+&#160;</div>
+It is an error to refer to a name that is not declared somewhere in the pattern.<div style="height: 1.00em;">
+&#160;</div>
+<b>NOTE:</b> In order to make things easier for programmers with experience with the Python or PCRE regex engines the pattern &quot;(?P&gt;NAME)&quot; may be used instead of &quot;(?&amp;NAME)&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?(condition)yes-pattern|no-pattern)&quot;</dt>
+<dd>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?(condition)yes-pattern)&quot;</dt>
+<dd>
+Conditional expression. Matches &quot;yes-pattern&quot; if &quot;condition&quot; yields a true value, matches &quot;no-pattern&quot; otherwise. A missing pattern always matches.<div style="height: 1.00em;">
+&#160;</div>
+&quot;(condition)&quot; should be one of: 1) an integer in parentheses (which is valid if the corresponding pair of parentheses matched); 2) a look-ahead/look-behind/evaluate zero-width assertion; 3) a name in angle brackets or single quotes (which is valid if a group with the given name matched); or 4) the special symbol (R) (true when evaluated inside of recursion or eval). Additionally the R may be followed by a number, (which will be true when evaluated when recursing inside of the appropriate group), or by &amp;NAME, in which case it will be true only when evaluated during recursion in the named group.<div style="height: 1.00em;">
+&#160;</div>
+Here's a summary of the possible predicates:</dd>
+</dl>
+<div style="margin-left: 4.00ex;">
+<dl>
+<dt>
+(1) (2) ...</dt>
+<dd>
+Checks if the numbered capturing group has matched something.</dd>
+</dl>
+<dl>
+<dt>
+(&lt;NAME&gt;) ('NAME')</dt>
+<dd>
+Checks if a group with the given name has matched something.</dd>
+</dl>
+<dl>
+<dt>
+(?=...) (?!...) (?&lt;=...) (?&lt;!...)</dt>
+<dd>
+Checks whether the pattern matches (or does not match, for the '!' variants).</dd>
+</dl>
+<dl>
+<dt>
+(?{ CODE })</dt>
+<dd>
+Treats the return value of the code block as the condition.</dd>
+</dl>
+<dl>
+<dt>
+(R)</dt>
+<dd>
+Checks if the expression has been evaluated inside of recursion.</dd>
+</dl>
+<dl>
+<dt>
+(R1) (R2) ...</dt>
+<dd>
+Checks if the expression has been evaluated while executing directly inside of the n-th capture group. This check is the regex equivalent of<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  if ((caller(0))[3] eq 'subname') { ... }<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+In other words, it does not check the full recursion stack.</dd>
+</dl>
+<dl>
+<dt>
+(R&amp;NAME)</dt>
+<dd>
+Similar to &quot;(R1)&quot;, this predicate checks to see if we're executing directly inside of the leftmost group with a given name (this is the same logic used by &quot;(?&amp;NAME)&quot; to disambiguate). It does not check the full stack, but only the name of the innermost active recursion.</dd>
+</dl>
+<dl>
+<dt>
+(DEFINE)</dt>
+<dd>
+In this case, the yes-pattern is never directly executed, and no no-pattern is allowed. Similar in spirit to &quot;(?{0})&quot; but more efficient. See below for details.</dd>
+</dl>
+</div>
+<div style="margin-left: 4.00ex;">
+<div style="height: 1.00em;">
+&#160;</div>
+For example:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    m{ ( \( )?<br/>
+       [^()]+<br/>
+       (?(1) \) )<br/>
+     }x<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+matches a chunk of non-parentheses, possibly included in parentheses themselves.<div style="height: 1.00em;">
+&#160;</div>
+A special form is the &quot;(DEFINE)&quot; predicate, which never executes its yes-pattern directly, and does not allow a no-pattern. This allows one to define subpatterns which will be executed only by the recursion mechanism. This way, you can define a set of regular expression rules that can be bundled into any pattern you choose.<div style="height: 1.00em;">
+&#160;</div>
+It is recommended that for this usage you put the DEFINE block at the end of the pattern, and that you name any subpatterns defined within it.<div style="height: 1.00em;">
+&#160;</div>
+Also, it's worth noting that patterns defined this way probably will not be as efficient, as the optimizer is not very clever about handling them.<div style="height: 1.00em;">
+&#160;</div>
+An example of how this might be used is as follows:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  /(?&lt;NAME&gt;(?&amp;NAME_PAT))(?&lt;ADDR&gt;(?&amp;ADDRESS_PAT))<br/>
+   (?(DEFINE)<br/>
+     (?&lt;NAME_PAT&gt;....)<br/>
+     (?&lt;ADDRESS_PAT&gt;....)<br/>
+   )/x<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Note that capture groups matched inside of recursion are not accessible after the recursion returns, so the extra layer of capturing groups is necessary. Thus $+{NAME_PAT} would not be defined even though $+{NAME} would be.<div style="height: 1.00em;">
+&#160;</div>
+Finally, keep in mind that subpatterns created inside a DEFINE block count towards the absolute and relative number of captures, so this:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    my @captures = &quot;a&quot; =~ /(.)                  # First capture<br/>
+                           (?(DEFINE)<br/>
+                               (?&lt;EXAMPLE&gt; 1 )  # Second capture<br/>
+                           )/x;<br/>
+    say scalar @captures;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Will output 2, not 1. This is particularly important if you intend to compile the definitions with the &quot;qr//&quot; operator, and later interpolate them in another pattern.</div>
+<dl>
+<dt>
+&quot;(?&gt;pattern)&quot;</dt>
+<dd>
+An &quot;independent&quot; subexpression, one which matches the substring that a  <i>standalone</i> &quot;pattern&quot; would match if anchored at the given position, and it matches  <i>nothing other than this substring</i>.  This construct is useful for optimizations of what would otherwise be &quot;eternal&quot; matches, because it will not backtrack (see &quot;Backtracking&quot;). It may also be useful in places where the &quot;grab all you can, and do not give anything back&quot; semantic is desirable.<div style="height: 1.00em;">
+&#160;</div>
+For example: &quot;^(?&gt;a*)ab&quot; will never match, since &quot;(?&gt;a*)&quot; (anchored at the beginning of string, as above) will match  <i>all</i> characters &quot;a&quot; at the beginning of string, leaving no &quot;a&quot; for &quot;ab&quot; to match.  In contrast, &quot;a*ab&quot; will match the same as &quot;a+b&quot;, since the match of the subgroup &quot;a*&quot; is influenced by the following group &quot;ab&quot; (see &quot;Backtracking&quot;).  In particular, &quot;a*&quot; inside &quot;a*ab&quot; will match fewer characters than a standalone &quot;a*&quot;, since this makes the tail match.<div style="height: 1.00em;">
+&#160;</div>
+&quot;(?&gt;pattern)&quot; does not disable backtracking altogether once it has matched. It is still possible to backtrack past the construct, but not into it. So &quot;((?&gt;a*)|(?&gt;b*))ar&quot; will still match &quot;bar&quot;.<div style="height: 1.00em;">
+&#160;</div>
+An effect similar to &quot;(?&gt;pattern)&quot; may be achieved by writing &quot;(?=(pattern))\g{-1}&quot;.  This matches the same substring as a standalone &quot;a+&quot;, and the following &quot;\g{-1}&quot; eats the matched string; it therefore makes a zero-length assertion into an analogue of &quot;(?&gt;...)&quot;. (The difference between these two constructs is that the second one uses a capturing group, thus shifting ordinals of backreferences in the rest of a regular expression.)<div style="height: 1.00em;">
+&#160;</div>
+Consider this pattern:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    m{ \(<br/>
+          (<br/>
+            [^()]+           # x+<br/>
+          |<br/>
+            \( [^()]* \)<br/>
+          )+<br/>
+       \)<br/>
+     }x<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+That will efficiently match a nonempty group with matching parentheses two levels deep or less.  However, if there is no such group, it will take virtually forever on a long string.  That's because there are so many different ways to split a long string into several substrings.  This is what &quot;(.+)+&quot; is doing, and &quot;(.+)+&quot; is similar to a subpattern of the above pattern.  Consider how the pattern above detects no-match on &quot;((()aaaaaaaaaaaaaaaaaa&quot; in several seconds, but that each extra letter doubles this time.  This exponential performance will make it appear that your program has hung.  However, a tiny change to this pattern<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    m{ \(<br/>
+          (<br/>
+            (?&gt; [^()]+ )        # change x+ above to (?&gt; x+ )<br/>
+          |<br/>
+            \( [^()]* \)<br/>
+          )+<br/>
+       \)<br/>
+     }x<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+which uses &quot;(?&gt;...)&quot; matches exactly when the one above does (verifying this yourself would be a productive exercise), but finishes in a fourth the time when used on a similar string with 1000000 &quot;a&quot;s.  Be aware, however, that, when this construct is followed by a quantifier, it currently triggers a warning message under the &quot;use warnings&quot; pragma or  <b>-w</b> switch saying it &quot;matches null string many times in regex&quot;.<div style="height: 1.00em;">
+&#160;</div>
+On simple groups, such as the pattern &quot;(?&gt; [^()]+ )&quot;, a comparable effect may be achieved by negative look-ahead, as in &quot;[^()]+ (?! [^()] )&quot;. This was only 4 times slower on a string with 1000000 &quot;a&quot;s.<div style="height: 1.00em;">
+&#160;</div>
+The &quot;grab all you can, and do not give anything back&quot; semantic is desirable in many situations where on the first sight a simple &quot;()*&quot; looks like the correct solution.  Suppose we parse text with comments being delimited by &quot;#&quot; followed by some optional (horizontal) whitespace.  Contrary to its appearance, &quot;#[ \t]*&quot;  <i>is not</i> the correct subexpression to match the comment delimiter, because it may &quot;give up&quot; some whitespace if the remainder of the pattern can be made to match that way.  The correct answer is either one of these:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    (?&gt;#[ \t]*)<br/>
+    #[ \t]*(?![ \t])<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+For example, to grab non-empty comments into $1, one should use either one of these:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    / (?&gt; \# [ \t]* ) (        .+ ) /x;<br/>
+    /     \# [ \t]*   ( [^ \t] .* ) /x;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Which one you pick depends on which of these expressions better reflects the above specification of comments.<div style="height: 1.00em;">
+&#160;</div>
+In some literature this construct is called &quot;atomic matching&quot; or &quot;possessive matching&quot;.<div style="height: 1.00em;">
+&#160;</div>
+Possessive quantifiers are equivalent to putting the item they are applied to inside of one of these constructs. The following equivalences apply:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    Quantifier Form     Bracketing Form<br/>
+    ---------------     ---------------<br/>
+    PAT*+               (?&gt;PAT*)<br/>
+    PAT++               (?&gt;PAT+)<br/>
+    PAT?+               (?&gt;PAT?)<br/>
+    PAT{min,max}+       (?&gt;PAT{min,max})<br/>
+</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?[ ])&quot;</dt>
+<dd>
+See &quot;Extended Bracketed Character Classes&quot; in perlrecharclass.</dd>
+</dl>
+</div>
+<div class="subsection">
+<h2>Special Backtracking Control Verbs</h2> These special patterns are generally of the form &quot;(*VERB:ARG)&quot;. Unless otherwise stated the ARG argument is optional; in some cases, it is forbidden.<div class="spacer">
+</div>
+Any pattern containing a special backtracking verb that allows an argument has the special behaviour that when executed it sets the current package's $REGERROR and $REGMARK variables. When doing so the following rules apply:<div class="spacer">
+</div>
+On failure, the $REGERROR variable will be set to the ARG value of the verb pattern, if the verb was involved in the failure of the match. If the ARG part of the pattern was omitted, then $REGERROR will be set to the name of the last &quot;(*MARK:NAME)&quot; pattern executed, or to TRUE if there was none. Also, the $REGMARK variable will be set to FALSE.<div class="spacer">
+</div>
+On a successful match, the $REGERROR variable will be set to FALSE, and the $REGMARK variable will be set to the name of the last &quot;(*MARK:NAME)&quot; pattern executed.  See the explanation for the &quot;(*MARK:NAME)&quot; verb below for more details.<div class="spacer">
+</div>
+<b>NOTE:</b> $REGERROR and $REGMARK are not magic variables like $1 and most other regex-related variables. They are not local to a scope, nor readonly, but instead are volatile package variables similar to $AUTOLOAD. Use &quot;local&quot; to localize changes to them to a specific scope if necessary.<div class="spacer">
+</div>
+If a pattern does not contain a special backtracking verb that allows an argument, then $REGERROR and $REGMARK are not touched at all.<dl>
+<dt>
+Verbs that take an argument</dt>
+<dd>
+</dd>
+</dl>
+<div style="margin-left: 3.00ex;">
+<dl>
+<dt>
+&quot;(*PRUNE)&quot; &quot;(*PRUNE:NAME)&quot;</dt>
+<dd>
+This zero-width pattern prunes the backtracking tree at the current point when backtracked into on failure. Consider the pattern &quot;A (*PRUNE) B&quot;, where A and B are complex patterns. Until the &quot;(*PRUNE)&quot; verb is reached, A may backtrack as necessary to match. Once it is reached, matching continues in B, which may also backtrack as necessary; however, should B not match, then no further backtracking will take place, and the pattern will fail outright at the current starting position.<div style="height: 1.00em;">
+&#160;</div>
+The following example counts all the possible matching strings in a pattern (without actually matching any of them).<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    'aaab' =~ /a+b?(?{print &quot;$&amp;\n&quot;; $count++})(*FAIL)/;<br/>
+    print &quot;Count=$count\n&quot;;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+which produces:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    aaab<br/>
+    aaa<br/>
+    aa<br/>
+    a<br/>
+    aab<br/>
+    aa<br/>
+    a<br/>
+    ab<br/>
+    a<br/>
+    Count=9<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+If we add a &quot;(*PRUNE)&quot; before the count like the following<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    'aaab' =~ /a+b?(*PRUNE)(?{print &quot;$&amp;\n&quot;; $count++})(*FAIL)/;<br/>
+    print &quot;Count=$count\n&quot;;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+we prevent backtracking and find the count of the longest matching string at each matching starting point like so:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    aaab<br/>
+    aab<br/>
+    ab<br/>
+    Count=3<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Any number of &quot;(*PRUNE)&quot; assertions may be used in a pattern.<div style="height: 1.00em;">
+&#160;</div>
+See also &quot;(?&gt;pattern)&quot; and possessive quantifiers for other ways to control backtracking. In some cases, the use of &quot;(*PRUNE)&quot; can be replaced with a &quot;(?&gt;pattern)&quot; with no functional difference; however, &quot;(*PRUNE)&quot; can be used to handle cases that cannot be expressed using a &quot;(?&gt;pattern)&quot; alone.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(*SKIP)&quot; &quot;(*SKIP:NAME)&quot;</dt>
+<dd>
+This zero-width pattern is similar to &quot;(*PRUNE)&quot;, except that on failure it also signifies that whatever text that was matched leading up to the &quot;(*SKIP)&quot; pattern being executed cannot be part of  <i>any</i> match of this pattern. This effectively means that the regex engine &quot;skips&quot; forward to this position on failure and tries to match again, (assuming that there is sufficient room to match).<div style="height: 1.00em;">
+&#160;</div>
+The name of the &quot;(*SKIP:NAME)&quot; pattern has special significance. If a &quot;(*MARK:NAME)&quot; was encountered while matching, then it is that position which is used as the &quot;skip point&quot;. If no &quot;(*MARK)&quot; of that name was encountered, then the &quot;(*SKIP)&quot; operator has no effect. When used without a name the &quot;skip point&quot; is where the match point was when executing the (*SKIP) pattern.<div style="height: 1.00em;">
+&#160;</div>
+Compare the following to the examples in &quot;(*PRUNE)&quot;; note the string is twice as long:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ 'aaabaaab' =~ /a+b?(*SKIP)(?{print &quot;$&amp;\n&quot;; $count++})(*FAIL)/;<br/>
+ print &quot;Count=$count\n&quot;;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+outputs<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    aaab<br/>
+    aaab<br/>
+    Count=2<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Once the 'aaab' at the start of the string has matched, and the &quot;(*SKIP)&quot; executed, the next starting point will be where the cursor was when the &quot;(*SKIP)&quot; was executed.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(*MARK:NAME)&quot; &quot;(*:NAME)&quot;</dt>
+<dd>
+This zero-width pattern can be used to mark the point reached in a string when a certain part of the pattern has been successfully matched. This mark may be given a name. A later &quot;(*SKIP)&quot; pattern will then skip forward to that point if backtracked into on failure. Any number of &quot;(*MARK)&quot; patterns are allowed, and the NAME portion may be duplicated.<div style="height: 1.00em;">
+&#160;</div>
+In addition to interacting with the &quot;(*SKIP)&quot; pattern, &quot;(*MARK:NAME)&quot; can be used to &quot;label&quot; a pattern branch, so that after matching, the program can determine which branches of the pattern were involved in the match.<div style="height: 1.00em;">
+&#160;</div>
+When a match is successful, the $REGMARK variable will be set to the name of the most recently executed &quot;(*MARK:NAME)&quot; that was involved in the match.<div style="height: 1.00em;">
+&#160;</div>
+This can be used to determine which branch of a pattern was matched without using a separate capture group for each branch, which in turn can result in a performance improvement, as perl cannot optimize &quot;/(?:(x)|(y)|(z))/&quot; as efficiently as something like &quot;/(?:x(*MARK:x)|y(*MARK:y)|z(*MARK:z))/&quot;.<div style="height: 1.00em;">
+&#160;</div>
+When a match has failed, and unless another verb has been involved in failing the match and has provided its own name to use, the $REGERROR variable will be set to the name of the most recently executed &quot;(*MARK:NAME)&quot;.<div style="height: 1.00em;">
+&#160;</div>
+See &quot;(*SKIP)&quot; for more details.<div style="height: 1.00em;">
+&#160;</div>
+As a shortcut &quot;(*MARK:NAME)&quot; can be written &quot;(*:NAME)&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(*THEN)&quot; &quot;(*THEN:NAME)&quot;</dt>
+<dd>
+This is similar to the &quot;cut group&quot; operator &quot;::&quot; from Perl 6.  Like &quot;(*PRUNE)&quot;, this verb always matches, and when backtracked into on failure, it causes the regex engine to try the next alternation in the innermost enclosing group (capturing or otherwise) that has alternations. The two branches of a &quot;(?(condition)yes-pattern|no-pattern)&quot; do not count as an alternation, as far as &quot;(*THEN)&quot; is concerned.<div style="height: 1.00em;">
+&#160;</div>
+Its name comes from the observation that this operation combined with the alternation operator (&quot;|&quot;) can be used to create what is essentially a pattern-based if/then/else block:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  ( COND (*THEN) FOO | COND2 (*THEN) BAR | COND3 (*THEN) BAZ )<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+Note that if this operator is used and NOT inside of an alternation then it acts exactly like the &quot;(*PRUNE)&quot; operator.<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  / A (*PRUNE) B /<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+is the same as<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  / A (*THEN) B /<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+but<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  / ( A (*THEN) B | C ) /<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+is not the same as<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  / ( A (*PRUNE) B | C ) /<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+as after matching the A but failing on the B the &quot;(*THEN)&quot; verb will backtrack and try C; but the &quot;(*PRUNE)&quot; verb will simply fail.</dd>
+</dl>
+</div>
+<div style="margin-left: 3.00ex;">
+</div>
+<dl>
+<dt>
+Verbs without an argument</dt>
+<dd>
+</dd>
+</dl>
+<div style="margin-left: 3.00ex;">
+<dl>
+<dt>
+&quot;(*COMMIT)&quot;</dt>
+<dd>
+This is the Perl 6 &quot;commit pattern&quot; &quot;&lt;commit&gt;&quot; or &quot;:::&quot;. It's a zero-width pattern similar to &quot;(*SKIP)&quot;, except that when backtracked into on failure it causes the match to fail outright. No further attempts to find a valid match by advancing the start pointer will occur again. For example,<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+ 'aaabaaab' =~ /a+b?(*COMMIT)(?{print &quot;$&amp;\n&quot;; $count++})(*FAIL)/;<br/>
+ print &quot;Count=$count\n&quot;;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+outputs<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+    aaab<br/>
+    Count=1<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+In other words, once the &quot;(*COMMIT)&quot; has been entered, and if the pattern does not match, the regex engine will not try any further matching on the rest of the string.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(*FAIL)&quot; &quot;(*F)&quot;</dt>
+<dd>
+This pattern matches nothing and always fails. It can be used to force the engine to backtrack. It is equivalent to &quot;(?!)&quot;, but easier to read. In fact, &quot;(?!)&quot; gets optimised into &quot;(*FAIL)&quot; internally.<div style="height: 1.00em;">
+&#160;</div>
+It is probably useful only when combined with &quot;(?{})&quot; or &quot;(??{})&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(*ACCEPT)&quot;</dt>
+<dd>
+This pattern matches nothing and causes the end of successful matching at the point at which the &quot;(*ACCEPT)&quot; pattern was encountered, regardless of whether there is actually more to match in the string. When inside of a nested pattern, such as recursion, or in a subpattern dynamically generated via &quot;(??{})&quot;, only the innermost pattern is ended immediately.<div style="height: 1.00em;">
+&#160;</div>
+If the &quot;(*ACCEPT)&quot; is inside of capturing groups then the groups are marked as ended at the point at which the &quot;(*ACCEPT)&quot; was encountered. For instance:<div style="height: 1.00em;">
+&#160;</div>
+<br/>
+  'AB' =~ /(A (A|B(*ACCEPT)|C) D)(E)/x;<br/>
+<div style="height: 1.00em;">
+&#160;</div>
+will match, and $1 will be &quot;AB&quot; and $2 will be &quot;B&quot;, $3 will not be set. If another branch in the inner parentheses was matched, such as in the string 'ACDE', then the &quot;D&quot; and &quot;E&quot; would have to be matched as well.</dd>
+</dl>
+</div>
+<div style="margin-left: 3.00ex;">
+</div>
+</div>
+<div class="subsection">
+<h2>Backtracking</h2> NOTE: This section presents an abstract approximation of regular expression behavior.  For a more rigorous (and complicated) view of the rules involved in selecting a match among possible alternatives, see &quot;Combining RE Pieces&quot;.<div class="spacer">
+</div>
+A fundamental feature of regular expression matching involves the notion called  <i>backtracking</i>, which is currently used (when needed) by all regular non-possessive expression quantifiers, namely &quot;*&quot;, &quot;*?&quot;, &quot;+&quot;, &quot;+?&quot;, &quot;{n,m}&quot;, and &quot;{n,m}?&quot;.  Backtracking is often optimized internally, but the general principle outlined here is valid.<div class="spacer">
+</div>
+For a regular expression to match, the <i>entire</i> regular expression must match, not just part of it.  So if the beginning of a pattern containing a quantifier succeeds in a way that causes later parts in the pattern to fail, the matching engine backs up and recalculates the beginning part--that's why it's called backtracking.<div class="spacer">
+</div>
+Here is an example of backtracking:  Let's say you want to find the word following &quot;foo&quot; in the string &quot;Food is on the foo table.&quot;:<div class="spacer">
 </div>
 <br/>
-    if ($ref1 == $ref2) {  # cheap numeric compare of references<br/>
-        print &quot;refs 1 and 2 refer to the same thing\n&quot;;<br/>
+    $_ = &quot;Food is on the foo table.&quot;;<br/>
+    if ( /\b(foo)\s+(\w+)/i ) {<br/>
+        print &quot;$2 follows $1.\n&quot;;<br/>
     }<br/>
 <div class="spacer">
 </div>
-Using a reference as a string produces both its referent's type, including any package blessing as described in perlobj, as well as the numeric address expressed in hex.  The  <i>ref()</i> operator returns just the type of thing the reference is pointing to, without the address.  See &quot;ref&quot; in perlfunc for details and examples of its use.<div class="spacer">
+When the match runs, the first part of the regular expression (&quot;\b(foo)&quot;) finds a possible match right at the beginning of the string, and loads up $1 with &quot;Foo&quot;.  However, as soon as the matching engine sees that there's no whitespace following the &quot;Foo&quot; that it had saved in $1, it realizes its mistake and starts over again one character after where it had the tentative match.  This time it goes all the way until the next occurrence of &quot;foo&quot;. The complete regular expression matches this time, and you get the expected output of &quot;table follows foo.&quot;<div class="spacer">
 </div>
-The <i>bless()</i> operator may be used to associate the object a reference points to with a package functioning as an object class.  See perlobj.<div class="spacer">
-</div>
-A typeglob may be dereferenced the same way a reference can, because the dereference syntax always indicates the type of reference desired. So &quot;${*foo}&quot; and &quot;${\$foo}&quot; both indicate the same scalar variable.<div class="spacer">
-</div>
-Here's a trick for interpolating a subroutine call into a string:<div class="spacer">
+Sometimes minimal matching can help a lot.  Imagine you'd like to match everything between &quot;foo&quot; and &quot;bar&quot;.  Initially, you write something like this:<div class="spacer">
 </div>
 <br/>
-    print &quot;My sub returned @{[mysub(1,2,3)]} that time.\n&quot;;<br/>
-<div class="spacer">
-</div>
-The way it works is that when the &quot;@{...}&quot; is seen in the double-quoted string, it's evaluated as a block.  The block creates a reference to an anonymous array containing the results of the call to &quot;mysub(1,2,3)&quot;.  So the whole block returns a reference to an array, which is then dereferenced by &quot;@{...}&quot; and stuck into the double-quoted string. This chicanery is also useful for arbitrary expressions:<div class="spacer">
-</div>
-<br/>
-    print &quot;That yields @{[$n + 5]} widgets\n&quot;;<br/>
-<div class="spacer">
-</div>
-Similarly, an expression that returns a reference to a scalar can be dereferenced via &quot;${...}&quot;. Thus, the above expression may be written as:<div class="spacer">
-</div>
-<br/>
-    print &quot;That yields ${\($n + 5)} widgets\n&quot;;<br/>
-</div>
-<div class="subsection">
-<h2>Circular References</h2> It is possible to create a &quot;circular reference&quot; in Perl, which can lead to memory leaks. A circular reference occurs when two references contain a reference to each other, like this:<div class="spacer">
-</div>
-<br/>
-    my $foo = {};<br/>
-    my $bar = { foo =&gt; $foo };<br/>
-    $foo-&gt;{bar} = $bar;<br/>
-<div class="spacer">
-</div>
-You can also create a circular reference with a single variable:<div class="spacer">
-</div>
-<br/>
-    my $foo;<br/>
-    $foo = \$foo;<br/>
-<div class="spacer">
-</div>
-In this case, the reference count for the variables will never reach 0, and the references will never be garbage-collected. This can lead to memory leaks.<div class="spacer">
-</div>
-Because objects in Perl are implemented as references, it's possible to have circular references with objects as well. Imagine a TreeNode class where each node references its parent and child nodes. Any node with a parent will be part of a circular reference.<div class="spacer">
-</div>
-You can break circular references by creating a &quot;weak reference&quot;. A weak reference does not increment the reference count for a variable, which means that the object can go out of scope and be destroyed. You can weaken a reference with the &quot;weaken&quot; function exported by the Scalar::Util module.<div class="spacer">
-</div>
-Here's how we can make the first example safer:<div class="spacer">
-</div>
-<br/>
-    use Scalar::Util 'weaken';<br/>
-<br/>
-    my $foo = {};<br/>
-    my $bar = { foo =&gt; $foo };<br/>
-    $foo-&gt;{bar} = $bar;<br/>
-<br/>
-    weaken $foo-&gt;{bar};<br/>
-<div class="spacer">
-</div>
-The reference from $foo to $bar has been weakened. When the $bar variable goes out of scope, it will be garbage-collected. The next time you look at the value of the &quot;$foo-&gt;{bar}&quot; key, it will be &quot;undef&quot;.<div class="spacer">
-</div>
-This action at a distance can be confusing, so you should be careful with your use of weaken. You should weaken the reference in the variable that will go out of scope  <i>first</i>. That way, the longer-lived variable will contain the expected reference until it goes out of scope.</div>
-<div class="subsection">
-<h2>Symbolic references</h2> We said that references spring into existence as necessary if they are undefined, but we didn't say what happens if a value used as a reference is already defined, but  <i>isn't</i> a hard reference.  If you use it as a reference, it'll be treated as a symbolic reference.  That is, the value of the scalar is taken to be the  <i>name</i> of a variable, rather than a direct link to a (possibly) anonymous value.<div class="spacer">
-</div>
-People frequently expect it to work like this.  So it does.<div class="spacer">
-</div>
-<br/>
-    $name = &quot;foo&quot;;<br/>
-    $$name = 1;                 # Sets $foo<br/>
-    ${$name} = 2;               # Sets $foo<br/>
-    ${$name x 2} = 3;           # Sets $foofoo<br/>
-    $name-&gt;[0] = 4;             # Sets $foo[0]<br/>
-    @$name = ();                # Clears @foo<br/>
-    &amp;$name();                   # Calls &amp;foo()<br/>
-    $pack = &quot;THAT&quot;;<br/>
-    ${&quot;${pack}::$name&quot;} = 5;    # Sets $THAT::foo without eval<br/>
-<div class="spacer">
-</div>
-This is powerful, and slightly dangerous, in that it's possible to intend (with the utmost sincerity) to use a hard reference, and accidentally use a symbolic reference instead.  To protect against that, you can say<div class="spacer">
-</div>
-<br/>
-    use strict 'refs';<br/>
-<div class="spacer">
-</div>
-and then only hard references will be allowed for the rest of the enclosing block.  An inner block may countermand that with<div class="spacer">
-</div>
-<br/>
-    no strict 'refs';<br/>
-<div class="spacer">
-</div>
-Only package variables (globals, even if localized) are visible to symbolic references.  Lexical variables (declared with  <i>my()</i>) aren't in a symbol table, and thus are invisible to this mechanism.  For example:<div class="spacer">
-</div>
-<br/>
-    local $value = 10;<br/>
-    $ref = &quot;value&quot;;<br/>
-    {<br/>
-        my $value = 20;<br/>
-        print $$ref;<br/>
+    $_ =  &quot;The food is under the bar in the barn.&quot;;<br/>
+    if ( /foo(.*)bar/ ) {<br/>
+        print &quot;got &lt;$1&gt;\n&quot;;<br/>
     }<br/>
 <div class="spacer">
 </div>
-This will still print 10, not 20.  Remember that <i>local()</i> affects package variables, which are all &quot;global&quot; to the package.</div>
-<div class="subsection">
-<h2>Not-so-symbolic references</h2> Brackets around a symbolic reference can simply serve to isolate an identifier or variable name from the rest of an expression, just as they always have within a string.  For example,<div class="spacer">
+Which perhaps unexpectedly yields:<div class="spacer">
 </div>
 <br/>
-    $push = &quot;pop on &quot;;<br/>
-    print &quot;${push}over&quot;;<br/>
+  got &lt;d is under the bar in the &gt;<br/>
 <div class="spacer">
 </div>
-has always meant to print &quot;pop on over&quot;, even though push is a reserved word.  This is generalized to work the same without the enclosing double quotes, so that<div class="spacer">
+That's because &quot;.*&quot; was greedy, so you get everything between the  <i>first</i> &quot;foo&quot; and the <i>last</i> &quot;bar&quot;.  Here it's more effective to use minimal matching to make sure you get the text between a &quot;foo&quot; and the first &quot;bar&quot; thereafter.<div class="spacer">
 </div>
 <br/>
-    print ${push} . &quot;over&quot;;<br/>
+    if ( /foo(.*?)bar/ ) { print &quot;got &lt;$1&gt;\n&quot; }<br/>
+  got &lt;d is under the &gt;<br/>
 <div class="spacer">
 </div>
-and even<div class="spacer">
+Here's another example. Let's say you'd like to match a number at the end of a string, and you also want to keep the preceding part of the match. So you write this:<div class="spacer">
 </div>
 <br/>
-    print ${ push } . &quot;over&quot;;<br/>
-<div class="spacer">
-</div>
-will have the same effect.  This construct is  <i>not</i> considered to be a symbolic reference when you're using strict refs:<div class="spacer">
-</div>
-<br/>
-    use strict 'refs';<br/>
-    ${ bareword };      # Okay, means $bareword.<br/>
-    ${ &quot;bareword&quot; };    # Error, symbolic reference.<br/>
-<div class="spacer">
-</div>
-Similarly, because of all the subscripting that is done using single words, the same rule applies to any bareword that is used for subscripting a hash. So now, instead of writing<div class="spacer">
-</div>
-<br/>
-    $array{ &quot;aaa&quot; }{ &quot;bbb&quot; }{ &quot;ccc&quot; }<br/>
-<div class="spacer">
-</div>
-you can write just<div class="spacer">
-</div>
-<br/>
-    $array{ aaa }{ bbb }{ ccc }<br/>
-<div class="spacer">
-</div>
-and not worry about whether the subscripts are reserved words.  In the rare event that you do wish to do something like<div class="spacer">
-</div>
-<br/>
-    $array{ shift }<br/>
-<div class="spacer">
-</div>
-you can force interpretation as a reserved word by adding anything that makes it more than a bareword:<div class="spacer">
-</div>
-<br/>
-    $array{ shift() }<br/>
-    $array{ +shift }<br/>
-    $array{ shift @_ }<br/>
-<div class="spacer">
-</div>
-The &quot;use warnings&quot; pragma or the <b>-w</b> switch will warn you if it interprets a reserved word as a string. But it will no longer warn you about using lowercase words, because the string is effectively quoted.</div>
-<div class="subsection">
-<h2>Pseudo-hashes: Using an array as a hash</h2> Pseudo-hashes have been removed from Perl.  The 'fields' pragma remains available.</div>
-<div class="subsection">
-<h2>Function Templates</h2> As explained above, an anonymous function with access to the lexical variables visible when that function was compiled, creates a closure.  It retains access to those variables even though it doesn't get run until later, such as in a signal handler or a Tk callback.<div class="spacer">
-</div>
-Using a closure as a function template allows us to generate many functions that act similarly.  Suppose you wanted functions named after the colors that generated HTML font changes for the various colors:<div class="spacer">
-</div>
-<br/>
-    print &quot;Be &quot;, red(&quot;careful&quot;), &quot;with that &quot;, green(&quot;light&quot;);<br/>
-<div class="spacer">
-</div>
-The <i>red()</i> and <i>green()</i> functions would be similar.  To create these, we'll assign a closure to a typeglob of the name of the function we're trying to build.<div class="spacer">
-</div>
-<br/>
-    @colors = qw(red blue green yellow orange purple violet);<br/>
-    for my $name (@colors) {<br/>
-        no strict 'refs';       # allow symbol table manipulation<br/>
-        *$name = *{uc $name} = sub { &quot;&lt;FONT COLOR='$name'&gt;@_&lt;/FONT&gt;&quot; };<br/>
+    $_ = &quot;I have 2 numbers: 53147&quot;;<br/>
+    if ( /(.*)(\d*)/ ) {                                # Wrong!<br/>
+        print &quot;Beginning is &lt;$1&gt;, number is &lt;$2&gt;.\n&quot;;<br/>
     }<br/>
 <div class="spacer">
 </div>
-Now all those different functions appear to exist independently.  You can call  <i>red()</i>, <i>RED()</i>, <i>blue()</i>, <i>BLUE()</i>, <i>green()</i>, etc.  This technique saves on both compile time and memory use, and is less error-prone as well, since syntax checks happen at compile time.  It's critical that any variables in the anonymous subroutine be lexicals in order to create a proper closure. That's the reasons for the &quot;my&quot; on the loop iteration variable.<div class="spacer">
-</div>
-This is one of the only places where giving a prototype to a closure makes much sense.  If you wanted to impose scalar context on the arguments of these functions (probably not a wise idea for this particular example), you could have written it this way instead:<div class="spacer">
+That won't work at all, because &quot;.*&quot; was greedy and gobbled up the whole string. As &quot;\d*&quot; can match on an empty string the complete regular expression matched successfully.<div class="spacer">
 </div>
 <br/>
-    *$name = sub ($) { &quot;&lt;FONT COLOR='$name'&gt;$_[0]&lt;/FONT&gt;&quot; };<br/>
+    Beginning is &lt;I have 2 numbers: 53147&gt;, number is &lt;&gt;.<br/>
 <div class="spacer">
 </div>
-However, since prototype checking happens at compile time, the assignment above happens too late to be of much use.  You could address this by putting the whole loop of assignments within a BEGIN block, forcing it to occur during compilation.<div class="spacer">
-</div>
-Access to lexicals that change over time--like those in the &quot;for&quot; loop above, basically aliases to elements from the surrounding lexical scopes-- only works with anonymous subs, not with named subroutines. Generally said, named subroutines do not nest properly and should only be declared in the main package scope.<div class="spacer">
-</div>
-This is because named subroutines are created at compile time so their lexical variables get assigned to the parent lexicals from the first execution of the parent block. If a parent scope is entered a second time, its lexicals are created again, while the nested subs still reference the old ones.<div class="spacer">
-</div>
-Anonymous subroutines get to capture each time you execute the &quot;sub&quot; operator, as they are created on the fly. If you are accustomed to using nested subroutines in other programming languages with their own private variables, you'll have to work at it a bit in Perl.  The intuitive coding of this type of thing incurs mysterious warnings about &quot;will not stay shared&quot; due to the reasons explained above. For example, this won't work:<div class="spacer">
+Here are some variants, most of which don't work:<div class="spacer">
 </div>
 <br/>
-    sub outer {<br/>
-        my $x = $_[0] + 35;<br/>
-        sub inner { return $x * 19 }   # WRONG<br/>
-        return $x + inner();<br/>
+    $_ = &quot;I have 2 numbers: 53147&quot;;<br/>
+    @pats = qw{<br/>
+        (.*)(\d*)<br/>
+        (.*)(\d+)<br/>
+        (.*?)(\d*)<br/>
+        (.*?)(\d+)<br/>
+        (.*)(\d+)$<br/>
+        (.*?)(\d+)$<br/>
+        (.*)\b(\d+)$<br/>
+        (.*\D)(\d+)$<br/>
+    };<br/>
+<br/>
+    for $pat (@pats) {<br/>
+        printf &quot;%-12s &quot;, $pat;<br/>
+        if ( /$pat/ ) {<br/>
+            print &quot;&lt;$1&gt; &lt;$2&gt;\n&quot;;<br/>
+        } else {<br/>
+            print &quot;FAIL\n&quot;;<br/>
+        }<br/>
     }<br/>
 <div class="spacer">
 </div>
-A work-around is the following:<div class="spacer">
+That will print out:<div class="spacer">
 </div>
 <br/>
-    sub outer {<br/>
-        my $x = $_[0] + 35;<br/>
-        local *inner = sub { return $x * 19 };<br/>
-        return $x + inner();<br/>
+    (.*)(\d*)    &lt;I have 2 numbers: 53147&gt; &lt;&gt;<br/>
+    (.*)(\d+)    &lt;I have 2 numbers: 5314&gt; &lt;7&gt;<br/>
+    (.*?)(\d*)   &lt;&gt; &lt;&gt;<br/>
+    (.*?)(\d+)   &lt;I have &gt; &lt;2&gt;<br/>
+    (.*)(\d+)$   &lt;I have 2 numbers: 5314&gt; &lt;7&gt;<br/>
+    (.*?)(\d+)$  &lt;I have 2 numbers: &gt; &lt;53147&gt;<br/>
+    (.*)\b(\d+)$ &lt;I have 2 numbers: &gt; &lt;53147&gt;<br/>
+    (.*\D)(\d+)$ &lt;I have 2 numbers: &gt; &lt;53147&gt;<br/>
+<div class="spacer">
+</div>
+As you see, this can be a bit tricky.  It's important to realize that a regular expression is merely a set of assertions that gives a definition of success.  There may be 0, 1, or several different ways that the definition might succeed against a particular string.  And if there are multiple ways it might succeed, you need to understand backtracking to know which variety of success you will achieve.<div class="spacer">
+</div>
+When using look-ahead assertions and negations, this can all get even trickier.  Imagine you'd like to find a sequence of non-digits not followed by &quot;123&quot;.  You might try to write that as<div class="spacer">
+</div>
+<br/>
+    $_ = &quot;ABC123&quot;;<br/>
+    if ( /^\D*(?!123)/ ) {                # Wrong!<br/>
+        print &quot;Yup, no 123 in $_\n&quot;;<br/>
     }<br/>
 <div class="spacer">
 </div>
-Now <i>inner()</i> can only be called from within <i>outer()</i>, because of the temporary assignments of the anonymous subroutine. But when it does, it has normal access to the lexical variable $x from the scope of  <i>outer()</i> at the time outer is invoked.<div class="spacer">
-</div>
-This has the interesting effect of creating a function local to another function, something not normally supported in Perl.</div>
-</div>
-<div class="section">
-<h1>WARNING</h1> You may not (usefully) use a reference as the key to a hash.  It will be converted into a string:<div class="spacer">
+But that isn't going to match; at least, not the way you're hoping.  It claims that there is no 123 in the string.  Here's a clearer picture of why that pattern matches, contrary to popular expectations:<div class="spacer">
 </div>
 <br/>
-    $x{ \$a } = $a;<br/>
+    $x = 'ABC123';<br/>
+    $y = 'ABC445';<br/>
+<br/>
+    print &quot;1: got $1\n&quot; if $x =~ /^(ABC)(?!123)/;<br/>
+    print &quot;2: got $1\n&quot; if $y =~ /^(ABC)(?!123)/;<br/>
+<br/>
+    print &quot;3: got $1\n&quot; if $x =~ /^(\D*)(?!123)/;<br/>
+    print &quot;4: got $1\n&quot; if $y =~ /^(\D*)(?!123)/;<br/>
 <div class="spacer">
 </div>
-If you try to dereference the key, it won't do a hard dereference, and you won't accomplish what you're attempting.  You might want to do something more like<div class="spacer">
+This prints<div class="spacer">
 </div>
 <br/>
-    $r = \@a;<br/>
-    $x{ $r } = $r;<br/>
+    2: got ABC<br/>
+    3: got AB<br/>
+    4: got ABC<br/>
 <div class="spacer">
 </div>
-And then at least you can use the <i>values()</i>, which will be real refs, instead of the  <i>keys()</i>, which won't.<div class="spacer">
+You might have expected test 3 to fail because it seems to a more general purpose version of test 1.  The important difference between them is that test 3 contains a quantifier (&quot;\D*&quot;) and so can use backtracking, whereas test 1 will not.  What's happening is that you've asked &quot;Is it true that at the start of $x, following 0 or more non-digits, you have something that's not 123?&quot;  If the pattern matcher had let &quot;\D*&quot; expand to &quot;ABC&quot;, this would have caused the whole pattern to fail.<div class="spacer">
 </div>
-The standard Tie::RefHash module provides a convenient workaround to this.</div>
-<div class="section">
-<h1>Postfix Dereference Syntax</h1> Beginning in v5.20.0, a postfix syntax for using references is available.  It behaves as described in &quot;Using References&quot;, but instead of a prefixed sigil, a postfixed sigil-and-star is used.<div class="spacer">
+The search engine will initially match &quot;\D*&quot; with &quot;ABC&quot;.  Then it will try to match &quot;(?!123)&quot; with &quot;123&quot;, which fails.  But because a quantifier (&quot;\D*&quot;) has been used in the regular expression, the search engine can backtrack and retry the match differently in the hope of matching the complete regular expression.<div class="spacer">
+</div>
+The pattern really, <i>really</i> wants to succeed, so it uses the standard pattern back-off-and-retry and lets &quot;\D*&quot; expand to just &quot;AB&quot; this time.  Now there's indeed something following &quot;AB&quot; that is not &quot;123&quot;.  It's &quot;C123&quot;, which suffices.<div class="spacer">
+</div>
+We can deal with this by using both an assertion and a negation. We'll say that the first part in $1 must be followed both by a digit and by something that's not &quot;123&quot;.  Remember that the look-aheads are zero-width expressions--they only look, but don't consume any of the string in their match.  So rewriting this way produces what you'd expect; that is, case 5 will fail, but case 6 succeeds:<div class="spacer">
+</div>
+<br/>
+    print &quot;5: got $1\n&quot; if $x =~ /^(\D*)(?=\d)(?!123)/;<br/>
+    print &quot;6: got $1\n&quot; if $y =~ /^(\D*)(?=\d)(?!123)/;<br/>
+<br/>
+    6: got ABC<br/>
+<div class="spacer">
+</div>
+In other words, the two zero-width assertions next to each other work as though they're ANDed together, just as you'd use any built-in assertions:  &quot;/^$/&quot; matches only if you're at the beginning of the line AND the end of the line simultaneously.  The deeper underlying truth is that juxtaposition in regular expressions always means AND, except when you write an explicit OR using the vertical bar.  &quot;/ab/&quot; means match &quot;a&quot; AND (then) match &quot;b&quot;, although the attempted matches are made at different positions because &quot;a&quot; is not a zero-width assertion, but a one-width assertion.<div class="spacer">
+</div>
+<b>WARNING</b>: Particularly complicated regular expressions can take exponential time to solve because of the immense number of possible ways they can use backtracking to try for a match.  For example, without internal optimizations done by the regular expression engine, this will take a painfully long time to run:<div class="spacer">
+</div>
+<br/>
+    'aaaaaaaaaaaa' =~ /((a{0,5}){0,5})*[c]/<br/>
+<div class="spacer">
+</div>
+And if you used &quot;*&quot;'s in the internal groups instead of limiting them to 0 through 5 matches, then it would take forever--or until you ran out of stack space.  Moreover, these internal optimizations are not always applicable.  For example, if you put &quot;{0,5}&quot; instead of &quot;*&quot; on the external group, no current optimization is applicable, and the match takes a long time to finish.<div class="spacer">
+</div>
+A powerful tool for optimizing such beasts is what is known as an &quot;independent group&quot;, which does not backtrack (see &quot;&quot;(?&gt;pattern)&quot;&quot;).  Note also that zero-length look-ahead/look-behind assertions will not backtrack to make the tail match, since they are in &quot;logical&quot; context: only whether they match is considered relevant.  For an example where side-effects of look-ahead  <i>might</i> have influenced the following match, see &quot;&quot;(?&gt;pattern)&quot;&quot;.</div>
+<div class="subsection">
+<h2>Version 8 Regular Expressions</h2> In case you're not familiar with the &quot;regular&quot; Version 8 regex routines, here are the pattern-matching rules not described above.<div class="spacer">
+</div>
+Any single character matches itself, unless it is a <i>metacharacter</i> with a special meaning described here or above.  You can cause characters that normally function as metacharacters to be interpreted literally by prefixing them with a &quot;\&quot; (e.g., &quot;\.&quot; matches a &quot;.&quot;, not any character; &quot;\\&quot; matches a &quot;\&quot;). This escape mechanism is also required for the character used as the pattern delimiter.<div class="spacer">
+</div>
+A series of characters matches that series of characters in the target string, so the pattern &quot;blurfl&quot; would match &quot;blurfl&quot; in the target string.<div class="spacer">
+</div>
+You can specify a character class, by enclosing a list of characters in &quot;[]&quot;, which will match any character from the list.  If the first character after the &quot;[&quot; is &quot;^&quot;, the class matches any character not in the list.  Within a list, the &quot;-&quot; character specifies a range, so that &quot;a-z&quot; represents all characters between &quot;a&quot; and &quot;z&quot;, inclusive.  If you want either &quot;-&quot; or &quot;]&quot; itself to be a member of a class, put it at the start of the list (possibly after a &quot;^&quot;), or escape it with a backslash.  &quot;-&quot; is also taken literally when it is at the end of the list, just before the closing &quot;]&quot;.  (The following all specify the same class of three characters: &quot;[-az]&quot;, &quot;[az-]&quot;, and &quot;[a\-z]&quot;.  All are different from &quot;[a-z]&quot;, which specifies a class containing twenty-six characters, even on EBCDIC-based character sets.)  Also, if you try to use the character classes &quot;\w&quot;, &quot;\W&quot;, &quot;\s&quot;, &quot;\S&quot;, &quot;\d&quot;, or &quot;\D&quot; as endpoints of a range, the &quot;-&quot; is understood literally.<div class="spacer">
+</div>
+Note also that the whole range idea is rather unportable between character sets--and even within character sets they may cause results you probably didn't expect.  A sound principle is to use only ranges that begin from and end at either alphabetics of equal case ([a-e], [A-E]), or digits ([0-9]).  Anything else is unsafe.  If in doubt, spell out the character sets in full.<div class="spacer">
+</div>
+Characters may be specified using a metacharacter syntax much like that used in C: &quot;\n&quot; matches a newline, &quot;\t&quot; a tab, &quot;\r&quot; a carriage return, &quot;\f&quot; a form feed, etc.  More generally, \ <i>nnn</i>, where <i>nnn</i> is a string of three octal digits, matches the character whose coded character set value is  <i>nnn</i>.  Similarly, \x<i>nn</i>, where <i>nn</i> are hexadecimal digits, matches the character whose ordinal is  <i>nn</i>. The expression \c<i>x</i> matches the character control- <i>x</i>.  Finally, the &quot;.&quot; metacharacter matches any character except &quot;\n&quot; (unless you use &quot;/s&quot;).<div class="spacer">
+</div>
+You can specify a series of alternatives for a pattern using &quot;|&quot; to separate them, so that &quot;fee|fie|foe&quot; will match any of &quot;fee&quot;, &quot;fie&quot;, or &quot;foe&quot; in the target string (as would &quot;f(e|i|o)e&quot;).  The first alternative includes everything from the last pattern delimiter (&quot;(&quot;, &quot;(?:&quot;, etc. or the beginning of the pattern) up to the first &quot;|&quot;, and the last alternative contains everything from the last &quot;|&quot; to the next closing pattern delimiter.  That's why it's common practice to include alternatives in parentheses: to minimize confusion about where they start and end.<div class="spacer">
+</div>
+Alternatives are tried from left to right, so the first alternative found for which the entire expression matches, is the one that is chosen. This means that alternatives are not necessarily greedy. For example: when matching &quot;foo|foot&quot; against &quot;barefoot&quot;, only the &quot;foo&quot; part will match, as that is the first alternative tried, and it successfully matches the target string. (This might not seem important, but it is important when you are capturing matched text using parentheses.)<div class="spacer">
+</div>
+Also remember that &quot;|&quot; is interpreted as a literal within square brackets, so if you write &quot;[fee|fie|foe]&quot; you're really only matching &quot;[feio|]&quot;.<div class="spacer">
+</div>
+Within a pattern, you may designate subpatterns for later reference by enclosing them in parentheses, and you may refer back to the  <i>n</i>th subpattern later in the pattern using the metacharacter \ <i>n</i> or \g<i>n</i>.  Subpatterns are numbered based on the left to right order of their opening parenthesis.  A backreference matches whatever actually matched the subpattern in the string being examined, not the rules for that subpattern.  Therefore, &quot;(0|0x)\d*\s\g1\d*&quot; will match &quot;0x1234 0x4321&quot;, but not &quot;0x1234 01234&quot;, because subpattern 1 matched &quot;0x&quot;, even though the rule &quot;0|0x&quot; could potentially match the leading 0 in the second number.</div>
+<div class="subsection">
+<h2>Warning on \1 Instead of $1</h2> Some people get too used to writing things like:<div class="spacer">
+</div>
+<br/>
+    $pattern =~ s/(\W)/\\\1/g;<br/>
+<div class="spacer">
+</div>
+This is grandfathered (for \1 to \9) for the RHS of a substitute to avoid shocking the  <b>sed</b> addicts, but it's a dirty habit to get into.  That's because in PerlThink, the righthand side of an &quot;s///&quot; is a double-quoted string.  &quot;\1&quot; in the usual double-quoted string means a control-A.  The customary Unix meaning of &quot;\1&quot; is kludged in for &quot;s///&quot;.  However, if you get into the habit of doing that, you get yourself into trouble if you then add an &quot;/e&quot; modifier.<div class="spacer">
+</div>
+<br/>
+    s/(\d+)/ \1 + 1 /eg;            # causes warning under -w<br/>
+<div class="spacer">
+</div>
+Or if you try to do<div class="spacer">
+</div>
+<br/>
+    s/(\d+)/\1000/;<br/>
+<div class="spacer">
+</div>
+You can't disambiguate that by saying &quot;\{1}000&quot;, whereas you can fix it with &quot;${1}000&quot;.  The operation of interpolation should not be confused with the operation of matching a backreference.  Certainly they mean two different things on the  <i>left</i> side of the &quot;s///&quot;.</div>
+<div class="subsection">
+<h2>Repeated Patterns Matching a Zero-length Substring</h2>  <b>WARNING</b>: Difficult material (and prose) ahead.  This section needs a rewrite.<div class="spacer">
+</div>
+Regular expressions provide a terse and powerful programming language.  As with most other power tools, power comes together with the ability to wreak havoc.<div class="spacer">
+</div>
+A common abuse of this power stems from the ability to make infinite loops using regular expressions, with something as innocuous as:<div class="spacer">
+</div>
+<br/>
+    'foo' =~ m{ ( o? )* }x;<br/>
+<div class="spacer">
+</div>
+The &quot;o?&quot; matches at the beginning of 'foo', and since the position in the string is not moved by the match, &quot;o?&quot; would match again and again because of the &quot;*&quot; quantifier.  Another common way to create a similar cycle is with the looping modifier &quot;//g&quot;:<div class="spacer">
+</div>
+<br/>
+    @matches = ( 'foo' =~ m{ o? }xg );<br/>
+<div class="spacer">
+</div>
+or<div class="spacer">
+</div>
+<br/>
+    print &quot;match: &lt;$&amp;&gt;\n&quot; while 'foo' =~ m{ o? }xg;<br/>
+<div class="spacer">
+</div>
+or the loop implied by <i>split()</i>.<div class="spacer">
+</div>
+However, long experience has shown that many programming tasks may be significantly simplified by using repeated subexpressions that may match zero-length substrings.  Here's a simple example being:<div class="spacer">
+</div>
+<br/>
+    @chars = split //, $string;           # // is not magic in split<br/>
+    ($whitewashed = $string) =~ s/()/ /g; # parens avoid magic s// /<br/>
+<div class="spacer">
+</div>
+Thus Perl allows such constructs, by <i>forcefully breaking</i>  <i>the infinite loop</i>.  The rules for this are different for lower-level loops given by the greedy quantifiers &quot;*+{}&quot;, and for higher-level ones like the &quot;/g&quot; modifier or  <i>split()</i> operator.<div class="spacer">
+</div>
+The lower-level loops are <i>interrupted</i> (that is, the loop is broken) when Perl detects that a repeated expression matched a zero-length substring.   Thus<div class="spacer">
+</div>
+<br/>
+   m{ (?: NON_ZERO_LENGTH | ZERO_LENGTH )* }x;<br/>
+<div class="spacer">
+</div>
+is made equivalent to<div class="spacer">
+</div>
+<br/>
+   m{ (?: NON_ZERO_LENGTH )* (?: ZERO_LENGTH )? }x;<br/>
+<div class="spacer">
+</div>
+For example, this program<div class="spacer">
+</div>
+<br/>
+   #!perl -l<br/>
+   &quot;aaaaab&quot; =~ /<br/>
+     (?:<br/>
+        a                 # non-zero<br/>
+        |                 # or<br/>
+       (?{print &quot;hello&quot;}) # print hello whenever this<br/>
+                          #    branch is tried<br/>
+       (?=(b))            # zero-width assertion<br/>
+     )*  # any number of times<br/>
+    /x;<br/>
+   print $&amp;;<br/>
+   print $1;<br/>
+<div class="spacer">
+</div>
+prints<div class="spacer">
+</div>
+<br/>
+   hello<br/>
+   aaaaa<br/>
+   b<br/>
+<div class="spacer">
+</div>
+Notice that &quot;hello&quot; is only printed once, as when Perl sees that the sixth iteration of the outermost &quot;(?:)*&quot; matches a zero-length string, it stops the &quot;*&quot;.<div class="spacer">
+</div>
+The higher-level loops preserve an additional state between iterations: whether the last match was zero-length.  To break the loop, the following match after a zero-length match is prohibited to have a length of zero. This prohibition interacts with backtracking (see &quot;Backtracking&quot;), and so the  <i>second best</i> match is chosen if the <i>best</i> match is of zero length.<div class="spacer">
 </div>
 For example:<div class="spacer">
 </div>
 <br/>
-    $r = \@a;<br/>
-    @b = $r-&gt;@*; # equivalent to @$r or @{ $r }<br/>
-<br/>
-    $r = [ 1, [ 2, 3 ], 4 ];<br/>
-    $r-&gt;[1]-&gt;@*;  # equivalent to @{ $r-&gt;[1] }<br/>
+    $_ = 'bar';<br/>
+    s/\w??/&lt;$&amp;&gt;/g;<br/>
 <div class="spacer">
 </div>
-This syntax must be enabled with &quot;use feature 'postderef'&quot;.  It is experimental, and will warn by default unless &quot;no warnings 'experimental::postderef'&quot; is in effect.<div class="spacer">
+results in &quot;&lt;&gt;&lt;b&gt;&lt;&gt;&lt;a&gt;&lt;&gt;&lt;r&gt;&lt;&gt;&quot;.  At each position of the string the best match given by non-greedy &quot;??&quot; is the zero-length match, and the  <i>second</i>  <i>best</i> match is what is matched by &quot;\w&quot;.  Thus zero-length matches alternate with one-character-long matches.<div class="spacer">
 </div>
-Postfix dereference should work in all circumstances where block (circumfix) dereference worked, and should be entirely equivalent.  This syntax allows dereferencing to be written and read entirely left-to-right.  The following equivalencies are defined:<div class="spacer">
+Similarly, for repeated &quot;m/()/g&quot; the second-best match is the match at the position one notch further in the string.<div class="spacer">
 </div>
-<br/>
-  $sref-&gt;$*;  # same as  ${ $sref }<br/>
-  $aref-&gt;@*;  # same as  @{ $aref }<br/>
-  $aref-&gt;$#*; # same as $#{ $aref }<br/>
-  $href-&gt;%*;  # same as  %{ $href }<br/>
-  $cref-&gt;&amp;*;  # same as  &amp;{ $cref }<br/>
-  $gref-&gt;**;  # same as  *{ $gref }<br/>
+The additional state of being <i>matched with zero-length</i> is associated with the matched string, and is reset by each assignment to  <i>pos()</i>. Zero-length matches at the end of the previous match are ignored during &quot;split&quot;.</div>
+<div class="subsection">
+<h2>Combining RE Pieces</h2> Each of the elementary pieces of regular expressions which were described before (such as &quot;ab&quot; or &quot;\Z&quot;) could match at most one substring at the given position of the input string.  However, in a typical regular expression these elementary pieces are combined into more complicated patterns using combining operators &quot;ST&quot;, &quot;S|T&quot;, &quot;S*&quot; etc. (in these examples &quot;S&quot; and &quot;T&quot; are regular subexpressions).<div class="spacer">
+</div>
+Such combinations can include alternatives, leading to a problem of choice: if we match a regular expression &quot;a|ab&quot; against &quot;abc&quot;, will it match substring &quot;a&quot; or &quot;ab&quot;?  One way to describe which substring is actually matched is the concept of backtracking (see &quot;Backtracking&quot;). However, this description is too low-level and makes you think in terms of a particular implementation.<div class="spacer">
+</div>
+Another description starts with notions of &quot;better&quot;/&quot;worse&quot;.  All the substrings which may be matched by the given regular expression can be sorted from the &quot;best&quot; match to the &quot;worst&quot; match, and it is the &quot;best&quot; match which is chosen.  This substitutes the question of &quot;what is chosen?&quot; by the question of &quot;which matches are better, and which are worse?&quot;.<div class="spacer">
+</div>
+Again, for elementary pieces there is no such question, since at most one match at a given position is possible.  This section describes the notion of better/worse for combining operators.  In the description below &quot;S&quot; and &quot;T&quot; are regular subexpressions.<dl>
+<dt>
+&quot;ST&quot;</dt>
+<dd>
+Consider two possible matches, &quot;AB&quot; and &quot;A'B'&quot;, &quot;A&quot; and &quot;A'&quot; are substrings which can be matched by &quot;S&quot;, &quot;B&quot; and &quot;B'&quot; are substrings which can be matched by &quot;T&quot;.<div style="height: 1.00em;">
+&#160;</div>
+If &quot;A&quot; is a better match for &quot;S&quot; than &quot;A'&quot;, &quot;AB&quot; is a better match than &quot;A'B'&quot;.<div style="height: 1.00em;">
+&#160;</div>
+If &quot;A&quot; and &quot;A'&quot; coincide: &quot;AB&quot; is a better match than &quot;AB'&quot; if &quot;B&quot; is a better match for &quot;T&quot; than &quot;B'&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;S|T&quot;</dt>
+<dd>
+When &quot;S&quot; can match, it is a better match than when only &quot;T&quot; can match.<div style="height: 1.00em;">
+&#160;</div>
+Ordering of two matches for &quot;S&quot; is the same as for &quot;S&quot;.  Similar for two matches for &quot;T&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;S{REPEAT_COUNT}&quot;</dt>
+<dd>
+Matches as &quot;SSS...S&quot; (repeated as many times as necessary).</dd>
+</dl>
+<dl>
+<dt>
+&quot;S{min,max}&quot;</dt>
+<dd>
+Matches as &quot;S{max}|S{max-1}|...|S{min+1}|S{min}&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;S{min,max}?&quot;</dt>
+<dd>
+Matches as &quot;S{min}|S{min+1}|...|S{max-1}|S{max}&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;S?&quot;, &quot;S*&quot;, &quot;S+&quot;</dt>
+<dd>
+Same as &quot;S{0,1}&quot;, &quot;S{0,BIG_NUMBER}&quot;, &quot;S{1,BIG_NUMBER}&quot; respectively.</dd>
+</dl>
+<dl>
+<dt>
+&quot;S??&quot;, &quot;S*?&quot;, &quot;S+?&quot;</dt>
+<dd>
+Same as &quot;S{0,1}?&quot;, &quot;S{0,BIG_NUMBER}?&quot;, &quot;S{1,BIG_NUMBER}?&quot; respectively.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?&gt;S)&quot;</dt>
+<dd>
+Matches the best match for &quot;S&quot; and only that.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?=S)&quot;, &quot;(?&lt;=S)&quot;</dt>
+<dd>
+Only the best match for &quot;S&quot; is considered.  (This is important only if &quot;S&quot; has capturing parentheses, and backreferences are used somewhere else in the whole regular expression.)</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?!S)&quot;, &quot;(?&lt;!S)&quot;</dt>
+<dd>
+For this grouping operator there is no need to describe the ordering, since only whether or not &quot;S&quot; can match is important.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(??{ EXPR })&quot;, &quot;(?<i>PARNO</i>)&quot;</dt>
+<dd>
+The ordering is the same as for the regular expression which is the result of EXPR, or the pattern contained by capture group  <i>PARNO</i>.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?(condition)yes-pattern|no-pattern)&quot;</dt>
+<dd>
+Recall that which of &quot;yes-pattern&quot; or &quot;no-pattern&quot; actually matches is already determined.  The ordering of the matches is the same as for the chosen subexpression.</dd>
+</dl>
 <div class="spacer">
 </div>
-Note especially that &quot;$cref-&gt;&amp;*&quot; is <i>not</i> equivalent to &quot;$cref-&gt;()&quot;, and can serve different purposes.<div class="spacer">
+The above recipes describe the ordering of matches <i>at a given position</i>. One more rule is needed to understand how a match is determined for the whole regular expression: a match at an earlier position is always better than a match at a later position.</div>
+<div class="subsection">
+<h2>Creating Custom RE Engines</h2> As of Perl 5.10.0, one can create custom regular expression engines.  This is not for the faint of heart, as they have to plug in at the C level.  See perlreapi for more details.<div class="spacer">
 </div>
-Glob elements can be extracted through the postfix dereferencing feature:<div class="spacer">
+As an alternative, overloaded constants (see overload) provide a simple way to extend the functionality of the RE engine, by substituting one pattern for another.<div class="spacer">
 </div>
-<br/>
-  $gref-&gt;*{SCALAR}; # same as *{ $gref }{SCALAR}<br/>
-<div class="spacer">
-</div>
-Postfix array and scalar dereferencing <i>can</i> be used in interpolating strings (double quotes or the &quot;qq&quot; operator), but only if the additional &quot;postderef_qq&quot; feature is enabled.<div class="subsection">
-<h2>Postfix Reference Slicing</h2> Value slices of arrays and hashes may also be taken with postfix dereferencing notation, with the following equivalencies:<div class="spacer">
+Suppose that we want to enable a new RE escape-sequence &quot;\Y|&quot; which matches at a boundary between whitespace characters and non-whitespace characters.  Note that &quot;(?=\S)(?&lt;!\S)|(?!\S)(?&lt;=\S)&quot; matches exactly at these positions, so we want to have each &quot;\Y|&quot; in the place of the more complicated version.  We can create a module &quot;customre&quot; to do this:<div class="spacer">
 </div>
 <br/>
-  $aref-&gt;@[ ... ];  # same as @$aref[ ... ]<br/>
-  $href-&gt;@{ ... };  # same as @$href{ ... }<br/>
+    package customre;<br/>
+    use overload;<br/>
+<br/>
+    sub import {<br/>
+      shift;<br/>
+      die &quot;No argument to customre::import allowed&quot; if @_;<br/>
+      overload::constant 'qr' =&gt; \&amp;convert;<br/>
+    }<br/>
+<br/>
+    sub invalid { die &quot;/$_[0]/: invalid escape '\\$_[1]'&quot;}<br/>
+<br/>
+    # We must also take care of not escaping the legitimate \\Y|<br/>
+    # sequence, hence the presence of '\\' in the conversion rules.<br/>
+    my %rules = ( '\\' =&gt; '\\\\',<br/>
+                  'Y|' =&gt; qr/(?=\S)(?&lt;!\S)|(?!\S)(?&lt;=\S)/ );<br/>
+    sub convert {<br/>
+      my $re = shift;<br/>
+      $re =~ s{<br/>
+                \\ ( \\ | Y . )<br/>
+              }<br/>
+              { $rules{$1} or invalid($re,$1) }sgex;<br/>
+      return $re;<br/>
+    }<br/>
 <div class="spacer">
 </div>
-Postfix key/value pair slicing, added in 5.20.0 and documented in the Key/Value Hash Slices section of perldata, also behaves as expected:<div class="spacer">
+Now &quot;use customre&quot; enables the new escape in constant regular expressions, i.e., those without any runtime variable interpolations. As documented in overload, this conversion will work only over literal parts of regular expressions.  For &quot;\Y|$re\Y|&quot; the variable part of this regular expression needs to be converted explicitly (but only if the special meaning of &quot;\Y|&quot; should be enabled inside $re):<div class="spacer">
 </div>
 <br/>
-  $aref-&gt;%[ ... ];  # same as %$aref[ ... ]<br/>
-  $href-&gt;%{ ... };  # same as %$href{ ... }<br/>
+    use customre;<br/>
+    $re = &lt;&gt;;<br/>
+    chomp $re;<br/>
+    $re = customre::convert $re;<br/>
+    /\Y|$re\Y|/;<br/>
+</div>
+<div class="subsection">
+<h2>Embedded Code Execution Frequency</h2> The exact rules for how often (??{}) and (?{}) are executed in a pattern are unspecified.  In the case of a successful match you can assume that they DWIM and will be executed in left to right order the appropriate number of times in the accepting path of the pattern as would any other meta-pattern.  How non-accepting pathways and match failures affect the number of times a pattern is executed is specifically unspecified and may vary depending on what optimizations can be applied to the pattern and is likely to change from version to version.<div class="spacer">
+</div>
+For instance in<div class="spacer">
+</div>
+<br/>
+  &quot;aaabcdeeeee&quot;=~/a(?{print &quot;a&quot;})b(?{print &quot;b&quot;})cde/;<br/>
 <div class="spacer">
 </div>
-As with postfix array, postfix value slice dereferencing <i>can</i> be used in interpolating strings (double quotes or the &quot;qq&quot; operator), but only if the additional &quot;postderef_qq&quot; feature is enabled.</div>
+the exact number of times &quot;a&quot; or &quot;b&quot; are printed out is unspecified for failure, but you may assume they will be printed at least once during a successful match, additionally you may assume that if &quot;b&quot; is printed, it will be preceded by at least one &quot;a&quot;.<div class="spacer">
+</div>
+In the case of branching constructs like the following:<div class="spacer">
+</div>
+<br/>
+  /a(b|(?{ print &quot;a&quot; }))c(?{ print &quot;c&quot; })/;<br/>
+<div class="spacer">
+</div>
+you can assume that the input &quot;ac&quot; will output &quot;ac&quot;, and that &quot;abc&quot; will output only &quot;c&quot;.<div class="spacer">
+</div>
+When embedded code is quantified, successful matches will call the code once for each matched iteration of the quantifier.  For example:<div class="spacer">
+</div>
+<br/>
+  &quot;good&quot; =~ /g(?:o(?{print &quot;o&quot;}))*d/;<br/>
+<div class="spacer">
+</div>
+will output &quot;o&quot; twice.</div>
+<div class="subsection">
+<h2>PCRE/Python Support</h2> As of Perl 5.10.0, Perl supports several Python/PCRE-specific extensions to the regex syntax. While Perl programmers are encouraged to use the Perl-specific syntax, the following are also accepted:<dl>
+<dt>
+&quot;(?P&lt;NAME&gt;pattern)&quot;</dt>
+<dd>
+Define a named capture group. Equivalent to &quot;(?&lt;NAME&gt;pattern)&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?P=NAME)&quot;</dt>
+<dd>
+Backreference to a named capture group. Equivalent to &quot;\g{NAME}&quot;.</dd>
+</dl>
+<dl>
+<dt>
+&quot;(?P&gt;NAME)&quot;</dt>
+<dd>
+Subroutine call to a named capture group. Equivalent to &quot;(?&amp;NAME)&quot;.</dd>
+</dl>
+</div>
 </div>
 <div class="section">
-<h1>SEE ALSO</h1> Besides the obvious documents, source code can be instructive. Some pathological examples of the use of references can be found in the  <i>t/op/ref.t</i> regression test in the Perl source directory.<div class="spacer">
+<h1>BUGS</h1> Many regular expression constructs don't work on EBCDIC platforms.<div class="spacer">
 </div>
-See also perldsc and perllol for how to use references to create complex data structures, and perlootut and perlobj for how to use them to create objects.</div>
+There are a number of issues with regard to case-insensitive matching in Unicode rules.  See &quot;i&quot; under &quot;Modifiers&quot; above.<div class="spacer">
+</div>
+This document varies from difficult to understand to completely and utterly opaque.  The wandering prose riddled with jargon is hard to fathom in several places.<div class="spacer">
+</div>
+This document needs a rewrite that separates the tutorial content from the reference content.</div>
+<div class="section">
+<h1>SEE ALSO</h1> perlrequick.<div class="spacer">
+</div>
+perlretut.<div class="spacer">
+</div>
+&quot;Regexp Quote-Like Operators&quot; in perlop.<div class="spacer">
+</div>
+&quot;Gory details of parsing quoted constructs&quot; in perlop.<div class="spacer">
+</div>
+perlfaq6.<div class="spacer">
+</div>
+&quot;pos&quot; in perlfunc.<div class="spacer">
+</div>
+perllocale.<div class="spacer">
+</div>
+perlebcdic.<div class="spacer">
+</div>
+<i>Mastering Regular Expressions</i> by Jeffrey Friedl, published by O'Reilly and Associates.</div>
 <table class="foot">
 <tr>
 <td class="foot-date">
-2015-04-25</td>
+2014-11-17</td>
 <td class="foot-os">
 perl v5.20.2</td>
 </tr>
