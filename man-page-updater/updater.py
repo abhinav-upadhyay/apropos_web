@@ -13,11 +13,12 @@ NYCDN_URL = 'https://nycdn.netbsd.org/pub/NetBSD-daily/'
 AMD64_SETS_URL = 'amd64/binary/sets/'
 HISTORY_FILE = '/var/mandb_updates.log'
 MANDB_BASE_DIR = '/usr/local/apropos_web/'
+HTML_BASE_DIR = '/usr/local/apropos_web/'
 MANDB_STD_LOC = '/var/db/man.db'
 HOME_DIR = os.getcwd()
 
 monitored_targets = {}
-#monitored_targets['NETBSD_6'] = 'netbsd-6/'
+monitored_targets['NETBSD_6'] = 'netbsd-6/'
 #monitored_targets['NETBSD_6_0'] = 'netbsd-6-0/'
 #monitored_targets['NETBSD_6_1'] = 'netbsd-6-1/'
 #monitored_targets['NETBSD_7'] = 'netbsd-7/'
@@ -85,22 +86,27 @@ def extract_set(set_name):
         return False
     return True
 
-def make_html(release_directory):
-    print('Copying Makefile to %s for generating HTML pages' % release_directory)
-    shutil.copy(HOME_DIR + '/Makefile', release_directory)
+def make_html(release_man_directory, release_name):
+    print('Copying Makefile to %s for generating HTML pages' % release_man_directory)
+    shutil.copy(HOME_DIR + '/Makefile', release_man_directory)
     cwd = os.getcwd()
-    if cwd != release_directory:
-        os.chdir(release_directory)
+    if cwd != release_man_directory:
+        os.chdir(release_man_directory)
 
-    print('Generating HTML pages in %s' % release_directory)
+    print('Generating HTML pages in %s' % release_man_directory)
     proc = subprocess.Popen(['make', 'html'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
-        eprint('Failed to generate html pages in %s' % release_directory)
+        eprint('Failed to generate html pages in %s' % release_man_directory)
         os.chdir(cwd)
         return False
     print(out)
-    print('HTML pages generated successfully in %s' % release_directory)
+    print('HTML pages generated successfully in %s' % release_man_directory)
+    html_directory = HTML_BASE_DIR + release_name
+    print('Copying HTML pages to %s' % html_directory)
+    if os.path.exists(html_directory):
+        shutil.rmtree(html_directory, ignore_errors=True)
+    shutil.copytree(release_man_directory, html_directory)
     os.chdir(cwd)
     return True
 
@@ -152,39 +158,44 @@ def get_release():
 
     cwd = os.getcwd()
     for key,value in monitored_targets.iteritems():
-        build_index_url = NYCDN_URL + value
-        print('Scraping %s' % build_index_url)
-        sets_url, build_date = get_latest_sets_url(build_index_url, history.get(key))
-        if sets_url is None:
-            eprint('No new build available for release %s' % key)
-            continue
-        if tempdir is None:
+        try:
+            build_index_url = NYCDN_URL + value
+            print('Scraping %s' % build_index_url)
+            sets_url, build_date = get_latest_sets_url(build_index_url, history.get(key))
+            if sets_url is None:
+                eprint('No new build available for release %s' % key)
+                continue
             tempdir = tempfile.mkdtemp()
             print('Created temp directory ' + str(tempdir))
             os.chdir(tempdir)
-        print('Going to download sets from %s' % sets_url)
-        os.mkdir(key)
-        print('Created directory %s' % key)
-        status = get_base_sets(sets_url, key)
-        if status:
-            print('Succussfully downloaded sets for %s' % key)
-            history[key] = int(build_date)
-            release_status[key] = True
-        else:
-            print('Failed to downloaded sets for %s' % key)
-            release_status[key] = False
+            print('Going to download sets from %s' % sets_url)
+            os.mkdir(key)
+            print('Created directory %s' % key)
+            status = get_base_sets(sets_url, key)
+            if status:
+                print('Succussfully downloaded sets for %s' % key)
+                history[key] = int(build_date)
+                release_status[key] = tempdir
+            else:
+                print('Failed to downloaded sets for %s' % key)
+                print('Going to remove temporary directory %s' % tempdir)
+                shutil.rmtree(tempdir)
+        except:
+            if tempdir:
+                print('Going to remove temporary directory %s' % tempdir)
+                shutil.rmtree(tempdir)
+        finally:
+            tempdir = None
 
-    if tempdir is not None:
-        os.chdir(cwd)
+    os.chdir(cwd)
 
     for k,v in release_status.iteritems():
-        if v is True:
-            directory_name = tempdir + '/' + k + '/usr/share/man'
-            make_html(directory_name)
-            run_makemandb(directory_name, k)
+        directory_name = v + '/' + k + '/usr/share/man'
+        make_html(directory_name, k)
+        run_makemandb(directory_name, k)
+        print('Going to remove temporary directory %s' % v)
+        shutil.rmtree(v, ignore_errors=True)
             
-    print('Going to remove temporary directory %s' % tempdir)
-    shutil.rmtree(tempdir, ignore_errors=True)
 
     print('Updating history file')
     with open(HISTORY_FILE, 'w') as f:
