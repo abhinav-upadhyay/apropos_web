@@ -48,8 +48,8 @@ html:
 		    dir=`dirname $$f`; \
 			dir=`echo $$dir | sed s/man/html/`; \
 			[ -d $(HTDIR)/$$dir ] || mkdir -p $(HTDIR)/$$dir ]; \
-			( mandoc -Thtml -O style=/static/man_pages/posix/style.css -O man=../html%S/%N.html $$f) | \
-			sed -e '1,2d' > $(HTDIR)/"$$dir"/`basename $$f`.html; \
+			( mandoc -Thtml -O style=/static/man_pages/posix/style.css -O man=../html%S/%N.html $$f) > \
+			$(HTDIR)/"$$dir"/`basename $$f`.html; \
 		done; \
 	done; fi
 
