@@ -38,6 +38,10 @@ def linux_index():
 def netbsd_index():
     return dist_index('posix')
 
+@app.route('/openbsd/')
+def openbsd_index():
+    return dist_index('openbsd')
+
 @app.route('/words/')
 def wvc():
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
@@ -81,9 +85,10 @@ def dist_index(dist):
                             int(time.time()), user_agent.string, dist)
     return render_template('index.html',
                            netbsd_logo_url=netbsd_logo_url)
-
+"""    
 @app.route("/man/<dist>/<section>/<name>")
 def manpage(dist, section, name):
+    import pdb; pdb.set_trace()
     return manpage_arch(dist, section, None, name)
 
 @app.route("/man/<dist>/<section>/<arch>/<name>")
@@ -115,6 +120,7 @@ def manpage_arch(dist, section, arch, name):
     response.headers['Content-Type'] = 'text/html'
     response.headers['X-Accel-Redirect'] = path
     return response
+"""    
 
 @app.route("/<dist>/search/")
 @app.route("/<dist>/search")
