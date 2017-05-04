@@ -11,7 +11,7 @@ import tempfile
 
 NYCDN_URL = 'https://nycdn.netbsd.org/pub/NetBSD-daily/'
 AMD64_SETS_URL = 'amd64/binary/sets/'
-HISTORY_FILE = '.mandb_updates.log'
+HISTORY_FILE = '/var/.mandb_updates.log'
 MANDB_BASE_DIR = '/usr/local/apropos_web/'
 MANDB_STD_LOC = '/var/db/man.db'
 HOME_DIR = os.getcwd()
@@ -25,10 +25,8 @@ monitored_targets = {}
 #monitored_targets['NETBSD_7_1'] = 'netbsd-7-1/'
 monitored_targets['HEAD'] = 'HEAD/'
 
-#base_set_names = ['base.tgz']#, 'comp.tgz', 'etc.tgz', 'games.tgz', 'man.tgz',
-#'misc.tgz', 'modules.tgz', 'tests.tgz', 'text.tgz' 
-#]
-base_set_names = ['man.tgz']
+base_set_names = ['base.tgz', 'comp.tgz', 'etc.tgz', 'games.tgz', 'man.tgz',
+'misc.tgz', 'modules.tgz', 'tests.tgz', 'text.tgz']
 
 xset_names = ['xbase.tgz', 'xcomp.tgz', 'xetc.tgz', 'xfont.tgz', 'xserver.tgz']
 
@@ -88,11 +86,13 @@ def extract_set(set_name):
     return True
 
 def make_html(release_directory):
+    print('Copying Makefile to %s for generating HTML pages' % release_directory)
     shutil.copy(HOME_DIR + '/Makefile', release_directory)
     cwd = os.getcwd()
     if cwd != release_directory:
         os.chdir(release_directory)
 
+    print('Generating HTML pages in %s' % release_directory)
     proc = subprocess.Popen(['make', 'html'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
@@ -100,6 +100,7 @@ def make_html(release_directory):
         os.chdir(cwd)
         return False
     print(out)
+    print('HTML pages generated successfully in %s' % release_directory)
     os.chdir(cwd)
     return True
 
@@ -121,6 +122,7 @@ def get_base_sets(sets_url, target_directory):
     return True   
 
 def run_makemandb(directory, release_name):
+    print('Going to run makemandb for %s' % directory)
     os.environ['MANPATH'] = directory
     proc = subprocess.Popen(['makemandb', '-v'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
@@ -129,7 +131,11 @@ def run_makemandb(directory, release_name):
         eprint(err)
     else:
         print(out)
-        shutil.copy(MANDB_STD_LOC, MANDB_BASE_DIR + release_name + '/man.db')
+        mandb_copy_dir = MANDB_BASE_DIR + release_name
+        print('makemandb run successful for %s, copying database to %s' % (directory, mandb_copy_dir))
+        if not os.path.exists(mandb_copy_dir):
+            os.makedirs(mandb_copy_dir)
+        shutil.copy(MANDB_STD_LOC, mandb_copy_dir + '/man.db')
 
 
 def get_release():
@@ -177,6 +183,8 @@ def get_release():
             make_html(directory_name)
             run_makemandb(tempdir + '/' + k, k)
             
+    print('Going to remove temporary directory %s' % tempdir)
+    shutil.rmtree(tempdir, ignore_errors=True)
 
     print('Updating history file')
     with open(HISTORY_FILE, 'w') as f:
