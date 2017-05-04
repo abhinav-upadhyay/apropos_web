@@ -12,6 +12,8 @@ import tempfile
 NYCDN_URL = 'https://nycdn.netbsd.org/pub/NetBSD-daily/'
 AMD64_SETS_URL = 'amd64/binary/sets/'
 HISTORY_FILE = '.mandb_updates.log'
+MANDB_BASE_DIR = '/usr/local/apropos_web/'
+MANDB_STD_LOC = '/var/db/man.db'
 HOME_DIR = os.getcwd()
 
 monitored_targets = {}
@@ -118,6 +120,18 @@ def get_base_sets(sets_url, target_directory):
             return False
     return True   
 
+def run_makemandb(directory, release_name):
+    os.environ['MANPATH'] = directory
+    proc = subprocess.Popen(['makemandb', '-v'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = proc.communicate()
+    if proc.returncode != 0:
+        eprint('Failed to index man pages from %s' % directory)
+        eprint(err)
+    else:
+        print(out)
+        shutil.copy(MANDB_STD_LOC, MANDB_BASE_DIR + release_name + '/man.db')
+
+
 def get_release():
     history = {}
     release_status = {}
@@ -161,6 +175,8 @@ def get_release():
         if v is True:
             directory_name = tempdir + '/' + k + '/usr/share/man'
             make_html(directory_name)
+            run_makemandb(tempdir + '/' + k, k)
+            
 
     print('Updating history file')
     with open(HISTORY_FILE, 'w') as f:
