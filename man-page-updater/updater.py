@@ -86,6 +86,8 @@ def extract_set(set_name):
         return False
     return True
 
+#TODO: We are copying everything: cat pages, man pages and existing html pages
+#TODO: Fix that: only copy generated html pages
 def make_html(release_man_directory, release_name):
     print('Copying Makefile to %s for generating HTML pages' % release_man_directory)
     shutil.copy(HOME_DIR + '/Makefile', release_man_directory)
