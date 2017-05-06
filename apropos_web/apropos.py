@@ -85,43 +85,6 @@ def dist_index(dist):
                             int(time.time()), user_agent.string, dist)
     return render_template('index.html',
                            netbsd_logo_url=netbsd_logo_url)
-"""    
-@app.route("/man/<dist>/<section>/<name>")
-def manpage(dist, section, name):
-    import pdb; pdb.set_trace()
-    return manpage_arch(dist, section, None, name)
-
-@app.route("/man/<dist>/<section>/<arch>/<name>")
-def manpage_arch(dist, section, arch, name):
-    '''
-    Log the search query to the DB and serve the static man page
-    '''
-
-    rank = request.args.get('r')
-    query = request.args.get('q')
-    ip = request.remote_addr
-    user_agent = request.user_agent
-    platform = user_agent.platform
-    browser = user_agent.browser
-    version = user_agent.version
-    language = user_agent.language
-    referrer = request.referrer
-    if query is None or query == '':
-        query = _get_previous_query(referrer)
-    _log_click(name, section, rank, query, ip, platform, browser, version,
-               language, referrer, int(time.time()), user_agent.string, dist)
-
-    if arch is not None:
-        path = '/static/man_pages/' + dist + '/html' + section + '/' + arch + '/' + name + '.html'
-    else:
-        path = '/static/man_pages/' + dist + '/html' + section + '/' + name + '.html'
-    response = make_response()
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['Content-Type'] = 'text/html'
-    response.headers['X-Accel-Redirect'] = path
-    return response
-"""    
-
 @app.route("/<dist>/search/")
 @app.route("/<dist>/search")
 def dist_specific_search(dist):
