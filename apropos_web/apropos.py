@@ -23,24 +23,21 @@ caches = {}
 _logger = logger.get_logger()
 dblogger = apropos_db_logger.AproposDBLogger()
 man_df = None
+distnames = config.DB_PATHS.keys()
 
 
-@app.route('/')
-@app.route('/netbsd/')
-def posix_index():
-    return dist_index('netbsd')
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+@app.route('/<path:path>/')
+def posix_index(path):
+    _logger.info("Request for %s" % path)
+    if path == 'words':
+        return wvc()
 
-@app.route('/linux/')
-def linux_index():
-    return dist_index('linux')
+    if path == 'search':
+        return search()
 
-@app.route('/posix/')
-def netbsd_index():
-    return dist_index('posix')
-
-@app.route('/openbsd/')
-def openbsd_index():
-    return dist_index('openbsd')
+    return dist_index(path)
 
 @app.route('/words/')
 def wvc():
@@ -72,6 +69,8 @@ def wvc():
 
 def dist_index(dist):
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
+    if dist is None or dist == '':
+        dist = 'NetBSD-current'
     if dist not in config.DB_PATHS and dist != 'favicon.ico':
         return redirect(url_for('search'))
     ip = request.remote_addr
@@ -84,7 +83,8 @@ def dist_index(dist):
     dblogger.log_page_visit(1, ip, platform, browser, version, language, referrer,
                             int(time.time()), user_agent.string, dist)
     return render_template('index.html',
-                           netbsd_logo_url=netbsd_logo_url)
+                           netbsd_logo_url=netbsd_logo_url, distnames=distnames)
+
 @app.route("/<dist>/search/")
 @app.route("/<dist>/search")
 def dist_specific_search(dist):
@@ -98,7 +98,7 @@ def dist_specific_search(dist):
 
     query = request.args.get('q')
     if query is None or query == '':
-        return render_template('index.html', netbsd_logo_url=netbsd_logo_url, dist=dist)
+        return render_template('index.html', netbsd_logo_url=netbsd_logo_url, dist=dist, distnames=distnames)
 
     page = request.args.get('p', 0)
     try:
@@ -129,19 +129,19 @@ def dist_specific_search(dist):
         results = _search(query, db_path)
         _logger.debug(results)
         if results is None:
-            return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url, dist=dist)
+            return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url, dist=dist, distnames=distnames)
         error = results.get('error')
         resultset = results.get('results')
         if error is not None:
             if error.get('category') == 'spell':
                 suggestion = error.get('suggestion')
         if (resultset is None or len(resultset) == 0) and suggestion is None:
-            return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url, dist=dist)
+            return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url, dist=dist, distnames=distnames)
         elif (resultset is None or len(resultset) == 0) and suggestion is not None:
             results = _search(suggestion, db_path)
             resultset = results.get('results')
             if resultset is None or len(resultset) == 0:
-                return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url, dist=dist)
+                return render_template('no_results.html', query=query, netbsd_logo_url=netbsd_logo_url, dist=dist, distnames=distnames)
             dist_results_cache.add(suggestion, results)
             query = suggestion
     else:
@@ -155,7 +155,7 @@ def dist_specific_search(dist):
     results_list = resultset[start_index: end_index]
     return render_template('results.html', dist=dist, results=results_list, query=query,
                            page=page, next_page=next_page, suggestion=suggestion,
-                           netbsd_logo_url=netbsd_logo_url)
+                           netbsd_logo_url=netbsd_logo_url, distnames=distnames)
 
 
 @app.route("/search/")
