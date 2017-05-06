@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 
-NYCDN_URL = 'https://nycdn.netbsd.org/pub/NetBSD-daily/'
+NYCDN_URL = 'http://nycdn.netbsd.org/pub/NetBSD-daily/'
 AMD64_SETS_URL = 'amd64/binary/sets/'
 HISTORY_FILE = '/var/mandb_updates.log'
 MANDB_BASE_DIR = '/usr/local/apropos_web/'
