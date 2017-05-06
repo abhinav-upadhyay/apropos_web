@@ -14,7 +14,7 @@ DB_PATHS={
         'NetBSD-7': '/usr/local/apropos_web/netbsd-7/man.db',
         'NetBSD-7-0': '/usr/local/apropos_web/netbsd-7-0/man.db',
         'NetBSD-7-1': '/usr/local/apropos_web/netbsd-7-1/man.db',
-        'NetBSD-current': '/usr/local/apropos_web/HEAD/man.db',
+        'NetBSD-current': '/usr/local/apropos_web/netbsd-current/man.db',
         'posix':'/usr/local/apropos_web/posix/man.db',
         'OpenBSD':'/usr/local/apropos_web/openbsd/man.db',
         'Linux':'/usr/local/apropos_web/linux/man.db'}
