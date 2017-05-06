@@ -18,13 +18,13 @@ MANDB_STD_LOC = '/var/db/man.db'
 HOME_DIR = os.getcwd()
 
 monitored_targets = {}
-monitored_targets['netbsd-6'] = 'netbsd-6/'
-monitored_targets['netbsd-6-0'] = 'netbsd-6-0/'
-monitored_targets['netbsdb-6-1'] = 'netbsd-6-1/'
-monitored_targets['netbsd-7'] = 'netbsd-7/'
-monitored_targets['netbsd-7-0'] = 'netbsd-7-0/'
-monitored_targets['netbsd-7-1'] = 'netbsd-7-1/'
-monitored_targets['netbsd-current'] = 'HEAD/'
+monitored_targets['NetBSD-6'] = 'netbsd-6/'
+monitored_targets['NetBSD-6-0'] = 'netbsd-6-0/'
+monitored_targets['NetBSD-6-1'] = 'netbsd-6-1/'
+monitored_targets['NetBSD-7'] = 'netbsd-7/'
+monitored_targets['NetBSD-7-0'] = 'netbsd-7-0/'
+monitored_targets['NetBSD-7-1'] = 'netbsd-7-1/'
+monitored_targets['NetBSD-current'] = 'HEAD/'
 
 base_set_names = ['base.tgz', 'comp.tgz', 'etc.tgz', 'games.tgz', 'man.tgz',
 'misc.tgz', 'modules.tgz', 'tests.tgz', 'text.tgz']
