@@ -163,7 +163,7 @@ def dist_specific_search(dist):
 def search():
     dist = request.args.get('dist')
     if dist is None or dist == '':
-        dist = 'netbsd'
+        dist = 'NetBSD-current'
     return dist_specific_search(dist)
 
 @app.route("/similar")
