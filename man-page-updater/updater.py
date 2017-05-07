@@ -142,7 +142,7 @@ def run_makemandb(directory, release_name):
     print('Copying man.conf to %s' % directory)
     shutil.copy('man.conf', directory)
     with open(directory + '/man.conf', 'a') as f:
-        f.write('_mabdb %s\n' %  mandb_copy_dir + '/man.db')
+        f.write('_mandb %s\n' %  mandb_copy_dir + '/man.db')
 
     os.environ['MANPATH'] = directory
     proc = subprocess.Popen(['makemandb', '-C', directory + '/man.conf', '-v'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
