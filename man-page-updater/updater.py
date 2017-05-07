@@ -96,6 +96,7 @@ def make_html(release_man_directory, release_name):
         os.chdir(release_man_directory)
 
     print('Generating HTML pages in %s' % release_man_directory)
+    os.environ['OS'] = release_name
     proc = subprocess.Popen(['make', 'html'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
