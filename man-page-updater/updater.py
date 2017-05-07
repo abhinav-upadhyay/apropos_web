@@ -202,7 +202,7 @@ def get_release():
     print('Updating history file')
     with open(HISTORY_FILE, 'w') as f:
         for k,v in history.iteritems():
-            f.write('%s %d' % (k, v))
+            f.write('%s %d\n' % (k, v))
 
 
 if __name__ == '__main__':
