@@ -86,6 +86,9 @@ def extract_set(set_name):
         return False
     return True
 
+'''
+Generate HTML man pages and copy them to /usr/local/apropos_web/<OS>/man/
+'''
 def make_html(release_man_directory, release_name):
     print('Copying Makefile to %s for generating HTML pages' % release_man_directory)
     shutil.copy(HOME_DIR + '/Makefile', release_man_directory)
@@ -103,7 +106,7 @@ def make_html(release_man_directory, release_name):
         return False
     print(out)
     print('HTML pages generated successfully in %s' % release_man_directory)
-    html_directory = HTML_BASE_DIR + release_name
+    html_directory = HTML_BASE_DIR + release_name + '/man'
     print('Copying HTML pages to %s' % html_directory)
     if os.path.exists(html_directory):
         shutil.rmtree(html_directory, ignore_errors=True)
@@ -128,6 +131,11 @@ def get_base_sets(sets_url, target_directory):
             return False
     return True   
 
+'''
+Run makemandb(8) to index new man pages.
+Use -C option to use a custom man.conf with _mandb set to 
+/usr/local/apropos_web/<OS>/man.db
+'''
 def run_makemandb(directory, release_name):
     mandb_copy_dir = MANDB_BASE_DIR + release_name
     print('Going to run makemandb for %s' % directory)
