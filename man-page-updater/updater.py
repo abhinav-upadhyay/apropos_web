@@ -86,8 +86,6 @@ def extract_set(set_name):
         return False
     return True
 
-#TODO: We are copying everything: cat pages, man pages and existing html pages
-#TODO: Fix that: only copy generated html pages
 def make_html(release_man_directory, release_name):
     print('Copying Makefile to %s for generating HTML pages' % release_man_directory)
     shutil.copy(HOME_DIR + '/Makefile', release_man_directory)
@@ -131,16 +129,21 @@ def get_base_sets(sets_url, target_directory):
     return True   
 
 def run_makemandb(directory, release_name):
+    mandb_copy_dir = MANDB_BASE_DIR + release_name
     print('Going to run makemandb for %s' % directory)
+    print('Copying man.conf to %s' % directory)
+    shutil.copy('man.conf', directory)
+    with open(directory + '/man.conf', 'a') as f:
+        f.write('_mabdb %s\n' %  mandb_copy_dir + '/man.db')
+
     os.environ['MANPATH'] = directory
-    proc = subprocess.Popen(['makemandb', '-fv'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(['makemandb', '-C', directory + '/man.conf', '-v'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
         eprint('Failed to index man pages from %s' % directory)
         eprint(err)
     else:
         print(out)
-        mandb_copy_dir = MANDB_BASE_DIR + release_name
         print('makemandb run successful for %s, copying database to %s' % (directory, mandb_copy_dir))
         if not os.path.exists(mandb_copy_dir):
             os.makedirs(mandb_copy_dir)
