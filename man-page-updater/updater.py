@@ -26,9 +26,7 @@ monitored_targets['NetBSD-7-0'] = 'netbsd-7-0/'
 monitored_targets['NetBSD-7-1'] = 'netbsd-7-1/'
 monitored_targets['NetBSD-current'] = 'HEAD/'
 
-base_set_names = ['base.tgz', 'comp.tgz', 'etc.tgz', 'games.tgz', 'man.tgz',
-'misc.tgz', 'modules.tgz', 'tests.tgz', 'text.tgz']
-
+base_set_names = ['base.tgz', 'comp.tgz', 'games.tgz', 'man.tgz', 'text.tgz']
 xset_names = ['xbase.tgz', 'xcomp.tgz', 'xetc.tgz', 'xfont.tgz', 'xserver.tgz']
 
 os.environ['HTDIR'] = 'html'
