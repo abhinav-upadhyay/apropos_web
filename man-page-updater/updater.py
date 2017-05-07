@@ -140,7 +140,7 @@ def run_makemandb(directory, release_name):
     mandb_copy_dir = MANDB_BASE_DIR + release_name
     print('Going to run makemandb for %s' % directory)
     print('Copying man.conf to %s' % directory)
-    shutil.copy('man.conf', directory)
+    shutil.copy(HOME_DIR + '/man.conf', directory)
     with open(directory + '/man.conf', 'a') as f:
         f.write('_mandb %s\n' %  mandb_copy_dir + '/man.db')
 
