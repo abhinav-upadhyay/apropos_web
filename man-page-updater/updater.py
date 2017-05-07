@@ -150,10 +150,7 @@ def run_makemandb(directory, release_name):
         eprint(err)
     else:
         print(out)
-        print('makemandb run successful for %s, copying database to %s' % (directory, mandb_copy_dir))
-        if not os.path.exists(mandb_copy_dir):
-            os.makedirs(mandb_copy_dir)
-        shutil.copy(MANDB_STD_LOC, mandb_copy_dir + '/man.db')
+        print('makemandb run successful for %s')
 
 
 def get_release():
