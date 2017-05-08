@@ -143,7 +143,7 @@ def run_makemandb(directory, release_name):
         f.write('_mandb %s\n' %  (mandb_copy_dir + '/man.db'))
 
     os.environ['MANPATH'] = directory
-    proc = subprocess.Popen(['makemandb', '-C', directory + '/man.conf', '-v'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(['makemandb', '-C', directory + '/man.conf', '-f'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
         eprint('Failed to index man pages from %s' % directory)
