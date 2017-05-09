@@ -48,7 +48,7 @@ html:
 		    dir=`dirname $$f`; \
 			dir=`echo $$dir | sed s/man/html/`; \
 			[ -d $(HTDIR)/$$dir ] || mkdir -p $(HTDIR)/$$dir ]; \
-			( mandoc -Ios=$(OS) -Thtml -O style=/static/mandoc.css,man=../%S/%N $$f) > \
+			( mandoc -Ios=$(OS) -Thtml -O style=/static/mandoc.css,man=/man/$(OS)/%S/%N,includes=/src/%I $$f) > \
 			$(HTDIR)/"$$dir"/`basename $$f`.html; \
 		done; \
 	done; fi
