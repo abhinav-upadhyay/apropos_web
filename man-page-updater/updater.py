@@ -34,6 +34,17 @@ os.environ['HTDIR'] = 'html'
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
+def ping(url):
+    try:
+        print('Pinging %s' % url)
+        r = requests.get(url)
+        if r.status_code < 200 or r.status_code > 299:
+            return False
+        return True
+    except Exception as e:
+        eprint('Exception while pinging %s: %s' % (url, str(e)))
+        return False
+
 def get_latest_sets_url(release_url, previous_build_date=None):
     r = requests.get(release_url)
     if r.status_code < 200 or r.status_code > 299:
@@ -50,13 +61,24 @@ def get_latest_sets_url(release_url, previous_build_date=None):
     if len(dates) == 0:
         return None, None
 
-    if previous_build_date is None:
-        return (release_url + dates[-1] + AMD64_SETS_URL, dates[-1][:-2])
-
     for date_str in reversed(dates):
         date = int(date_str[:-2])
-        if date > previous_build_date:
-            return (release_url + date_str + AMD64_SETS_URL, date)
+        if previous_build_date:
+            if date > previous_build_date:
+                url = (release_url + date_str + AMD64_SETS_URL)
+                if ping(url) is False:
+                    print('No amd64 sets found at %s, trying older builds' % url)
+                else:
+                    return url, date
+            else:
+                continue
+        else:
+            url = (release_url + date_str + AMD64_SETS_URL)
+            if ping(url) is False:
+                print('No amd64 sets found at %s, trying older builds' % url)
+            else:
+                return  url, date
+
     return None, None
 
 def download_sets(set_url, filename):
@@ -190,6 +212,7 @@ def get_release():
                 print('Going to remove temporary directory %s' % tempdir)
                 shutil.rmtree(tempdir)
         except:
+            eprint('Exception while getting sets for %s' % value)
             if tempdir:
                 print('Going to remove temporary directory %s' % tempdir)
                 shutil.rmtree(tempdir)
