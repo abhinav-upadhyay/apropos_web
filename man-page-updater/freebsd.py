@@ -5,7 +5,7 @@ import requests
 import sys
 import time
 
-BASE_URL = 'http://download.freebsd.org/ftp/snapshots/amd64/'
+BASE_URL = 'http://ftp1.us.freebsd.org/pub/FreeBSD/snapshots/amd64/'
 AMD64_SETS_URL = 'amd64/'
 HISTORY_FILE = '/var/openbsd_mandb_updates.log'
 TAR_OPTIONS = '-xzf'
