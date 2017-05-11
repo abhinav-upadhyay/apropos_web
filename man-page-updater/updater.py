@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import argparse
 import os
 import shutil
@@ -7,7 +8,6 @@ import subprocess
 import tempfile
 import requests
 from updater_utils import *
-from __future__ import print_function
 from clint.textui import progress
 
 MANDB_BASE_DIR = '/usr/local/apropos_web/'
