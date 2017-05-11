@@ -25,7 +25,8 @@ def download_sets(set_url, filename):
             eprint('Non-200 status from sets URL: %s' % set_url)
             return None
         with open(filename, 'wb') as f:
-            total_length = int(r.headers.get('content-length'))
+            content_length = r.headers.get('content-length')
+            total_length = int(content_length) if content_length else 8192
             for chunk in progress.bar(r.iter_content(chunk_size=1024), expected_size=(total_length/1024) + 1):
                 if chunk:
                     f.write(chunk)
@@ -71,10 +72,10 @@ def make_html(release_man_directory, release_name):
     os.chdir(cwd)
     return True
 
-def get_base_sets(sets_url, target_directory, release_name):
+def get_base_sets(sets_url, target_directory, base_setnames):
     cwd = os.getcwd()
     os.chdir(target_directory)
-    for set_name in myos.get_base_setnames(release_name):
+    for set_name in base_setnames:
         print('Starting download for set %s for %s' % (set_name, target_directory))
         url = sets_url + set_name
         r = download_sets(url, set_name)
@@ -152,7 +153,7 @@ def get_release():
             print('Going to download sets from %s' % sets_url)
             os.mkdir(key)
             print('Created directory %s' % key)
-            status = get_base_sets(sets_url, key)
+            status = get_base_sets(sets_url, key, myos.get_base_setnames(key))
             if status:
                 print('Succussfully downloaded sets for %s' % key)
                 history[key] = int(build_date)
@@ -161,8 +162,8 @@ def get_release():
                 print('Failed to downloaded sets for %s' % key)
                 print('Going to remove temporary directory %s' % tempdir)
                 shutil.rmtree(tempdir)
-        except:
-            eprint('Exception while getting sets for %s' % value)
+        except Exception as e:
+            eprint('Exception while getting sets for %s: %s' % (value, str(e)))
             if tempdir:
                 print('Going to remove temporary directory %s' % tempdir)
                 shutil.rmtree(tempdir)
