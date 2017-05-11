@@ -18,4 +18,6 @@ DB_PATHS={
         'posix':'/usr/local/apropos_web/posix/man.db',
         'OpenBSD-6.1':'/usr/local/apropos_web/OpenBSD-6.1/man.db',
         'OpenBSD-6.0':'/usr/local/apropos_web/OpenBSD-6.0/man.db',
+        'FreeBSD-11.0': '/usr/local/apropos_web/FreeBSD-11.0',
+        'FreeBSD-10.3': '/usr/local/apropos_web/FreeBSD-10.3',
         'Linux':'/usr/local/apropos_web/linux/man.db'}
