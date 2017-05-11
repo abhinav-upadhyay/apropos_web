@@ -46,10 +46,11 @@ html:
 		[ -d $(HTDIR)/"$$newdirname" ] || mkdir -p $(HTDIR)/"$$newdirname"; \
 		find "$$i/" -type f | while read f; do \
 		    dir=`dirname $$f`; \
+			outfile=`echo $$f | sed -e s/\.gz//g`; \
 			dir=`echo $$dir | sed s/man/html/`; \
 			[ -d $(HTDIR)/$$dir ] || mkdir -p $(HTDIR)/$$dir ]; \
 			( mandoc -Ios=$(OS) -Thtml -O style=/static/mandoc.css,man=/man/$(OS)/%S/%N,includes=/src/$(OS)/%I $$f) > \
-			$(HTDIR)/"$$dir"/`basename $$f`.html; \
+			$(HTDIR)/"$$dir"/`basename $$outfile`.html; \
 		done; \
 	done; fi
 
