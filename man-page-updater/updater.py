@@ -1,85 +1,22 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-from clint.textui import progress
+import argparse
 import os
-import requests
 import shutil
 import subprocess
-import sys
 import tempfile
+import requests
+from updater_utils import *
+from __future__ import print_function
+from clint.textui import progress
 
-NYCDN_URL = 'http://nycdn.netbsd.org/pub/NetBSD-daily/'
-AMD64_SETS_URL = 'amd64/binary/sets/'
-HISTORY_FILE = '/var/mandb_updates.log'
 MANDB_BASE_DIR = '/usr/local/apropos_web/'
 HTML_BASE_DIR = '/usr/local/apropos_web/'
 MANDB_STD_LOC = '/var/db/man.db'
 HOME_DIR = os.getcwd()
-
-monitored_targets = {}
-monitored_targets['NetBSD-6'] = 'netbsd-6/'
-monitored_targets['NetBSD-6-0'] = 'netbsd-6-0/'
-monitored_targets['NetBSD-6-1'] = 'netbsd-6-1/'
-monitored_targets['NetBSD-7'] = 'netbsd-7/'
-monitored_targets['NetBSD-7-0'] = 'netbsd-7-0/'
-monitored_targets['NetBSD-7-1'] = 'netbsd-7-1/'
-monitored_targets['NetBSD-current'] = 'HEAD/'
-
-base_set_names = ['base.tgz', 'comp.tgz', 'games.tgz', 'man.tgz', 'text.tgz']
-xset_names = ['xbase.tgz', 'xcomp.tgz', 'xetc.tgz', 'xfont.tgz', 'xserver.tgz']
-
 os.environ['HTDIR'] = 'html'
+myos = None
 
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
-
-def ping(url):
-    try:
-        print('Pinging %s' % url)
-        r = requests.get(url)
-        if r.status_code < 200 or r.status_code > 299:
-            return False
-        return True
-    except Exception as e:
-        eprint('Exception while pinging %s: %s' % (url, str(e)))
-        return False
-
-def get_latest_sets_url(release_url, previous_build_date=None):
-    r = requests.get(release_url)
-    if r.status_code < 200 or r.status_code > 299:
-        eprint('Error from URL: %s' % release_url)
-        return None, None
-
-    dates = []
-    lines = r.text.splitlines()
-    for line in lines:
-        if line.startswith('<a href'):
-            date_str = line.split('</a>')[0].split('>')[1]
-            dates.append(date_str)
-    
-    if len(dates) == 0:
-        return None, None
-
-    for date_str in reversed(dates):
-        date = int(date_str[:-2])
-        if previous_build_date:
-            if date > previous_build_date:
-                url = (release_url + date_str + AMD64_SETS_URL)
-                if ping(url) is False:
-                    print('No amd64 sets found at %s, trying older builds' % url)
-                else:
-                    return url, date
-            else:
-                continue
-        else:
-            url = (release_url + date_str + AMD64_SETS_URL)
-            if ping(url) is False:
-                print('No amd64 sets found at %s, trying older builds' % url)
-            else:
-                return  url, date
-
-    return None, None
 
 def download_sets(set_url, filename):
     try:
@@ -102,7 +39,7 @@ def extract_set(set_name):
     proc = subprocess.Popen(['tar', '-xpzf', set_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
-        eprint('Failed to extracet %s with error: ' % (set_name, err))
+        eprint('Failed to extracet %s with error: %s' % (set_name, err))
         return False
     return True
 
@@ -134,10 +71,10 @@ def make_html(release_man_directory, release_name):
     os.chdir(cwd)
     return True
 
-def get_base_sets(sets_url, target_directory):
+def get_base_sets(sets_url, target_directory, release_name):
     cwd = os.getcwd()
     os.chdir(target_directory)
-    for set_name in base_set_names:
+    for set_name in myos.get_base_setnames(release_name):
         print('Starting download for set %s for %s' % (set_name, target_directory))
         url = sets_url + set_name
         r = download_sets(url, set_name)
@@ -176,11 +113,24 @@ def run_makemandb(directory, release_name):
 
 
 def get_release():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-o', '--os', help='OS name')
+    args = parser.parse_args()
+    if args.os == 'netbsd':
+        import netbsd as myos
+    elif args.os == 'freebsd':
+        import freebsd as myos
+    elif args.os == 'openbsd':
+        import openbsd as myos
+    else:
+        eprint('Unknown OS %s' % args.os)
+        return
+
     history = {}
     release_status = {}
     tempdir = None
-    if os.path.isfile(HISTORY_FILE):
-        with open(HISTORY_FILE, 'r') as f:
+    if os.path.isfile(myos.HISTORY_FILE):
+        with open(myos.HISTORY_FILE, 'r') as f:
             for line in f:
                 if line[:-1] == '\n':
                     line = line[:-1]
@@ -188,11 +138,11 @@ def get_release():
                 history[words[0]] = int(words[1])
 
     cwd = os.getcwd()
-    for key,value in monitored_targets.iteritems():
+    for key,value in myos.monitored_targets.iteritems():
         try:
-            build_index_url = NYCDN_URL + value
+            build_index_url = myos.BASE_URL + value
             print('Scraping %s' % build_index_url)
-            sets_url, build_date = get_latest_sets_url(build_index_url, history.get(key))
+            sets_url, build_date = myos.get_latest_sets_url(build_index_url, history.get(key))
             if sets_url is None:
                 eprint('No new build available for release %s' % key)
                 continue
@@ -227,10 +177,9 @@ def get_release():
         run_makemandb(directory_name, k)
         print('Going to remove temporary directory %s' % v)
         shutil.rmtree(v, ignore_errors=True)
-            
 
-    print('Updating history file')
-    with open(HISTORY_FILE, 'w') as f:
+    print('Updating history file %s' % myos.HISTORY_FILE)
+    with open(myos.HISTORY_FILE, 'w') as f:
         for k,v in history.iteritems():
             f.write('%s %d\n' % (k, v))
 
