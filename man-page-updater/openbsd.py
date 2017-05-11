@@ -4,7 +4,7 @@ import requests
 import sys
 import time
 
-BASE_URL = 'https://ftp3.usa.openbsd.org/pub/OpenBSD/'
+BASE_URL = 'http://ftp3.usa.openbsd.org/pub/OpenBSD/'
 AMD64_SETS_URL = 'amd64/'
 HISTORY_FILE = '/var/openbsd_mandb_updates.log'
 monitored_targets = {}
