@@ -7,7 +7,7 @@ import time
 
 BASE_URL = 'http://ftp1.us.freebsd.org/pub/FreeBSD/snapshots/amd64/'
 AMD64_SETS_URL = 'amd64/'
-HISTORY_FILE = '/var/openbsd_mandb_updates.log'
+HISTORY_FILE = '/var/freebsd_mandb_updates.log'
 TAR_OPTIONS = '-xzf'
 monitored_targets = {}
 monitored_targets['FreeBSD-11.0'] = '11.0-STABLE/'
