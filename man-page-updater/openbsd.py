@@ -7,6 +7,7 @@ import time
 BASE_URL = 'http://ftp3.usa.openbsd.org/pub/OpenBSD/'
 AMD64_SETS_URL = 'amd64/'
 HISTORY_FILE = '/var/openbsd_mandb_updates.log'
+TAR_OPTIONS = 'xpzf'
 monitored_targets = {}
 monitored_targets['OpenBSD-6.1'] = '6.1/'
 monitored_targets['OpenBSD-6.0'] = '6.0/'

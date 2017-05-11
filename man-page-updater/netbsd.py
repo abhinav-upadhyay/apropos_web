@@ -6,6 +6,7 @@ import sys
 BASE_URL = 'http://nycdn.netbsd.org/pub/NetBSD-daily/'
 AMD64_SETS_URL = 'amd64/binary/sets/'
 HISTORY_FILE = '/var/netbsd_mandb_updates.log'
+TAR_OPTIONS = 'xpzf'
 monitored_targets = {}
 monitored_targets['NetBSD-6'] = 'netbsd-6/'
 monitored_targets['NetBSD-6-0'] = 'netbsd-6-0/'
