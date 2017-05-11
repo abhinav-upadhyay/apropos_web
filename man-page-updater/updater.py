@@ -36,8 +36,8 @@ def download_sets(set_url, filename):
         return None
     return r
 
-def extract_set(set_name):
-    proc = subprocess.Popen(['tar', '-xpzf', set_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+def extract_set(set_name, tar_options):
+    proc = subprocess.Popen(['tar', tar_options, set_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
         eprint('Failed to extracet %s with error: %s' % (set_name, err))
@@ -72,7 +72,7 @@ def make_html(release_man_directory, release_name):
     os.chdir(cwd)
     return True
 
-def get_base_sets(sets_url, target_directory, base_setnames):
+def get_base_sets(sets_url, target_directory, base_setnames, tar_options):
     cwd = os.getcwd()
     os.chdir(target_directory)
     for set_name in base_setnames:
@@ -83,7 +83,7 @@ def get_base_sets(sets_url, target_directory, base_setnames):
             eprint('Failed to download %s for %s' % (set_name, target_directory))
             return False
         print('Extracting set %s for %s' % (set_name, target_directory))
-        status = extract_set(set_name)
+        status = extract_set(set_name, tar_options)
         if status is False:
             os.chdir(cwd)
             return False
@@ -153,7 +153,7 @@ def get_release():
             print('Going to download sets from %s' % sets_url)
             os.mkdir(key)
             print('Created directory %s' % key)
-            status = get_base_sets(sets_url, key, myos.get_base_setnames(key))
+            status = get_base_sets(sets_url, key, myos.get_base_setnames(key), myos.TAR_OPTIONS)
             if status:
                 print('Succussfully downloaded sets for %s' % key)
                 history[key] = int(build_date)
