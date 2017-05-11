@@ -12,7 +12,7 @@ TAR_OPTIONS = '-xzf'
 monitored_targets = {}
 monitored_targets['FreeBSD-11.0'] = '11.0-STABLE/'
 monitored_targets['FreeBSD-10.3'] = '10.3-STABLE/'
-monitored_targets['FreeBSD-12.0'] = '12.0-STABLE/'
+monitored_targets['FreeBSD-12.0-CURRENT'] = '12.0-CURRENT/'
 
 base_set_names = ['base.txz']
 
