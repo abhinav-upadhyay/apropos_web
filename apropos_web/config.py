@@ -20,4 +20,5 @@ DB_PATHS={
         'OpenBSD-6.0':'/usr/local/apropos_web/OpenBSD-6.0/man.db',
         'FreeBSD-11.0': '/usr/local/apropos_web/FreeBSD-11.0/man.db',
         'FreeBSD-10.3': '/usr/local/apropos_web/FreeBSD-10.3/man.db',
+        'FreeBSD-12.0-CURRENT': '/usr/local/apropos_web/FreeBSD-12.0-CURRENT/man.db',
         'Linux':'/usr/local/apropos_web/linux/man.db'}
