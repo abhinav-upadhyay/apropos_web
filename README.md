@@ -16,7 +16,7 @@ Currently it supports following searching man pages for following operating syst
 * ```POSIX-2003```
 
 
-###Deployment Instructions
+### Deployment Instructions
 
 * Install all the required Python packages as mentioned in the requirements.txt file
 (You may either setup a virtual environment with all those packages or just install them
