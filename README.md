@@ -6,11 +6,14 @@ Unlike the traditional apropos implementations, the apropos in NetBSD does full 
 
 It also does a basic spell check for queries and offers suggestions. For example try [make directry] (https://man-k.org/search?q=make+directry)
 
-### See it in action here: [man-k.org] (https://man-k.org)
-Currently it supports searching two distributions of man pages:
-* ```NetBSD``` man pages: https://man-k.org/netbsd/ or https://man-k.org
-* ```Linux``` man pages: https://man-k.org/linux/
-* ```posix``` man pages: https://man-k.org/posix/
+### See it in action here: [man-k.org] (http://man-k.org)
+Currently it supports following searching man pages for following operating systems:
+* ```NetBSD``` 
+* ```FreeBSD```
+* ```OpenBSD```
+* ```Linux``` 
+* ```POSIX-2013``` 
+* ```POSIX-2003```
 
 
 ###Deployment Instructions
@@ -19,15 +22,14 @@ Currently it supports searching two distributions of man pages:
 (You may either setup a virtual environment with all those packages or just install them
  globally, whatever works)
 
-* Download mdocml-1.13.4 from http://mdocml.bsd.lv, and install it in /usr/local.
+* Clone mdocml-1.14.1 from https://github.com/abhinav-upadhyay/mdocml, and install it in /usr/local.
+(I have some modifications to mandoc for generating syntax highlighted html pages)
 
 * Clone the `apropos_replacement` repository from my github and checkout the
 `merge_netbsd_linux` branch. On linux `make -f Makefile.linux`, on NetBSD run `make`
 to compile it. Run `make install` to install the binaries or just copy the `apropos` binary to `/usr/bin`)
 
-* Run `makemandb -fv` after building `apropos` in the above step. On NetBSD it should generate
-the man.db database in `/var/db/man.db`. On Linux it should be in `/var/man.db`. Copy this file
-to `/usr/local/apropos_web/<netbsd|linux>/man.db` (depending on NetBSD or Linux).
+* To generate HTML format man pages and the apropos database, run updater.py in man-page-updater directory.
 
 * Run gunicorn to serve the flask app, with something like:
 `gunicorn --workers 2 --bind unix:apropos_web.sock -m 500 --timeout 120 wsgi:app`
