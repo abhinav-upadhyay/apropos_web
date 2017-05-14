@@ -32,12 +32,17 @@ def whatis():
     dists = request.args.getlist('dist')
     netbsd_logo_url = url_for('static', filename='images/netbsd.png')
     results = None
+    selected = {}
     if query is not None and  query != '':
         if dists is None or dists == '':
             dists = distnames
+        else:
+            for dist in dists:
+                selected[dist] = True
         results = _whatis(query, dists)
 
-    return render_template('whatis.html', netbsd_logo_url=netbsd_logo_url, query='', page=0, distnames=distnames, results=results)
+    return render_template('whatis.html', netbsd_logo_url=netbsd_logo_url,
+            query='', page=0, distnames=distnames, results=results, selected=selected)
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
