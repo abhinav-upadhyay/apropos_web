@@ -26,6 +26,19 @@ man_df = None
 distnames = config.DB_PATHS.keys()
 
 
+@app.route('/whatis')
+def whatis():
+    query = request.args.get('q')
+    dists = request.args.getlist('dist')
+    netbsd_logo_url = url_for('static', filename='images/netbsd.png')
+    results = None
+    if query is not None and  query != '':
+        if dists is None or dists == '':
+            dists = distnames
+        results = _whatis(query, dists)
+
+    return render_template('whatis.html', netbsd_logo_url=netbsd_logo_url, query='', page=0, distnames=distnames, results=results)
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 @app.route('/<path:path>/')
@@ -258,6 +271,39 @@ def _search(query, db_path=None):
     except Exception:
         _logger.exception('Failed to parse JSON output: %s', out)
         return None
+
+def _whatis(query, dists):
+    response = {}
+    for dist in dists:
+        command = config.WHATIS_PATH
+        response[dist] = []
+        db_path = config.DB_PATHS[dist]
+        if db_path is None:
+            continue
+        command += ' -d %s %s' % (db_path, query)
+        args = shlex.split(command)
+        proc = subprocess.Popen(args,
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE
+                                )
+        out, err = proc.communicate()
+        if proc.returncode != 0:
+            _logger.error('whatis returned error %s for query %s for dist %s', err, query, dist)
+            continue
+        if out is None or out == '':
+            _logger.info('No results for query %s for dist %s', query, dist)
+            continue
+        lines = out.splitlines()
+        for line in lines:
+            d = {}
+            tokens = line.split('-')
+            name_parts = tokens[0].split('(')
+            d['name'] = name_parts[0]
+            d['section'] = name_parts[1][:-2]
+            d['desc'] = tokens[1]
+            response[dist].append(d)
+    return response
 
 if __name__ == '__main__':
     app.run()
