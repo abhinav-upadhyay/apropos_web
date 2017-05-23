@@ -29,6 +29,8 @@ Currently it supports following searching man pages for following operating syst
 `merge_netbsd_linux` branch. On linux `make -f Makefile.linux`, on NetBSD run `make`
 to compile it. Run `make install` to install the binaries or just copy the `apropos` binary to `/usr/bin`)
 
+* Also, build apropos_replacement/man and install it. (There is a change in man(1) required by makemandb(8).
+
 * To generate HTML format man pages and the apropos database, run updater.py in man-page-updater directory.
 
 * Run gunicorn to serve the flask app, with something like:
