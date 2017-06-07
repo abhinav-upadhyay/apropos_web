@@ -110,7 +110,7 @@ def run_makemandb(directory, release_name):
         eprint(err)
     else:
         print(out)
-        print('makemandb run successful for %s')
+        print('makemandb run successful for %s' % release_name)
 
 
 def get_release():
