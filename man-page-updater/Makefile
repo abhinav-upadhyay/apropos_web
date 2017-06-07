@@ -42,7 +42,7 @@ bz2:
 html:
 	@if [ x$(HTDIR) = x ]; then echo "You must set HTDIR."; else \
 	newdirname=`echo $$i | sed s/man/html/`; \
-	for i in man?; do \
+	for i in man*; do \
 		[ -d $(HTDIR)/"$$newdirname" ] || mkdir -p $(HTDIR)/"$$newdirname"; \
 		find "$$i/" -type f | while read f; do \
 		    dir=`dirname $$f`; \
