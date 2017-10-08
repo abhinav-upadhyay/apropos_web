@@ -67,7 +67,7 @@ def make_html(release_man_directory, release_name):
     html_directory = HTML_BASE_DIR + release_name + '/man'
     print('Copying HTML pages to %s' % html_directory)
     if os.path.exists(html_directory):
-        shutil.rmtree(html_directory, ignore_errors=True)
+        shutil.rmtree(html_directory, ignore_errors=False)
     shutil.copytree(release_man_directory + '/html', html_directory)
     os.chdir(cwd)
     return True
