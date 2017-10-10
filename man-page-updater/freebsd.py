@@ -10,8 +10,8 @@ AMD64_SETS_URL = 'amd64/'
 HISTORY_FILE = '/var/freebsd_mandb_updates.log'
 TAR_OPTIONS = '-xzf'
 monitored_targets = {}
-monitored_targets['FreeBSD-11.0'] = '11.0-STABLE/'
-monitored_targets['FreeBSD-10.3'] = '10.3-STABLE/'
+monitored_targets['FreeBSD-11.1'] = '11.1-STABLE/'
+monitored_targets['FreeBSD-10.4'] = '10.4-STABLE/'
 monitored_targets['FreeBSD-12.0-CURRENT'] = '12.0-CURRENT/'
 
 base_set_names = ['base.txz']
