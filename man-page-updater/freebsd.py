@@ -3,12 +3,16 @@ from updater_utils import *
 from bs4 import BeautifulSoup
 import requests
 import sys
+from sys import platform
 import time
 
 BASE_URL = 'http://ftp1.us.freebsd.org/pub/FreeBSD/snapshots/amd64/'
 AMD64_SETS_URL = 'amd64/'
 HISTORY_FILE = '/var/freebsd_mandb_updates.log'
-TAR_OPTIONS = '-xzf'
+if platform == 'linux' or platform == 'linux2':
+    TAR_OPTIONS = '-xJf'
+else:
+    TAR_OPTIONS='-xzf'
 monitored_targets = {}
 monitored_targets['FreeBSD-11.1'] = '11.1-STABLE/'
 monitored_targets['FreeBSD-10.4'] = '10.4-STABLE/'
