@@ -103,6 +103,7 @@ def run_makemandb(directory, release_name):
         f.write('_mandb %s\n' %  (mandb_copy_dir + '/man.db'))
 
     os.environ['MANPATH'] = directory
+    os.environ['MAKEMANDB_DBPATH'] = mandb_copy_dir + '/man.db'
     proc = subprocess.Popen(['makemandb', '-C', directory + '/man.conf', '-f'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
