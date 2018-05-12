@@ -175,8 +175,8 @@ def get_release():
 
     for k,v in release_status.iteritems():
         directory_name = v + '/' + k + '/usr/share/man'
-        make_html(directory_name, k)
         run_makemandb(directory_name, k)
+        make_html(directory_name, k)
         print('Going to remove temporary directory %s' % v)
         shutil.rmtree(v, ignore_errors=True)
 
