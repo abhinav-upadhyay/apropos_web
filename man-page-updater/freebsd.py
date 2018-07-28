@@ -14,7 +14,7 @@ if platform == 'linux' or platform == 'linux2':
 else:
     TAR_OPTIONS='-xzf'
 monitored_targets = {}
-monitored_targets['FreeBSD-11.1'] = '11.1-STABLE/'
+monitored_targets['FreeBSD-11.2'] = '11.2-STABLE/'
 monitored_targets['FreeBSD-10.4'] = '10.4-STABLE/'
 monitored_targets['FreeBSD-12.0-CURRENT'] = '12.0-CURRENT/'
 
