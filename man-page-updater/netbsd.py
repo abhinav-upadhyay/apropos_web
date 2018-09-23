@@ -37,6 +37,8 @@ def get_latest_sets_url(release_url, previous_build_date=None):
         return None, None
 
     for date_str in reversed(dates):
+        if date_str == 'latest':
+            continue
         date = int(date_str[:-2])
         if previous_build_date:
             if date > previous_build_date:
