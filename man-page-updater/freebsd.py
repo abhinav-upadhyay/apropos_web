@@ -16,7 +16,7 @@ else:
 monitored_targets = {}
 monitored_targets['FreeBSD-11.2'] = '11.2-STABLE/'
 monitored_targets['FreeBSD-13.0-CURRENT'] = '13.0-CURRENT/'
-monitored_targets['FreeBSD-12.0-ALPHA'] = '12.0-ALPHA10/'
+monitored_targets['FreeBSD-12.0'] = '12.0-STABLE/'
 
 base_set_names = ['base.txz']
 
