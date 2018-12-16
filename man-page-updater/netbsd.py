@@ -6,7 +6,7 @@ import sys
 BASE_URL = 'http://nycdn.netbsd.org/pub/NetBSD-daily/'
 AMD64_SETS_URL = 'amd64/binary/sets/'
 HISTORY_FILE = '/var/netbsd_mandb_updates.log'
-TAR_OPTIONS = 'xpzf'
+TAR_OPTIONS = 'xf'
 monitored_targets = {}
 monitored_targets['NetBSD-7'] = 'netbsd-7/'
 monitored_targets['NetBSD-7-0'] = 'netbsd-7-0/'
@@ -18,7 +18,10 @@ base_set_names = ['base.tgz', 'comp.tgz', 'games.tgz', 'man.tgz', 'text.tgz']
 xset_names = ['xbase.tgz', 'xcomp.tgz', 'xetc.tgz', 'xfont.tgz', 'xserver.tgz']
 
 def get_base_setnames(release_name):
-    return base_set_names
+    if release_name != 'NetBSD-current':
+        return base_set_names
+    current_set_names = [s.replace('.tgz', '.tar.xz') for s in base_set_names]
+    return current_set_names
 
 def get_latest_sets_url(release_url, previous_build_date=None):
     r = requests.get(release_url)
