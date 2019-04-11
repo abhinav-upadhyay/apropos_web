@@ -9,6 +9,7 @@ import time
 BASE_URL = 'http://ftp1.us.freebsd.org/pub/FreeBSD/snapshots/amd64/'
 AMD64_SETS_URL = 'amd64/'
 HISTORY_FILE = '/var/freebsd_mandb_updates.log'
+NAME='freebsd'
 if platform == 'linux' or platform == 'linux2':
     TAR_OPTIONS = '-xJf'
 else:

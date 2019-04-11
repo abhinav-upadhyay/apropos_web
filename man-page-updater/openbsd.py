@@ -8,6 +8,7 @@ BASE_URL = 'https://fastly.cdn.openbsd.org/pub/OpenBSD/'
 AMD64_SETS_URL = 'amd64/'
 HISTORY_FILE = '/var/openbsd_mandb_updates.log'
 TAR_OPTIONS = 'xpzf'
+NAME='openbsd'
 monitored_targets = {}
 monitored_targets['OpenBSD-6.2'] = '6.2/'
 monitored_targets['OpenBSD-6.1'] = '6.1/'

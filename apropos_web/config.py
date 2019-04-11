@@ -5,7 +5,7 @@ DB_PATHS = OrderedDict()
 
 MAN_DB_PATH = '/var/db/man.db'
 APROPOS_WEB_DB_PATH = '/usr/local/apropos_web/apropos_web.db'
-APROPOS_PATH='/usr/bin/apropos' #set a symlink to the compiled apropos
+APROPOS_PATH='/usr/local/bin/apropos' #set a symlink to the compiled apropos
 WHATIS_PATH='/usr/bin/whatis'
 DEFAULT_CACHE_SIZE=10240
 DISTANCE_PATH='/usr/local/bin/similar_words'

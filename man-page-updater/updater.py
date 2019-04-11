@@ -13,6 +13,7 @@ from clint.textui import progress
 MANDB_BASE_DIR = '/usr/local/apropos_web/'
 HTML_BASE_DIR = '/usr/local/apropos_web/'
 MANDB_STD_LOC = '/var/db/man.db'
+CACHE_FILE = './.apropos_web.cache'
 HOME_DIR = os.getcwd()
 os.environ['HTDIR'] = 'html'
 myos = None
@@ -104,7 +105,9 @@ def run_makemandb(directory, release_name):
 
     os.environ['MANPATH'] = directory
     os.environ['MAKEMANDB_DBPATH'] = mandb_copy_dir + '/man.db'
-    proc = subprocess.Popen(['makemandb', '-C', directory + '/man.conf', '-f'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(['makemandb', '-C', directory + '/man.conf', '-f'],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
         eprint('Failed to index man pages from %s' % directory)
@@ -113,32 +116,8 @@ def run_makemandb(directory, release_name):
         print(out)
         print('makemandb run successful for %s' % release_name)
 
-
-def get_release():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-o', '--os', help='OS name')
-    args = parser.parse_args()
-    if args.os == 'netbsd':
-        import netbsd as myos
-    elif args.os == 'freebsd':
-        import freebsd as myos
-    elif args.os == 'openbsd':
-        import openbsd as myos
-    else:
-        eprint('Unknown OS %s' % args.os)
-        return
-
-    history = {}
+def actually_download_sets(history, myos, cache=False):
     release_status = {}
-    tempdir = None
-    if os.path.isfile(myos.HISTORY_FILE):
-        with open(myos.HISTORY_FILE, 'r') as f:
-            for line in f:
-                if line[:-1] == '\n':
-                    line = line[:-1]
-                words = line.split()
-                history[words[0]] = int(words[1])
-
     cwd = os.getcwd()
     for key,value in myos.monitored_targets.iteritems():
         try:
@@ -172,13 +151,68 @@ def get_release():
             tempdir = None
 
     os.chdir(cwd)
+    if cache:
+        with open(CACHE_FILE + '_' + myos.NAME, 'w') as cache_file:
+            line = '%s=%s' % (myos.NAME, ','.join(['%s:%s' % (target, dirname) for target,dirname in release_status.items()]))
+            cache_file.write(line)
+            cache_file.write('\n')
+    return release_status
 
+def download_sets_if_required(history, myos, cache=False):
+    import pdb; pdb.set_trace()
+    cache_file_name = CACHE_FILE + '_' + myos.NAME
+    if not cache or not os.path.exists(cache_file_name):
+        return actually_download_sets(history, myos, cache=cache)
+    else:
+        release_status = {}
+        with open(cache_file_name) as cache_file:
+            for line in cache_file:
+                line = line[:-1]
+                fields = line.split('=')
+                monitored_targets = fields[1].split(',')
+                for target in monitored_targets:
+                    target_name = target.split(':')[0]
+                    dirname = target.split(':')[1]
+                    release_status[target_name] = dirname
+        return release_status
+
+
+
+def get_release(cache=False):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-o', '--os', help='OS name')
+    parser.add_argument('-c', '--cache', action='store_true',
+                        help='Use data from cache if available, '
+                        'or download and cache for future use')
+    args = parser.parse_args()
+    if args.os == 'netbsd':
+        import netbsd as myos
+    elif args.os == 'freebsd':
+        import freebsd as myos
+    elif args.os == 'openbsd':
+        import openbsd as myos
+    else:
+        eprint('Unknown OS %s' % args.os)
+        return
+
+    history = {}
+    release_status = {}
+    if os.path.isfile(myos.HISTORY_FILE):
+        with open(myos.HISTORY_FILE, 'r') as f:
+            for line in f:
+                if line[:-1] == '\n':
+                    line = line[:-1]
+                words = line.split()
+                history[words[0]] = int(words[1])
+
+    release_status = download_sets_if_required(history, myos, cache=args.cache)
     for k,v in release_status.iteritems():
         directory_name = v + '/' + k + '/usr/share/man'
         run_makemandb(directory_name, k)
         make_html(directory_name, k)
         print('Going to remove temporary directory %s' % v)
-        shutil.rmtree(v, ignore_errors=True)
+        if not args.cache:
+            shutil.rmtree(v, ignore_errors=True)
 
     print('Updating history file %s' % myos.HISTORY_FILE)
     with open(myos.HISTORY_FILE, 'w') as f:
