@@ -159,7 +159,6 @@ def actually_download_sets(history, myos, cache=False):
     return release_status
 
 def download_sets_if_required(history, myos, cache=False):
-    import pdb; pdb.set_trace()
     cache_file_name = CACHE_FILE + '_' + myos.NAME
     if not cache or not os.path.exists(cache_file_name):
         return actually_download_sets(history, myos, cache=cache)

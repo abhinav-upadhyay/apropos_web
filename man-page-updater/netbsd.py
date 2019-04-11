@@ -9,10 +9,10 @@ HISTORY_FILE = '/var/netbsd_mandb_updates.log'
 TAR_OPTIONS = 'xf'
 NAME='netbsd'
 monitored_targets = {}
-#monitored_targets['NetBSD-7'] = 'netbsd-7/'
-#monitored_targets['NetBSD-7-0'] = 'netbsd-7-0/'
-#monitored_targets['NetBSD-7-1'] = 'netbsd-7-1/'
-#monitored_targets['NetBSD-8'] = 'netbsd-8/'
+monitored_targets['NetBSD-7'] = 'netbsd-7/'
+monitored_targets['NetBSD-7-0'] = 'netbsd-7-0/'
+monitored_targets['NetBSD-7-1'] = 'netbsd-7-1/'
+monitored_targets['NetBSD-8'] = 'netbsd-8/'
 monitored_targets['NetBSD-current'] = 'HEAD/'
 
 base_set_names = ['base.tgz', 'comp.tgz', 'games.tgz', 'man.tgz', 'text.tgz']
